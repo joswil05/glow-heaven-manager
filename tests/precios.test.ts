@@ -67,20 +67,54 @@ describe('src/core/precios.ts - Cotizador Multítem', () => {
     expect(resultado.items[1].tax_usa_usd_cents).toBe(700);
   });
 
-  it('redondea el precio final en córdobas al múltiplo configurado hacia arriba', () => {
+  it('redondea el precio final al múltiplo más cercano, hacia abajo cuando corresponde', () => {
+    // Producto $50.00 = C$1831.00, comisión 35% = C$640.85, sin tax, flete ni arancel.
+    // Bruto = C$2471.85. Al múltiplo de C$50 más cercano: C$2450.00 (no C$2500.00).
     const items: CotizarItemInput[] = [
       {
         id: 1,
         descripcion: 'Perfume',
         precio_usa_usd_cents: 5000,
         peso_mlb: 1000,
+        tax_rate_tienda_bp: 0,
+        arancel_categoria_bp: 0,
         comision_categoria_bp: 3500,
-        redondeo_categoria_cor_cents: 5000, // Múltiplo de C$50
+        redondeo_categoria_cor_cents: 5000,
       },
     ];
 
-    const resultado = calcularCotizacion(items, defaultParams);
-    expect(resultado.items[0].precio_final_cor_cents % 5000).toBe(0);
+    const resultado = calcularCotizacion(items, {
+      ...defaultParams,
+      tarifa_flete_cents_lb: 0,
+      arancel_default_bp: 0,
+      comision_minima_cotizacion_cor_cents: 0,
+    });
+
+    expect(resultado.items[0].precio_final_cor_cents).toBe(245000);
+  });
+
+  it('nunca redondea a cero un precio positivo', () => {
+    const items: CotizarItemInput[] = [
+      {
+        id: 1,
+        descripcion: 'Muestra diminuta',
+        precio_usa_usd_cents: 1,
+        peso_mlb: 1,
+        tax_rate_tienda_bp: 0,
+        arancel_categoria_bp: 0,
+        comision_categoria_bp: 0,
+        redondeo_categoria_cor_cents: 5000,
+      },
+    ];
+
+    const resultado = calcularCotizacion(items, {
+      ...defaultParams,
+      tarifa_flete_cents_lb: 0,
+      arancel_default_bp: 0,
+      comision_minima_cotizacion_cor_cents: 0,
+    });
+
+    expect(resultado.items[0].precio_final_cor_cents).toBe(5000);
   });
 
   it('aplica comisión mínima por cotización si la suma no alcanza el mínimo', () => {

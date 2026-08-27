@@ -221,12 +221,16 @@ export function calcularCotizacion(
     const comision_usd = corCentavosAUsdCentavos(comision_cor, params.tasa_cambio_cents);
 
     const precio_sin_redondeo_cor = item.costo_cor_cents + comision_cor;
-    const redondeo = item.redondeo_categoria_cor_cents || 5000; // Por defecto C$50
+    const redondeo = item.redondeo_categoria_cor_cents || 0;
 
-    const precio_final_cor =
-      redondeo > 0
-        ? Math.ceil(precio_sin_redondeo_cor / redondeo) * redondeo
-        : precio_sin_redondeo_cor;
+    // Al múltiplo más cercano. Un precio positivo nunca se redondea a cero.
+    let precio_final_cor = precio_sin_redondeo_cor;
+    if (redondeo > 0) {
+      precio_final_cor = Math.round(precio_sin_redondeo_cor / redondeo) * redondeo;
+      if (precio_final_cor === 0 && precio_sin_redondeo_cor > 0) {
+        precio_final_cor = redondeo;
+      }
+    }
 
     const precio_final_usd = corCentavosAUsdCentavos(
       precio_final_cor,
