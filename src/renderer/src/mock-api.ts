@@ -113,13 +113,19 @@ export function setupBrowserMockApi(): void {
       categorias: {
         list: async () => ok(mockCategorias),
         update: async (cambios: CategoriaCambio[]) => {
+          // Fiel al canal real: valida el lote completo antes de mutar nada,
+          // para reflejar el rollback de la transaccion de
+          // ParametrosRepo.actualizarCategorias ante un id desconocido.
           for (const cambio of cambios) {
-            const cat = mockCategorias.find((c) => c.id === cambio.id);
-            if (cat) {
-              cat.comision_defecto_bp = cambio.comision_defecto_bp;
-              cat.arancel_estimado_bp = cambio.arancel_estimado_bp;
-              cat.redondeo_cor_cents = cambio.redondeo_cor_cents;
+            if (!mockCategorias.some((c) => c.id === cambio.id)) {
+              return err('INTERNAL_ERROR', `Categoría #${cambio.id} no encontrada`);
             }
+          }
+          for (const cambio of cambios) {
+            const cat = mockCategorias.find((c) => c.id === cambio.id)!;
+            cat.comision_defecto_bp = cambio.comision_defecto_bp;
+            cat.arancel_estimado_bp = cambio.arancel_estimado_bp;
+            cat.redondeo_cor_cents = cambio.redondeo_cor_cents;
           }
           return ok(undefined);
         },

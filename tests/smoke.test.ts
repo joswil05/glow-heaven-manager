@@ -367,4 +367,82 @@ describe('Prueba de Humo Integral - Fase 1 (Cotizar y Cobrar)', () => {
       redondeo_cor_cents: 5000,
     });
   });
+
+  it('un id desconocido en el lote revierte los cambios válidos ya aplicados en ese mismo lote', () => {
+    const categorias = ParametrosRepo.getCategorias();
+    const maquillaje = categorias.find((c) => c.nombre === 'Maquillaje');
+    expect(maquillaje).toBeDefined();
+
+    const antes = {
+      comision_defecto_bp: maquillaje!.comision_defecto_bp,
+      arancel_estimado_bp: maquillaje!.arancel_estimado_bp,
+      redondeo_cor_cents: maquillaje!.redondeo_cor_cents,
+    };
+
+    const idInexistente = 999999;
+    const grupoId = crypto.randomUUID();
+
+    expect(() =>
+      ParametrosRepo.actualizarCategorias(
+        [
+          {
+            id: maquillaje!.id,
+            comision_defecto_bp: 1000,
+            arancel_estimado_bp: 500,
+            redondeo_cor_cents: 2500,
+          },
+          {
+            id: idInexistente,
+            comision_defecto_bp: 1000,
+            arancel_estimado_bp: 500,
+            redondeo_cor_cents: 2500,
+          },
+        ],
+        grupoId
+      )
+    ).toThrow(`Categoría #${idInexistente} no encontrada`);
+
+    // La categoría válida procesada ANTES del id inexistente no debe quedar
+    // parcialmente actualizada: la transacción revierte todo el lote.
+    const despues = ParametrosRepo.getCategorias().find((c) => c.id === maquillaje!.id);
+    expect(despues!.comision_defecto_bp).toBe(antes.comision_defecto_bp);
+    expect(despues!.arancel_estimado_bp).toBe(antes.arancel_estimado_bp);
+    expect(despues!.redondeo_cor_cents).toBe(antes.redondeo_cor_cents);
+  });
+
+  it('un lote revertido por un id desconocido no deja eventos de auditoría a medias', () => {
+    const categorias = ParametrosRepo.getCategorias();
+    const skincare = categorias.find((c) => c.nombre === 'Skincare');
+    expect(skincare).toBeDefined();
+
+    const idInexistente = 999999;
+    const grupoId = crypto.randomUUID();
+
+    expect(() =>
+      ParametrosRepo.actualizarCategorias(
+        [
+          {
+            id: skincare!.id,
+            comision_defecto_bp: 1500,
+            arancel_estimado_bp: 750,
+            redondeo_cor_cents: 3000,
+          },
+          {
+            id: idInexistente,
+            comision_defecto_bp: 1500,
+            arancel_estimado_bp: 750,
+            redondeo_cor_cents: 3000,
+          },
+        ],
+        grupoId
+      )
+    ).toThrow(`Categoría #${idInexistente} no encontrada`);
+
+    // Un lote que nunca se aplicó no debe dejar rastro de auditoría: ni
+    // siquiera el evento de la categoría válida procesada antes del error.
+    const eventos = db
+      .prepare('SELECT * FROM eventos WHERE evento_grupo_id = ?')
+      .all(grupoId);
+    expect(eventos.length).toBe(0);
+  });
 });
