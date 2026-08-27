@@ -74,11 +74,20 @@ export function runMigrations(db: Database.Database): void {
       apagarSiEsSemilla.run('flete_minimo_usd_cents', '1500');
       apagarSiEsSemilla.run('arancel_default_bp', '3000');
 
-      db.prepare(`
+      // Guardia por fila: cada categoría se apaga solo si su propio arancel
+      // sigue siendo el valor originalmente sembrado para ella. Un IN (3000, 3500)
+      // apagaría también a un operador que haya configurado a mano ese mismo
+      // valor redondo en una categoría distinta a la que lo trajo de fábrica.
+      const apagarCategoriaSiEsSemilla = db.prepare(`
         UPDATE categorias
         SET arancel_estimado_bp = 0
-        WHERE arancel_estimado_bp IN (3000, 3500)
-      `).run();
+        WHERE nombre = ? AND arancel_estimado_bp = ?
+      `);
+      apagarCategoriaSiEsSemilla.run('Perfumería', 3500);
+      apagarCategoriaSiEsSemilla.run('Maquillaje', 3000);
+      apagarCategoriaSiEsSemilla.run('Skincare', 3000);
+      apagarCategoriaSiEsSemilla.run('Calzado', 3000);
+      apagarCategoriaSiEsSemilla.run('Accesorios', 3000);
 
       db.pragma('user_version = 2');
     })();

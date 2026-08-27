@@ -15,6 +15,7 @@ vi.mock('electron', () => ({
 import Database from 'better-sqlite3';
 import crypto from 'node:crypto';
 import { runMigrations } from '../src/main/db/migrations';
+import { SCHEMA_SQL } from '../src/main/db/schema-raw';
 import { ParametrosRepo } from '../src/main/db/repositories/parametros.repo';
 import { ClientesRepo } from '../src/main/db/repositories/clientes.repo';
 import { CotizacionesRepo } from '../src/main/db/repositories/cotizaciones.repo';
@@ -197,5 +198,118 @@ describe('Prueba de Humo Integral - Fase 1 (Cotizar y Cobrar)', () => {
     for (const cat of categorias) {
       expect(cat.arancel_estimado_bp).toBe(0);
     }
+  });
+
+  it('la migración 2 apaga solo lo que sigue en su semilla original y preserva la configuración del operador', () => {
+    // Base de datos independiente: reconstruye a mano el estado v1 tal como lo
+    // dejaba la semilla ORIGINAL (previa a esta tarea), para probar el guard de
+    // la migración 2 en un salto real v1 -> v2, no en una base ya sembrada en cero.
+    const rawDb = new Database(':memory:');
+    rawDb.pragma('journal_mode = WAL');
+    rawDb.pragma('foreign_keys = ON');
+    rawDb.exec(SCHEMA_SQL);
+
+    const insertCat = rawDb.prepare(`
+      INSERT INTO categorias (nombre, comision_defecto_bp, arancel_estimado_bp, redondeo_cor_cents, activa)
+      VALUES (?, ?, ?, ?, 1)
+    `);
+    insertCat.run('Perfumería', 3500, 3500, 5000);
+    insertCat.run('Maquillaje', 3500, 3000, 5000);
+    insertCat.run('Skincare', 3000, 3000, 5000);
+    insertCat.run('Calzado', 2500, 3000, 10000);
+    insertCat.run('Accesorios', 3000, 3000, 5000);
+
+    const insertParam = rawDb.prepare(`
+      INSERT INTO parametros (clave, valor, tipo, descripcion)
+      VALUES (?, ?, ?, ?)
+    `);
+    insertParam.run('flete_minimo_usd_cents', '1500', 'integer', 'Flete mínimo por paquete');
+    insertParam.run(
+      'otros_costos_fijos_usd_cents',
+      '1000',
+      'integer',
+      'Casillero y handling fijo por envío USD'
+    );
+    insertParam.run('arancel_default_bp', '3000', 'integer', 'Arancel por defecto 30%');
+
+    rawDb.pragma('user_version = 1');
+
+    // El operador ya había ajustado dos valores a mano ANTES de actualizar la app.
+    // El arancel de Perfumería se fija en 3000: es un valor redondo plausible que el
+    // operador pudo elegir, y coincide con el sembrado de OTRAS categorías (no el
+    // propio de Perfumería, que era 3500). Un guard por conjunto de valores lo
+    // apagaría igual; el guard por fila no debe hacerlo.
+    rawDb
+      .prepare(`UPDATE parametros SET valor = '2000' WHERE clave = 'flete_minimo_usd_cents'`)
+      .run();
+    rawDb
+      .prepare(`UPDATE categorias SET arancel_estimado_bp = 3000 WHERE nombre = 'Perfumería'`)
+      .run();
+
+    runMigrations(rawDb);
+
+    expect(rawDb.pragma('user_version', { simple: true })).toBe(2);
+
+    const parametros = new Map(
+      (
+        rawDb.prepare('SELECT clave, valor FROM parametros').all() as {
+          clave: string;
+          valor: string;
+        }[]
+      ).map((r) => [r.clave, r.valor])
+    );
+    // No tocados por el operador: siguen en su semilla -> se apagan.
+    expect(parametros.get('otros_costos_fijos_usd_cents')).toBe('0');
+    expect(parametros.get('arancel_default_bp')).toBe('0');
+    // Configuración del operador: sobrevive intacta.
+    expect(parametros.get('flete_minimo_usd_cents')).toBe('2000');
+
+    const categorias = new Map(
+      (
+        rawDb.prepare('SELECT nombre, arancel_estimado_bp FROM categorias').all() as {
+          nombre: string;
+          arancel_estimado_bp: number;
+        }[]
+      ).map((c) => [c.nombre, c.arancel_estimado_bp])
+    );
+    // No tocadas por el operador: siguen en su semilla -> se apagan.
+    expect(categorias.get('Maquillaje')).toBe(0);
+    expect(categorias.get('Skincare')).toBe(0);
+    expect(categorias.get('Calzado')).toBe(0);
+    expect(categorias.get('Accesorios')).toBe(0);
+    // Configuración del operador: sobrevive intacta, aunque coincide con el valor
+    // sembrado de otras categorías.
+    expect(categorias.get('Perfumería')).toBe(3000);
+
+    // Reejecutar la migración sobre el resultado ya migrado no debe cambiar nada.
+    const snapshotParams = new Map(parametros);
+    const snapshotCats = new Map(categorias);
+    runMigrations(rawDb);
+
+    expect(rawDb.pragma('user_version', { simple: true })).toBe(2);
+    const parametrosDespues = new Map(
+      (
+        rawDb.prepare('SELECT clave, valor FROM parametros').all() as {
+          clave: string;
+          valor: string;
+        }[]
+      ).map((r) => [r.clave, r.valor])
+    );
+    for (const [clave, valor] of snapshotParams) {
+      expect(parametrosDespues.get(clave)).toBe(valor);
+    }
+    const categoriasDespues = new Map(
+      (
+        rawDb.prepare('SELECT nombre, arancel_estimado_bp FROM categorias').all() as {
+          nombre: string;
+          arancel_estimado_bp: number;
+        }[]
+      ).map((c) => [c.nombre, c.arancel_estimado_bp])
+    );
+    for (const [nombre, valor] of snapshotCats) {
+      expect(categoriasDespues.get(nombre)).toBe(valor);
+    }
+
+    rawDb.close();
   });
 });
