@@ -146,8 +146,19 @@ export function calcularCotizacion(
     arancelTotal = Math.round((excedente * arancelBpPonderado) / 10000);
   }
 
-  const basesValor = itemsConTax.map((i) => ({ id: i.id, base_valor: i.compras_usd_cents }));
-  const arancelReparto = repartirMayorResiduo(arancelTotal, basesValor);
+  // Base para el arancel: valor aduanero, producto más tax
+  const basesValorAduanero = itemsConTax.map((i) => ({
+    id: i.id,
+    base_valor: i.compras_usd_cents,
+  }));
+
+  // Base para el complemento de comisión mínima: solo el precio del producto
+  const basesValorProducto = itemsConTax.map((i) => ({
+    id: i.id,
+    base_valor: i.precio_usa_usd_cents,
+  }));
+
+  const arancelReparto = repartirMayorResiduo(arancelTotal, basesValorAduanero);
 
   // 4. Costo aterrizado y Comisión
   const itemsConCostos = itemsConTax.map((item) => {
@@ -161,8 +172,13 @@ export function calcularCotizacion(
       (costo_aterrizado * params.tasa_cambio_cents) / 100
     );
 
+    // La comisión gana sobre el precio del producto en tienda.
+    // Tax, flete, casillero y arancel se trasladan al cliente a costo, sin marcar.
+    const producto_cor_cents = Math.round(
+      (item.precio_usa_usd_cents * params.tasa_cambio_cents) / 100
+    );
     const comision_propia_cor = Math.round(
-      (costo_cor_cents * item.comision_categoria_bp) / 10000
+      (producto_cor_cents * item.comision_categoria_bp) / 10000
     );
 
     return {
@@ -187,7 +203,7 @@ export function calcularCotizacion(
   if (totalComisionPropia < params.comision_minima_cotizacion_cor_cents) {
     comisionTotal = params.comision_minima_cotizacion_cor_cents;
     const diferenciaComision = comisionTotal - totalComisionPropia;
-    const repartoDiferencia = repartirMayorResiduo(diferenciaComision, basesValor);
+    const repartoDiferencia = repartirMayorResiduo(diferenciaComision, basesValorProducto);
 
     for (const item of itemsConCostos) {
       const extra = repartoDiferencia.get(item.id) || 0;

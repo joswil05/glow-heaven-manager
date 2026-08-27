@@ -98,4 +98,29 @@ describe('src/core/precios.ts - Cotizador Multítem', () => {
     const resultado = calcularCotizacion(items, defaultParams);
     expect(resultado.totales.comision_total_cor_cents).toBeGreaterThanOrEqual(30000);
   });
+
+  it('calcula la comisión sobre el precio del producto, no sobre el costo aterrizado', () => {
+    // Producto $100.00 a tasa C$36.62 = C$3662.00. Comisión 35% = C$1281.70.
+    // El flete de $6.50 y el tax NO deben entrar en la base de la comisión.
+    const items: CotizarItemInput[] = [
+      {
+        id: 1,
+        descripcion: 'Producto de referencia',
+        precio_usa_usd_cents: 10000,
+        peso_mlb: 1000,
+        tax_rate_tienda_bp: 700,
+        arancel_categoria_bp: 0,
+        comision_categoria_bp: 3500,
+        redondeo_categoria_cor_cents: 0,
+      },
+    ];
+
+    const resultado = calcularCotizacion(items, {
+      ...defaultParams,
+      umbral_arancel_excedente_usd_cents: 5000,
+      arancel_default_bp: 0,
+    });
+
+    expect(resultado.items[0].comision_calculada_cor_cents).toBe(128170);
+  });
 });
