@@ -184,4 +184,18 @@ describe('Prueba de Humo Integral - Fase 1 (Cotizar y Cobrar)', () => {
     );
     expect(itemRevertido?.estado).toBe('ANTICIPO_OK');
   });
+
+  it('siembra los costos que el negocio no paga en cero', () => {
+    const params = ParametrosRepo.getParametros();
+
+    expect(params.otros_costos_fijos_usd_cents).toBe(0);
+    expect(params.flete_minimo_usd_cents).toBe(0);
+    expect(params.arancel_default_bp).toBe(0);
+
+    const categorias = ParametrosRepo.getCategorias();
+    expect(categorias.length).toBeGreaterThan(0);
+    for (const cat of categorias) {
+      expect(cat.arancel_estimado_bp).toBe(0);
+    }
+  });
 });

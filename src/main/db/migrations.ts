@@ -5,7 +5,7 @@ export function runMigrations(db: Database.Database): void {
   const currentVersionRow = db.pragma('user_version', { simple: true }) as number;
   const currentVersion = typeof currentVersionRow === 'number' ? currentVersionRow : 0;
 
-  if (currentVersion === 0) {
+  if (currentVersion < 1) {
     // Migración 1: Esquema Inicial y Semilla
     db.transaction(() => {
       db.exec(SCHEMA_SQL);
@@ -15,11 +15,11 @@ export function runMigrations(db: Database.Database): void {
         INSERT OR IGNORE INTO categorias (nombre, comision_defecto_bp, arancel_estimado_bp, redondeo_cor_cents, activa)
         VALUES (?, ?, ?, ?, 1)
       `);
-      insertCat.run('Perfumería', 3500, 3500, 5000);
-      insertCat.run('Maquillaje', 3500, 3000, 5000);
-      insertCat.run('Skincare', 3000, 3000, 5000);
-      insertCat.run('Calzado', 2500, 3000, 10000);
-      insertCat.run('Accesorios', 3000, 3000, 5000);
+      insertCat.run('Perfumería', 3500, 0, 5000);
+      insertCat.run('Maquillaje', 3500, 0, 5000);
+      insertCat.run('Skincare', 3000, 0, 5000);
+      insertCat.run('Calzado', 2500, 0, 10000);
+      insertCat.run('Accesorios', 3000, 0, 5000);
 
       // 2. Semilla de Tiendas
       const insertTienda = db.prepare(`
@@ -44,10 +44,10 @@ export function runMigrations(db: Database.Database): void {
       `);
       insertParam.run('tasa_cambio_oficial_cents', '3662', 'integer', 'Tasa oficial BCN C$ por USD');
       insertParam.run('tarifa_flete_cents_lb', '650', 'integer', 'Tarifa flete aéreo USD/lb');
-      insertParam.run('flete_minimo_usd_cents', '1500', 'integer', 'Flete mínimo por paquete');
-      insertParam.run('otros_costos_fijos_usd_cents', '1000', 'integer', 'Casillero y handling fijo por envío USD');
+      insertParam.run('flete_minimo_usd_cents', '0', 'integer', 'Flete mínimo por paquete (0 = solo cobra por libra)');
+      insertParam.run('otros_costos_fijos_usd_cents', '0', 'integer', 'Casillero y handling fijo por envío USD');
       insertParam.run('umbral_arancel_excedente_usd_cents', '5000', 'integer', 'Exoneración aduana USD 50');
-      insertParam.run('arancel_default_bp', '3000', 'integer', 'Arancel por defecto 30%');
+      insertParam.run('arancel_default_bp', '0', 'integer', 'Arancel de aduana por defecto (0 = no se cobra)');
       insertParam.run('tax_usa_default_bp', '700', 'integer', 'Tax USA por defecto 7%');
       insertParam.run('comision_minima_cotizacion_cor_cents', '30000', 'integer', 'Comisión mínima por cotización C$300');
       insertParam.run('anticipo_default_bp', '5000', 'integer', 'Anticipo por defecto 50%');
@@ -57,6 +57,30 @@ export function runMigrations(db: Database.Database): void {
       insertParam.run('ruta_backup_configurada', '', 'text', 'Ruta de respaldos SQLite');
 
       db.pragma('user_version = 1');
+    })();
+  }
+
+  if (currentVersion < 2) {
+    // Migración 2: apagar los costos que el negocio no incurre.
+    // Solo se toca lo que siga en el valor sembrado originalmente: una
+    // configuración que el operador ya ajustó a mano no se sobrescribe.
+    db.transaction(() => {
+      const apagarSiEsSemilla = db.prepare(`
+        UPDATE parametros
+        SET valor = '0', actualizado_en = CURRENT_TIMESTAMP
+        WHERE clave = ? AND valor = ?
+      `);
+      apagarSiEsSemilla.run('otros_costos_fijos_usd_cents', '1000');
+      apagarSiEsSemilla.run('flete_minimo_usd_cents', '1500');
+      apagarSiEsSemilla.run('arancel_default_bp', '3000');
+
+      db.prepare(`
+        UPDATE categorias
+        SET arancel_estimado_bp = 0
+        WHERE arancel_estimado_bp IN (3000, 3500)
+      `).run();
+
+      db.pragma('user_version = 2');
     })();
   }
 }

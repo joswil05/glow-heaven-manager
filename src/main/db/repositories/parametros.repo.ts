@@ -31,16 +31,16 @@ export class ParametrosRepo {
     return {
       tasa_cambio_oficial_cents: parseInt(map.get('tasa_cambio_oficial_cents') || '3662', 10),
       tarifa_flete_cents_lb: parseInt(map.get('tarifa_flete_cents_lb') || '650', 10),
-      flete_minimo_usd_cents: parseInt(map.get('flete_minimo_usd_cents') || '1500', 10),
+      flete_minimo_usd_cents: parseInt(map.get('flete_minimo_usd_cents') || '0', 10),
       otros_costos_fijos_usd_cents: parseInt(
-        map.get('otros_costos_fijos_usd_cents') || '1000',
+        map.get('otros_costos_fijos_usd_cents') || '0',
         10
       ),
       umbral_arancel_excedente_usd_cents: parseInt(
         map.get('umbral_arancel_excedente_usd_cents') || '5000',
         10
       ),
-      arancel_default_bp: parseInt(map.get('arancel_default_bp') || '3000', 10),
+      arancel_default_bp: parseInt(map.get('arancel_default_bp') || '0', 10),
       tax_usa_default_bp: parseInt(map.get('tax_usa_default_bp') || '700', 10),
       comision_minima_cotizacion_cor_cents: parseInt(
         map.get('comision_minima_cotizacion_cor_cents') || '30000',
