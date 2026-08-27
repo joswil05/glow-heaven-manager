@@ -1,0 +1,22 @@
+appId: com.glowheaven.manager
+productName: Glow Heaven Manager
+directories:
+  output: release
+  buildResources: build
+files:
+  - "dist/**/*"
+  - "dist-electron/**/*"
+  - "package.json"
+asar: true
+asarUnpack:
+  - "**/node_modules/better-sqlite3/**"
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false
