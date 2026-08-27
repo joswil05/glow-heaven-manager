@@ -34,7 +34,9 @@ export const PagoModal: React.FC<PagoModalProps> = ({
   const [tipoPago, setTipoPago] = useState<TipoPago>(() => {
     return !pedido.anticipo_verificado ? 'ANTICIPO' : 'SALDO';
   });
-  const [verificado, setVerificado] = useState(true);
+  // Arranca en falso a propósito. Marcar un pago como verificado desbloquea
+  // la compra en USA; tiene que ser un acto deliberado, no el valor por defecto.
+  const [verificado, setVerificado] = useState(false);
   const [comprobanteBuffer, setComprobanteBuffer] = useState<Uint8Array | undefined>(initialBuffer);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
@@ -265,9 +267,9 @@ export const PagoModal: React.FC<PagoModalProps> = ({
               className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500 border-slate-300"
             />
             <label htmlFor="verificado_cb" className="text-xs text-emerald-900 cursor-pointer">
-              <span className="font-bold">Pago verificado en la cuenta bancaria</span>
+              <span className="font-bold">Ya confirmé este pago en mi cuenta bancaria</span>
               <p className="text-[11px] text-emerald-700">
-                Al marcar como verificado, el semáforo cambiará a verde y el ítem se habilitará para compras en USA.
+                Solo marcá esto si viste el dinero en el banco. Un anticipo verificado desbloquea la compra del producto en USA.
               </p>
             </label>
           </div>
