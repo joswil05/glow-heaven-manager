@@ -5,7 +5,11 @@ import type {
   Tienda,
   CuentaBancariaJSON,
 } from '../../../shared/types';
-import type { GuardarParametrosInicialesInput } from '../../../shared/ipc-contracts';
+import type {
+  GuardarParametrosInicialesInput,
+  CategoriaCambio,
+} from '../../../shared/ipc-contracts';
+import { EventosRepo } from './eventos.repo';
 
 export class ParametrosRepo {
   static getParametros(): ParametrosSistema {
@@ -145,6 +149,58 @@ export class ParametrosRepo {
       redondeo_cor_cents: r.redondeo_cor_cents,
       activa: Boolean(r.activa),
     }));
+  }
+
+  static actualizarCategorias(
+    cambios: CategoriaCambio[],
+    evento_grupo_id: string
+  ): void {
+    const db = getDb();
+    db.transaction(() => {
+      const leer = db.prepare('SELECT * FROM categorias WHERE id = ?');
+      const escribir = db.prepare(`
+        UPDATE categorias
+        SET comision_defecto_bp = ?, arancel_estimado_bp = ?, redondeo_cor_cents = ?
+        WHERE id = ?
+      `);
+
+      for (const c of cambios) {
+        const anterior = leer.get(c.id) as
+          | {
+              nombre: string;
+              comision_defecto_bp: number;
+              arancel_estimado_bp: number;
+              redondeo_cor_cents: number;
+            }
+          | undefined;
+        if (!anterior) throw new Error(`Categoría #${c.id} no encontrada`);
+
+        escribir.run(
+          c.comision_defecto_bp,
+          c.arancel_estimado_bp,
+          c.redondeo_cor_cents,
+          c.id
+        );
+
+        EventosRepo.registrarEvento({
+          evento_grupo_id,
+          entidad_tipo: 'CATEGORIA',
+          entidad_id: c.id,
+          tipo_evento: 'ACTUALIZACION',
+          valor_anterior: {
+            comision_defecto_bp: anterior.comision_defecto_bp,
+            arancel_estimado_bp: anterior.arancel_estimado_bp,
+            redondeo_cor_cents: anterior.redondeo_cor_cents,
+          },
+          valor_nuevo: {
+            comision_defecto_bp: c.comision_defecto_bp,
+            arancel_estimado_bp: c.arancel_estimado_bp,
+            redondeo_cor_cents: c.redondeo_cor_cents,
+          },
+          detalle: `Tasas de la categoría '${anterior.nombre}' actualizadas`,
+        });
+      }
+    })();
   }
 
   static getTiendas(): Tienda[] {

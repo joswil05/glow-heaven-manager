@@ -6,6 +6,7 @@ export const IPC_CHANNELS = {
 
   // Categorías y Tiendas
   CATEGORIAS_LIST: 'categorias:list',
+  CATEGORIAS_UPDATE: 'categorias:update',
   TIENDAS_LIST: 'tiendas:list',
 
   // Clientes

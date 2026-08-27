@@ -312,4 +312,59 @@ describe('Prueba de Humo Integral - Fase 1 (Cotizar y Cobrar)', () => {
 
     rawDb.close();
   });
+
+  it('permite actualizar las tasas de una categoría y registra el evento', () => {
+    const categorias = ParametrosRepo.getCategorias();
+    const perfumeria = categorias.find((c) => c.nombre === 'Perfumería');
+    expect(perfumeria).toBeDefined();
+
+    const anterior = {
+      comision_defecto_bp: perfumeria!.comision_defecto_bp,
+      arancel_estimado_bp: perfumeria!.arancel_estimado_bp,
+      redondeo_cor_cents: perfumeria!.redondeo_cor_cents,
+    };
+
+    const grupoId = crypto.randomUUID();
+    ParametrosRepo.actualizarCategorias(
+      [
+        {
+          id: perfumeria!.id,
+          comision_defecto_bp: 2000,
+          arancel_estimado_bp: 0,
+          redondeo_cor_cents: 5000,
+        },
+      ],
+      grupoId
+    );
+
+    const despues = ParametrosRepo.getCategorias().find((c) => c.id === perfumeria!.id);
+    expect(despues!.comision_defecto_bp).toBe(2000);
+    expect(despues!.arancel_estimado_bp).toBe(0);
+    expect(despues!.redondeo_cor_cents).toBe(5000);
+
+    // El evento de auditoría debe quedar escrito con el snapshot exacto que
+    // la Tarea 10 (deshacer) consumirá: entidad_id = id de la categoría, y
+    // valor_anterior/valor_nuevo con exactamente estos tres campos.
+    const evento = db
+      .prepare('SELECT * FROM eventos WHERE evento_grupo_id = ?')
+      .get(grupoId) as {
+      evento_grupo_id: string;
+      entidad_tipo: string;
+      entidad_id: number;
+      tipo_evento: string;
+      valor_anterior: string;
+      valor_nuevo: string;
+    };
+
+    expect(evento).toBeDefined();
+    expect(evento.entidad_tipo).toBe('CATEGORIA');
+    expect(evento.entidad_id).toBe(perfumeria!.id);
+    expect(evento.tipo_evento).toBe('ACTUALIZACION');
+    expect(JSON.parse(evento.valor_anterior)).toEqual(anterior);
+    expect(JSON.parse(evento.valor_nuevo)).toEqual({
+      comision_defecto_bp: 2000,
+      arancel_estimado_bp: 0,
+      redondeo_cor_cents: 5000,
+    });
+  });
 });

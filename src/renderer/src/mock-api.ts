@@ -13,6 +13,7 @@ import type {
 } from '../../shared/types';
 import type {
   GuardarParametrosInicialesInput,
+  CategoriaCambio,
   CrearClienteInput,
   ActualizarClienteInput,
   CrearCotizacionInput,
@@ -111,6 +112,17 @@ export function setupBrowserMockApi(): void {
       },
       categorias: {
         list: async () => ok(mockCategorias),
+        update: async (cambios: CategoriaCambio[]) => {
+          for (const cambio of cambios) {
+            const cat = mockCategorias.find((c) => c.id === cambio.id);
+            if (cat) {
+              cat.comision_defecto_bp = cambio.comision_defecto_bp;
+              cat.arancel_estimado_bp = cambio.arancel_estimado_bp;
+              cat.redondeo_cor_cents = cambio.redondeo_cor_cents;
+            }
+          }
+          return ok(undefined);
+        },
       },
       tiendas: {
         list: async () => ok(mockTiendas),

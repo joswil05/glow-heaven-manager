@@ -27,6 +27,17 @@ export interface GuardarParametrosInicialesInput {
   telefono_usuario?: string;
 }
 
+export interface CategoriaCambio {
+  id: number;
+  comision_defecto_bp: number;
+  arancel_estimado_bp: number;
+  redondeo_cor_cents: number;
+}
+
+export interface ActualizarCategoriasInput {
+  cambios: CategoriaCambio[];
+}
+
 export interface CrearClienteInput {
   nombre: string;
   alias?: string;

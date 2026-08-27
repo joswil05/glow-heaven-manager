@@ -1,7 +1,12 @@
 import { ipcMain } from 'electron';
+import crypto from 'node:crypto';
 import { IPC_CHANNELS } from '../../shared/ipc-channels';
 import { ParametrosRepo } from '../db/repositories/parametros.repo';
-import { IpcResult, GuardarParametrosInicialesInput } from '../../shared/ipc-contracts';
+import {
+  IpcResult,
+  GuardarParametrosInicialesInput,
+  ActualizarCategoriasInput,
+} from '../../shared/ipc-contracts';
 import { formatErrorMessage } from '../../shared/errors';
 
 export function registerParametrosHandlers(): void {
@@ -46,6 +51,19 @@ export function registerParametrosHandlers(): void {
       return { success: false, error: formatErrorMessage(error) };
     }
   });
+
+  ipcMain.handle(
+    IPC_CHANNELS.CATEGORIAS_UPDATE,
+    async (_, input: ActualizarCategoriasInput): Promise<IpcResult<void>> => {
+      try {
+        const grupoId = crypto.randomUUID();
+        ParametrosRepo.actualizarCategorias(input.cambios, grupoId);
+        return { success: true, data: undefined };
+      } catch (error) {
+        return { success: false, error: formatErrorMessage(error) };
+      }
+    }
+  );
 
   ipcMain.handle(IPC_CHANNELS.TIENDAS_LIST, async (): Promise<IpcResult<any>> => {
     try {

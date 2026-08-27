@@ -3,6 +3,7 @@ import { IPC_CHANNELS } from '../shared/ipc-channels';
 import type {
   IpcResult,
   GuardarParametrosInicialesInput,
+  CategoriaCambio,
   CrearClienteInput,
   ActualizarClienteInput,
   CrearCotizacionInput,
@@ -39,6 +40,8 @@ export const api = {
   categorias: {
     list: (): Promise<IpcResult<Categoria[]>> =>
       ipcRenderer.invoke(IPC_CHANNELS.CATEGORIAS_LIST),
+    update: (cambios: CategoriaCambio[]): Promise<IpcResult<void>> =>
+      ipcRenderer.invoke(IPC_CHANNELS.CATEGORIAS_UPDATE, { cambios }),
   },
   tiendas: {
     list: (): Promise<IpcResult<Tienda[]>> =>
