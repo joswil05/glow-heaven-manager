@@ -12,6 +12,7 @@ import { EmptyState } from '../components/shared/EmptyState';
 import { PagoModal } from '../components/PagoModal';
 import { useToast } from '../context/ToastContext';
 import { formatearMoneda } from '@core/moneda';
+import { transicionesPermitidas, ETIQUETAS_ESTADO_ITEM } from '@core/estados';
 
 interface PedidosViewProps {
   pedidos: Pedido[];
@@ -285,26 +286,24 @@ export const PedidosView: React.FC<PedidosViewProps> = ({
                             <div className="flex items-center gap-2">
                               <span className="text-xs text-slate-500 font-semibold">Estado:</span>
                               <select
-                                value={item.estado}
-                                onChange={(e) =>
+                                value=""
+                                onChange={(e) => {
+                                  if (!e.target.value) return;
                                   handleCambiarEstadoItem(
                                     item.id,
                                     e.target.value as EstadoItem
-                                  )
-                                }
+                                  );
+                                }}
                                 className="text-xs font-bold bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200 text-slate-800 focus:outline-none focus:border-glow-500"
                               >
-                                <option value="COTIZADO">Cotizado</option>
-                                <option value="ANTICIPO_PENDIENTE">Anticipo Pendiente</option>
-                                <option value="ANTICIPO_OK">Anticipo OK</option>
-                                <option value="EN_LISTA_USA">En Lista USA (Listo p/ comprar)</option>
-                                <option value="COMPRADO_USA">Comprado USA</option>
-                                <option value="EN_TRANSITO">En Tránsito a NIC</option>
-                                <option value="EN_NICARAGUA">En Nicaragua</option>
-                                <option value="ENTREGADO">Entregado al Cliente</option>
-                                <option value="NO_DISPONIBLE">No Disponible (Agotado)</option>
-                                <option value="CAMBIO_PRECIO">Cambio de Precio USA</option>
-                                <option value="CANCELADO">Cancelado</option>
+                                <option value="">
+                                  {ETIQUETAS_ESTADO_ITEM[item.estado]}
+                                </option>
+                                {transicionesPermitidas(item.estado).map((destino) => (
+                                  <option key={destino} value={destino}>
+                                    Pasar a: {ETIQUETAS_ESTADO_ITEM[destino]}
+                                  </option>
+                                ))}
                               </select>
                             </div>
                           </div>

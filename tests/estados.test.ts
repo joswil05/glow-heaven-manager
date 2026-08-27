@@ -4,7 +4,10 @@ import {
   validarTransicionCotizacion,
   derivarEstadoPedido,
   ItemEstadoDerivadoInput,
+  transicionesPermitidas,
+  ETIQUETAS_ESTADO_ITEM,
 } from '../src/core/estados';
+import type { EstadoItem } from '../src/shared/types';
 
 describe('src/core/estados.ts - Máquina de Estados y Semáforo', () => {
   describe('Transiciones de Ítem de Pedido', () => {
@@ -105,6 +108,40 @@ describe('src/core/estados.ts - Máquina de Estados y Semáforo', () => {
       const resultado = derivarEstadoPedido(items);
       expect(resultado.requiere_atencion).toBe(true);
       expect(resultado.motivos_atencion.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('exposición de la máquina de estados a la interfaz', () => {
+    it('existe un camino completo de PENDIENTE_ANTICIPO a ENTREGADO', () => {
+      const camino: EstadoItem[] = [
+        'PENDIENTE_ANTICIPO',
+        'ANTICIPO_OK',
+        'EN_LISTA_USA',
+        'COMPRADO',
+        'EN_TRANSITO',
+        'EN_NICARAGUA',
+        'LISTO_ENTREGA',
+        'ENTREGADO',
+      ];
+
+      for (let i = 0; i < camino.length - 1; i++) {
+        expect(transicionesPermitidas(camino[i])).toContain(camino[i + 1]);
+      }
+    });
+
+    it('todo estado alcanzable tiene etiqueta en español', () => {
+      const estados = Object.keys(ETIQUETAS_ESTADO_ITEM) as EstadoItem[];
+      for (const estado of estados) {
+        expect(ETIQUETAS_ESTADO_ITEM[estado].length).toBeGreaterThan(0);
+        for (const destino of transicionesPermitidas(estado)) {
+          expect(ETIQUETAS_ESTADO_ITEM[destino]).toBeDefined();
+        }
+      }
+    });
+
+    it('devuelve lista vacía para un estado terminal', () => {
+      expect(transicionesPermitidas('CERRADO')).toEqual([]);
+      expect(transicionesPermitidas('CANCELADO')).toEqual([]);
     });
   });
 });

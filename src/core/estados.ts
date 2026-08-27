@@ -194,3 +194,35 @@ export function derivarEstadoPedido(
     motivos_atencion: motivos,
   };
 }
+
+/**
+ * Etiquetas en español para cada estado del ítem.
+ * Única fuente del texto que ve el usuario: la interfaz nunca escribe estos
+ * nombres a mano, para que un estado nuevo no pueda quedar sin traducir.
+ */
+export const ETIQUETAS_ESTADO_ITEM: Record<EstadoItem, string> = {
+  COTIZADO: 'Cotizado',
+  PENDIENTE_ANTICIPO: 'Anticipo pendiente',
+  ANTICIPO_OK: 'Anticipo recibido',
+  EN_LISTA_USA: 'En lista de compras USA',
+  COMPRADO: 'Comprado en USA',
+  EN_TRANSITO: 'En tránsito a Nicaragua',
+  EN_NICARAGUA: 'En Nicaragua',
+  LISTO_ENTREGA: 'Listo para entregar',
+  ENTREGADO: 'Entregado al cliente',
+  CERRADO: 'Cerrado',
+  NO_DISPONIBLE: 'No disponible (agotado)',
+  CAMBIO_PRECIO: 'Cambió de precio en USA',
+  SUSTITUTO_PROPUESTO: 'Sustituto propuesto',
+  ABANDONADO: 'Abandonado por el cliente',
+  DEVUELTO: 'Devuelto',
+  CANCELADO: 'Cancelado',
+};
+
+/**
+ * Transiciones legales desde un estado. La interfaz construye su menú con
+ * esto, de modo que no pueda ofrecer un cambio que el validador rechazará.
+ */
+export function transicionesPermitidas(actual: EstadoItem): EstadoItem[] {
+  return TRANSICIONES_VALIDAS_ITEM[actual] ?? [];
+}
