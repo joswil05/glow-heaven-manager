@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Check, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Sparkles, Check, ChevronRight, ChevronLeft, Plus, Trash2 } from 'lucide-react';
 import type { Categoria, CuentaBancariaJSON } from '../../../shared/types';
 import { useToast } from '../context/ToastContext';
+import { Field, Input, Select, Button } from './ui';
+import { cn } from '../lib/cn';
 
 interface OnboardingModalProps {
   isOpen: boolean;
@@ -107,28 +109,43 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
-      <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
+      <div className="bg-white w-full max-w-xl rounded-lg shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
         {/* Encabezado */}
         <div className="p-6 bg-navy-900 text-white">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5" />
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
+              <Sparkles className="w-5 h-5 text-slate-300" />
+              <span className="text-caption font-bold uppercase tracking-wider text-slate-300">
                 Asistente de Bienvenida
               </span>
             </div>
-            <span className="text-xs font-semibold px-2.5 py-1 bg-white/20 rounded-full">
-              Paso {step} de 5
-            </span>
+            {/* Indicador de pasos */}
+            <div className="flex items-center gap-1.5">
+              {[1, 2, 3, 4, 5].map((s) => (
+                <div
+                  key={s}
+                  className={cn(
+                    'w-6 h-6 rounded-full flex items-center justify-center text-caption font-bold transition-colors',
+                    step === s
+                      ? 'bg-white text-navy-900'
+                      : step > s
+                      ? 'bg-navy-800 text-slate-300'
+                      : 'bg-navy-950 text-slate-500'
+                  )}
+                >
+                  {step > s ? <Check className="w-3 h-3" /> : s}
+                </div>
+              ))}
+            </div>
           </div>
-          <h2 className="text-xl font-bold">
+          <h2 className="text-display text-white">
             {step === 1 && '¿Cuáles son tus cuentas bancarias?'}
             {step === 2 && '¿Cuánto te cobra tu courier en USA?'}
             {step === 3 && '¿Cuánto estimás de aranceles y aduana?'}
             {step === 4 && '¿Qué porcentaje de ganancia deseás?'}
             {step === 5 && 'Saldo actual y copias de seguridad'}
           </h2>
-          <p className="text-xs text-slate-300 mt-1">
+          <p className="text-label text-slate-300 mt-1">
             {step === 1 && 'Estas cuentas se pegarán automáticamente al armar cotizaciones para WhatsApp.'}
             {step === 2 && 'Servirá para calcular el flete aéreo exacto por peso de cada paquete.'}
             {step === 3 && 'Se aplica sobre el valor que supere la exoneración de USD 50.'}
@@ -143,135 +160,125 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
           {step === 1 && (
             <div className="space-y-3">
               {cuentas.map((c, i) => (
-                <div key={i} className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <input
-                      type="text"
-                      value={c.banco}
-                      onChange={(e) => handleUpdateCuenta(i, 'banco', e.target.value)}
-                      placeholder="Banco (ej: BAC, Banpro)"
-                      className="text-xs font-bold text-slate-800 bg-transparent border-b border-slate-300 focus:outline-none focus:border-glow-500 pb-0.5"
-                    />
-                    <select
-                      value={c.moneda}
-                      onChange={(e) => handleUpdateCuenta(i, 'moneda', e.target.value as 'COR' | 'USD')}
-                      className="text-xs font-semibold bg-white px-2 py-1 rounded-lg border border-slate-200"
-                    >
-                      <option value="COR">C$ Córdobas</option>
-                      <option value="USD">$ Dólares</option>
-                    </select>
-                    {cuentas.length > 1 && (
-                      <button
-                        onClick={() => handleRemoveCuenta(i)}
-                        className="text-xs text-danger-500 hover:text-danger-700 font-semibold"
+                <div key={i} className="p-3.5 bg-slate-50 rounded-lg border border-slate-200 space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <Field label="Banco">
+                      <Input
+                        value={c.banco}
+                        onChange={(e) => handleUpdateCuenta(i, 'banco', e.target.value)}
+                        placeholder="Ej: BAC Credomatic"
+                      />
+                    </Field>
+                    <Field label="Moneda">
+                      <Select
+                        value={c.moneda}
+                        onChange={(e) => handleUpdateCuenta(i, 'moneda', e.target.value as 'COR' | 'USD')}
                       >
-                        Eliminar
-                      </button>
-                    )}
+                        <option value="COR">C$ Córdobas</option>
+                        <option value="USD">$ Dólares</option>
+                      </Select>
+                    </Field>
+                    <div className="flex items-end justify-end">
+                      {cuentas.length > 1 && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleRemoveCuenta(i)}
+                          className="text-danger-500 hover:text-danger-700"
+                        >
+                          <Trash2 className="w-4 h-4 mr-1" />
+                          <span>Eliminar</span>
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <input
-                    type="text"
-                    value={c.numero}
-                    onChange={(e) => handleUpdateCuenta(i, 'numero', e.target.value)}
-                    placeholder="Número de cuenta (ej: 360-123456-7)"
-                    className="w-full bg-white px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-glow-500"
-                  />
-                  <input
-                    type="text"
-                    value={c.titular}
-                    onChange={(e) => handleUpdateCuenta(i, 'titular', e.target.value)}
-                    placeholder="Nombre del titular"
-                    className="w-full bg-white px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-glow-500"
-                  />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <Field label="Número de cuenta">
+                      <Input
+                        value={c.numero}
+                        onChange={(e) => handleUpdateCuenta(i, 'numero', e.target.value)}
+                        placeholder="Ej: 360-123456-7"
+                        className="font-mono"
+                      />
+                    </Field>
+                    <Field label="Titular">
+                      <Input
+                        value={c.titular}
+                        onChange={(e) => handleUpdateCuenta(i, 'titular', e.target.value)}
+                        placeholder="Nombre del titular"
+                      />
+                    </Field>
+                  </div>
                 </div>
               ))}
-              <button
+              <Button
                 type="button"
+                variant="secondary"
                 onClick={handleAddCuenta}
-                className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors"
+                className="w-full justify-center"
               >
-                + Agregar otra cuenta bancaria
-              </button>
+                <Plus className="w-4 h-4 mr-1" />
+                <span>Agregar otra cuenta bancaria</span>
+              </Button>
             </div>
           )}
 
           {/* PASO 2: Courier y Flete */}
           {step === 2 && (
             <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Tarifa de flete aéreo por libra (USD)
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-2.5 text-xs text-slate-400 font-semibold">$</span>
-                  <input
-                    type="number"
-                    step="0.25"
-                    value={tarifaFleteUsd}
-                    onChange={(e) => setTarifaFleteUsd(e.target.value)}
-                    className="w-full pl-7 pr-3 py-2 text-sm font-semibold text-slate-800 bg-slate-50 rounded-xl border border-slate-200 focus:outline-none focus:border-glow-500"
-                  />
-                </div>
-                <p className="text-[11px] text-slate-500 mt-1">Por defecto: $6.50 por libra.</p>
-              </div>
+              <Field
+                label="Tarifa de flete aéreo por libra (USD)"
+                hint="Por defecto: $6.50 por libra."
+              >
+                <Input
+                  type="number"
+                  step="0.25"
+                  value={tarifaFleteUsd}
+                  onChange={(e) => setTarifaFleteUsd(e.target.value)}
+                />
+              </Field>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Flete mínimo por paquete (USD)
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-2.5 text-xs text-slate-400 font-semibold">$</span>
-                  <input
-                    type="number"
-                    step="1.00"
-                    value={fleteMinimoUsd}
-                    onChange={(e) => setFleteMinimoUsd(e.target.value)}
-                    className="w-full pl-7 pr-3 py-2 text-sm font-semibold text-slate-800 bg-slate-50 rounded-xl border border-slate-200 focus:outline-none focus:border-glow-500"
-                  />
-                </div>
-                <p className="text-[11px] text-slate-500 mt-1">Por defecto: $15.00 para paquetes pequeños.</p>
-              </div>
+              <Field
+                label="Flete mínimo por paquete (USD)"
+                hint="Por defecto: $15.00 para paquetes pequeños. Dejalo en 0 si no aplica."
+              >
+                <Input
+                  type="number"
+                  step="1.00"
+                  value={fleteMinimoUsd}
+                  onChange={(e) => setFleteMinimoUsd(e.target.value)}
+                />
+              </Field>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  ¿Cuánto te cobra el casillero / handling por envío? (USD)
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-2.5 text-xs text-slate-400 font-semibold">$</span>
-                  <input
-                    type="number"
-                    step="1.00"
-                    value={otrosCostosFijosUsd}
-                    onChange={(e) => setOtrosCostosFijosUsd(e.target.value)}
-                    className="w-full pl-7 pr-3 py-2 text-sm font-semibold text-slate-800 bg-slate-50 rounded-xl border border-slate-200 focus:outline-none focus:border-glow-500"
-                  />
-                </div>
-                <p className="text-[11px] text-slate-500 mt-1">Costo fijo del casillero (ej: $10.00). Se prorratea por peso entre los ítems.</p>
-              </div>
+              <Field
+                label="Casillero / Handling por envío (USD)"
+                hint="Costo fijo del casillero (ej: $10.00). Se prorratea por peso entre los ítems."
+              >
+                <Input
+                  type="number"
+                  step="1.00"
+                  value={otrosCostosFijosUsd}
+                  onChange={(e) => setOtrosCostosFijosUsd(e.target.value)}
+                />
+              </Field>
             </div>
           )}
 
           {/* PASO 3: Aduana y Aranceles */}
           {step === 3 && (
             <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Porcentaje estimado de Aduana (DAI + IVA)
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    step="0.5"
-                    value={arancelDefault}
-                    onChange={(e) => setArancelDefault(e.target.value)}
-                    className="w-full pr-8 pl-3 py-2 text-sm font-semibold text-slate-800 bg-slate-50 rounded-xl border border-slate-200 focus:outline-none focus:border-glow-500"
-                  />
-                  <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-semibold">%</span>
-                </div>
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Aplica sobre el valor excedente de $50 USD por envío. Típico: 30% a 35%.
-                </p>
-              </div>
+              <Field
+                label="Porcentaje estimado de Aduana (DAI + IVA)"
+                hint="Aplica sobre el valor excedente de $50 USD por envío. Típico: 30% a 35%. Dejalo en 0 si no pagás aduana."
+              >
+                <Input
+                  type="number"
+                  step="0.5"
+                  value={arancelDefault}
+                  onChange={(e) => setArancelDefault(e.target.value)}
+                />
+              </Field>
             </div>
           )}
 
@@ -279,19 +286,19 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
           {step === 4 && (
             <div className="space-y-3">
               {categorias.map((cat) => (
-                <div key={cat.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
-                  <span className="text-xs font-semibold text-slate-800">{cat.nombre}</span>
+                <div key={cat.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200">
+                  <span className="text-body font-medium text-slate-800">{cat.nombre}</span>
                   <div className="flex items-center gap-1">
-                    <input
+                    <Input
                       type="number"
                       step="1"
                       value={comisiones[cat.id] ?? '30'}
                       onChange={(e) =>
                         setComisiones((prev) => ({ ...prev, [cat.id]: e.target.value }))
                       }
-                      className="w-16 text-right px-2 py-1 text-xs font-bold text-slate-800 bg-white rounded-lg border border-slate-200"
+                      className="w-20 text-right"
                     />
-                    <span className="text-xs text-slate-500 font-semibold">%</span>
+                    <span className="text-label text-slate-500 font-medium">%</span>
                   </div>
                 </div>
               ))}
@@ -301,40 +308,29 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
           {/* PASO 5: Saldo Inicial y Respaldo (A2) */}
           {step === 5 && (
             <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  ¿Cuánto tenés hoy en tus cuentas, contando todo? (C$)
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-2.5 text-xs text-slate-400 font-semibold">C$</span>
-                  <input
-                    type="number"
-                    step="100"
-                    value={saldoInicialCor}
-                    onChange={(e) => setSaldoInicialCor(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 text-sm font-semibold text-slate-800 bg-slate-50 rounded-xl border border-slate-200 focus:outline-none focus:border-glow-500"
-                  />
-                </div>
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Punto de partida para el control de efectivo y capital libre.
-                </p>
-              </div>
+              <Field
+                label="¿Cuánto tenés hoy en tus cuentas, contando todo? (C$)"
+                hint="Punto de partida para el control de efectivo y capital libre."
+              >
+                <Input
+                  type="number"
+                  step="100"
+                  value={saldoInicialCor}
+                  onChange={(e) => setSaldoInicialCor(e.target.value)}
+                />
+              </Field>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Carpeta de respaldo automático
-                </label>
-                <input
+              <Field
+                label="Carpeta de respaldo automático"
+                hint="Al cerrar la app se guardará una copia automática rotando las últimas 30."
+              >
+                <Input
                   type="text"
                   value={rutaBackup}
                   onChange={(e) => setRutaBackup(e.target.value)}
-                  placeholder="Dejar vacío para usar carpeta segura de OneDrive"
-                  className="w-full px-3 py-2 text-xs font-medium text-slate-800 bg-slate-50 rounded-xl border border-slate-200 focus:outline-none focus:border-glow-500"
+                  placeholder="Dejar vacío para usar carpeta segura del sistema"
                 />
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Al cerrar la app se guardará una copia automática rotando las últimas 30.
-                </p>
-              </div>
+              </Field>
             </div>
           )}
         </div>
@@ -342,34 +338,37 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
         {/* Botones de Navegación del Modal */}
         <div className="p-5 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
           {step > 1 ? (
-            <button
+            <Button
+              type="button"
+              variant="secondary"
               onClick={handlePrev}
-              className="flex items-center gap-1 px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-semibold transition-colors"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="w-4 h-4 mr-1" />
               <span>Atrás</span>
-            </button>
+            </Button>
           ) : (
             <div />
           )}
 
           {step < 5 ? (
-            <button
+            <Button
+              type="button"
+              variant="primary"
               onClick={handleNext}
-              className="flex items-center gap-1 px-5 py-2.5 bg-glow-600 hover:bg-glow-700 text-white rounded-xl text-xs font-bold transition-colors shadow-sm"
             >
               <span>Continuar</span>
-              <ChevronRight className="w-4 h-4" />
-            </button>
+              <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
           ) : (
-            <button
+            <Button
+              type="button"
+              variant="primary"
               onClick={handleFinish}
               disabled={guardando}
-              className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors shadow-md disabled:opacity-50"
             >
-              <Check className="w-4 h-4" />
+              <Check className="w-4 h-4 mr-1.5" />
               <span>{guardando ? 'Guardando...' : 'Comenzar a usar'}</span>
-            </button>
+            </Button>
           )}
         </div>
       </div>
