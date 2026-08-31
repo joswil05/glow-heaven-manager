@@ -154,9 +154,26 @@ export class PagosRepo {
     const nuevoSaldoCor = Math.max(0, pedido.saldo_pendiente_cor_cents - monto_cor_cents);
     const nuevoSaldoUsd = Math.max(0, pedido.saldo_pendiente_usd_cents - monto_usd_cents);
 
+    // El anticipo se cumple cuando la SUMA de los anticipos verificados
+    // alcanza lo esperado. Comparar solo el pago actual dejaría fuera el
+    // caso de un cliente que abona en dos partes.
     let anticipoVerificado = pedido.anticipo_verificado;
+
     if (tipo_pago === 'ANTICIPO' || tipo_pago === 'COMPLETO') {
-      anticipoVerificado = 1;
+      const fila = db
+        .prepare(`
+          SELECT COALESCE(SUM(monto_cor_cents), 0) AS total
+          FROM pagos
+          WHERE pedido_id = ?
+            AND activo = 1
+            AND verificado = 1
+            AND tipo_pago IN ('ANTICIPO', 'COMPLETO')
+        `)
+        .get(pedido_id) as { total: number };
+
+      if (fila.total >= pedido.anticipo_esperado_cor_cents) {
+        anticipoVerificado = 1;
+      }
     }
 
     db.prepare(`

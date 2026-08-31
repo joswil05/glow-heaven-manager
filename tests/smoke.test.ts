@@ -445,4 +445,67 @@ describe('Prueba de Humo Integral - Fase 1 (Cotizar y Cobrar)', () => {
       .all(grupoId);
     expect(eventos.length).toBe(0);
   });
+
+  it('un pago menor al anticipo esperado NO desbloquea la compra en USA', () => {
+    const cliente = ClientesRepo.create(
+      { nombre: 'Cliente Anticipo Insuficiente', telefono: '8888-1111', ciudad: 'León' },
+      crypto.randomUUID()
+    );
+    const cotizacion = CotizacionesRepo.create(
+      {
+        cliente_id: cliente.id,
+        anticipo_bp: 5000,
+        items: [{ descripcion: 'Perfume Caro', precio_usa_usd_cents: 10000, peso_mlb: 1000 }],
+      },
+      crypto.randomUUID()
+    );
+    const pedido = CotizacionesRepo.convertirAPedido(cotizacion.id, crypto.randomUUID());
+    expect(pedido.anticipo_esperado_cor_cents).toBeGreaterThan(10000);
+
+    PagosRepo.create(
+      {
+        pedido_id: pedido.id,
+        monto_cents: 10000, // C$100.00, menor al anticipo esperado
+        moneda_pago: 'COR',
+        metodo_pago: 'TRANSFERENCIA_BAC',
+        verificado: true,
+        tipo_pago: 'ANTICIPO',
+      },
+      crypto.randomUUID()
+    );
+
+    const pedidoActualizado = PedidosRepo.getById(pedido.id)!;
+    expect(pedidoActualizado.anticipo_verificado).toBe(false);
+  });
+
+  it('un pago que alcanza el anticipo esperado SÍ desbloquea la compra', () => {
+    const cliente = ClientesRepo.create(
+      { nombre: 'Cliente Anticipo Suficiente', telefono: '8888-2222', ciudad: 'León' },
+      crypto.randomUUID()
+    );
+    const cotizacion = CotizacionesRepo.create(
+      {
+        cliente_id: cliente.id,
+        anticipo_bp: 5000,
+        items: [{ descripcion: 'Perfume Caro', precio_usa_usd_cents: 10000, peso_mlb: 1000 }],
+      },
+      crypto.randomUUID()
+    );
+    const pedido = CotizacionesRepo.convertirAPedido(cotizacion.id, crypto.randomUUID());
+
+    PagosRepo.create(
+      {
+        pedido_id: pedido.id,
+        monto_cents: pedido.anticipo_esperado_cor_cents,
+        moneda_pago: 'COR',
+        metodo_pago: 'TRANSFERENCIA_BAC',
+        verificado: true,
+        tipo_pago: 'ANTICIPO',
+      },
+      crypto.randomUUID()
+    );
+
+    const pedidoActualizado = PedidosRepo.getById(pedido.id)!;
+    expect(pedidoActualizado.anticipo_verificado).toBe(true);
+  });
 });
