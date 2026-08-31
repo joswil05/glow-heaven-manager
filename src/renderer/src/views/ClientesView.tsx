@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Users, Search, Plus, MessageSquare, Edit2 } from 'lucide-react';
-import type { Cliente } from '../../../shared/types';
+import type { Cliente, ClienteDetalle, Pedido } from '../../../shared/types';
 import { EmptyState } from '../components/shared/EmptyState';
 import { useToast } from '../context/ToastContext';
+import { ClienteDetailPanel } from './clientes/ClienteDetailPanel';
 import {
   DataTable,
   type Column,
@@ -31,6 +32,12 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
 
+  // Selección y Detalle
+  const [selectedClienteId, setSelectedClienteId] = useState<number | undefined>(undefined);
+  const [clienteDetalle, setClienteDetalle] = useState<ClienteDetalle | null>(null);
+  const [pedidos, setPedidos] = useState<Pedido[]>([]);
+  const [loadingDetalle, setLoadingDetalle] = useState(false);
+
   // Formulario
   const [nombre, setNombre] = useState('');
   const [telefono, setTelefono] = useState('');
@@ -48,6 +55,44 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
       c.ciudad.toLowerCase().includes(q)
     );
   });
+
+  const selectedCliente = clientes.find((c) => c.id === selectedClienteId) || null;
+
+  const cargarDetalle = useCallback(async () => {
+    if (!selectedClienteId) {
+      setClienteDetalle(null);
+      return;
+    }
+    try {
+      setLoadingDetalle(true);
+      const [resDetalle, resPedidos] = await Promise.all([
+        window.api.clientes.getById(selectedClienteId),
+        window.api.pedidos.list(),
+      ]);
+
+      if (resDetalle.success) {
+        setClienteDetalle(resDetalle.data);
+      }
+      if (resPedidos.success) {
+        setPedidos(resPedidos.data);
+      }
+    } catch {
+      showToast({ message: 'Error al cargar la ficha del cliente', type: 'error' });
+    } finally {
+      setLoadingDetalle(false);
+    }
+  }, [selectedClienteId, showToast]);
+
+  useEffect(() => {
+    cargarDetalle();
+  }, [cargarDetalle]);
+
+  // Si no hay cliente seleccionado y la lista tiene clientes, seleccionar el primero
+  useEffect(() => {
+    if (!selectedClienteId && clientes.length > 0) {
+      setSelectedClienteId(clientes[0].id);
+    }
+  }, [clientes, selectedClienteId]);
 
   const handleOpenCreate = () => {
     setEditingCliente(null);
@@ -90,8 +135,16 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
           incumplio_anteriormente: incumplio,
         });
         if (res.success) {
-          showUndoToast(`Cliente ${res.data.nombre} actualizado`, () => onRefresh(), res.data.evento_grupo_id);
+          showUndoToast(
+            `Cliente ${res.data.nombre} actualizado`,
+            () => {
+              onRefresh();
+              cargarDetalle();
+            },
+            res.data.evento_grupo_id
+          );
           onRefresh();
+          cargarDetalle();
           setModalOpen(false);
         } else {
           showToast({ message: res.error.message, type: 'error' });
@@ -106,8 +159,13 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
           incumplio_anteriormente: incumplio,
         });
         if (res.success) {
-          showUndoToast(`Cliente ${res.data.nombre} creado`, () => onRefresh(), res.data.evento_grupo_id);
+          showUndoToast(
+            `Cliente ${res.data.nombre} creado`,
+            () => onRefresh(),
+            res.data.evento_grupo_id
+          );
           onRefresh();
+          setSelectedClienteId(res.data.id);
           setModalOpen(false);
         } else {
           showToast({ message: res.error.message, type: 'error' });
@@ -129,8 +187,13 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
       key: 'nombre',
       header: 'Nombre',
       render: (c) => (
-        <div className="flex items-center gap-2">
-          <span className="font-medium text-slate-900">{c.nombre}</span>
+        <div className="space-y-0.5">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-slate-900">{c.nombre}</span>
+            {c.alias && (
+              <span className="text-caption text-slate-400 font-normal">({c.alias})</span>
+            )}
+          </div>
           {Boolean(c.incumplio_anteriormente) && (
             <Badge tone="danger">70% anticipo</Badge>
           )}
@@ -140,12 +203,12 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
     {
       key: 'ciudad',
       header: 'Ciudad',
-      render: (c) => c.ciudad,
+      render: (c) => <span className="text-slate-600">{c.ciudad}</span>,
     },
     {
       key: 'telefono',
       header: 'Teléfono',
-      render: (c) => c.telefono,
+      render: (c) => <span className="font-mono text-slate-600 tabular-nums">{c.telefono}</span>,
     },
     {
       key: 'acciones',
@@ -202,26 +265,42 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
         </Button>
       </div>
 
-      {/* Lista de Clientes en DataTable */}
-      <div className="flex-1 p-6 overflow-y-auto">
-        {loading ? (
-          <div className="p-8 text-center text-slate-400 text-body">Cargando clientes...</div>
-        ) : filteredClientes.length > 0 ? (
-          <DataTable
-            columns={columnas}
-            rows={filteredClientes}
-            rowKey={(c) => c.id}
-            emptyMessage="No hay clientes registrados."
+      {/* Vista de dos columnas: Tabla a la izquierda, Ficha a la derecha */}
+      <div className="flex-1 grid grid-cols-1 xl:grid-cols-3 gap-4 p-6 overflow-y-auto">
+        <div className="xl:col-span-2">
+          {loading ? (
+            <div className="p-8 text-center text-slate-400 text-body">Cargando clientes...</div>
+          ) : filteredClientes.length > 0 ? (
+            <DataTable
+              columns={columnas}
+              rows={filteredClientes}
+              rowKey={(c) => c.id}
+              selectedKey={selectedClienteId}
+              onRowClick={(c) => setSelectedClienteId(c.id)}
+              emptyMessage="No hay clientes registrados."
+            />
+          ) : (
+            <EmptyState
+              icon={Users}
+              title="No se encontraron clientes"
+              description="Registra clientes para asociarles cotizaciones y pedidos rápidamente."
+              actionText="Registrar Cliente"
+              onAction={handleOpenCreate}
+            />
+          )}
+        </div>
+
+        <div>
+          <ClienteDetailPanel
+            cliente={selectedCliente}
+            detalle={clienteDetalle}
+            pedidos={pedidos}
+            loading={loadingDetalle}
+            onEdit={handleOpenEdit}
+            onOpenWhatsApp={handleOpenWhatsApp}
+            onClose={() => setSelectedClienteId(undefined)}
           />
-        ) : (
-          <EmptyState
-            icon={Users}
-            title="No se encontraron clientes"
-            description="Registra clientes para asociarles cotizaciones y pedidos rápidamente."
-            actionText="Registrar Cliente"
-            onAction={handleOpenCreate}
-          />
-        )}
+        </div>
       </div>
 
       {/* Modal Nuevo / Editar Cliente */}
@@ -250,67 +329,74 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
                     required
                     value={telefono}
                     onChange={(e) => setTelefono(e.target.value)}
-                    placeholder="8888-8888"
+                    placeholder="Ej: 8888-8888"
                   />
                 </Field>
 
-                <Field label="Ciudad *">
+                <Field label="Ciudad">
                   <Select
                     value={ciudad}
                     onChange={(e) => setCiudad(e.target.value)}
                   >
                     <option value="León">León</option>
-                    <option value="Chichigalpa">Chichigalpa</option>
-                    <option value="Chinandega">Chinandega</option>
                     <option value="Managua">Managua</option>
+                    <option value="Chinandega">Chinandega</option>
+                    <option value="Estelí">Estelí</option>
+                    <option value="Matagalpa">Matagalpa</option>
                     <option value="Masaya">Masaya</option>
                     <option value="Granada">Granada</option>
-                    <option value="Matagalpa">Matagalpa</option>
-                    <option value="Estelí">Estelí</option>
+                    <option value="Rivas">Rivas</option>
                     <option value="Otra">Otra</option>
                   </Select>
                 </Field>
               </div>
 
               <Field label="Dirección de Entrega">
-                <Textarea
-                  rows={2}
+                <Input
                   value={direccion}
                   onChange={(e) => setDireccion(e.target.value)}
-                  placeholder="Punto de referencia y dirección exacta"
+                  placeholder="Barrio, punto de referencia..."
                 />
               </Field>
 
-              <div className="p-3 bg-danger-50 rounded-md border border-danger-100 flex items-center gap-2.5">
-                <input
-                  type="checkbox"
-                  id="incumplio_cb"
-                  checked={incumplio}
-                  onChange={(e) => setIncumplio(e.target.checked)}
-                  className="w-4 h-4 text-danger-600 rounded border-slate-300"
+              <Field label="Notas Internas">
+                <Textarea
+                  value={notas}
+                  onChange={(e) => setNotas(e.target.value)}
+                  placeholder="Preferencias, restricciones de entrega..."
+                  rows={2}
                 />
-                <label htmlFor="incumplio_cb" className="text-body text-danger-800 cursor-pointer">
-                  <span className="font-medium">Cliente con historial de incumplimiento</span>
-                  <p className="text-caption text-danger-700">
-                    El sistema sugerirá pedir 70% de anticipo en lugar de 50%.
-                  </p>
+              </Field>
+
+              <div className="pt-2 border-t border-slate-200">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={incumplio}
+                    onChange={(e) => setIncumplio(e.target.checked)}
+                    className="w-4 h-4 rounded text-brand-600 border-slate-300 focus:ring-brand-500"
+                  />
+                  <span className="text-body text-slate-700 font-medium">
+                    Historial de incumplimiento (Exigir 70% de anticipo)
+                  </span>
                 </label>
               </div>
 
-              <div className="pt-2 flex items-center justify-end gap-2">
+              <div className="pt-4 flex items-center justify-end gap-2">
                 <Button
                   type="button"
                   variant="secondary"
                   onClick={() => setModalOpen(false)}
+                  disabled={guardando}
                 >
-                  Cancelar
+                  <span>Cancelar</span>
                 </Button>
                 <Button
                   type="submit"
                   variant="primary"
                   disabled={guardando}
                 >
-                  {guardando ? 'Guardando...' : 'Guardar Cliente'}
+                  <span>{guardando ? 'Guardando...' : 'Guardar Cliente'}</span>
                 </Button>
               </div>
             </form>
