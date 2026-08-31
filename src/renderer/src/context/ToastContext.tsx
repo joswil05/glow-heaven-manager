@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { CheckCircle2, AlertCircle, Info, RotateCcw, X } from 'lucide-react';
+import { Button } from '../components/ui';
 
 export interface ToastOptions {
   message: string;
@@ -130,24 +131,21 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className="pointer-events-auto bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center justify-between gap-3 border border-slate-700 animate-fade-in"
+            className="pointer-events-auto bg-navy-900 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center justify-between gap-3 border border-navy-700 animate-fade-in"
           >
             <div className="flex items-center gap-2.5 min-w-0">
-              {toast.type === 'success' && <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />}
-              {toast.type === 'error' && <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />}
-              {toast.type === 'info' && <Info className="w-5 h-5 text-sky-400 shrink-0" />}
-              <span className="text-sm font-medium leading-snug truncate">{toast.message}</span>
+              {toast.type === 'success' && <CheckCircle2 className="w-5 h-5 text-success-500 shrink-0" />}
+              {toast.type === 'error' && <AlertCircle className="w-5 h-5 text-danger-500 shrink-0" />}
+              {toast.type === 'info' && <Info className="w-5 h-5 text-brand-400 shrink-0" />}
+              <span className="text-body leading-snug truncate">{toast.message}</span>
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
               {toast.undoable && toast.onUndo && (
-                <button
-                  onClick={toast.onUndo}
-                  className="flex items-center gap-1.5 px-3 py-1 bg-glow-600 hover:bg-glow-500 text-white rounded-lg text-xs font-semibold tracking-wide transition-colors shadow-sm"
-                >
+                <Button variant="primary" size="sm" onClick={toast.onUndo}>
                   <RotateCcw className="w-3.5 h-3.5" />
                   <span>Deshacer ({toast.remainingSeconds}s)</span>
-                </button>
+                </Button>
               )}
               <button
                 onClick={() => removeToast(toast.id)}

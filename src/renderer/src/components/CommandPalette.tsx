@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Search, User, FileText, ShoppingBag, Plus, HardDriveDownload, X } from 'lucide-react';
 import type { Cliente, Cotizacion, Pedido } from '../../../shared/types';
 import { formatearMoneda } from '@core/moneda';
+import { Badge } from './ui';
 
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -86,7 +87,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-start justify-center pt-20 p-4 animate-fade-in">
-      <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[80vh]">
+      <div className="bg-white w-full max-w-2xl rounded-lg shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[80vh]">
         {/* Input de Búsqueda */}
         <div className="p-4 border-b border-slate-200 flex items-center gap-3">
           <Search className="w-5 h-5 text-slate-400 shrink-0" />
@@ -96,7 +97,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Buscar por cliente, cotización, pedido o acción rápida..."
-            className="w-full text-base font-medium text-slate-800 placeholder-slate-400 focus:outline-none"
+            className="w-full text-body text-slate-800 placeholder-slate-400 focus:outline-none"
           />
           <button
             onClick={onClose}
@@ -111,7 +112,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           {/* Acciones Rápidas */}
           {query.trim().length === 0 && (
             <div>
-              <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              <div className="px-3 py-1.5 text-caption font-semibold uppercase tracking-wider text-slate-400">
                 Acciones Frecuentes
               </div>
               <div className="space-y-1">
@@ -120,18 +121,18 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                     onAction('new-cotizacion');
                     onClose();
                   }}
-                  className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-100 text-left transition-colors"
+                  className="w-full flex items-center justify-between p-2.5 rounded-md hover:bg-slate-100 text-left transition-colors"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-glow-100 text-glow-700 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-lg bg-brand-100 text-brand-700 flex items-center justify-center">
                       <Plus className="w-4 h-4" />
                     </div>
                     <div>
-                      <div className="text-sm font-semibold text-slate-800">Nueva Cotización</div>
-                      <div className="text-xs text-slate-500">Abrir el cotizador interactivo</div>
+                      <div className="text-body text-slate-800">Nueva Cotización</div>
+                      <div className="text-caption text-slate-500">Abrir el cotizador interactivo</div>
                     </div>
                   </div>
-                  <kbd className="px-2 py-1 bg-slate-200 text-slate-600 rounded text-xs font-mono">
+                  <kbd className="px-2 py-1 bg-slate-200 text-slate-600 rounded-md text-caption font-mono">
                     Ctrl+N
                   </kbd>
                 </button>
@@ -141,15 +142,15 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                     onAction('new-cliente');
                     onClose();
                   }}
-                  className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-100 text-left transition-colors"
+                  className="w-full flex items-center justify-between p-2.5 rounded-md hover:bg-slate-100 text-left transition-colors"
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
                       <User className="w-4 h-4" />
                     </div>
                     <div>
-                      <div className="text-sm font-semibold text-slate-800">Registrar Nuevo Cliente</div>
-                      <div className="text-xs text-slate-500">Crear ficha de cliente en el directorio</div>
+                      <div className="text-body text-slate-800">Registrar Nuevo Cliente</div>
+                      <div className="text-caption text-slate-500">Crear ficha de cliente en el directorio</div>
                     </div>
                   </div>
                 </button>
@@ -159,18 +160,18 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                     onAction('backup');
                     onClose();
                   }}
-                  className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-100 text-left transition-colors"
+                  className="w-full flex items-center justify-between p-2.5 rounded-md hover:bg-slate-100 text-left transition-colors"
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center">
                       <HardDriveDownload className="w-4 h-4" />
                     </div>
                     <div>
-                      <div className="text-sm font-semibold text-slate-800">Crear Copia de Seguridad</div>
-                      <div className="text-xs text-slate-500">Guardar respaldo local inmediato</div>
+                      <div className="text-body text-slate-800">Crear Copia de Seguridad</div>
+                      <div className="text-caption text-slate-500">Guardar respaldo local inmediato</div>
                     </div>
                   </div>
-                  <kbd className="px-2 py-1 bg-slate-200 text-slate-600 rounded text-xs font-mono">
+                  <kbd className="px-2 py-1 bg-slate-200 text-slate-600 rounded-md text-caption font-mono">
                     Ctrl+B
                   </kbd>
                 </button>
@@ -181,7 +182,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           {/* Clientes Encontrados */}
           {clientes.length > 0 && (
             <div>
-              <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              <div className="px-3 py-1.5 text-caption font-semibold uppercase tracking-wider text-slate-400">
                 Clientes ({clientes.length})
               </div>
               <div className="space-y-1">
@@ -192,13 +193,13 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                       if (onSelectCliente) onSelectCliente(c);
                       onClose();
                     }}
-                    className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-100 text-left transition-colors"
+                    className="w-full flex items-center justify-between p-2.5 rounded-md hover:bg-slate-100 text-left transition-colors"
                   >
                     <div className="flex items-center gap-3">
                       <User className="w-4 h-4 text-slate-400" />
                       <div>
-                        <div className="text-sm font-semibold text-slate-800">{c.nombre}</div>
-                        <div className="text-xs text-slate-500">
+                        <div className="text-body text-slate-800">{c.nombre}</div>
+                        <div className="text-caption text-slate-500">
                           📞 {c.telefono} • 📍 {c.ciudad}
                         </div>
                       </div>
@@ -212,7 +213,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           {/* Pedidos Encontrados */}
           {pedidos.length > 0 && (
             <div>
-              <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              <div className="px-3 py-1.5 text-caption font-semibold uppercase tracking-wider text-slate-400">
                 Pedidos ({pedidos.length})
               </div>
               <div className="space-y-1">
@@ -223,20 +224,18 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                       if (onSelectPedido) onSelectPedido(p);
                       onClose();
                     }}
-                    className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-100 text-left transition-colors"
+                    className="w-full flex items-center justify-between p-2.5 rounded-md hover:bg-slate-100 text-left transition-colors"
                   >
                     <div className="flex items-center gap-3">
                       <ShoppingBag className="w-4 h-4 text-slate-400" />
                       <div>
-                        <div className="text-sm font-semibold text-slate-800">{p.codigo}</div>
-                        <div className="text-xs text-slate-500">
+                        <div className="text-body text-slate-800">{p.codigo}</div>
+                        <div className="text-caption text-slate-500">
                           {formatearMoneda(p.total_cor_cents, 'COR')} ({formatearMoneda(p.total_usd_cents, 'USD')})
                         </div>
                       </div>
                     </div>
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
-                      {p.estado_derivado}
-                    </span>
+                    <Badge tone="neutral">{p.estado_derivado}</Badge>
                   </button>
                 ))}
               </div>
@@ -246,7 +245,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           {/* Cotizaciones Encontradas */}
           {cotizaciones.length > 0 && (
             <div>
-              <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              <div className="px-3 py-1.5 text-caption font-semibold uppercase tracking-wider text-slate-400">
                 Cotizaciones ({cotizaciones.length})
               </div>
               <div className="space-y-1">
@@ -257,20 +256,18 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                       if (onSelectCotizacion) onSelectCotizacion(cot);
                       onClose();
                     }}
-                    className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-100 text-left transition-colors"
+                    className="w-full flex items-center justify-between p-2.5 rounded-md hover:bg-slate-100 text-left transition-colors"
                   >
                     <div className="flex items-center gap-3">
                       <FileText className="w-4 h-4 text-slate-400" />
                       <div>
-                        <div className="text-sm font-semibold text-slate-800">{cot.codigo}</div>
-                        <div className="text-xs text-slate-500">
+                        <div className="text-body text-slate-800">{cot.codigo}</div>
+                        <div className="text-caption text-slate-500">
                           {formatearMoneda(cot.total_cor_cents, 'COR')} ({formatearMoneda(cot.total_usd_cents, 'USD')})
                         </div>
                       </div>
                     </div>
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
-                      {cot.estado}
-                    </span>
+                    <Badge tone="neutral">{cot.estado}</Badge>
                   </button>
                 ))}
               </div>
@@ -281,7 +278,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             clientes.length === 0 &&
             pedidos.length === 0 &&
             cotizaciones.length === 0 && (
-              <div className="p-8 text-center text-slate-400 text-sm">
+              <div className="p-8 text-center text-slate-400 text-body">
                 No se encontraron resultados para &ldquo;{query}&rdquo;.
               </div>
             )}
