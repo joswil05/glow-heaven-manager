@@ -147,6 +147,8 @@ export const App: React.FC = () => {
             <HoyView
               data={hoyData}
               loading={loading}
+              pedidosBloqueados={semaforoCounts.rojo}
+              pedidosListos={semaforoCounts.verde}
               onNewCotizacion={() => setActiveTab('cotizador')}
               onNavigateToPedidos={(pedidoId) => {
                 setSelectedPedidoId(pedidoId);
