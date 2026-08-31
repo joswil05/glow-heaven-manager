@@ -1,8 +1,18 @@
 import React, { useState } from 'react';
-import { Users, Search, Plus, Phone, MapPin, Edit, MessageSquare, AlertTriangle } from 'lucide-react';
+import { Users, Search, Plus, MessageSquare, Edit2 } from 'lucide-react';
 import type { Cliente } from '../../../shared/types';
 import { EmptyState } from '../components/shared/EmptyState';
 import { useToast } from '../context/ToastContext';
+import {
+  DataTable,
+  type Column,
+  Badge,
+  Button,
+  Field,
+  Input,
+  Select,
+  Textarea,
+} from '../components/ui';
 
 interface ClientesViewProps {
   clientes: Cliente[];
@@ -114,6 +124,62 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
     window.api.sistema.abrirWhatsApp(c.telefono, `Hola ${c.nombre}, te saludo de Glow Heaven.`);
   };
 
+  const columnas: Column<Cliente>[] = [
+    {
+      key: 'nombre',
+      header: 'Nombre',
+      render: (c) => (
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-slate-900">{c.nombre}</span>
+          {Boolean(c.incumplio_anteriormente) && (
+            <Badge tone="danger">70% anticipo</Badge>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'ciudad',
+      header: 'Ciudad',
+      render: (c) => c.ciudad,
+    },
+    {
+      key: 'telefono',
+      header: 'Teléfono',
+      render: (c) => c.telefono,
+    },
+    {
+      key: 'acciones',
+      header: '',
+      align: 'right',
+      render: (c) => (
+        <div className="flex items-center justify-end gap-1">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleOpenWhatsApp(c);
+            }}
+          >
+            <MessageSquare className="w-3.5 h-3.5 mr-1 text-emerald-600" />
+            <span>WhatsApp</span>
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleOpenEdit(c);
+            }}
+          >
+            <Edit2 className="w-3.5 h-3.5 mr-1" />
+            <span>Editar</span>
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-slate-50">
       {/* Encabezado y búsqueda */}
@@ -121,91 +187,32 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
         <div className="flex items-center gap-3 flex-1 max-w-md">
           <div className="relative w-full">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-            <input
-              type="text"
+            <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar por nombre, teléfono o ciudad..."
-              className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:border-glow-500"
+              className="pl-9"
             />
           </div>
         </div>
 
-        <button
-          onClick={handleOpenCreate}
-          className="flex items-center gap-1.5 px-4 py-2 bg-glow-600 hover:bg-glow-700 text-white rounded-xl text-xs font-bold transition-colors shadow-sm"
-        >
-          <Plus className="w-4 h-4" />
+        <Button variant="primary" onClick={handleOpenCreate}>
+          <Plus className="w-4 h-4 mr-1" />
           <span>Nuevo Cliente</span>
-        </button>
+        </Button>
       </div>
 
-      {/* Lista de Clientes */}
+      {/* Lista de Clientes en DataTable */}
       <div className="flex-1 p-6 overflow-y-auto">
         {loading ? (
-          <div className="p-8 text-center text-slate-400 text-sm">Cargando clientes...</div>
+          <div className="p-8 text-center text-slate-400 text-body">Cargando clientes...</div>
         ) : filteredClientes.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredClientes.map((c) => (
-              <div
-                key={c.id}
-                className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3 hover:border-slate-300 transition-all"
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h4 className="text-sm font-bold text-slate-900">{c.nombre}</h4>
-                      {Boolean(c.incumplio_anteriormente) && (
-                        <span
-                          title="Incumplió anteriormente (pedir 70% anticipo)"
-                          className="px-1.5 py-0.5 bg-danger-100 text-danger-700 text-[10px] font-bold rounded-md flex items-center gap-0.5"
-                        >
-                          <AlertTriangle className="w-3 h-3" />
-                          70% Ant.
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1 text-xs text-slate-500 mt-0.5">
-                      <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                      <span>{c.ciudad}</span>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => handleOpenEdit(c)}
-                    className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
-                  >
-                    <Edit className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <div className="space-y-1 text-xs text-slate-600">
-                  <div className="flex items-center gap-2">
-                    <Phone className="w-3.5 h-3.5 text-slate-400" />
-                    <span className="font-semibold">{c.telefono}</span>
-                  </div>
-                  {c.direccion && (
-                    <p className="text-[11px] text-slate-500 line-clamp-1">
-                      {c.direccion}
-                    </p>
-                  )}
-                </div>
-
-                <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                  <button
-                    onClick={() => handleOpenWhatsApp(c)}
-                    className="flex items-center gap-1.5 text-emerald-600 hover:text-emerald-700 text-xs font-bold"
-                  >
-                    <MessageSquare className="w-3.5 h-3.5" />
-                    <span>WhatsApp</span>
-                  </button>
-                  <span className="text-[11px] font-semibold text-slate-400">
-                    Cliente #{c.id}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
+          <DataTable
+            columns={columnas}
+            rows={filteredClientes}
+            rowKey={(c) => c.id}
+            emptyMessage="No hay clientes registrados."
+          />
         ) : (
           <EmptyState
             icon={Users}
@@ -220,51 +227,37 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
       {/* Modal Nuevo / Editar Cliente */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-slate-200 overflow-hidden">
-            <div className="p-5 bg-slate-900 text-white">
-              <h3 className="text-base font-bold">
+          <div className="bg-white w-full max-w-md rounded-lg shadow-2xl border border-slate-200 overflow-hidden">
+            <div className="p-5 bg-navy-900 text-white">
+              <h3 className="text-title text-white">
                 {editingCliente ? 'Editar Cliente' : 'Nuevo Cliente'}
               </h3>
             </div>
 
             <form onSubmit={handleSave} className="p-6 space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Nombre Completo *
-                </label>
-                <input
-                  type="text"
+              <Field label="Nombre Completo *">
+                <Input
                   required
                   value={nombre}
                   onChange={(e) => setNombre(e.target.value)}
                   placeholder="Ej: María José Morales"
-                  className="w-full px-3 py-2 text-xs font-semibold rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:border-glow-500"
                 />
-              </div>
+              </Field>
 
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Teléfono / WhatsApp *
-                  </label>
-                  <input
-                    type="text"
+                <Field label="Teléfono / WhatsApp *">
+                  <Input
                     required
                     value={telefono}
                     onChange={(e) => setTelefono(e.target.value)}
                     placeholder="8888-8888"
-                    className="w-full px-3 py-2 text-xs font-semibold rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:border-glow-500"
                   />
-                </div>
+                </Field>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Ciudad *
-                  </label>
-                  <select
+                <Field label="Ciudad *">
+                  <Select
                     value={ciudad}
                     onChange={(e) => setCiudad(e.target.value)}
-                    className="w-full px-3 py-2 text-xs font-semibold rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:border-glow-500"
                   >
                     <option value="León">León</option>
                     <option value="Chichigalpa">Chichigalpa</option>
@@ -275,24 +268,20 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
                     <option value="Matagalpa">Matagalpa</option>
                     <option value="Estelí">Estelí</option>
                     <option value="Otra">Otra</option>
-                  </select>
-                </div>
+                  </Select>
+                </Field>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Dirección de Entrega
-                </label>
-                <textarea
+              <Field label="Dirección de Entrega">
+                <Textarea
                   rows={2}
                   value={direccion}
                   onChange={(e) => setDireccion(e.target.value)}
                   placeholder="Punto de referencia y dirección exacta"
-                  className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:border-glow-500"
                 />
-              </div>
+              </Field>
 
-              <div className="p-3 bg-danger-50 rounded-xl border border-danger-100 flex items-center gap-2.5">
+              <div className="p-3 bg-danger-50 rounded-md border border-danger-100 flex items-center gap-2.5">
                 <input
                   type="checkbox"
                   id="incumplio_cb"
@@ -300,29 +289,29 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
                   onChange={(e) => setIncumplio(e.target.checked)}
                   className="w-4 h-4 text-danger-600 rounded border-slate-300"
                 />
-                <label htmlFor="incumplio_cb" className="text-xs text-danger-800 cursor-pointer">
-                  <span className="font-bold">Cliente con historial de incumplimiento</span>
-                  <p className="text-[11px] text-danger-700">
+                <label htmlFor="incumplio_cb" className="text-body text-danger-800 cursor-pointer">
+                  <span className="font-medium">Cliente con historial de incumplimiento</span>
+                  <p className="text-caption text-danger-700">
                     El sistema sugerirá pedir 70% de anticipo en lugar de 50%.
                   </p>
                 </label>
               </div>
 
               <div className="pt-2 flex items-center justify-end gap-2">
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
                   onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl"
                 >
                   Cancelar
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
+                  variant="primary"
                   disabled={guardando}
-                  className="px-5 py-2 bg-glow-600 hover:bg-glow-700 text-white text-xs font-bold rounded-xl shadow-sm disabled:opacity-50"
                 >
                   {guardando ? 'Guardando...' : 'Guardar Cliente'}
-                </button>
+                </Button>
               </div>
             </form>
           </div>
