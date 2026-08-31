@@ -1,5 +1,6 @@
 import React from 'react';
 import { LucideIcon } from 'lucide-react';
+import { Button } from '../ui';
 
 interface EmptyStateProps {
   icon: LucideIcon;
@@ -19,24 +20,21 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   shortcut,
 }) => {
   return (
-    <div className="flex flex-col items-center justify-center p-8 text-center bg-white rounded-2xl border border-dashed border-slate-300 my-4 shadow-sm animate-fade-in">
+    <div className="flex flex-col items-center justify-center p-8 text-center bg-white rounded-lg border border-dashed border-slate-300 my-4 shadow-sm animate-fade-in">
       <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mb-3">
         <Icon className="w-6 h-6" />
       </div>
-      <h3 className="text-base font-bold text-slate-800 mb-1">{title}</h3>
-      <p className="text-sm text-slate-500 max-w-sm mb-4">{description}</p>
+      <h3 className="text-title text-slate-900 mb-1">{title}</h3>
+      <p className="text-body text-slate-500 max-w-sm mb-4">{description}</p>
       {actionText && onAction && (
-        <button
-          onClick={onAction}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-glow-600 hover:bg-glow-700 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm"
-        >
+        <Button variant="primary" onClick={onAction}>
           <span>{actionText}</span>
           {shortcut && (
-            <kbd className="px-1.5 py-0.5 text-xs bg-glow-800/60 text-white rounded font-mono">
+            <kbd className="ml-1.5 px-1.5 py-0.5 text-caption bg-navy-800/60 text-white rounded font-mono">
               {shortcut}
             </kbd>
           )}
-        </button>
+        </Button>
       )}
     </div>
   );
