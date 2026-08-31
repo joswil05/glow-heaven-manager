@@ -376,6 +376,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
                           onClick={() => handleRemoveCuenta(idx)}
                           className="text-slate-400 hover:text-danger-500 p-2 shrink-0 self-end md:self-center"
                           title="Eliminar cuenta"
+                          aria-label="Eliminar cuenta"
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>

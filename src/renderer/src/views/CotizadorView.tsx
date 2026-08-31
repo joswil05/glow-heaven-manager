@@ -265,6 +265,7 @@ export const CotizadorView: React.FC<CotizadorViewProps> = ({
               size="sm"
               onClick={handleCopiarWhatsApp}
               title="Copiar desglose formateado para WhatsApp (Ctrl+Shift+C)"
+              aria-label="Copiar desglose formateado para WhatsApp (Ctrl+Shift+C)"
             >
               <Share2 className="w-3.5 h-3.5 mr-1" />
               <span>Copiar para WhatsApp</span>

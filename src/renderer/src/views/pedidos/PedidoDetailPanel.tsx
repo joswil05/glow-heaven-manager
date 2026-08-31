@@ -61,11 +61,12 @@ export const PedidoDetailPanel: React.FC<PedidoDetailPanelProps> = ({
                   <span className="text-label text-slate-500">Estado:</span>
                   <select
                     value=""
+                    aria-label={`Cambiar estado de ${item.descripcion}`}
                     onChange={(e) => {
                       if (!e.target.value) return;
                       onCambiarEstado(item.id, e.target.value as EstadoItem);
                     }}
-                    className="text-label bg-white px-2.5 py-1 rounded-md border border-slate-200 text-slate-800 focus:outline-none focus:border-brand-500"
+                    className="text-label bg-white px-2.5 py-1 rounded-md border border-slate-200 text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus:border-brand-500"
                   >
                     <option value="">
                       {ETIQUETAS_ESTADO_ITEM[item.estado]}

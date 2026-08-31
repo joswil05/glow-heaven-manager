@@ -94,6 +94,16 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
     }
   }, [clientes, selectedClienteId]);
 
+  // Cerrar modal con Escape
+  useEffect(() => {
+    if (!modalOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setModalOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [modalOpen]);
+
   const handleOpenCreate = () => {
     setEditingCliente(null);
     setNombre('');
@@ -305,10 +315,15 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 
       {/* Modal Nuevo / Editar Cliente */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="titulo-cliente-modal"
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
+        >
           <div className="bg-white w-full max-w-md rounded-lg shadow-2xl border border-slate-200 overflow-hidden">
             <div className="p-5 bg-navy-900 text-white">
-              <h3 className="text-title text-white">
+              <h3 id="titulo-cliente-modal" className="text-title text-white">
                 {editingCliente ? 'Editar Cliente' : 'Nuevo Cliente'}
               </h3>
             </div>

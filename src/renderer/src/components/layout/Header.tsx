@@ -95,6 +95,7 @@ export const Header: React.FC<HeaderProps> = ({
           variant="secondary"
           onClick={onOpenCommandPalette}
           title="Buscar clientes o pedidos (Ctrl+K)"
+          aria-label="Buscar clientes o pedidos (Ctrl+K)"
         >
           <Search className="w-3.5 h-3.5 text-slate-400" />
           <span>Buscar...</span>
@@ -109,6 +110,7 @@ export const Header: React.FC<HeaderProps> = ({
           onClick={handleManualBackup}
           disabled={backingUp}
           title="Respaldar base de datos ahora (Ctrl+B)"
+          aria-label="Respaldar base de datos ahora (Ctrl+B)"
         >
           <HardDriveDownload className="w-3.5 h-3.5" />
           <span>{backingUp ? 'Respaldando...' : 'Respaldar'}</span>

@@ -10,6 +10,14 @@ const PUNTOS: Record<Tone, string> = {
   info: 'bg-brand-500',
 };
 
+const DESCRIPCION_POR_TONO: Record<Tone, string> = {
+  neutral: 'Sin estado',
+  success: 'Verificado',
+  warning: 'Pendiente',
+  danger: 'Bloqueado',
+  info: 'Informativo',
+};
+
 export interface StatusDotProps {
   tone: Tone;
   label?: string;
@@ -17,7 +25,11 @@ export interface StatusDotProps {
 }
 
 export const StatusDot: React.FC<StatusDotProps> = ({ tone, label, className }) => (
-  <span className={cn('inline-flex items-center gap-2', className)}>
+  <span
+    className={cn('inline-flex items-center gap-2', className)}
+    role="img"
+    aria-label={label ?? DESCRIPCION_POR_TONO[tone]}
+  >
     <span className={cn('w-2 h-2 rounded-full shrink-0', PUNTOS[tone])} aria-hidden />
     {label && <span className="text-label text-slate-700">{label}</span>}
   </span>

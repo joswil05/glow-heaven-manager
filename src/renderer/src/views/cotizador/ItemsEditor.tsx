@@ -70,6 +70,7 @@ export const ItemsEditor: React.FC<ItemsEditorProps> = ({
                 onClick={() => onRemoveItem(item.id)}
                 className="text-slate-400 hover:text-danger-500 p-2"
                 title="Eliminar producto"
+                aria-label="Eliminar producto"
               >
                 <Trash2 className="w-4 h-4" />
               </Button>

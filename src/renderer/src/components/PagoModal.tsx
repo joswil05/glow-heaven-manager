@@ -92,6 +92,16 @@ export const PagoModal: React.FC<PagoModalProps> = ({
     return () => window.removeEventListener('paste', handlePaste);
   }, [isOpen, showToast]);
 
+  // Cerrar con Escape
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -139,19 +149,27 @@ export const PagoModal: React.FC<PagoModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="titulo-pago-modal"
+      className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
+    >
       <div className="bg-white w-full max-w-lg rounded-lg shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
         {/* Header */}
         <div className="p-5 bg-navy-900 text-white flex items-center justify-between">
           <div>
-            <h3 className="text-title text-white">Registrar Pago / Anticipo</h3>
+            <h3 id="titulo-pago-modal" className="text-title text-white">
+              Registrar Pago / Anticipo
+            </h3>
             <span className="text-caption text-slate-400">
               Pedido: {pedido.codigo} • Saldo: {formatearMoneda(pedido.saldo_pendiente_cor_cents, 'COR')}
             </span>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-white p-1 rounded-md transition-colors"
+            aria-label="Cerrar modal de pago"
+            className="text-slate-400 hover:text-white p-1 rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-brand-500"
           >
             <X className="w-5 h-5" />
           </button>

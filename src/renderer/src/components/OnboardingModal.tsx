@@ -108,7 +108,12 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="titulo-onboarding-modal"
+      className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in"
+    >
       <div className="bg-white w-full max-w-xl rounded-lg shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
         {/* Encabezado */}
         <div className="p-6 bg-navy-900 text-white">
@@ -138,7 +143,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
               ))}
             </div>
           </div>
-          <h2 className="text-display text-white">
+          <h2 id="titulo-onboarding-modal" className="text-display text-white">
             {step === 1 && '¿Cuáles son tus cuentas bancarias?'}
             {step === 2 && '¿Cuánto te cobra tu courier en USA?'}
             {step === 3 && '¿Cuánto estimás de aranceles y aduana?'}
