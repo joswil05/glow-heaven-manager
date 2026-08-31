@@ -23,3 +23,4 @@
 ## Comandos de verificación
 - `npm test` — debe pasar todas las pruebas unitarias y de aceptación (suma exacta $288.30, residuos, cotizador)
 - `npm run build` — cero errores de TypeScript (`strict: true`) y empaquetado de Electron
+- `npm run build:exe` — siempre eliminar previamente el `.exe` o la carpeta `release/` anterior para garantizar que el nuevo instalador sea fresco y limpio.
