@@ -508,4 +508,42 @@ describe('Prueba de Humo Integral - Fase 1 (Cotizar y Cobrar)', () => {
     const pedidoActualizado = PedidosRepo.getById(pedido.id)!;
     expect(pedidoActualizado.anticipo_verificado).toBe(true);
   });
+
+  it('verificar dos veces el mismo pago no descuenta el saldo dos veces', () => {
+    const cliente = ClientesRepo.create(
+      { nombre: 'Cliente Doble Verificacion', telefono: '8888-3333', ciudad: 'León' },
+      crypto.randomUUID()
+    );
+    const cotizacion = CotizacionesRepo.create(
+      {
+        cliente_id: cliente.id,
+        anticipo_bp: 5000,
+        items: [{ descripcion: 'Perfume Caro', precio_usa_usd_cents: 10000, peso_mlb: 1000 }],
+      },
+      crypto.randomUUID()
+    );
+    const pedido = CotizacionesRepo.convertirAPedido(cotizacion.id, crypto.randomUUID());
+    const saldoInicial = PedidosRepo.getById(pedido.id)!.saldo_pendiente_cor_cents;
+
+    const pago = PagosRepo.create(
+      {
+        pedido_id: pedido.id,
+        monto_cents: 100000,
+        moneda_pago: 'COR',
+        metodo_pago: 'TRANSFERENCIA_BAC',
+        verificado: false,
+        tipo_pago: 'SALDO',
+      },
+      crypto.randomUUID()
+    );
+
+    PagosRepo.verificar(pago.id, true, crypto.randomUUID());
+    const saldoDespues = PedidosRepo.getById(pedido.id)!.saldo_pendiente_cor_cents;
+
+    PagosRepo.verificar(pago.id, true, crypto.randomUUID());
+    const saldoFinal = PedidosRepo.getById(pedido.id)!.saldo_pendiente_cor_cents;
+
+    expect(saldoDespues).toBe(saldoInicial - 100000);
+    expect(saldoFinal).toBe(saldoDespues); // la segunda no cambia nada
+  });
 });

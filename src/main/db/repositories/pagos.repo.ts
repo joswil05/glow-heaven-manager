@@ -115,6 +115,13 @@ export class PagosRepo {
       const pago = db.prepare('SELECT * FROM pagos WHERE id = ?').get(pago_id) as any;
       if (!pago) throw new Error(`Pago #${pago_id} no encontrado`);
 
+      const yaEstaba = Boolean(pago.verificado);
+      if (yaEstaba === verificado) {
+        // Nada que hacer. Sin esta guarda, verificar dos veces aplicaría
+        // los efectos dos veces y descontaría el saldo por duplicado.
+        return;
+      }
+
       db.prepare('UPDATE pagos SET verificado = ? WHERE id = ?').run(
         verificado ? 1 : 0,
         pago_id
