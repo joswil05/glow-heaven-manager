@@ -1,5 +1,6 @@
 import { getDb } from '../database';
 import type { EventoAuditoria } from '../../../shared/types';
+import { PedidosRepo } from './pedidos.repo';
 
 export class EventosRepo {
   static registrarEvento(evento: {
@@ -49,7 +50,7 @@ export class EventosRepo {
       .prepare('SELECT * FROM eventos WHERE evento_grupo_id = ? ORDER BY id DESC')
       .all(grupoId) as EventoAuditoria[];
 
-    let revertido = false;
+    let seRevirtioAlgo = false;
 
     db.transaction(() => {
       for (const ev of eventos) {
@@ -62,6 +63,7 @@ export class EventosRepo {
                 anterior.estado,
                 ev.entidad_id
               );
+              seRevirtioAlgo = true;
             }
           } else if (ev.entidad_tipo === 'COTIZACION') {
             if (anterior.estado) {
@@ -69,37 +71,107 @@ export class EventosRepo {
                 anterior.estado,
                 ev.entidad_id
               );
+              seRevirtioAlgo = true;
             }
           } else if (ev.entidad_tipo === 'PEDIDO') {
             if (ev.tipo_evento === 'CREACION') {
               // Si se revierte la conversión de cotización a pedido
               db.prepare('UPDATE pedidos SET activo = 0 WHERE id = ?').run(ev.entidad_id);
               db.prepare('UPDATE pedido_items SET activo = 0 WHERE pedido_id = ?').run(ev.entidad_id);
+              seRevirtioAlgo = true;
             } else if (anterior.anticipo_verificado !== undefined) {
               db.prepare(
                 'UPDATE pedidos SET anticipo_verificado = ?, estado_derivado = ? WHERE id = ?'
               ).run(anterior.anticipo_verificado ? 1 : 0, anterior.estado_derivado, ev.entidad_id);
+              seRevirtioAlgo = true;
             }
           } else if (ev.entidad_tipo === 'PAGO') {
-            if (ev.tipo_evento === 'CREACION') {
-              db.prepare('UPDATE pagos SET activo = 0 WHERE id = ?').run(ev.entidad_id);
-            } else if (anterior.verificado !== undefined) {
-              db.prepare('UPDATE pagos SET verificado = ? WHERE id = ?').run(
-                anterior.verificado ? 1 : 0,
-                ev.entidad_id
-              );
+            const pago = db.prepare('SELECT * FROM pagos WHERE id = ?').get(ev.entidad_id) as
+              | {
+                  pedido_id: number;
+                  monto_cor_cents: number;
+                  monto_usd_cents: number;
+                  verificado: number;
+                  tipo_pago: string;
+                }
+              | undefined;
+
+            if (pago) {
+              // Si el pago estaba aplicado, hay que devolverle el saldo al
+              // pedido. Antes solo se volteaba la bandera `verificado` y la
+              // plata quedaba descontada para siempre.
+              const estabaAplicado = Boolean(pago.verificado);
+
+              if (ev.tipo_evento === 'CREACION') {
+                db.prepare('UPDATE pagos SET activo = 0 WHERE id = ?').run(ev.entidad_id);
+                seRevirtioAlgo = true;
+              } else if (anterior.verificado !== undefined) {
+                db.prepare('UPDATE pagos SET verificado = ? WHERE id = ?').run(
+                  anterior.verificado ? 1 : 0,
+                  ev.entidad_id
+                );
+                seRevirtioAlgo = true;
+              }
+
+              if (estabaAplicado) {
+                db.prepare(`
+                  UPDATE pedidos SET
+                    saldo_pendiente_cor_cents = saldo_pendiente_cor_cents + ?,
+                    saldo_pendiente_usd_cents = saldo_pendiente_usd_cents + ?
+                  WHERE id = ?
+                `).run(pago.monto_cor_cents, pago.monto_usd_cents, pago.pedido_id);
+
+                // Recalcular si el anticipo sigue cumpliendose con lo que queda
+                const fila = db
+                  .prepare(`
+                    SELECT COALESCE(SUM(monto_cor_cents), 0) AS total
+                    FROM pagos
+                    WHERE pedido_id = ? AND activo = 1 AND verificado = 1
+                      AND tipo_pago IN ('ANTICIPO', 'COMPLETO')
+                  `)
+                  .get(pago.pedido_id) as { total: number };
+
+                const ped = db
+                  .prepare('SELECT anticipo_esperado_cor_cents FROM pedidos WHERE id = ?')
+                  .get(pago.pedido_id) as { anticipo_esperado_cor_cents: number };
+
+                const sigueCumpliendo = fila.total >= ped.anticipo_esperado_cor_cents;
+                db.prepare('UPDATE pedidos SET anticipo_verificado = ? WHERE id = ?').run(
+                  sigueCumpliendo ? 1 : 0,
+                  pago.pedido_id
+                );
+
+                if (!sigueCumpliendo) {
+                  db.prepare(`
+                    UPDATE pedido_items SET estado = 'PENDIENTE_ANTICIPO'
+                    WHERE pedido_id = ? AND estado = 'ANTICIPO_OK' AND activo = 1
+                  `).run(pago.pedido_id);
+                }
+
+                PedidosRepo.recalcularYPersistirEstadoPedido(pago.pedido_id);
+              }
             }
           }
         }
       }
 
-      // Eliminar el grupo de eventos revertido para no volverlo a deshacer
-      db.prepare('DELETE FROM eventos WHERE evento_grupo_id = ?').run(grupoId);
-      revertido = true;
+      // Solo se borra la auditoria de lo que realmente se revirtio.
+      // Antes se borraba siempre, incluso cuando no se habia hecho nada:
+      // el rastro desaparecia y la funcion reportaba exito igual.
+      if (seRevirtioAlgo) {
+        db.prepare('DELETE FROM eventos WHERE evento_grupo_id = ?').run(grupoId);
+      }
     })();
 
+    if (!seRevirtioAlgo) {
+      return {
+        revertido: false,
+        descripcion: 'Esta acción no se puede deshacer automáticamente.',
+      };
+    }
+
     return {
-      revertido,
+      revertido: true,
       descripcion: ultimoGrupo.detalle || `Acción '${ultimoGrupo.tipo_evento}' deshecha con éxito.`,
     };
   }
