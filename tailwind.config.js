@@ -55,13 +55,15 @@ export default {
           700: '#b45309',
           800: '#92400e',
         },
+        // Rojo verdadero, no rosado. La escala rose se percibe rosa en
+        // fondos claros, que es justo lo que este rediseño elimina.
         danger: {
-          50: '#fff1f2',
-          100: '#ffe4e6',
-          500: '#f43f5e',
-          600: '#e11d48',
-          700: '#be123c',
-          800: '#9f1239',
+          50: '#fef2f2',
+          100: '#fee2e2',
+          500: '#ef4444',
+          600: '#dc2626',
+          700: '#b91c1c',
+          800: '#991b1b',
         },
         // Alias temporal: hace que toda la aplicación pase a azul sin tocar
         // un solo .tsx. Se elimina en la Task 22, cuando ya no quede

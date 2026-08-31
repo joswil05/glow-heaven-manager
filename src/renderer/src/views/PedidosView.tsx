@@ -148,7 +148,7 @@ export const PedidosView: React.FC<PedidosViewProps> = ({
             onClick={() => setFilter('BLOQUEADOS')}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
               filter === 'BLOQUEADOS'
-                ? 'bg-rose-600 text-white'
+                ? 'bg-danger-600 text-white'
                 : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
@@ -194,7 +194,7 @@ export const PedidosView: React.FC<PedidosViewProps> = ({
                       className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-white shadow-sm shrink-0 ${
                         tieneAnticipoVerificado
                           ? 'bg-emerald-500 text-white'
-                          : 'bg-rose-500 text-white'
+                          : 'bg-danger-500 text-white'
                       }`}
                     >
                       {tieneAnticipoVerificado ? (
@@ -213,7 +213,7 @@ export const PedidosView: React.FC<PedidosViewProps> = ({
                           className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
                             tieneAnticipoVerificado
                               ? 'bg-emerald-100 text-emerald-800'
-                              : 'bg-rose-100 text-rose-800'
+                              : 'bg-danger-100 text-danger-800'
                           }`}
                         >
                           {tieneAnticipoVerificado

@@ -24,7 +24,7 @@ export const QuickCapture: React.FC<QuickCaptureProps> = ({ onParsedItem }) => {
   };
 
   return (
-    <div className="bg-gradient-to-r from-glow-50 to-pink-50 p-3.5 rounded-2xl border border-glow-100 mb-5 shadow-sm">
+    <div className="bg-slate-50 p-3.5 rounded-2xl border border-glow-100 mb-5 shadow-sm">
       <div className="flex items-center gap-2 mb-2">
         <Sparkles className="w-4 h-4 text-glow-600" />
         <span className="text-xs font-bold text-glow-900">

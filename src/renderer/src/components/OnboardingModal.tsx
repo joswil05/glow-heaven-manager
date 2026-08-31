@@ -109,11 +109,11 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
     <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
       <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
         {/* Encabezado */}
-        <div className="p-6 bg-gradient-to-r from-glow-600 to-pink-500 text-white">
+        <div className="p-6 bg-navy-900 text-white">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <Sparkles className="w-5 h-5" />
-              <span className="text-xs font-bold uppercase tracking-wider text-pink-100">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
                 Asistente de Bienvenida
               </span>
             </div>
@@ -128,7 +128,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             {step === 4 && '¿Qué porcentaje de ganancia deseás?'}
             {step === 5 && 'Saldo actual y copias de seguridad'}
           </h2>
-          <p className="text-xs text-pink-100 mt-1">
+          <p className="text-xs text-slate-300 mt-1">
             {step === 1 && 'Estas cuentas se pegarán automáticamente al armar cotizaciones para WhatsApp.'}
             {step === 2 && 'Servirá para calcular el flete aéreo exacto por peso de cada paquete.'}
             {step === 3 && 'Se aplica sobre el valor que supere la exoneración de USD 50.'}
@@ -163,7 +163,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                     {cuentas.length > 1 && (
                       <button
                         onClick={() => handleRemoveCuenta(i)}
-                        className="text-xs text-rose-500 hover:text-rose-700 font-semibold"
+                        className="text-xs text-danger-500 hover:text-danger-700 font-semibold"
                       >
                         Eliminar
                       </button>

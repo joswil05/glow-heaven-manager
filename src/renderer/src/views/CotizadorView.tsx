@@ -415,7 +415,7 @@ export const CotizadorView: React.FC<CotizadorViewProps> = ({
                       <button
                         type="button"
                         onClick={() => handleRemoveItem(item.id)}
-                        className="text-slate-400 hover:text-rose-500 p-1 transition-colors"
+                        className="text-slate-400 hover:text-danger-500 p-1 transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>

@@ -53,7 +53,7 @@ export const HoyView: React.FC<HoyViewProps> = ({
       <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center font-bold">
+            <div className="w-8 h-8 rounded-xl bg-danger-100 text-danger-600 flex items-center justify-center font-bold">
               <AlertTriangle className="w-4 h-4" />
             </div>
             <div>
@@ -62,7 +62,7 @@ export const HoyView: React.FC<HoyViewProps> = ({
             </div>
           </div>
           {alertas.length > 0 && (
-            <span className="px-2.5 py-0.5 bg-rose-100 text-rose-700 font-bold text-xs rounded-full">
+            <span className="px-2.5 py-0.5 bg-danger-100 text-danger-700 font-bold text-xs rounded-full">
               {alertas.length} pendiente{alertas.length > 1 ? 's' : ''}
             </span>
           )}
@@ -76,7 +76,7 @@ export const HoyView: React.FC<HoyViewProps> = ({
                 className="py-3 flex items-center justify-between gap-4 hover:bg-slate-50 px-2 rounded-xl transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
+                  <div className="w-2 h-2 rounded-full bg-danger-500 shrink-0" />
                   <div>
                     <div className="text-xs font-bold text-slate-800">{alerta.mensaje}</div>
                     <div className="text-[11px] text-slate-500">

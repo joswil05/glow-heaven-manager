@@ -158,7 +158,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
                       {Boolean(c.incumplio_anteriormente) && (
                         <span
                           title="Incumplió anteriormente (pedir 70% anticipo)"
-                          className="px-1.5 py-0.5 bg-rose-100 text-rose-700 text-[10px] font-bold rounded-md flex items-center gap-0.5"
+                          className="px-1.5 py-0.5 bg-danger-100 text-danger-700 text-[10px] font-bold rounded-md flex items-center gap-0.5"
                         >
                           <AlertTriangle className="w-3 h-3" />
                           70% Ant.
@@ -292,17 +292,17 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
                 />
               </div>
 
-              <div className="p-3 bg-rose-50 rounded-xl border border-rose-100 flex items-center gap-2.5">
+              <div className="p-3 bg-danger-50 rounded-xl border border-danger-100 flex items-center gap-2.5">
                 <input
                   type="checkbox"
                   id="incumplio_cb"
                   checked={incumplio}
                   onChange={(e) => setIncumplio(e.target.checked)}
-                  className="w-4 h-4 text-rose-600 rounded border-slate-300"
+                  className="w-4 h-4 text-danger-600 rounded border-slate-300"
                 />
-                <label htmlFor="incumplio_cb" className="text-xs text-rose-900 cursor-pointer">
+                <label htmlFor="incumplio_cb" className="text-xs text-danger-800 cursor-pointer">
                   <span className="font-bold">Cliente con historial de incumplimiento</span>
-                  <p className="text-[11px] text-rose-700">
+                  <p className="text-[11px] text-danger-700">
                     El sistema sugerirá pedir 70% de anticipo en lugar de 50%.
                   </p>
                 </label>

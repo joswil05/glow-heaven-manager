@@ -319,7 +319,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
                 <button
                   type="button"
                   onClick={() => handleRemoveCuenta(idx)}
-                  className="text-slate-400 hover:text-rose-500 p-1"
+                  className="text-slate-400 hover:text-danger-500 p-1"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>

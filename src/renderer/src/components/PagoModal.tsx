@@ -242,7 +242,7 @@ export const PagoModal: React.FC<PagoModalProps> = ({
                     setPreviewUrl(null);
                     setComprobanteBuffer(undefined);
                   }}
-                  className="text-xs text-rose-500 hover:text-rose-700 font-semibold px-2 py-1"
+                  className="text-xs text-danger-500 hover:text-danger-700 font-semibold px-2 py-1"
                 >
                   Quitar
                 </button>
