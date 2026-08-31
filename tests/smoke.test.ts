@@ -546,4 +546,42 @@ describe('Prueba de Humo Integral - Fase 1 (Cotizar y Cobrar)', () => {
     expect(saldoDespues).toBe(saldoInicial - 100000);
     expect(saldoFinal).toBe(saldoDespues); // la segunda no cambia nada
   });
+
+  it('registra el excedente cuando el cliente paga de más', () => {
+    const cliente = ClientesRepo.create(
+      { nombre: 'Cliente Sobrepago', telefono: '8888-4444', ciudad: 'León' },
+      crypto.randomUUID()
+    );
+    const cotizacion = CotizacionesRepo.create(
+      {
+        cliente_id: cliente.id,
+        anticipo_bp: 5000,
+        items: [{ descripcion: 'Producto C$1,000', precio_usa_usd_cents: 2000, peso_mlb: 500 }],
+      },
+      crypto.randomUUID()
+    );
+    const pedido = CotizacionesRepo.convertirAPedido(cotizacion.id, crypto.randomUUID());
+    const saldo = pedido.saldo_pendiente_cor_cents;
+
+    const pago = PagosRepo.create(
+      {
+        pedido_id: pedido.id,
+        monto_cents: saldo + 50000, // C$500 de más
+        moneda_pago: 'COR',
+        metodo_pago: 'EFECTIVO',
+        verificado: true,
+        tipo_pago: 'SALDO',
+      },
+      crypto.randomUUID()
+    );
+
+    const pedidoActualizado = PedidosRepo.getById(pedido.id)!;
+    expect(pedidoActualizado.saldo_pendiente_cor_cents).toBe(0);
+
+    // El excedente debe quedar registrado en el evento, no evaporarse
+    const evento = db
+      .prepare("SELECT * FROM eventos WHERE entidad_tipo = 'PAGO' AND entidad_id = ? ORDER BY id DESC LIMIT 1")
+      .get(pago.id) as { detalle: string };
+    expect(evento.detalle).toContain('excedente');
+  });
 });

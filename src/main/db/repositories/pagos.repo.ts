@@ -88,8 +88,17 @@ export class PagosRepo {
         activo: true,
       };
 
+      let notaExcedente = '';
       if (data.verificado) {
-        PagosRepo.aplicarEfectosVerificacion(pedido.id, data.tipo_pago, monto_cor_cents, monto_usd_cents);
+        const { excedente_cor_cents } = PagosRepo.aplicarEfectosVerificacion(
+          pedido.id,
+          data.tipo_pago,
+          monto_cor_cents,
+          monto_usd_cents
+        );
+        if (excedente_cor_cents > 0) {
+          notaExcedente = ` (excedente de C$${(excedente_cor_cents / 100).toFixed(2)} a favor del cliente)`;
+        }
       }
 
       EventosRepo.registrarEvento({
@@ -98,7 +107,7 @@ export class PagosRepo {
         entidad_id: pagoId,
         tipo_evento: 'CREACION',
         valor_nuevo: pagoCreado,
-        detalle: `Pago de ${data.moneda_pago} ${data.monto_cents / 100} registrado (${data.tipo_pago})`,
+        detalle: `Pago de ${data.moneda_pago} ${data.monto_cents / 100} registrado (${data.tipo_pago})${notaExcedente}`,
       });
     })();
 
@@ -127,13 +136,17 @@ export class PagosRepo {
         pago_id
       );
 
+      let notaExcedente = '';
       if (verificado) {
-        PagosRepo.aplicarEfectosVerificacion(
+        const { excedente_cor_cents } = PagosRepo.aplicarEfectosVerificacion(
           pago.pedido_id,
           pago.tipo_pago,
           pago.monto_cor_cents,
           pago.monto_usd_cents
         );
+        if (excedente_cor_cents > 0) {
+          notaExcedente = ` (excedente de C$${(excedente_cor_cents / 100).toFixed(2)} a favor del cliente)`;
+        }
       }
 
       EventosRepo.registrarEvento({
@@ -143,7 +156,7 @@ export class PagosRepo {
         tipo_evento: 'PAGO_VERIFICADO',
         valor_anterior: { verificado: pago.verificado },
         valor_nuevo: { verificado },
-        detalle: `Pago #${pago_id} marcado como ${verificado ? 'VERIFICADO' : 'NO VERIFICADO'}`,
+        detalle: `Pago #${pago_id} marcado como ${verificado ? 'VERIFICADO' : 'NO VERIFICADO'}${notaExcedente}`,
       });
     })();
   }
@@ -153,11 +166,12 @@ export class PagosRepo {
     tipo_pago: string,
     monto_cor_cents: number,
     monto_usd_cents: number
-  ): void {
+  ): { excedente_cor_cents: number } {
     const db = getDb();
     const pedido = db.prepare('SELECT * FROM pedidos WHERE id = ?').get(pedido_id) as any;
-    if (!pedido) return;
+    if (!pedido) return { excedente_cor_cents: 0 };
 
+    const excedenteCor = Math.max(0, monto_cor_cents - pedido.saldo_pendiente_cor_cents);
     const nuevoSaldoCor = Math.max(0, pedido.saldo_pendiente_cor_cents - monto_cor_cents);
     const nuevoSaldoUsd = Math.max(0, pedido.saldo_pendiente_usd_cents - monto_usd_cents);
 
@@ -200,6 +214,8 @@ export class PagosRepo {
     }
 
     PedidosRepo.recalcularYPersistirEstadoPedido(pedido_id);
+
+    return { excedente_cor_cents: excedenteCor };
   }
 
   private static mapRowToPago(r: any): Pago {
