@@ -166,7 +166,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             <div className="space-y-3">
               {cuentas.map((c, i) => (
                 <div key={i} className="p-3.5 bg-slate-50 rounded-lg border border-slate-200 space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     <Field label="Banco">
                       <Input
                         value={c.banco}
@@ -198,7 +198,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                       )}
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     <Field label="Número de cuenta">
                       <Input
                         value={c.numero}

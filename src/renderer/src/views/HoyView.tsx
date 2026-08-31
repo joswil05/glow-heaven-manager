@@ -59,7 +59,7 @@ export const HoyView: React.FC<HoyViewProps> = ({
       </div>
 
       {/* Fila de indicadores financieros */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         <StatTile
           label="Anticipos recibidos"
           cor_cents={anticiposRecibidos}
@@ -87,8 +87,8 @@ export const HoyView: React.FC<HoyViewProps> = ({
       </div>
 
       {/* Dos columnas debajo */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 space-y-4">
+      <div className="grid grid-cols-3 gap-4">
+        <div className="col-span-2 space-y-4">
           {/* Necesitan tu decisión */}
           <Card>
             <CardHeader>

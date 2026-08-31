@@ -278,13 +278,13 @@ export const CotizadorView: React.FC<CotizadorViewProps> = ({
       </div>
 
       {activeSubTab === 'nueva' ? (
-        <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="flex-1 overflow-y-auto p-6 grid grid-cols-3 gap-6">
           {/* Columna Izquierda (2 spans): Cliente y Lista de Ítems */}
-          <div className="lg:col-span-2 space-y-4">
+          <div className="col-span-2 space-y-4">
             {/* Selector de Cliente */}
             <Card>
               <CardContent className="p-4 space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+                <div className="flex items-end gap-3">
                   <div className="flex-1">
                     <Field label="Cliente a cotizar">
                       <Select

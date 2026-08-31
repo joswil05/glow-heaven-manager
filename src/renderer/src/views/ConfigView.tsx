@@ -144,7 +144,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-4 gap-6">
         <nav className="space-y-1">
           {SECCIONES.map((s) => (
             <button
@@ -163,7 +163,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
           ))}
         </nav>
 
-        <div className="lg:col-span-3 space-y-4">
+        <div className="col-span-3 space-y-4">
           {seccion === 'tasa_courier' && (
             <Card>
               <CardHeader>
@@ -175,7 +175,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSave} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
                     <Field label="Tasa Oficial (C$ / $1 USD)">
                       <Input
                         value={tasaCambio}
@@ -234,7 +234,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSave} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
                     <Field
                       label="Umbral de Exoneración ($ USD por envío)"
                       hint="El arancel aplica únicamente sobre el monto que exceda este umbral."
@@ -280,7 +280,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
                 </CardHeader>
                 <CardContent>
                   <form onSubmit={handleSave} className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-4">
                       <Field
                         label="Comisión Mínima por Cotización (C$)"
                         hint="Si la suma de comisiones no alcanza este valor, se ajusta al mínimo."
@@ -339,9 +339,9 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
                     {cuentas.map((c, idx) => (
                       <div
                         key={idx}
-                        className="p-3 bg-slate-50 rounded-lg border border-slate-200 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3"
+                        className="p-3 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between gap-3"
                       >
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 flex-1">
+                        <div className="grid grid-cols-4 gap-2 flex-1">
                           <Input
                             value={c.banco}
                             onChange={(e) => handleUpdateCuenta(idx, 'banco', e.target.value)}
@@ -374,7 +374,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
                           size="sm"
                           variant="ghost"
                           onClick={() => handleRemoveCuenta(idx)}
-                          className="text-slate-400 hover:text-danger-500 p-2 shrink-0 self-end md:self-center"
+                          className="text-slate-400 hover:text-danger-500 p-2 shrink-0 self-center"
                           title="Eliminar cuenta"
                           aria-label="Eliminar cuenta"
                         >

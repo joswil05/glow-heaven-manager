@@ -141,7 +141,7 @@ export const ComprasView: React.FC = () => {
   return (
     <div className="flex-1 p-6 overflow-y-auto bg-slate-50 space-y-6 animate-fade-in">
       {/* Encabezado */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex items-center justify-between gap-4">
         <div>
           <h2 className="text-display text-slate-900 tracking-tight flex items-center gap-2.5">
             <ShoppingCart className="w-6 h-6 text-brand-600" />
@@ -158,7 +158,7 @@ export const ComprasView: React.FC = () => {
       </div>
 
       {/* Tarjetas de Resumen */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         <StatTile
           label="Productos para comprar"
           value={totales.cantidad.toString()}
@@ -183,7 +183,7 @@ export const ComprasView: React.FC = () => {
       {pendientes.length > 0 && (
         <Card className="border-brand-200 bg-brand-50/40 shadow-sm">
           <CardHeader className="border-b border-brand-100 bg-white/70">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-slate-900">Listos para agregar a tu lista</span>
@@ -338,7 +338,7 @@ export const ComprasView: React.FC = () => {
                     return (
                       <div
                         key={item.item_id}
-                        className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/70 transition-colors"
+                        className="p-4 flex items-center justify-between gap-4 hover:bg-slate-50/70 transition-colors"
                       >
                         <div className="space-y-1 min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
@@ -385,7 +385,7 @@ export const ComprasView: React.FC = () => {
                           )}
                         </div>
 
-                        <div className="flex items-center gap-6 shrink-0 justify-between sm:justify-end border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100">
+                        <div className="flex items-center gap-6 shrink-0 justify-end">
                           <div className="text-right">
                             <div className="font-semibold text-slate-900 tabular-nums">
                               <Money cor_cents={0} usd_cents={precioItem} primary="USD" />

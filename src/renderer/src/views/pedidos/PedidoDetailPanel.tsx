@@ -44,7 +44,7 @@ export const PedidoDetailPanel: React.FC<PedidoDetailPanelProps> = ({
             {detalle.items.map((item: PedidoItem) => (
               <div
                 key={item.id}
-                className="p-3 bg-slate-50 rounded-md border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                className="p-3 bg-slate-50 rounded-md border border-slate-200 flex items-center justify-between gap-3"
               >
                 <div className="space-y-0.5">
                   <div className="text-body font-medium text-slate-900">
