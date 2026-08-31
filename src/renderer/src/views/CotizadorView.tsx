@@ -187,14 +187,35 @@ export const CotizadorView: React.FC<CotizadorViewProps> = ({
   const handleConvertirDesdeHistorial = async (cotId: number) => {
     const res = await window.api.cotizaciones.convertirAPedido(cotId);
     if (res.success) {
-      showToast({
-        message: `Cotización convertida a Pedido ${res.data.codigo}`,
-        type: 'success',
-      });
+      showUndoToast(
+        `Cotización convertida a Pedido ${res.data.codigo}`,
+        () => loadCotizacionesList(),
+        res.data.evento_grupo_id
+      );
       loadCotizacionesList();
       if (onCotizacionConvertedToPedido) {
         onCotizacionConvertedToPedido(res.data.id);
       }
+    } else {
+      showToast({ message: res.error.message, type: 'error' });
+    }
+  };
+
+  const handleMarcarEnviada = async (cotId: number) => {
+    const res = await window.api.cotizaciones.marcarEnviada(cotId);
+    if (res.success) {
+      showUndoToast('Cotización marcada como enviada', () => loadCotizacionesList(), res.data.evento_grupo_id);
+      loadCotizacionesList();
+    } else {
+      showToast({ message: res.error.message, type: 'error' });
+    }
+  };
+
+  const handleMarcarRechazada = async (cotId: number) => {
+    const res = await window.api.cotizaciones.rechazar(cotId);
+    if (res.success) {
+      showUndoToast('Cotización marcada como rechazada', () => loadCotizacionesList(), res.data.evento_grupo_id);
+      loadCotizacionesList();
     } else {
       showToast({ message: res.error.message, type: 'error' });
     }
@@ -332,6 +353,8 @@ export const CotizadorView: React.FC<CotizadorViewProps> = ({
             cotizaciones={cotizacionesList}
             loading={loadingList}
             onConvertirAPedido={handleConvertirDesdeHistorial}
+            onMarcarEnviada={handleMarcarEnviada}
+            onMarcarRechazada={handleMarcarRechazada}
             onCrearNueva={() => setActiveSubTab('nueva')}
           />
         </div>

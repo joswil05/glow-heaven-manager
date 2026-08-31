@@ -67,11 +67,11 @@ export const api = {
       ipcRenderer.invoke(IPC_CHANNELS.COTIZACIONES_GET_BY_ID, id),
     create: (data: CrearCotizacionInput): Promise<IpcResult<CotizacionCompleta>> =>
       ipcRenderer.invoke(IPC_CHANNELS.COTIZACIONES_CREATE, data),
-    marcarEnviada: (id: number): Promise<IpcResult<void>> =>
+    marcarEnviada: (id: number): Promise<IpcResult<{ evento_grupo_id: string }>> =>
       ipcRenderer.invoke(IPC_CHANNELS.COTIZACIONES_MARCAR_ENVIADA, id),
-    aceptar: (id: number): Promise<IpcResult<void>> =>
+    aceptar: (id: number): Promise<IpcResult<{ evento_grupo_id: string }>> =>
       ipcRenderer.invoke(IPC_CHANNELS.COTIZACIONES_ACEPTAR, id),
-    rechazar: (id: number, motivo?: string): Promise<IpcResult<void>> =>
+    rechazar: (id: number, motivo?: string): Promise<IpcResult<{ evento_grupo_id: string }>> =>
       ipcRenderer.invoke(IPC_CHANNELS.COTIZACIONES_RECHAZAR, { id, motivo }),
     convertirAPedido: (
       cotizacion_id: number,

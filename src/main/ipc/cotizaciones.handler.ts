@@ -57,11 +57,11 @@ export function registerCotizacionesHandlers(): void {
 
   ipcMain.handle(
     IPC_CHANNELS.COTIZACIONES_MARCAR_ENVIADA,
-    async (_, id: number): Promise<IpcResult<void>> => {
+    async (_, id: number): Promise<IpcResult<{ evento_grupo_id: string }>> => {
       try {
         const grupoId = crypto.randomUUID();
         CotizacionesRepo.cambiarEstado(id, 'ENVIADA', grupoId);
-        return { success: true, data: undefined };
+        return { success: true, data: { evento_grupo_id: grupoId } };
       } catch (error) {
         return { success: false, error: formatErrorMessage(error) };
       }
@@ -70,11 +70,11 @@ export function registerCotizacionesHandlers(): void {
 
   ipcMain.handle(
     IPC_CHANNELS.COTIZACIONES_ACEPTAR,
-    async (_, id: number): Promise<IpcResult<void>> => {
+    async (_, id: number): Promise<IpcResult<{ evento_grupo_id: string }>> => {
       try {
         const grupoId = crypto.randomUUID();
         CotizacionesRepo.cambiarEstado(id, 'ACEPTADA', grupoId);
-        return { success: true, data: undefined };
+        return { success: true, data: { evento_grupo_id: grupoId } };
       } catch (error) {
         return { success: false, error: formatErrorMessage(error) };
       }
@@ -83,11 +83,11 @@ export function registerCotizacionesHandlers(): void {
 
   ipcMain.handle(
     IPC_CHANNELS.COTIZACIONES_RECHAZAR,
-    async (_, { id }: { id: number; motivo?: string }): Promise<IpcResult<void>> => {
+    async (_, { id }: { id: number; motivo?: string }): Promise<IpcResult<{ evento_grupo_id: string }>> => {
       try {
         const grupoId = crypto.randomUUID();
         CotizacionesRepo.cambiarEstado(id, 'RECHAZADA', grupoId);
-        return { success: true, data: undefined };
+        return { success: true, data: { evento_grupo_id: grupoId } };
       } catch (error) {
         return { success: false, error: formatErrorMessage(error) };
       }

@@ -259,17 +259,17 @@ export function setupBrowserMockApi(): void {
         marcarEnviada: async (id: number) => {
           const c = mockCotizaciones.find((x) => x.id === id);
           if (c) c.estado = 'ENVIADA';
-          return ok(undefined);
+          return ok({ evento_grupo_id: 'mock-grupo-id' });
         },
         aceptar: async (id: number) => {
           const c = mockCotizaciones.find((x) => x.id === id);
           if (c) c.estado = 'ACEPTADA';
-          return ok(undefined);
+          return ok({ evento_grupo_id: 'mock-grupo-id' });
         },
         rechazar: async (id: number) => {
           const c = mockCotizaciones.find((x) => x.id === id);
           if (c) c.estado = 'RECHAZADA';
-          return ok(undefined);
+          return ok({ evento_grupo_id: 'mock-grupo-id' });
         },
         convertirAPedido: async (id: number) => {
           const c = mockCotizaciones.find((x) => x.id === id);

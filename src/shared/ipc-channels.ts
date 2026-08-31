@@ -20,7 +20,6 @@ export const IPC_CHANNELS = {
   COTIZACIONES_LIST: 'cotizaciones:list',
   COTIZACIONES_GET_BY_ID: 'cotizaciones:get-by-id',
   COTIZACIONES_CREATE: 'cotizaciones:create',
-  COTIZACIONES_UPDATE: 'cotizaciones:update',
   COTIZACIONES_MARCAR_ENVIADA: 'cotizaciones:marcar-enviada',
   COTIZACIONES_ACEPTAR: 'cotizaciones:aceptar',
   COTIZACIONES_RECHAZAR: 'cotizaciones:rechazar',
