@@ -98,7 +98,7 @@ export const CategoriasSection: React.FC<CategoriasSectionProps> = ({
       setGuardando(true);
       const res = await window.api.categorias.update(cambios);
       if (res.success) {
-        showUndoToast('Tasas de categorías actualizadas', () => onRefresh());
+        showUndoToast('Tasas de categorías actualizadas', () => onRefresh(), res.data.evento_grupo_id);
         onRefresh();
       } else {
         showToast({

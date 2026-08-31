@@ -54,11 +54,11 @@ export function registerParametrosHandlers(): void {
 
   ipcMain.handle(
     IPC_CHANNELS.CATEGORIAS_UPDATE,
-    async (_, input: ActualizarCategoriasInput): Promise<IpcResult<void>> => {
+    async (_, input: ActualizarCategoriasInput): Promise<IpcResult<{ evento_grupo_id: string }>> => {
       try {
         const grupoId = crypto.randomUUID();
         ParametrosRepo.actualizarCategorias(input.cambios, grupoId);
-        return { success: true, data: undefined };
+        return { success: true, data: { evento_grupo_id: grupoId } };
       } catch (error) {
         return { success: false, error: formatErrorMessage(error) };
       }

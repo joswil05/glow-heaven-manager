@@ -90,7 +90,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
           incumplio_anteriormente: incumplio,
         });
         if (res.success) {
-          showUndoToast(`Cliente ${res.data.nombre} actualizado`, () => onRefresh());
+          showUndoToast(`Cliente ${res.data.nombre} actualizado`, () => onRefresh(), res.data.evento_grupo_id);
           onRefresh();
           setModalOpen(false);
         } else {
@@ -106,7 +106,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
           incumplio_anteriormente: incumplio,
         });
         if (res.success) {
-          showUndoToast(`Cliente ${res.data.nombre} creado`, () => onRefresh());
+          showUndoToast(`Cliente ${res.data.nombre} creado`, () => onRefresh(), res.data.evento_grupo_id);
           onRefresh();
           setModalOpen(false);
         } else {

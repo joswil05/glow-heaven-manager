@@ -20,9 +20,9 @@ export function registerSistemaHandlers(): void {
 
   ipcMain.handle(
     IPC_CHANNELS.SISTEMA_DESHACER_ULTIMO_GRUPO,
-    async (): Promise<IpcResult<any>> => {
+    async (_, grupoId?: string): Promise<IpcResult<any>> => {
       try {
-        const data = EventosRepo.deshacerUltimoGrupo();
+        const data = EventosRepo.deshacerUltimoGrupo(grupoId);
         return { success: true, data };
       } catch (error) {
         return { success: false, error: formatErrorMessage(error) };

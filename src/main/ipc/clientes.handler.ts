@@ -44,7 +44,7 @@ export function registerClientesHandlers(): void {
         const data = CrearClienteSchema.parse(rawData);
         const grupoId = crypto.randomUUID();
         const nuevoCliente = ClientesRepo.create(data, grupoId);
-        return { success: true, data: nuevoCliente };
+        return { success: true, data: { ...nuevoCliente, evento_grupo_id: grupoId } };
       } catch (error) {
         return { success: false, error: formatErrorMessage(error) };
       }
@@ -61,7 +61,7 @@ export function registerClientesHandlers(): void {
         const data = ActualizarClienteSchema.parse(rawData);
         const grupoId = crypto.randomUUID();
         const clienteActualizado = ClientesRepo.update(id, data, grupoId);
-        return { success: true, data: clienteActualizado };
+        return { success: true, data: { ...clienteActualizado, evento_grupo_id: grupoId } };
       } catch (error) {
         return { success: false, error: formatErrorMessage(error) };
       }

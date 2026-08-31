@@ -40,7 +40,7 @@ export const api = {
   categorias: {
     list: (): Promise<IpcResult<Categoria[]>> =>
       ipcRenderer.invoke(IPC_CHANNELS.CATEGORIAS_LIST),
-    update: (cambios: CategoriaCambio[]): Promise<IpcResult<void>> =>
+    update: (cambios: CategoriaCambio[]): Promise<IpcResult<{ evento_grupo_id: string }>> =>
       ipcRenderer.invoke(IPC_CHANNELS.CATEGORIAS_UPDATE, { cambios }),
   },
   tiendas: {
@@ -52,9 +52,9 @@ export const api = {
       ipcRenderer.invoke(IPC_CHANNELS.CLIENTES_LIST, { query, activo }),
     getById: (id: number): Promise<IpcResult<ClienteDetalle>> =>
       ipcRenderer.invoke(IPC_CHANNELS.CLIENTES_GET_BY_ID, id),
-    create: (data: CrearClienteInput): Promise<IpcResult<Cliente>> =>
+    create: (data: CrearClienteInput): Promise<IpcResult<Cliente & { evento_grupo_id: string }>> =>
       ipcRenderer.invoke(IPC_CHANNELS.CLIENTES_CREATE, data),
-    update: (id: number, data: ActualizarClienteInput): Promise<IpcResult<Cliente>> =>
+    update: (id: number, data: ActualizarClienteInput): Promise<IpcResult<Cliente & { evento_grupo_id: string }>> =>
       ipcRenderer.invoke(IPC_CHANNELS.CLIENTES_UPDATE, { id, data }),
   },
   cotizaciones: {
@@ -73,7 +73,7 @@ export const api = {
     convertirAPedido: (
       cotizacion_id: number,
       notas?: string
-    ): Promise<IpcResult<PedidoCompleto>> =>
+    ): Promise<IpcResult<PedidoCompleto & { evento_grupo_id: string }>> =>
       ipcRenderer.invoke(IPC_CHANNELS.COTIZACIONES_CONVERTIR_A_PEDIDO, { cotizacion_id, notas }),
   },
   pedidos: {
@@ -88,7 +88,7 @@ export const api = {
       item_id: number,
       nuevo_estado: EstadoItem,
       motivo?: string
-    ): Promise<IpcResult<void>> =>
+    ): Promise<IpcResult<{ evento_grupo_id: string }>> =>
       ipcRenderer.invoke(IPC_CHANNELS.PEDIDOS_CAMBIAR_ESTADO_ITEM, {
         item_id,
         nuevo_estado,
@@ -96,9 +96,9 @@ export const api = {
       }),
   },
   pagos: {
-    create: (data: CrearPagoInput): Promise<IpcResult<Pago>> =>
+    create: (data: CrearPagoInput): Promise<IpcResult<Pago & { evento_grupo_id: string }>> =>
       ipcRenderer.invoke(IPC_CHANNELS.PAGOS_CREATE, data),
-    verificar: (pago_id: number, verificado: boolean): Promise<IpcResult<void>> =>
+    verificar: (pago_id: number, verificado: boolean): Promise<IpcResult<{ evento_grupo_id: string }>> =>
       ipcRenderer.invoke(IPC_CHANNELS.PAGOS_VERIFICAR, { pago_id, verificado }),
     listByPedido: (pedido_id: number): Promise<IpcResult<Pago[]>> =>
       ipcRenderer.invoke(IPC_CHANNELS.PAGOS_LIST_BY_PEDIDO, pedido_id),
@@ -122,8 +122,10 @@ export const api = {
       destinoPath?: string
     ): Promise<IpcResult<{ ruta_backup: string; timestamp: string }>> =>
       ipcRenderer.invoke(IPC_CHANNELS.SISTEMA_CREAR_BACKUP, { destinoPath }),
-    deshacerUltimoGrupo: (): Promise<IpcResult<{ revertido: boolean; descripcion: string }>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.SISTEMA_DESHACER_ULTIMO_GRUPO),
+    deshacerUltimoGrupo: (
+      grupoId?: string
+    ): Promise<IpcResult<{ revertido: boolean; descripcion: string }>> =>
+      ipcRenderer.invoke(IPC_CHANNELS.SISTEMA_DESHACER_ULTIMO_GRUPO, grupoId),
     abrirWhatsApp: (telefono: string, mensaje: string): Promise<IpcResult<void>> =>
       ipcRenderer.invoke(IPC_CHANNELS.SISTEMA_ABRIR_WHATSAPP, { telefono, mensaje }),
   },

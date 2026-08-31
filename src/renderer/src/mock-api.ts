@@ -127,7 +127,7 @@ export function setupBrowserMockApi(): void {
             cat.arancel_estimado_bp = cambio.arancel_estimado_bp;
             cat.redondeo_cor_cents = cambio.redondeo_cor_cents;
           }
-          return ok(undefined);
+          return ok({ evento_grupo_id: 'mock-grupo-id' });
         },
       },
       tiendas: {
@@ -159,13 +159,13 @@ export function setupBrowserMockApi(): void {
             activo: true,
           };
           mockClientes.push(nuevo);
-          return ok(nuevo);
+          return ok({ ...nuevo, evento_grupo_id: 'mock-grupo-id' });
         },
         update: async (id: number, data: ActualizarClienteInput) => {
           const idx = mockClientes.findIndex((c) => c.id === id);
           if (idx !== -1) {
             mockClientes[idx] = { ...mockClientes[idx], ...data };
-            return ok(mockClientes[idx]);
+            return ok({ ...mockClientes[idx], evento_grupo_id: 'mock-grupo-id' });
           }
           return err('NOT_FOUND', 'Cliente no encontrado');
         },
@@ -306,7 +306,7 @@ export function setupBrowserMockApi(): void {
             pagos: [],
           };
           mockPedidos.unshift(ped);
-          return ok(ped);
+          return ok({ ...ped, evento_grupo_id: 'mock-grupo-id' });
         },
       },
       pedidos: {
@@ -328,7 +328,7 @@ export function setupBrowserMockApi(): void {
               }
               it.estado = nuevoEstado;
               ped.estado_derivado = nuevoEstado;
-              return ok(undefined);
+              return ok({ evento_grupo_id: 'mock-grupo-id' });
             }
           }
           return err('NOT_FOUND', 'Ítem no encontrado');
@@ -369,7 +369,7 @@ export function setupBrowserMockApi(): void {
               if (it.estado === 'PENDIENTE_ANTICIPO') it.estado = 'ANTICIPO_OK';
             }
           }
-          return ok(nuevoPago);
+          return ok({ ...nuevoPago, evento_grupo_id: 'mock-grupo-id' });
         },
         verificar: async (pagoId: number, verificado: boolean) => {
           const p = mockPagos.find((x) => x.id === pagoId);
@@ -382,7 +382,7 @@ export function setupBrowserMockApi(): void {
               ped.color_semaforo = verificado ? 'VERDE' : 'AMARILLO';
             }
           }
-          return ok(undefined);
+          return ok({ evento_grupo_id: 'mock-grupo-id' });
         },
         listByPedido: async (pedidoId: number) => ok(mockPagos.filter((p) => p.pedido_id === pedidoId)),
       },
@@ -434,7 +434,7 @@ export function setupBrowserMockApi(): void {
               'C:\\Users\\espin\\AppData\\Roaming\\glow-heaven-manager\\backups\\backup_2026-08-27.db',
             timestamp: new Date().toISOString(),
           }),
-        deshacerUltimoGrupo: async () => ok({ revertido: true, descripcion: 'Acción revertida' }),
+        deshacerUltimoGrupo: async (_grupoId?: string) => ok({ revertido: true, descripcion: 'Acción revertida' }),
         abrirWhatsApp: async (telefono: string, mensaje: string) => {
           window.open(
             `https://wa.me/${telefono.replace(/\D/g, '')}?text=${encodeURIComponent(mensaje || '')}`,

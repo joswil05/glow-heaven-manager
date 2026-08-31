@@ -34,7 +34,7 @@ export function registerPagosHandlers(): void {
           });
         }
 
-        return { success: true, data: nuevoPago };
+        return { success: true, data: { ...nuevoPago, evento_grupo_id: grupoId } };
       } catch (error) {
         return { success: false, error: formatErrorMessage(error) };
       }
@@ -46,11 +46,11 @@ export function registerPagosHandlers(): void {
     async (
       _,
       { pago_id, verificado }: { pago_id: number; verificado: boolean }
-    ): Promise<IpcResult<void>> => {
+    ): Promise<IpcResult<{ evento_grupo_id: string }>> => {
       try {
         const grupoId = crypto.randomUUID();
         PagosRepo.verificar(pago_id, verificado, grupoId);
-        return { success: true, data: undefined };
+        return { success: true, data: { evento_grupo_id: grupoId } };
       } catch (error) {
         return { success: false, error: formatErrorMessage(error) };
       }

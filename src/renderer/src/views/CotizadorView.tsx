@@ -167,7 +167,8 @@ export const CotizadorView: React.FC<CotizadorViewProps> = ({
           `Pedido ${resPed.data.codigo} creado a partir de la cotización`,
           () => {
             if (activeSubTab === 'historial') loadCotizacionesList();
-          }
+          },
+          resPed.data.evento_grupo_id
         );
 
         if (onCotizacionConvertedToPedido) {

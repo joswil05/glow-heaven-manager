@@ -106,7 +106,8 @@ export const PagoModal: React.FC<PagoModalProps> = ({
           `Pago de ${moneda === 'COR' ? 'C$' : '$'}${montoFloat.toFixed(2)} registrado (${
             verificado ? 'Verificado' : 'Pendiente'
           })`,
-          () => onPaymentSuccess()
+          () => onPaymentSuccess(),
+          res.data.evento_grupo_id
         );
         onPaymentSuccess();
         onClose();

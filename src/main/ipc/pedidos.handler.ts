@@ -41,7 +41,7 @@ export function registerPedidosHandlers(): void {
 
   ipcMain.handle(
     IPC_CHANNELS.PEDIDOS_CAMBIAR_ESTADO_ITEM,
-    async (_, input: CambiarEstadoItemInput): Promise<IpcResult<void>> => {
+    async (_, input: CambiarEstadoItemInput): Promise<IpcResult<{ evento_grupo_id: string }>> => {
       try {
         const grupoId = crypto.randomUUID();
         PedidosRepo.cambiarEstadoItem(
@@ -50,7 +50,7 @@ export function registerPedidosHandlers(): void {
           grupoId,
           input.motivo
         );
-        return { success: true, data: undefined };
+        return { success: true, data: { evento_grupo_id: grupoId } };
       } catch (error) {
         return { success: false, error: formatErrorMessage(error) };
       }

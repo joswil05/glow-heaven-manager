@@ -642,4 +642,56 @@ describe('Prueba de Humo Integral - Fase 1 (Cotizar y Cobrar)', () => {
     EventosRepo.deshacerUltimoGrupo();
     expect(PedidosRepo.getById(pedido.id)!.saldo_pendiente_cor_cents).toBe(saldoInicial);
   });
+
+  it('deshacer con grupo especifico revierte ESE grupo y no el mas reciente', () => {
+    const cliente = ClientesRepo.create(
+      { nombre: 'Cliente Dos Grupos', telefono: '8888-6666', ciudad: 'León' },
+      crypto.randomUUID()
+    );
+    const cotizacion = CotizacionesRepo.create(
+      {
+        cliente_id: cliente.id,
+        anticipo_bp: 5000,
+        items: [{ descripcion: 'Producto A', precio_usa_usd_cents: 1000, peso_mlb: 500 }],
+      },
+      crypto.randomUUID()
+    );
+    const pedido = CotizacionesRepo.convertirAPedido(cotizacion.id, crypto.randomUUID());
+
+    const grupoViejo = crypto.randomUUID();
+    const pagoViejo = PagosRepo.create(
+      {
+        pedido_id: pedido.id,
+        monto_cents: 10000,
+        moneda_pago: 'COR',
+        metodo_pago: 'EFECTIVO',
+        verificado: true,
+        tipo_pago: 'SALDO',
+      },
+      grupoViejo
+    );
+
+    const grupoNuevo = crypto.randomUUID();
+    const pagoNuevo = PagosRepo.create(
+      {
+        pedido_id: pedido.id,
+        monto_cents: 20000,
+        moneda_pago: 'COR',
+        metodo_pago: 'EFECTIVO',
+        verificado: true,
+        tipo_pago: 'SALDO',
+      },
+      grupoNuevo
+    );
+
+    // Revertir explicitamente el grupo viejo
+    const res = EventosRepo.deshacerUltimoGrupo(grupoViejo);
+    expect(res.revertido).toBe(true);
+
+    // El pago viejo debe estar inactivo, el nuevo sigue activo
+    const pV = db.prepare('SELECT activo FROM pagos WHERE id = ?').get(pagoViejo.id) as { activo: number };
+    const pN = db.prepare('SELECT activo FROM pagos WHERE id = ?').get(pagoNuevo.id) as { activo: number };
+    expect(pV.activo).toBe(0);
+    expect(pN.activo).toBe(1);
+  });
 });

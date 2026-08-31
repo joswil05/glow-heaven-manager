@@ -107,7 +107,7 @@ export function registerCotizacionesHandlers(): void {
           grupoId,
           notas
         );
-        return { success: true, data: nuevoPedido };
+        return { success: true, data: { ...nuevoPedido, evento_grupo_id: grupoId } };
       } catch (error) {
         return { success: false, error: formatErrorMessage(error) };
       }

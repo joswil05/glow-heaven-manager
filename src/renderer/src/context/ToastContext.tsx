@@ -17,7 +17,7 @@ interface ToastItem extends ToastOptions {
 
 interface ToastContextType {
   showToast: (options: ToastOptions) => void;
-  showUndoToast: (message: string, onUndoSuccess?: () => void) => void;
+  showUndoToast: (message: string, onUndoSuccess?: () => void, grupoId?: string) => void;
 }
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
@@ -50,14 +50,14 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   );
 
   const showUndoToast = useCallback(
-    (message: string, onUndoSuccess?: () => void) => {
+    (message: string, onUndoSuccess?: () => void, grupoId?: string) => {
       const id = Math.random().toString(36).substring(2, 9);
       const duration = 10000; // 10 segundos
 
       const handleUndo = async () => {
         removeToast(id);
         try {
-          const res = await window.api.sistema.deshacerUltimoGrupo();
+          const res = await window.api.sistema.deshacerUltimoGrupo(grupoId);
           if (res.success && res.data.revertido) {
             showToast({
               message: `Deshecho: ${res.data.descripcion}`,

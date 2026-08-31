@@ -109,10 +109,14 @@ export const PedidosView: React.FC<PedidosViewProps> = ({
     try {
       const res = await window.api.pedidos.cambiarEstadoItem(itemId, nuevoEstado, motivo);
       if (res.success) {
-        showUndoToast(`Estado del producto cambiado a ${nuevoEstado}`, () => {
-          onRefresh();
-          recargarDetalle();
-        });
+        showUndoToast(
+          `Estado del producto cambiado a ${nuevoEstado}`,
+          () => {
+            onRefresh();
+            recargarDetalle();
+          },
+          res.data.evento_grupo_id
+        );
         onRefresh();
         recargarDetalle();
       } else {
@@ -129,7 +133,7 @@ export const PedidosView: React.FC<PedidosViewProps> = ({
       showToast({ message: res.error.message, type: 'error' });
       return;
     }
-    showUndoToast('Pago marcado como verificado', () => onRefresh());
+    showUndoToast('Pago marcado como verificado', () => onRefresh(), res.data.evento_grupo_id);
     onRefresh();
     recargarDetalle();
   };
