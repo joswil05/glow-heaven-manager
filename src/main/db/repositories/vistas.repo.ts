@@ -2,6 +2,7 @@ import { getDb } from '../database';
 import type {
   AlertaRow,
   CapitalLibreData,
+  ItemListaCompraRow,
 } from '../../../shared/types';
 import type { HoyViewData } from '../../../shared/ipc-contracts';
 import { ParametrosRepo } from './parametros.repo';
@@ -99,5 +100,34 @@ export class VistasRepo {
     } catch {
       return [];
     }
+  }
+
+  static getListaComprasUsa(): ItemListaCompraRow[] {
+    const db = getDb();
+    return db.prepare('SELECT * FROM v_lista_compras_usa').all() as ItemListaCompraRow[];
+  }
+
+  static getPendientesDeLista(): ItemListaCompraRow[] {
+    const db = getDb();
+    return db
+      .prepare(`
+        SELECT
+          pi.id AS item_id, ped.id AS pedido_id, ped.codigo AS pedido_codigo,
+          c.nombre AS cliente_nombre, t.nombre AS tienda_nombre,
+          cat.nombre AS categoria_nombre, pi.descripcion, pi.url,
+          pi.precio_usa_usd_cents, pi.tax_usa_usd_cents, pi.peso_mlb,
+          pi.prioridad, pi.notas_tolerancia, pi.estado AS item_estado
+        FROM pedido_items pi
+        JOIN pedidos ped ON pi.pedido_id = ped.id
+        JOIN clientes c ON ped.cliente_id = c.id
+        LEFT JOIN tiendas t ON pi.tienda_id = t.id
+        LEFT JOIN categorias cat ON pi.categoria_id = cat.id
+        WHERE pi.activo = 1
+          AND ped.activo = 1
+          AND ped.anticipo_verificado = 1
+          AND pi.estado = 'ANTICIPO_OK'
+        ORDER BY ped.fecha ASC, pi.id ASC
+      `)
+      .all() as ItemListaCompraRow[];
   }
 }

@@ -40,4 +40,22 @@ export function registerVistasHandlers(): void {
       return { success: false, error: formatErrorMessage(error) };
     }
   });
+
+  ipcMain.handle(IPC_CHANNELS.VISTAS_GET_LISTA_COMPRAS, async (): Promise<IpcResult<any>> => {
+    try {
+      const data = VistasRepo.getListaComprasUsa();
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: formatErrorMessage(error) };
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.VISTAS_GET_PENDIENTES_LISTA, async (): Promise<IpcResult<any>> => {
+    try {
+      const data = VistasRepo.getPendientesDeLista();
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: formatErrorMessage(error) };
+    }
+  });
 }

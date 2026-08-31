@@ -10,6 +10,7 @@ import type {
   MetodoPago,
   AlertaRow,
   CapitalLibreData,
+  ItemListaCompraRow,
 } from '../../shared/types';
 import type {
   GuardarParametrosInicialesInput,
@@ -432,6 +433,62 @@ export function setupBrowserMockApi(): void {
           return ok(cap);
         },
         getSemaforo: async () => ok([]),
+        getListaComprasUsa: async () => {
+          const items: ItemListaCompraRow[] = [];
+          for (const ped of mockPedidos) {
+            if (ped.anticipo_verificado) {
+              for (const it of ped.items) {
+                if (it.estado === 'EN_LISTA_USA') {
+                  items.push({
+                    item_id: it.id,
+                    pedido_id: ped.id,
+                    pedido_codigo: ped.codigo,
+                    cliente_nombre: ped.cliente?.nombre || 'Cliente',
+                    tienda_nombre: 'Amazon',
+                    categoria_nombre: 'General',
+                    descripcion: it.descripcion,
+                    url: it.url || null,
+                    precio_usa_usd_cents: it.precio_usa_usd_cents,
+                    tax_usa_usd_cents: it.tax_usa_usd_cents,
+                    peso_mlb: it.peso_mlb,
+                    prioridad: it.prioridad || 1,
+                    notas_tolerancia: null,
+                    item_estado: it.estado,
+                  });
+                }
+              }
+            }
+          }
+          return ok(items);
+        },
+        getPendientesDeLista: async () => {
+          const items: ItemListaCompraRow[] = [];
+          for (const ped of mockPedidos) {
+            if (ped.anticipo_verificado) {
+              for (const it of ped.items) {
+                if (it.estado === 'ANTICIPO_OK') {
+                  items.push({
+                    item_id: it.id,
+                    pedido_id: ped.id,
+                    pedido_codigo: ped.codigo,
+                    cliente_nombre: ped.cliente?.nombre || 'Cliente',
+                    tienda_nombre: 'Amazon',
+                    categoria_nombre: 'General',
+                    descripcion: it.descripcion,
+                    url: it.url || null,
+                    precio_usa_usd_cents: it.precio_usa_usd_cents,
+                    tax_usa_usd_cents: it.tax_usa_usd_cents,
+                    peso_mlb: it.peso_mlb,
+                    prioridad: it.prioridad || 1,
+                    notas_tolerancia: null,
+                    item_estado: it.estado,
+                  });
+                }
+              }
+            }
+          }
+          return ok(items);
+        },
       },
       sistema: {
         crearBackup: async () =>

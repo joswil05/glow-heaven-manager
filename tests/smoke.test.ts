@@ -752,4 +752,59 @@ describe('Prueba de Humo Integral - Fase 1 (Cotizar y Cobrar)', () => {
     expect(revertido.tasa_cambio_oficial_cents).toBe(antes.tasa_cambio_oficial_cents);
     expect(revertido.tarifa_flete_cents_lb).toBe(antes.tarifa_flete_cents_lb);
   });
+
+  it('la lista de compras en USA muestra items con anticipo verificado en EN_LISTA_USA y no pedidos sin anticipo', () => {
+    const cliente = ClientesRepo.create(
+      { nombre: 'Cliente Lista Compras', telefono: '8888-8888', ciudad: 'León' },
+      crypto.randomUUID()
+    );
+    const cotizacion = CotizacionesRepo.create(
+      {
+        cliente_id: cliente.id,
+        anticipo_bp: 5000,
+        items: [
+          { descripcion: 'Perfume Dior', precio_usa_usd_cents: 10000, peso_mlb: 1000 },
+          { descripcion: 'Crema Facial', precio_usa_usd_cents: 5000, peso_mlb: 500 },
+        ],
+      },
+      crypto.randomUUID()
+    );
+    const pedido = CotizacionesRepo.convertirAPedido(cotizacion.id, crypto.randomUUID());
+    const items = PedidosRepo.getById(pedido.id)!.items;
+
+    // Inicialmente no hay nada en lista ni en pendientes
+    expect(VistasRepo.getListaComprasUsa().length).toBe(0);
+    expect(VistasRepo.getPendientesDeLista().length).toBe(0);
+
+    // Pagar y verificar anticipo
+    PagosRepo.create(
+      {
+        pedido_id: pedido.id,
+        monto_cents: pedido.anticipo_esperado_cor_cents,
+        moneda_pago: 'COR',
+        metodo_pago: 'TRANSFERENCIA_BAC',
+        verificado: true,
+        tipo_pago: 'ANTICIPO',
+      },
+      crypto.randomUUID()
+    );
+
+    // Ahora ambos ítems están en ANTICIPO_OK -> aparecen en getPendientesDeLista
+    const pendientes = VistasRepo.getPendientesDeLista();
+    expect(pendientes.length).toBe(2);
+    expect(VistasRepo.getListaComprasUsa().length).toBe(0);
+
+    // Mover un ítem a EN_LISTA_USA
+    PedidosRepo.cambiarEstadoItem(items[0].id, 'EN_LISTA_USA', crypto.randomUUID());
+
+    // Ahora items[0] está en getListaComprasUsa, items[1] sigue en pendientes
+    const enLista = VistasRepo.getListaComprasUsa();
+    expect(enLista.length).toBe(1);
+    expect(enLista[0].item_id).toBe(items[0].id);
+    expect(enLista[0].descripcion).toBe('Perfume Dior');
+
+    const pendientesRestantes = VistasRepo.getPendientesDeLista();
+    expect(pendientesRestantes.length).toBe(1);
+    expect(pendientesRestantes[0].item_id).toBe(items[1].id);
+  });
 });

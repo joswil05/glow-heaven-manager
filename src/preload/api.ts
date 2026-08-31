@@ -26,6 +26,7 @@ import type {
   CapitalLibreData,
   EstadoCotizacion,
   EstadoItem,
+  ItemListaCompraRow,
 } from '../shared/types';
 
 export const api = {
@@ -114,6 +115,10 @@ export const api = {
       ipcRenderer.invoke(IPC_CHANNELS.VISTAS_GET_CAPITAL_LIBRE),
     getSemaforo: (): Promise<IpcResult<any[]>> =>
       ipcRenderer.invoke(IPC_CHANNELS.VISTAS_GET_SEMAFORO),
+    getListaComprasUsa: (): Promise<IpcResult<ItemListaCompraRow[]>> =>
+      ipcRenderer.invoke(IPC_CHANNELS.VISTAS_GET_LISTA_COMPRAS),
+    getPendientesDeLista: (): Promise<IpcResult<ItemListaCompraRow[]>> =>
+      ipcRenderer.invoke(IPC_CHANNELS.VISTAS_GET_PENDIENTES_LISTA),
   },
   adjuntos: {
     guardarBuffer: (input: GuardarBufferInput): Promise<IpcResult<{ id: number; ruta_archivo: string }>> =>

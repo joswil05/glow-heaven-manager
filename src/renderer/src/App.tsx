@@ -5,6 +5,7 @@ import { CommandPalette } from './components/CommandPalette';
 import { OnboardingModal } from './components/OnboardingModal';
 import { HoyView } from './views/HoyView';
 import { CotizadorView } from './views/CotizadorView';
+import { ComprasView } from './views/ComprasView';
 import { PedidosView } from './views/PedidosView';
 import { ClientesView } from './views/ClientesView';
 import { ConfigView } from './views/ConfigView';
@@ -170,6 +171,10 @@ export const App: React.FC = () => {
                 setActiveTab('pedidos');
               }}
             />
+          )}
+
+          {activeTab === 'compras' && (
+            <ComprasView />
           )}
 
           {activeTab === 'pedidos' && (

@@ -41,6 +41,8 @@ export const IPC_CHANNELS = {
   VISTAS_GET_ALERTAS: 'vistas:get-alertas',
   VISTAS_GET_CAPITAL_LIBRE: 'vistas:get-capital-libre',
   VISTAS_GET_SEMAFORO: 'vistas:get-semaforo',
+  VISTAS_GET_LISTA_COMPRAS: 'vistas:get-lista-compras',
+  VISTAS_GET_PENDIENTES_LISTA: 'vistas:get-pendientes-lista',
 
   // Adjuntos
   ADJUNTOS_GUARDAR_BUFFER: 'adjuntos:guardar-buffer',

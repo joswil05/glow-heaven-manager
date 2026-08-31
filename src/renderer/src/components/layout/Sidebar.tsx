@@ -2,6 +2,7 @@ import React from 'react';
 import {
   CalendarDays,
   Calculator,
+  ShoppingCart,
   ShoppingBag,
   Users,
   Settings,
@@ -9,7 +10,7 @@ import {
 import { Badge } from '../ui';
 import { cn } from '../../lib/cn';
 
-export type NavTab = 'hoy' | 'cotizador' | 'pedidos' | 'clientes' | 'config';
+export type NavTab = 'hoy' | 'cotizador' | 'compras' | 'pedidos' | 'clientes' | 'config';
 
 interface SidebarProps {
   activeTab: NavTab;
@@ -37,10 +38,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
       description: 'Calcular y cotizar',
     },
     {
+      id: 'compras' as NavTab,
+      label: 'Compras USA',
+      icon: ShoppingCart,
+      description: 'Lista por tienda',
+    },
+    {
       id: 'pedidos' as NavTab,
       label: 'Pedidos',
       icon: ShoppingBag,
-      description: 'Semáforo y compras',
+      description: 'Semáforo y seguimiento',
     },
     {
       id: 'clientes' as NavTab,

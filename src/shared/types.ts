@@ -265,3 +265,20 @@ export interface CapitalLibreData {
   total_por_cobrar_cor_cents: number;
   saldo_inicial_bancos_cor_cents: number;
 }
+
+export interface ItemListaCompraRow {
+  item_id: number;
+  pedido_id: number;
+  pedido_codigo: string;
+  cliente_nombre: string;
+  tienda_nombre: string | null;
+  categoria_nombre: string | null;
+  descripcion: string;
+  url: string | null;
+  precio_usa_usd_cents: number;
+  tax_usa_usd_cents: number;
+  peso_mlb: number;
+  prioridad: number;
+  notas_tolerancia: string | null;
+  item_estado: EstadoItem;
+}

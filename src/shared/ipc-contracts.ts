@@ -1,7 +1,10 @@
 import type {
   AlertaRow,
   EstadoItem,
+  ItemListaCompraRow,
 } from './types';
+
+export type { ItemListaCompraRow };
 
 export type IpcResult<T> =
   | { success: true; data: T }
