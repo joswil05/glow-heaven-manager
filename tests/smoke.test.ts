@@ -723,4 +723,33 @@ describe('Prueba de Humo Integral - Fase 1 (Cotizar y Cobrar)', () => {
     const nuevoPedido = CotizacionesRepo.convertirAPedido(cotizacion.id, crypto.randomUUID());
     expect(nuevoPedido.id).toBeGreaterThan(pedido.id);
   });
+
+  it('guardar la configuracion completa aplica parametros en una sola transaccion y permite deshacer', () => {
+    const grupoId = crypto.randomUUID();
+    const antes = ParametrosRepo.getParametros();
+
+    ParametrosRepo.updateParametros(
+      {
+        tasa_cambio_oficial_cents: '3700',
+        tarifa_flete_cents_lb: '700',
+      },
+      grupoId
+    );
+
+    const despues = ParametrosRepo.getParametros();
+    expect(despues.tasa_cambio_oficial_cents).toBe(3700);
+    expect(despues.tarifa_flete_cents_lb).toBe(700);
+
+    // Un solo evento de auditoria
+    const eventos = db
+      .prepare("SELECT * FROM eventos WHERE entidad_tipo = 'PARAMETRO' AND evento_grupo_id = ?")
+      .all(grupoId);
+    expect(eventos.length).toBe(1);
+
+    // Deshacer devuelve ambos parámetros
+    EventosRepo.deshacerUltimoGrupo(grupoId);
+    const revertido = ParametrosRepo.getParametros();
+    expect(revertido.tasa_cambio_oficial_cents).toBe(antes.tasa_cambio_oficial_cents);
+    expect(revertido.tarifa_flete_cents_lb).toBe(antes.tarifa_flete_cents_lb);
+  });
 });

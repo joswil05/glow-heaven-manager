@@ -34,6 +34,8 @@ export const api = {
       ipcRenderer.invoke(IPC_CHANNELS.PARAMETROS_GET),
     update: (clave: string, valor: string): Promise<IpcResult<void>> =>
       ipcRenderer.invoke(IPC_CHANNELS.PARAMETROS_UPDATE, { clave, valor }),
+    updateMany: (valores: Record<string, string>): Promise<IpcResult<{ evento_grupo_id: string }>> =>
+      ipcRenderer.invoke(IPC_CHANNELS.PARAMETROS_UPDATE_MANY, { valores }),
     guardarIniciales: (input: GuardarParametrosInicialesInput): Promise<IpcResult<void>> =>
       ipcRenderer.invoke(IPC_CHANNELS.PARAMETROS_GUARDAR_INICIALES, input),
   },

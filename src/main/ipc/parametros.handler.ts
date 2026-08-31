@@ -6,6 +6,7 @@ import {
   IpcResult,
   GuardarParametrosInicialesInput,
   ActualizarCategoriasInput,
+  ActualizarParametrosInput,
 } from '../../shared/ipc-contracts';
 import { formatErrorMessage } from '../../shared/errors';
 
@@ -25,6 +26,19 @@ export function registerParametrosHandlers(): void {
       try {
         ParametrosRepo.updateParametro(clave, valor);
         return { success: true, data: undefined };
+      } catch (error) {
+        return { success: false, error: formatErrorMessage(error) };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.PARAMETROS_UPDATE_MANY,
+    async (_, input: ActualizarParametrosInput): Promise<IpcResult<{ evento_grupo_id: string }>> => {
+      try {
+        const grupoId = crypto.randomUUID();
+        ParametrosRepo.updateParametros(input.valores, grupoId);
+        return { success: true, data: { evento_grupo_id: grupoId } };
       } catch (error) {
         return { success: false, error: formatErrorMessage(error) };
       }

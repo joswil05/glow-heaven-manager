@@ -2,6 +2,7 @@ export const IPC_CHANNELS = {
   // Parámetros
   PARAMETROS_GET: 'parametros:get',
   PARAMETROS_UPDATE: 'parametros:update',
+  PARAMETROS_UPDATE_MANY: 'parametros:update-many',
   PARAMETROS_GUARDAR_INICIALES: 'parametros:guardar-iniciales',
 
   // Categorías y Tiendas

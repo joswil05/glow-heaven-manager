@@ -27,6 +27,10 @@ export interface GuardarParametrosInicialesInput {
   telefono_usuario?: string;
 }
 
+export interface ActualizarParametrosInput {
+  valores: Record<string, string>;
+}
+
 export interface CategoriaCambio {
   id: number;
   comision_defecto_bp: number;

@@ -100,6 +100,12 @@ export function setupBrowserMockApi(): void {
           (mockParametros as any)[clave] = valor;
           return ok(undefined);
         },
+        updateMany: async (valores: Record<string, string>) => {
+          for (const [clave, valor] of Object.entries(valores)) {
+            (mockParametros as any)[clave] = valor;
+          }
+          return ok({ evento_grupo_id: 'mock-grupo-id' });
+        },
         guardarIniciales: async (input: GuardarParametrosInicialesInput) => {
           mockParametros.cuentas_bancarias = input.cuentas_bancarias as any;
           mockParametros.tarifa_flete_cents_lb = Math.round(input.tarifa_flete_usd * 100);

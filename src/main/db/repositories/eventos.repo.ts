@@ -175,6 +175,16 @@ export class EventosRepo {
               PedidosRepo.recalcularYPersistirEstadoPedido(pago.pedido_id);
             }
           }
+        } else if (ev.entidad_tipo === 'PARAMETRO') {
+          if (anterior) {
+            for (const [clave, valor] of Object.entries(anterior as Record<string, string>)) {
+              db.prepare(`
+                UPDATE parametros SET valor = ?, actualizado_en = CURRENT_TIMESTAMP
+                WHERE clave = ?
+              `).run(valor, clave);
+            }
+            seRevirtioAlgo = true;
+          }
         }
       }
 

@@ -71,6 +71,40 @@ export class ParametrosRepo {
     `).run(clave, valor);
   }
 
+  static updateParametros(
+    valores: Record<string, string>,
+    evento_grupo_id: string
+  ): void {
+    const db = getDb();
+    db.transaction(() => {
+      const leer = db.prepare('SELECT clave, valor FROM parametros WHERE clave = ?');
+      const anteriores: Record<string, string> = {};
+
+      for (const clave of Object.keys(valores)) {
+        const fila = leer.get(clave) as { valor: string } | undefined;
+        anteriores[clave] = fila?.valor ?? '';
+      }
+
+      for (const [clave, valor] of Object.entries(valores)) {
+        ParametrosRepo.updateParametro(clave, valor);
+      }
+
+      // Un solo evento para todo el lote: deshacer revierte la pantalla
+      // entera, no un parametro suelto. Se guardan solo las claves que
+      // cambiaron, con su valor crudo anterior, para que revertir sea
+      // un bucle de updateParametro.
+      EventosRepo.registrarEvento({
+        evento_grupo_id,
+        entidad_tipo: 'PARAMETRO',
+        entidad_id: 0,
+        tipo_evento: 'ACTUALIZACION',
+        valor_anterior: anteriores,
+        valor_nuevo: valores,
+        detalle: `Configuración actualizada (${Object.keys(valores).length} parámetros)`,
+      });
+    })();
+  }
+
   static guardarParametrosIniciales(input: GuardarParametrosInicialesInput): void {
     const db = getDb();
     db.transaction(() => {

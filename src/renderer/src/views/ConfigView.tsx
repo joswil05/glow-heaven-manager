@@ -119,19 +119,12 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
       }
       valores['cuentas_bancarias'] = JSON.stringify(cuentas);
 
-      await Promise.all([
-        window.api.parametros.update('tasa_cambio_oficial_cents', valores['tasa_cambio_oficial_cents']),
-        window.api.parametros.update('tarifa_flete_cents_lb', valores['tarifa_flete_cents_lb']),
-        window.api.parametros.update('flete_minimo_usd_cents', valores['flete_minimo_usd_cents']),
-        window.api.parametros.update('otros_costos_fijos_usd_cents', valores['otros_costos_fijos_usd_cents']),
-        window.api.parametros.update('umbral_arancel_excedente_usd_cents', valores['umbral_arancel_excedente_usd_cents']),
-        window.api.parametros.update('arancel_default_bp', valores['arancel_default_bp']),
-        window.api.parametros.update('comision_minima_cotizacion_cor_cents', valores['comision_minima_cotizacion_cor_cents']),
-        window.api.parametros.update('anticipo_default_bp', valores['anticipo_default_bp']),
-        window.api.parametros.update('cuentas_bancarias', valores['cuentas_bancarias']),
-      ]);
-
-      showUndoToast('Parámetros de configuración actualizados correctamente', () => onRefresh());
+      const res = await window.api.parametros.updateMany(valores);
+      if (!res.success) {
+        showToast({ message: res.error.message, type: 'error' });
+        return;
+      }
+      showUndoToast('Parámetros de configuración actualizados correctamente', () => onRefresh(), res.data.evento_grupo_id);
       onRefresh();
     } catch {
       showToast({ message: 'Error al guardar la configuración', type: 'error' });
