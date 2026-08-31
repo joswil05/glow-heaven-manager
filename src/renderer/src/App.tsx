@@ -177,7 +177,7 @@ export const App: React.FC = () => {
               pedidos={pedidos}
               loading={loading}
               onRefresh={loadData}
-              selectedPedidoId={selectedPedidoId}
+              initialPedidoId={selectedPedidoId}
             />
           )}
 
