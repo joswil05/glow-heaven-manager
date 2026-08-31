@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { CheckCircle2, AlertCircle, Info, RotateCcw, X } from 'lucide-react';
 import { Button } from '../components/ui';
 
@@ -24,8 +24,14 @@ const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
 export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const intervalos = useRef(new Map<string, ReturnType<typeof setInterval>>());
 
   const removeToast = useCallback((id: string) => {
+    const intervalo = intervalos.current.get(id);
+    if (intervalo) {
+      clearInterval(intervalo);
+      intervalos.current.delete(id);
+    }
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
@@ -98,9 +104,14 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             .filter((t) => t.remainingSeconds > 0)
         );
       }, 1000);
+      intervalos.current.set(id, interval);
 
       setTimeout(() => {
-        clearInterval(interval);
+        const i = intervalos.current.get(id);
+        if (i) {
+          clearInterval(i);
+          intervalos.current.delete(id);
+        }
         removeToast(id);
       }, duration);
     },
@@ -123,8 +134,10 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [toasts]);
 
+  const value = useMemo(() => ({ showToast, showUndoToast }), [showToast, showUndoToast]);
+
   return (
-    <ToastContext.Provider value={{ showToast, showUndoToast }}>
+    <ToastContext.Provider value={value}>
       {children}
       {/* Contenedor de Toasts flotante en la esquina inferior derecha */}
       <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none max-w-md w-full px-4">

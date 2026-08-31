@@ -70,14 +70,18 @@ export const PedidosView: React.FC<PedidosViewProps> = ({
             setPastedBuffer(uint8);
 
             if (selectedPedidoId && pedidoDetalle) {
+              setPastedBuffer(uint8);
               setPagoModalPedido(pedidoDetalle);
-            } else if (pedidos.length > 0) {
-              setPagoModalPedido(pedidos[0]);
+              showToast({
+                message: 'Comprobante detectado. Abriendo registro de pago...',
+                type: 'info',
+              });
+            } else {
+              showToast({
+                message: 'Abrí primero el pedido al que corresponde el comprobante.',
+                type: 'info',
+              });
             }
-            showToast({
-              message: 'Comprobante detectado. Abriendo registro de pago...',
-              type: 'info',
-            });
           }
         }
       }
@@ -85,7 +89,7 @@ export const PedidosView: React.FC<PedidosViewProps> = ({
 
     window.addEventListener('paste', handlePaste);
     return () => window.removeEventListener('paste', handlePaste);
-  }, [selectedPedidoId, pedidoDetalle, pedidos, showToast]);
+  }, [selectedPedidoId, pedidoDetalle, showToast]);
 
   const filteredPedidos = pedidos.filter((p) => {
     if (filter === 'ATENCION') return Boolean(p.requiere_atencion);

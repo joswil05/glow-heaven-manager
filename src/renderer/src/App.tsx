@@ -108,8 +108,11 @@ export const App: React.FC = () => {
     let rojo = 0;
 
     for (const p of pedidos) {
+      const pagadoCorCents = p.total_cor_cents - p.saldo_pendiente_cor_cents;
       if (p.anticipo_verificado) {
         verde++;
+      } else if (pagadoCorCents > 0) {
+        amarillo++;
       } else {
         rojo++;
       }

@@ -3,6 +3,7 @@ import { X, Check, Image as ImageIcon } from 'lucide-react';
 import type { Pedido, MetodoPago, TipoPago } from '../../../shared/types';
 import { useToast } from '../context/ToastContext';
 import { formatearMoneda } from '@core/moneda';
+import { parsearDecimal } from '@core/numeros';
 import { Field, Input, Select, Button } from './ui';
 
 interface PagoModalProps {
@@ -42,12 +43,28 @@ export const PagoModal: React.FC<PagoModalProps> = ({
   const [guardando, setGuardando] = useState(false);
 
   useEffect(() => {
+    if (!previewUrl) return;
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
+
+  useEffect(() => {
     if (initialBuffer) {
       setComprobanteBuffer(initialBuffer);
       const blob = new Blob([new Uint8Array(initialBuffer)], { type: 'image/png' });
       setPreviewUrl(URL.createObjectURL(blob));
     }
   }, [initialBuffer]);
+
+  const handleCambioMoneda = (nueva: 'COR' | 'USD') => {
+    if (nueva === moneda) return;
+    const actual = parsearDecimal(monto);
+    if (actual !== null) {
+      const tasa = pedido.tasa_cambio_cents / 100;
+      const convertido = nueva === 'USD' ? actual / tasa : actual * tasa;
+      setMonto(convertido.toFixed(2));
+    }
+    setMoneda(nueva);
+  };
 
   // Listener para Ctrl+V dentro del modal
   useEffect(() => {
@@ -158,7 +175,7 @@ export const PagoModal: React.FC<PagoModalProps> = ({
             <Field label="Moneda">
               <Select
                 value={moneda}
-                onChange={(e) => setMoneda(e.target.value as 'COR' | 'USD')}
+                onChange={(e) => handleCambioMoneda(e.target.value as 'COR' | 'USD')}
               >
                 <option value="COR">C$ Córdobas</option>
                 <option value="USD">$ Dólares</option>
