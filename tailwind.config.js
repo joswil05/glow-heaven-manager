@@ -65,21 +65,10 @@ export default {
           700: '#b91c1c',
           800: '#991b1b',
         },
-        // Alias temporal: hace que toda la aplicación pase a azul sin tocar
-        // un solo .tsx. Se elimina en la Task 22, cuando ya no quede
-        // ningún consumidor.
-        glow: {
-          50: '#eff6ff',
-          100: '#dbeafe',
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#60a5fa',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8',
-          800: '#1e40af',
-          900: '#1e3a8a',
-        },
+      },
+      borderRadius: {
+        '2xl': '0.75rem',
+        '3xl': '0.75rem',
       },
       fontSize: {
         caption: ['0.6875rem', { lineHeight: '1rem', fontWeight: '400' }],
