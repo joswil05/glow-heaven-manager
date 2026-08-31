@@ -88,8 +88,20 @@ export class EventosRepo {
         } else if (ev.entidad_tipo === 'PEDIDO') {
           if (ev.tipo_evento === 'CREACION') {
             // Si se revierte la conversión de cotización a pedido
-            db.prepare('UPDATE pedidos SET activo = 0 WHERE id = ?').run(ev.entidad_id);
+            db.prepare('UPDATE pedidos SET activo = 0, cotizacion_id = NULL WHERE id = ?').run(ev.entidad_id);
             db.prepare('UPDATE pedido_items SET activo = 0 WHERE pedido_id = ?').run(ev.entidad_id);
+
+            // Devolver la cotizacion a su estado previo. Sin esto queda
+            // en ACEPTADA sin pedido, y la interfaz solo ofrece convertir
+            // desde BORRADOR o ENVIADA: la cotizacion queda sin salida.
+            const nuevo = ev.valor_nuevo ? JSON.parse(ev.valor_nuevo) : null;
+            if (nuevo?.cotizacion_id && anterior?.cotizacion_estado) {
+              db.prepare('UPDATE cotizaciones SET estado = ? WHERE id = ?').run(
+                anterior.cotizacion_estado,
+                nuevo.cotizacion_id
+              );
+            }
+
             seRevirtioAlgo = true;
           } else if (anterior?.anticipo_verificado !== undefined) {
             db.prepare(

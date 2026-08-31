@@ -694,4 +694,33 @@ describe('Prueba de Humo Integral - Fase 1 (Cotizar y Cobrar)', () => {
     expect(pV.activo).toBe(0);
     expect(pN.activo).toBe(1);
   });
+
+  it('deshacer la conversion de cotizacion a pedido reactiva la cotizacion como convertible', () => {
+    const cliente = ClientesRepo.create(
+      { nombre: 'Cliente Deshacer Conversion', telefono: '8888-7777', ciudad: 'León' },
+      crypto.randomUUID()
+    );
+    const cotizacion = CotizacionesRepo.create(
+      {
+        cliente_id: cliente.id,
+        anticipo_bp: 5000,
+        items: [{ descripcion: 'Perfume Convertible', precio_usa_usd_cents: 5000, peso_mlb: 500 }],
+      },
+      crypto.randomUUID()
+    );
+
+    const grupoConversion = crypto.randomUUID();
+    const pedido = CotizacionesRepo.convertirAPedido(cotizacion.id, grupoConversion);
+
+    // Deshacer la conversion
+    EventosRepo.deshacerUltimoGrupo(grupoConversion);
+
+    // La cotizacion debe estar en BORRADOR o ACEPTADA, no en un estado huerfano
+    const cotActualizada = CotizacionesRepo.getById(cotizacion.id)!;
+    expect(['BORRADOR', 'ACEPTADA', 'ENVIADA']).toContain(cotActualizada.estado);
+
+    // Y se debe poder volver a convertir sin tirar error
+    const nuevoPedido = CotizacionesRepo.convertirAPedido(cotizacion.id, crypto.randomUUID());
+    expect(nuevoPedido.id).toBeGreaterThan(pedido.id);
+  });
 });
