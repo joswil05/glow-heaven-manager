@@ -132,7 +132,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
       }}
       className="flex-1 overflow-y-auto animate-fade-in bg-fondo/50 flex flex-col"
     >
-      <div className="p-3 md:p-3.5 max-w-[1600px] w-full mx-auto flex-1 flex flex-col justify-between gap-2.5 min-h-full">
+      <div className="p-3 md:p-3.5 max-w-[1600px] w-full mx-auto flex-1 flex flex-col justify-start gap-2.5">
         {/* Barra superior de bienvenida y accesos directos compacta */}
         <div className="flex items-center justify-between gap-3 pb-0.5 border-b border-borde/40 text-caption text-texto-3 shrink-0 flex-wrap">
           <div className="flex items-center gap-2">
@@ -168,13 +168,13 @@ export const PanelView: React.FC<PanelViewProps> = ({
             </div>
           </div>
         ) : (
-          /* Nivel 1: Cuatro tarjetas de métricas de alta jerarquía compactadas */
+          /* Nivel 1: Cuatro tarjetas de métricas de alta jerarquía prominentes */
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5 shrink-0 stagger-children">
             {/* 1. GANANCIA DE ESTE MES (Métrica estrella) */}
             <StatTile
               label="Ganancia de este mes"
               usd_cents={gananciaActual}
-              size="md"
+              size="lg"
               tone={gananciaActual > 0 ? 'success' : 'neutral'}
               icon={TrendingUp}
               delta={
@@ -193,7 +193,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
             <StatTile
               label="Invertido en bodega"
               usd_cents={inversionTotal}
-              size="md"
+              size="lg"
               tone="purple"
               icon={Boxes}
               hint={`${resumen.unidades_en_inventario} unidad(es) disponibles`}
@@ -204,7 +204,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
             <StatTile
               label="Te deben en la calle"
               usd_cents={resumen.por_cobrar_usd_cents}
-              size="md"
+              size="lg"
               tone={
                 resumen.por_cobrar_usd_cents === 0
                   ? 'neutral'
@@ -225,7 +225,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
             <StatTile
               label="Stock crítico"
               value={data.bajo_stock.length}
-              size="md"
+              size="lg"
               tone={data.bajo_stock.length > 0 ? 'danger' : 'success'}
               icon={PackageX}
               hint={
@@ -276,9 +276,9 @@ export const PanelView: React.FC<PanelViewProps> = ({
             </CardHeader>
             <CardContent className="p-2.5 pt-1 flex-1 flex flex-col justify-center">
               {serie.some((s) => s.valor > 0 || (s.valorSecundario ?? 0) > 0) ? (
-                <LineaCreciente datos={serie} alto={110} />
+                <LineaCreciente datos={serie} alto={145} />
               ) : (
-                <div className="relative h-[110px] rounded-xl overflow-hidden flex items-center justify-between p-4 bg-gradient-to-r from-superficie to-superficie-2/40 border border-dashed border-borde/80">
+                <div className="relative h-[145px] rounded-xl overflow-hidden flex items-center justify-between p-4 bg-gradient-to-r from-superficie to-superficie-2/40 border border-dashed border-borde/80">
                   <div className="relative z-10 flex items-center gap-3">
                     <div className="w-8 h-8 rounded-xl bg-acento-suave text-acento flex items-center justify-center border border-acento/20 shrink-0">
                       <TrendingUp className="w-4 h-4 text-acento" />
@@ -418,10 +418,10 @@ export const PanelView: React.FC<PanelViewProps> = ({
           })()}
         </div>
 
-        {/* Nivel 4: Listas de trabajo operativas que llenan el alto restante armónicamente */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-2.5 flex-1 min-h-0 stagger-children items-stretch">
+        {/* Nivel 4: Listas de trabajo operativas compactas con altura controlada */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-2.5 shrink-0 stagger-children">
           {/* 1. QUIÉN TE DEBE */}
-          <Card className="shadow-2xs flex flex-col h-full">
+          <Card className="shadow-2xs flex flex-col h-[130px]">
             <CardHeader className="px-3.5 py-1.5 shrink-0">
               <SectionHeader
                 icon={Users}
@@ -435,10 +435,10 @@ export const PanelView: React.FC<PanelViewProps> = ({
                 }
               />
             </CardHeader>
-            <CardContent className="p-0 flex-1 flex flex-col">
+            <CardContent className="p-0 flex-1 flex flex-col justify-center overflow-y-auto">
               {data.por_cobrar.length > 0 ? (
-                <ul className="divide-y divide-borde/50 flex-1">
-                  {data.por_cobrar.slice(0, 3).map((p) => (
+                <ul className="divide-y divide-borde/50">
+                  {data.por_cobrar.slice(0, 2).map((p) => (
                     <li key={p.venta_id}>
                       <button
                         onClick={() => onNavegar('ventas', p.venta_id)}
@@ -447,11 +447,11 @@ export const PanelView: React.FC<PanelViewProps> = ({
                           e.stopPropagation();
                           setMenuContextual({ x: e.clientX, y: e.clientY, tipo: 'deudor', item: p });
                         }}
-                        className="w-full text-left px-3.5 py-1.5 hover:bg-superficie-2 transition-all focus-visible:outline-none focus-visible:bg-superficie-2 group"
+                        className="w-full text-left px-3.5 py-1 hover:bg-superficie-2 transition-all focus-visible:outline-none focus-visible:bg-superficie-2 group"
                       >
                         <div className="flex items-center justify-between gap-2.5">
                           <div className="flex items-center gap-2 min-w-0">
-                            <div className="w-6 h-6 rounded-lg bg-superficie-2 text-texto font-bold text-xs flex items-center justify-center border border-borde shrink-0 group-hover:border-acento">
+                            <div className="w-5 h-5 rounded-md bg-superficie-2 text-texto font-bold text-[11px] flex items-center justify-center border border-borde shrink-0 group-hover:border-acento">
                               {p.cliente_nombre.charAt(0).toUpperCase()}
                             </div>
                             <span className="text-body font-semibold text-texto truncate group-hover:text-acento transition-colors">
@@ -461,7 +461,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
                           <Money usd_cents={p.saldo_usd_cents} size="sm" soloUsd className="font-bold text-amber-700" />
                         </div>
 
-                        <div className="flex items-center justify-between gap-2 mt-0.5 pl-8">
+                        <div className="flex items-center justify-between gap-2 mt-0.5 pl-7">
                           <span className="text-caption text-texto-3 font-medium">
                             {p.codigo}
                             {p.cuotas_vencidas > 0 && (
@@ -472,7 +472,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
                           </span>
                         </div>
 
-                        <div className="pl-8 mt-0.5">
+                        <div className="pl-7 mt-0.5">
                           <BarraProgreso
                             actual={p.pagado_usd_cents}
                             total={p.total_usd_cents}
@@ -495,7 +495,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
           </Card>
 
           {/* 2. SE ESTÁ ACABANDO */}
-          <Card className="shadow-2xs flex flex-col h-full">
+          <Card className="shadow-2xs flex flex-col h-[130px]">
             <CardHeader className="px-3.5 py-1.5 shrink-0">
               <SectionHeader
                 icon={PackageX}
@@ -507,11 +507,11 @@ export const PanelView: React.FC<PanelViewProps> = ({
                 }
               />
             </CardHeader>
-            <CardContent className="p-0 flex-1 flex flex-col justify-between">
+            <CardContent className="p-0 flex-1 flex flex-col justify-center overflow-y-auto">
               {data.bajo_stock.length > 0 ? (
                 <>
                   <ul className="divide-y divide-borde/50 flex-1">
-                    {data.bajo_stock.slice(0, 4).map((p) => (
+                    {data.bajo_stock.slice(0, 2).map((p) => (
                       <li key={p.producto_id}>
                         <button
                           onClick={() => onNavegar('inventario', p.producto_id)}
@@ -520,7 +520,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
                             e.stopPropagation();
                             setMenuContextual({ x: e.clientX, y: e.clientY, tipo: 'stock', item: p });
                           }}
-                          className="w-full text-left px-3.5 py-1.5 hover:bg-superficie-2 transition-all focus-visible:outline-none focus-visible:bg-superficie-2 flex items-center justify-between gap-3 group"
+                          className="w-full text-left px-3.5 py-1 hover:bg-superficie-2 transition-all focus-visible:outline-none focus-visible:bg-superficie-2 flex items-center justify-between gap-3 group"
                         >
                           <span className="text-body font-medium text-texto truncate group-hover:text-acento transition-colors">
                             {p.nombre}
@@ -532,7 +532,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
                       </li>
                     ))}
                   </ul>
-                  <div className="mt-auto px-3.5 py-1.5 border-t border-borde/40 bg-superficie-2/20 text-caption text-texto-3 flex items-center gap-1.5">
+                  <div className="mt-auto px-3.5 py-1 border-t border-borde/40 bg-superficie-2/20 text-caption text-texto-3 flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                     <span>Resto del catálogo con existencias saludables</span>
                   </div>
@@ -547,7 +547,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
           </Card>
 
           {/* 3. LO QUE MÁS SE VENDE CON PODIO */}
-          <Card className="shadow-2xs flex flex-col h-full">
+          <Card className="shadow-2xs flex flex-col h-[130px]">
             <CardHeader className="px-3.5 py-1.5 shrink-0">
               <SectionHeader
                 icon={Flame}
@@ -555,10 +555,10 @@ export const PanelView: React.FC<PanelViewProps> = ({
                 description="Top rotación (90 días)"
               />
             </CardHeader>
-            <CardContent className="p-0 flex-1 flex flex-col justify-between">
+            <CardContent className="p-0 flex-1 flex flex-col justify-center overflow-y-auto">
               {data.mas_vendidos.length > 0 ? (
                 <ul className="divide-y divide-borde/50 flex-1">
-                  {data.mas_vendidos.slice(0, 3).map((p, idx) => {
+                  {data.mas_vendidos.slice(0, 2).map((p, idx) => {
                     const medallas = ['🥇', '🥈', '🥉'];
                     const medalla = medallas[idx];
 
@@ -574,7 +574,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
                         className="px-3.5 py-1 flex items-center justify-between gap-2.5 hover:bg-superficie-2/40 transition-colors cursor-pointer group"
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <span className="text-base shrink-0 w-6 text-center">
+                          <span className="text-sm shrink-0 w-5 text-center">
                             {medalla ?? (
                               <span className="text-xs font-bold text-texto-3">
                                 #{idx + 1}
@@ -607,12 +607,12 @@ export const PanelView: React.FC<PanelViewProps> = ({
               )}
 
               {data.sin_rotacion.length > 0 && (
-                <div className="mt-auto px-3.5 py-1.5 border-t border-borde/60 bg-amber-50/40 rounded-b-xl">
-                  <div className="text-caption font-semibold text-amber-900 mb-0.5 flex items-center gap-1.5">
+                <div className="mt-auto px-3.5 py-1 border-t border-borde/60 bg-amber-50/40 rounded-b-xl">
+                  <div className="text-[11px] font-semibold text-amber-900 flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-amber-600" />
                     <span>Sin rotación en 90 días:</span>
                   </div>
-                  <div className="text-caption text-amber-800/90 truncate">
+                  <div className="text-[10px] text-amber-800/90 truncate">
                     {data.sin_rotacion
                       .slice(0, 3)
                       .map((p) => `${p.nombre} (${p.existencias})`)
@@ -775,25 +775,25 @@ export const PanelView: React.FC<PanelViewProps> = ({
 // ---------------------------------------------------------------------------
 
 const VacioOk: React.FC<{ mensaje: string; subtitulo?: string }> = ({ mensaje, subtitulo }) => (
-  <div className="flex-1 flex flex-col items-center justify-center p-3.5 text-center gap-1.5">
-    <div className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200/60 shadow-2xs">
-      <CheckCircle2 className="w-4 h-4" />
+  <div className="flex-1 flex flex-col items-center justify-center p-2 text-center gap-1">
+    <div className="w-6 h-6 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200/60 shadow-2xs">
+      <CheckCircle2 className="w-3.5 h-3.5" />
     </div>
     <div>
-      <p className="text-label font-semibold text-texto-2">{mensaje}</p>
-      {subtitulo && <p className="text-caption text-texto-3 max-w-xs mt-0.5">{subtitulo}</p>}
+      <p className="text-caption font-semibold text-texto-2 leading-tight">{mensaje}</p>
+      {subtitulo && <p className="text-[11px] text-texto-3 max-w-xs mt-0.5 leading-tight">{subtitulo}</p>}
     </div>
   </div>
 );
 
 const VacioInfo: React.FC<{ mensaje: string; subtitulo?: string }> = ({ mensaje, subtitulo }) => (
-  <div className="flex-1 flex flex-col items-center justify-center p-3.5 text-center gap-1.5">
-    <div className="w-8 h-8 rounded-xl bg-superficie-2 text-texto-3 flex items-center justify-center border border-borde/70 shadow-2xs">
-      <ShoppingBag className="w-4 h-4 text-texto-3" />
+  <div className="flex-1 flex flex-col items-center justify-center p-2 text-center gap-1">
+    <div className="w-6 h-6 rounded-xl bg-superficie-2 text-texto-3 flex items-center justify-center border border-borde/70 shadow-2xs">
+      <ShoppingBag className="w-3.5 h-3.5 text-texto-3" />
     </div>
     <div>
-      <p className="text-label font-semibold text-texto-2">{mensaje}</p>
-      {subtitulo && <p className="text-caption text-texto-3 max-w-xs mt-0.5">{subtitulo}</p>}
+      <p className="text-caption font-semibold text-texto-2 leading-tight">{mensaje}</p>
+      {subtitulo && <p className="text-[11px] text-texto-3 max-w-xs mt-0.5 leading-tight">{subtitulo}</p>}
     </div>
   </div>
 );
