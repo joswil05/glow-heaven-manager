@@ -51,6 +51,9 @@ export interface CrearProductoInput {
   stock_minimo?: number;
   peso_unitario_mlb?: number;
   unidades_por_paquete?: number;
+  packs_comprados?: number;
+  costo_pack_usa_usd_cents?: number;
+  aplicar_tax_usa?: boolean;
   paquete_id?: number;
   /** Miniatura como data URL, o cadena vacía para quitarla. */
   foto?: string;
@@ -86,6 +89,9 @@ export interface ProductoDoc {
   stock_minimo: number;
   peso_unitario_mlb: number;
   unidades_por_paquete?: number;
+  packs_comprados?: number;
+  costo_pack_usa_usd_cents?: number;
+  aplicar_tax_usa?: boolean;
   paquete_id?: number;
   foto?: string;
   notas?: string;
@@ -262,6 +268,9 @@ export class ProductosRepoFirestore {
       stock_minimo: input.stock_minimo ?? parametros.stock_minimo_defecto,
       peso_unitario_mlb: input.peso_unitario_mlb ?? 0,
       unidades_por_paquete: input.unidades_por_paquete,
+      packs_comprados: input.packs_comprados,
+      costo_pack_usa_usd_cents: input.costo_pack_usa_usd_cents,
+      aplicar_tax_usa: input.aplicar_tax_usa,
       paquete_id: input.paquete_id,
       foto: input.foto?.trim() || undefined,
       notas: input.notas?.trim() || undefined,
@@ -424,6 +433,18 @@ export class ProductosRepoFirestore {
             input.unidades_por_paquete !== undefined
               ? input.unidades_por_paquete
               : (p.unidades_por_paquete ?? null),
+          packs_comprados:
+            input.packs_comprados !== undefined
+              ? input.packs_comprados
+              : (p.packs_comprados ?? null),
+          costo_pack_usa_usd_cents:
+            input.costo_pack_usa_usd_cents !== undefined
+              ? input.costo_pack_usa_usd_cents
+              : (p.costo_pack_usa_usd_cents ?? null),
+          aplicar_tax_usa:
+            input.aplicar_tax_usa !== undefined
+              ? input.aplicar_tax_usa
+              : (p.aplicar_tax_usa ?? null),
           paquete_id:
             input.paquete_id !== undefined ? input.paquete_id : (p.paquete_id ?? null),
           foto: input.foto !== undefined ? input.foto.trim() || null : (p.foto ?? null),

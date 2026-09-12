@@ -57,6 +57,9 @@ export interface CrearProductoInput {
   stock_minimo?: number;
   peso_unitario_mlb?: number;
   unidades_por_paquete?: number;
+  packs_comprados?: number;
+  costo_pack_usa_usd_cents?: number;
+  aplicar_tax_usa?: boolean;
   paquete_id?: number;
   precio_venta_usd_cents?: number;
   foto?: string;

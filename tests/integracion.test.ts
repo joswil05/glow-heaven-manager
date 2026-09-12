@@ -1088,6 +1088,44 @@ describe('flujo Opción 1: paquete de courier rápido y multipack de boxers', ()
     expect(prodFinal!.existencias).toBe(0);
   });
 
+  it('guarda y preserva la configuración de multipack (packs comprados, costo usa y tax) al crear y editar', async () => {
+    const id = await ProductosRepo.crear(
+      {
+        nombre: 'Boxers Tommy Hilfiger Pack de 5',
+        unidades_por_paquete: 5,
+        packs_comprados: 2,
+        costo_pack_usa_usd_cents: 1200,
+        aplicar_tax_usa: true,
+        stock_inicial: { cantidad: 10, costo_unitario_usd_cents: 257 },
+      },
+      g()
+    );
+
+    let p = (await ProductosRepo.getById(id))!;
+    expect(p.existencias).toBe(10);
+    expect(p.unidades_por_paquete).toBe(5);
+    expect(p.packs_comprados).toBe(2);
+    expect(p.costo_pack_usa_usd_cents).toBe(1200);
+    expect(p.aplicar_tax_usa).toBe(true);
+
+    // Al editar se actualiza la configuración
+    await ProductosRepo.actualizar(
+      {
+        id,
+        packs_comprados: 3,
+        costo_pack_usa_usd_cents: 1500,
+      },
+      g()
+    );
+
+    p = (await ProductosRepo.getById(id))!;
+    expect(p.packs_comprados).toBe(3);
+    expect(p.costo_pack_usa_usd_cents).toBe(1500);
+    expect(p.unidades_por_paquete).toBe(5);
+    expect(p.aplicar_tax_usa).toBe(true);
+  });
+
+
   it('permite registrar una venta pagada al contado sin dejar deuda pendiente', async () => {
     const clienteId = await ClientesRepo.guardar(
       { nombre: 'Karla Gómez', telefono: '8888-9999' },

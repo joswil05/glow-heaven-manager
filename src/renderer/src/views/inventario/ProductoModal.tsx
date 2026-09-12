@@ -57,6 +57,9 @@ export interface DatosProducto {
   stock_minimo: number;
   peso_unitario_mlb: number;
   unidades_por_paquete?: number;
+  packs_comprados?: number;
+  costo_pack_usa_usd_cents?: number;
+  aplicar_tax_usa?: boolean;
   paquete_id?: number;
   foto?: string;
   notas?: string;
@@ -156,19 +159,42 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
       );
       setStockMinimo(String(producto.stock_minimo));
       setNotas(producto.notas ?? '');
-      setCantidadInicial('');
+      setCantidadInicial(String(producto.existencias ?? 0));
       setCostoInicialTexto(
         producto.costo_unitario_usd_cents !== undefined
           ? (producto.costo_unitario_usd_cents / 100).toFixed(2)
           : ''
       );
       setPaqueteId(producto.paquete_id);
-      setEsPack(Boolean(producto.unidades_por_paquete && producto.unidades_por_paquete > 1));
-      setUnidadesPorPack(
-        producto.unidades_por_paquete ? String(producto.unidades_por_paquete) : '5'
-      );
-      setPacksComprados('1');
-      setCostoPackUsaTexto('');
+      const tienePack = Boolean(producto.unidades_por_paquete && producto.unidades_por_paquete > 1);
+      setEsPack(tienePack);
+      const porPack = producto.unidades_por_paquete ? producto.unidades_por_paquete : 5;
+      setUnidadesPorPack(String(porPack));
+
+      // Recuperar packs comprados: si está guardado se usa; si no, se deduce de existencias / unidades_por_paquete
+      const packsGuardadosODeducidos =
+        producto.packs_comprados !== undefined
+          ? producto.packs_comprados
+          : (producto.existencias > 0 && porPack > 0)
+          ? Math.max(1, Math.round(producto.existencias / porPack))
+          : 1;
+      setPacksComprados(String(packsGuardadosODeducidos));
+
+      // Recuperar tax USA aplicado
+      const usaTax = producto.aplicar_tax_usa !== false;
+      setAplicarTaxUsa(usaTax);
+
+      // Recuperar precio del paquete en USA: si está guardado se usa; si no, se deduce de costo unitario
+      if (producto.costo_pack_usa_usd_cents !== undefined && producto.costo_pack_usa_usd_cents > 0) {
+        setCostoPackUsaTexto((producto.costo_pack_usa_usd_cents / 100).toFixed(2));
+      } else if (tienePack && producto.costo_unitario_usd_cents) {
+        const basePackCents = Math.round(
+          (producto.costo_unitario_usd_cents * porPack) / (usaTax ? 1.07 : 1)
+        );
+        setCostoPackUsaTexto((basePackCents / 100).toFixed(2));
+      } else {
+        setCostoPackUsaTexto('');
+      }
     } else {
       setNombre('');
       setCategoriaId(categorias[0]?.id);
@@ -426,6 +452,13 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
         unidades_por_paquete: esPack
           ? Math.max(1, Math.round(parsearDecimal(unidadesPorPack) ?? 5))
           : undefined,
+        packs_comprados: esPack
+          ? Math.max(1, Math.round(parsearDecimal(packsComprados) ?? 1))
+          : undefined,
+        costo_pack_usa_usd_cents: esPack && costoPackUsaTexto.trim()
+          ? aCentavos(costoPackUsaTexto)
+          : undefined,
+        aplicar_tax_usa: esPack ? aplicarTaxUsa : undefined,
         paquete_id: paqueteId,
         foto,
         notas: notas.trim() || undefined,
@@ -668,7 +701,14 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
                           type="number"
                           min="1"
                           value={packsComprados}
-                          onChange={(e) => setPacksComprados(e.target.value)}
+                          onChange={(e) => {
+                            setPacksComprados(e.target.value);
+                            if (esNuevo) {
+                              const p = Math.max(1, Math.round(parsearDecimal(e.target.value) ?? 1));
+                              const u = Math.max(1, Math.round(parsearDecimal(unidadesPorPack) ?? 5));
+                              setCantidadInicial(String(p * u));
+                            }
+                          }}
                           placeholder="1"
                           className="text-right"
                         />
@@ -678,7 +718,20 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
                           type="number"
                           min="1"
                           value={unidadesPorPack}
-                          onChange={(e) => setUnidadesPorPack(e.target.value)}
+                          onChange={(e) => {
+                            setUnidadesPorPack(e.target.value);
+                            const porPack = Math.max(1, Math.round(parsearDecimal(e.target.value) ?? 5));
+                            const precioPack = aCentavos(costoPackUsaTexto);
+                            if (precioPack > 0) {
+                              const base = Math.round(precioPack / porPack);
+                              const tax = aplicarTaxUsa ? Math.round(base * 0.07) : 0;
+                              setCostoInicialTexto(((base + tax) / 100).toFixed(2));
+                            }
+                            if (esNuevo) {
+                              const p = Math.max(1, Math.round(parsearDecimal(packsComprados) ?? 1));
+                              setCantidadInicial(String(p * porPack));
+                            }
+                          }}
                           placeholder="5"
                           className="text-right"
                         />
@@ -686,7 +739,16 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
                       <Field label="Precio del pack en USA ($)" hint="Lo que costó el paquete">
                         <Input
                           value={costoPackUsaTexto}
-                          onChange={(e) => setCostoPackUsaTexto(e.target.value)}
+                          onChange={(e) => {
+                            setCostoPackUsaTexto(e.target.value);
+                            const precioPack = aCentavos(e.target.value);
+                            const porPack = Math.max(1, Math.round(parsearDecimal(unidadesPorPack) ?? 5));
+                            if (precioPack > 0) {
+                              const base = Math.round(precioPack / porPack);
+                              const tax = aplicarTaxUsa ? Math.round(base * 0.07) : 0;
+                              setCostoInicialTexto(((base + tax) / 100).toFixed(2));
+                            }
+                          }}
                           placeholder="12.00"
                           className="text-right"
                           inputMode="decimal"
@@ -698,7 +760,16 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
                       <input
                         type="checkbox"
                         checked={aplicarTaxUsa}
-                        onChange={(e) => setAplicarTaxUsa(e.target.checked)}
+                        onChange={(e) => {
+                          setAplicarTaxUsa(e.target.checked);
+                          const precioPack = aCentavos(costoPackUsaTexto);
+                          const porPack = Math.max(1, Math.round(parsearDecimal(unidadesPorPack) ?? 5));
+                          if (precioPack > 0) {
+                            const base = Math.round(precioPack / porPack);
+                            const tax = e.target.checked ? Math.round(base * 0.07) : 0;
+                            setCostoInicialTexto(((base + tax) / 100).toFixed(2));
+                          }
+                        }}
                         className="w-4 h-4 rounded border-borde-fuerte text-acento"
                       />
                       <span>Sumar 7% de taxes de USA (+${((calculoPack?.taxUnitCents ?? 0) / 100).toFixed(2)} por unidad)</span>

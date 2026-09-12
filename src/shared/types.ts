@@ -124,6 +124,12 @@ export interface Producto {
   peso_unitario_mlb: number;
   /** Si viene en paquete con varias unidades (ej. 5 boxers por pack). */
   unidades_por_paquete?: number;
+  /** Cantidad de packs comprados en la adquisición inicial (ej. 2 packs de 5). */
+  packs_comprados?: number;
+  /** Costo de compra en USA por el paquete completo (en centavos USD). */
+  costo_pack_usa_usd_cents?: number;
+  /** Si se aplicó tax de USA (7%) al calcular el costo unitario del pack. */
+  aplicar_tax_usa?: boolean;
   /** Paquete de courier del que provino (opcional). */
   paquete_id?: number;
   /**
