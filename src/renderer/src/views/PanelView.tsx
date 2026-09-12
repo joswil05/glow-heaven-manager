@@ -421,7 +421,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
         {/* Nivel 4: Listas de trabajo operativas compactas con altura controlada */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-2.5 shrink-0 stagger-children">
           {/* 1. QUIÉN TE DEBE */}
-          <Card className="shadow-2xs flex flex-col h-[130px]">
+          <Card className="shadow-2xs flex flex-col h-[175px]">
             <CardHeader className="px-3.5 py-1.5 shrink-0">
               <SectionHeader
                 icon={Users}
@@ -495,7 +495,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
           </Card>
 
           {/* 2. SE ESTÁ ACABANDO */}
-          <Card className="shadow-2xs flex flex-col h-[130px]">
+          <Card className="shadow-2xs flex flex-col h-[175px]">
             <CardHeader className="px-3.5 py-1.5 shrink-0">
               <SectionHeader
                 icon={PackageX}
@@ -511,7 +511,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
               {data.bajo_stock.length > 0 ? (
                 <>
                   <ul className="divide-y divide-borde/50 flex-1">
-                    {data.bajo_stock.slice(0, 2).map((p) => (
+                    {data.bajo_stock.slice(0, 3).map((p) => (
                       <li key={p.producto_id}>
                         <button
                           onClick={() => onNavegar('inventario', p.producto_id)}
@@ -547,7 +547,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
           </Card>
 
           {/* 3. LO QUE MÁS SE VENDE CON PODIO */}
-          <Card className="shadow-2xs flex flex-col h-[130px]">
+          <Card className="shadow-2xs flex flex-col h-[175px]">
             <CardHeader className="px-3.5 py-1.5 shrink-0">
               <SectionHeader
                 icon={Flame}
@@ -558,7 +558,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
             <CardContent className="p-0 flex-1 flex flex-col justify-center overflow-y-auto">
               {data.mas_vendidos.length > 0 ? (
                 <ul className="divide-y divide-borde/50 flex-1">
-                  {data.mas_vendidos.slice(0, 2).map((p, idx) => {
+                  {data.mas_vendidos.slice(0, 3).map((p, idx) => {
                     const medallas = ['🥇', '🥈', '🥉'];
                     const medalla = medallas[idx];
 
