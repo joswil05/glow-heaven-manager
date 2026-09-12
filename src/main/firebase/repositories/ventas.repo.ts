@@ -21,6 +21,7 @@ import type {
   Cliente,
   EstadoVenta,
   TipoVenta,
+  TipoDescuento,
 } from '../../../shared/types';
 
 export interface LineaVentaInput {
@@ -45,6 +46,9 @@ export interface CrearVentaInput {
   plan_cuotas?: { cantidad: number; cada_dias: number; primera_fecha?: string };
   entregar_ahora?: boolean;
   pago_inicial?: PagoInicialInput;
+  descuento_tipo?: TipoDescuento;
+  descuento_valor?: number;
+  descuento_motivo?: string;
 }
 
 export interface FiltrosVenta {
@@ -290,6 +294,17 @@ export class VentasRepoFirestore {
       });
     }
 
+    // Aplicar descuento sobre el subtotal si fue especificado
+    const subtotalVenta = total;
+    let descuentoUsdCents = 0;
+    if (input.descuento_tipo === 'PORCENTAJE' && input.descuento_valor && input.descuento_valor > 0) {
+      descuentoUsdCents = Math.round((subtotalVenta * input.descuento_valor) / 100);
+    } else if (input.descuento_tipo === 'MONTO_FIJO' && input.descuento_valor && input.descuento_valor > 0) {
+      descuentoUsdCents = Math.round(input.descuento_valor);
+    }
+    descuentoUsdCents = Math.min(subtotalVenta, Math.max(0, descuentoUsdCents));
+    total = Math.max(0, subtotalVenta - descuentoUsdCents);
+
     const anticipoBp = esEncargo
       ? (input.anticipo_bp ?? params.anticipo_defecto_bp ?? 5000)
       : 0;
@@ -348,6 +363,11 @@ export class VentasRepoFirestore {
           ? 'PENDIENTE'
           : 'ENTREGADA',
       tasa_cambio_cents: tasa,
+      subtotal_usd_cents: subtotalVenta,
+      descuento_usd_cents: descuentoUsdCents,
+      descuento_tipo: input.descuento_tipo,
+      descuento_valor: input.descuento_valor,
+      descuento_motivo: input.descuento_motivo?.trim() || undefined,
       total_usd_cents: total,
       costo_total_usd_cents: costoTotal,
       ganancia_usd_cents: total - costoTotal,

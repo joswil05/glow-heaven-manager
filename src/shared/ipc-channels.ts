@@ -39,6 +39,8 @@ export const IPC = {
 
   // Pagos
   PAGOS_REGISTRAR: 'pagos:registrar',
+  PAGOS_REGISTRAR_ABONO_CLIENTE: 'pagos:registrarAbonoCliente',
+  PAGOS_LISTAR_POR_CLIENTE: 'pagos:listarPorCliente',
   PAGOS_ANULAR: 'pagos:anular',
   PAGOS_RECIENTES: 'pagos:recientes',
 

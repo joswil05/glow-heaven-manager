@@ -9,6 +9,7 @@ import type {
   Venta,
   VentaCompleta,
   Pago,
+  PagoCompleto,
   PanelData,
   ModoPrecio,
   DestinoLinea,
@@ -17,6 +18,7 @@ import type {
   EstadoCompra,
   MetodoPago,
   MonedaPago,
+  TipoDescuento,
 } from './types';
 
 /**
@@ -186,6 +188,9 @@ export interface CrearVentaInput {
   plan_cuotas?: { cantidad: number; cada_dias: number; primera_fecha?: string };
   entregar_ahora?: boolean;
   pago_inicial?: PagoInicialInput;
+  descuento_tipo?: TipoDescuento;
+  descuento_valor?: number;
+  descuento_motivo?: string;
 }
 
 export interface FiltrosVenta {
@@ -207,6 +212,17 @@ export interface RegistrarPagoInput {
   notas?: string;
   es_anticipo?: boolean;
   cuota_id?: number;
+}
+
+export interface AbonoClienteInput {
+  cliente_id: number;
+  fecha: string;
+  monto_cents: number;
+  moneda: MonedaPago;
+  metodo: MetodoPago;
+  referencia?: string;
+  notas?: string;
+  venta_id?: number;
 }
 
 export interface ResultadoPago extends ConGrupo {
@@ -312,6 +328,8 @@ export interface ApiPuente {
   };
   pagos: {
     registrar(input: RegistrarPagoInput): Promise<Resultado<ResultadoPago>>;
+    registrarAbonoCliente(input: AbonoClienteInput): Promise<Resultado<ResultadoPago>>;
+    listarPorCliente(cliente_id: number): Promise<Resultado<PagoCompleto[]>>;
     anular(pago_id: number): Promise<Resultado<ConGrupo>>;
     recientes(limite?: number): Promise<Resultado<Pago[]>>;
   };

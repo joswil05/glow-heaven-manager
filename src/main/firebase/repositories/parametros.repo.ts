@@ -30,6 +30,10 @@ const DEFECTOS: Record<string, string> = {
   onboarding_completado: '0',
   plantilla_cobro_whatsapp:
     'Hola {cliente}, te saludamos de Glow Heaven ✨ Te recordamos que tienes un saldo pendiente de {saldo_usd} ({saldo_cs}). Si ya realizaste tu abono, por favor compártenos el comprobante. ¡Muchas gracias!',
+  plantilla_factura_whatsapp:
+    '¡Hola {cliente}! ✨ Muchas gracias por tu compra en Glow Heaven 🛍️\n\n📄 Factura: {codigo}\n💵 Total: {total_usd} (≈ {total_cs})\n{estado_pago}\n\n{cuentas_bancarias}\n¡Esperamos que disfrutes tus prendas! 💖',
+  plantilla_proforma_whatsapp:
+    '¡Hola {cliente}! ✨ Te compartimos la cotización de tu encargo en Glow Heaven 📦✈️\n\n📋 Cotización: {codigo}\n💰 Total estimado: {total_usd} (≈ {total_cs})\n🔒 Anticipo requerido (50%): {anticipo}\n🤝 Saldo contra entrega: {saldo}\n\n{cuentas_bancarias}\n¡Quedamos atentas a tu comprobante! 💕',
   dias_alerta_mora: '15',
   dias_alerta_encargos: '10',
   moneda_defecto_venta: 'USD',
@@ -98,6 +102,12 @@ export class ParametrosRepoFirestore {
       plantilla_cobro_whatsapp: data?.plantilla_cobro_whatsapp
         ? String(data.plantilla_cobro_whatsapp)
         : DEFECTOS.plantilla_cobro_whatsapp,
+      plantilla_factura_whatsapp: data?.plantilla_factura_whatsapp
+        ? String(data.plantilla_factura_whatsapp)
+        : DEFECTOS.plantilla_factura_whatsapp,
+      plantilla_proforma_whatsapp: data?.plantilla_proforma_whatsapp
+        ? String(data.plantilla_proforma_whatsapp)
+        : DEFECTOS.plantilla_proforma_whatsapp,
       cuentas_bancarias: Array.isArray(data?.cuentas_bancarias)
         ? (data!.cuentas_bancarias as CuentaBancaria[])
         : [],

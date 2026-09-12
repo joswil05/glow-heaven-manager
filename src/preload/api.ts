@@ -58,6 +58,8 @@ export const api: ApiPuente = {
   },
   pagos: {
     registrar: (input) => ipcRenderer.invoke(IPC.PAGOS_REGISTRAR, input),
+    registrarAbonoCliente: (input) => ipcRenderer.invoke(IPC.PAGOS_REGISTRAR_ABONO_CLIENTE, input),
+    listarPorCliente: (cliente_id) => ipcRenderer.invoke(IPC.PAGOS_LISTAR_POR_CLIENTE, cliente_id),
     anular: (pago_id) => ipcRenderer.invoke(IPC.PAGOS_ANULAR, pago_id),
     recientes: (limite) => ipcRenderer.invoke(IPC.PAGOS_RECIENTES, limite),
   },

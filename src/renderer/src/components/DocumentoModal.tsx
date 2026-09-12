@@ -1,0 +1,184 @@
+import React, { useMemo } from 'react';
+import { X, Printer, MessageCircle, FileText } from 'lucide-react';
+import type { VentaCompleta, ParametrosSistema, CuentaBancaria } from '../../../shared/types';
+import { Button } from './ui';
+import {
+  generarHtmlFactura,
+  generarHtmlProforma,
+  imprimirHtml,
+} from '@core/documentos/plantillas';
+import { formatearMoneda } from '@core/moneda';
+
+interface DocumentoModalProps {
+  abierto: boolean;
+  venta: VentaCompleta | null;
+  parametros: ParametrosSistema;
+  onCerrar: () => void;
+}
+
+export const DocumentoModal: React.FC<DocumentoModalProps> = ({
+  abierto,
+  venta,
+  parametros,
+  onCerrar,
+}) => {
+  React.useEffect(() => {
+    if (!abierto) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onCerrar();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [abierto, onCerrar]);
+
+  if (!abierto || !venta) return null;
+
+  const esEncargo = venta.tipo === 'ENCARGO';
+  const titulo = esEncargo ? 'Cotización / Proforma' : 'Factura Comercial';
+
+  const html = useMemo(() => {
+    if (esEncargo) {
+      return generarHtmlProforma(venta, parametros);
+    }
+    return generarHtmlFactura(venta, parametros);
+  }, [venta, parametros, esEncargo]);
+
+  const handleImprimir = () => {
+    imprimirHtml(html);
+  };
+
+  const handleEnviarWhatsApp = () => {
+    const telefonoRaw = venta.cliente?.telefono ?? '';
+    const telefono = telefonoRaw.replace(/\D/g, '');
+    const totalCs = Math.round((venta.total_usd_cents * (parametros?.tasa_cambio_cents ?? 3662)) / 100);
+
+    const cuentasTxt = (parametros?.cuentas_bancarias ?? [])
+      .map((c: CuentaBancaria) => `${c.banco} (${c.moneda}): ${c.numero}${c.titular ? ' - ' + c.titular : ''}`)
+      .join('\n');
+
+    let mensaje = '';
+    if (esEncargo) {
+      const plantilla =
+        parametros?.plantilla_proforma_whatsapp ||
+        '¡Hola {cliente}! ✨ Te compartimos la cotización de tu encargo en Glow Heaven 📦✈️\n\n' +
+        '📋 Cotización: {codigo}\n' +
+        '💰 Total estimado: {total_usd} (≈ {total_cs})\n' +
+        '🔒 Anticipo requerido (50%): {anticipo}\n' +
+        '🤝 Saldo contra entrega: {saldo}\n\n' +
+        '{cuentas_bancarias}\n\n' +
+        '¡Quedamos atentas a tu comprobante de transferencia para procesar tu orden! 💕';
+
+      mensaje = plantilla
+        .replace(/\{cliente\}/g, venta.cliente_nombre ?? 'Clienta')
+        .replace(/\{codigo\}/g, venta.codigo)
+        .replace(/\{total_usd\}/g, formatearMoneda(venta.total_usd_cents, 'USD'))
+        .replace(/\{total_cs\}/g, formatearMoneda(totalCs, 'COR'))
+        .replace(/\{anticipo\}/g, formatearMoneda(venta.anticipo_esperado_usd_cents, 'USD'))
+        .replace(/\{saldo\}/g, formatearMoneda(venta.saldo_usd_cents, 'USD'))
+        .replace(/\{cuentas_bancarias\}/g, cuentasTxt ? `Cuentas para depósito:\n${cuentasTxt}` : '');
+    } else {
+      const plantilla =
+        parametros?.plantilla_factura_whatsapp ||
+        '¡Hola {cliente}! ✨ Muchas gracias por tu compra en Glow Heaven 🛍️\n\n' +
+        '📄 Factura: {codigo}\n' +
+        '💵 Total: {total_usd} (≈ {total_cs})\n' +
+        '{estado_pago}\n\n' +
+        '{cuentas_bancarias}\n\n' +
+        '¡Esperamos que disfrutes muchísimo tus prendas! 💖';
+
+      const estadoPago =
+        venta.saldo_usd_cents <= 0
+          ? '✓ Pagado en su totalidad'
+          : `⚠ Saldo pendiente: ${formatearMoneda(venta.saldo_usd_cents, 'USD')}`;
+
+      mensaje = plantilla
+        .replace(/\{cliente\}/g, venta.cliente_nombre ?? 'Clienta')
+        .replace(/\{codigo\}/g, venta.codigo)
+        .replace(/\{total_usd\}/g, formatearMoneda(venta.total_usd_cents, 'USD'))
+        .replace(/\{total_cs\}/g, formatearMoneda(totalCs, 'COR'))
+        .replace(/\{estado_pago\}/g, estadoPago)
+        .replace(/\{cuentas_bancarias\}/g, cuentasTxt && venta.saldo_usd_cents > 0 ? `Cuentas bancarias:\n${cuentasTxt}` : '');
+    }
+
+    const url = telefono
+      ? `https://wa.me/505${telefono.startsWith('505') ? telefono.slice(3) : telefono}?text=${encodeURIComponent(mensaje)}`
+      : `https://wa.me/?text=${encodeURIComponent(mensaje)}`;
+
+    window.open(url, '_blank');
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-velo/50 backdrop-blur-xs p-4 cursor-pointer"
+      role="dialog"
+      aria-modal="true"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onCerrar();
+      }}
+    >
+      <div
+        className="w-full max-w-4xl max-h-[92vh] flex flex-col rounded-2xl border border-borde bg-superficie shadow-xl cursor-default overflow-hidden animate-fade-in"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header con acciones principales */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-borde bg-superficie-2/50">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-acento/10 text-acento flex items-center justify-center">
+              <FileText className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-body font-bold text-texto">
+                {titulo} <span className="font-mono text-acento font-semibold">{venta.codigo}</span>
+              </h2>
+              <p className="text-caption text-texto-3">
+                {venta.cliente_nombre || 'Mostrador'} · {formatearMoneda(venta.total_usd_cents, 'USD')}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleEnviarWhatsApp}
+              className="text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/20"
+            >
+              <MessageCircle className="w-4 h-4 mr-1.5" />
+              <span>Enviar por WhatsApp</span>
+            </Button>
+
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleImprimir}
+              className="shadow-xs"
+            >
+              <Printer className="w-4 h-4 mr-1.5" />
+              <span>Imprimir / PDF</span>
+            </Button>
+
+            <button
+              type="button"
+              onClick={onCerrar}
+              className="p-1.5 rounded-lg text-texto-3 hover:text-texto hover:bg-superficie-2 transition-colors ml-2"
+              aria-label="Cerrar modal"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Visor de Documento */}
+        <div className="flex-1 overflow-y-auto p-6 bg-slate-100 dark:bg-slate-900 flex justify-center">
+          <div className="w-full max-w-[800px] bg-white rounded-xl shadow-md border border-slate-200 dark:border-slate-800 overflow-hidden">
+            <iframe
+              srcDoc={html}
+              title={`Vista previa ${venta.codigo}`}
+              className="w-full h-[68vh] min-h-[520px] border-0"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};

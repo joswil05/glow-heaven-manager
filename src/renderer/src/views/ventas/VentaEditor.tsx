@@ -13,6 +13,8 @@ import {
   UserPlus,
   CreditCard,
   FileCheck,
+  Tag,
+  ChevronDown,
 } from 'lucide-react';
 import type {
   ProductoConStock,
@@ -21,6 +23,7 @@ import type {
   TipoVenta,
   MetodoPago,
   MonedaPago,
+  TipoDescuento,
 } from '../../../../shared/types';
 import { Button, Field, Input, Select, Textarea, Badge, Money } from '../../components/ui';
 import { parsearDecimal } from '@core/numeros';
@@ -106,6 +109,12 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // --- Descuento ---
+  const [descuentoAbierto, setDescuentoAbierto] = useState(false);
+  const [descuentoTipo, setDescuentoTipo] = useState<TipoDescuento>('PORCENTAJE');
+  const [descuentoValorTexto, setDescuentoValorTexto] = useState('');
+  const [descuentoMotivo, setDescuentoMotivo] = useState('');
+
   useEffect(() => {
     setListaClientes(clientes);
   }, [clientes]);
@@ -135,6 +144,10 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
     setCuotasCantidad('4');
     setCuotasCada('15');
     setBusquedaProducto('');
+    setDescuentoAbierto(false);
+    setDescuentoTipo('PORCENTAJE');
+    setDescuentoValorTexto('');
+    setDescuentoMotivo('');
   }, [abierto, parametros, esEncargo]);
 
   useEffect(() => {
@@ -150,7 +163,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
   }, [abierto, onCerrar, lineaBuscando]);
 
   const totales = useMemo(() => {
-    const total = lineas.reduce(
+    const subtotal = lineas.reduce(
       (a, l) => a + aCentavos(l.precio) * Math.max(1, Math.round(num(l.cantidad))),
       0
     );
@@ -162,8 +175,23 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
       }
       return a + aCentavos(l.costo_estimado) * cantidad;
     }, 0);
-    return { total, costo, ganancia: total - costo };
-  }, [lineas, productos, esEncargo]);
+
+    let descuentoCents = 0;
+    const dv = num(descuentoValorTexto);
+    if (dv > 0) {
+      if (descuentoTipo === 'PORCENTAJE') {
+        descuentoCents = Math.round((subtotal * dv) / 100);
+      } else {
+        descuentoCents = Math.round(dv * 100);
+      }
+    }
+    descuentoCents = Math.min(subtotal, Math.max(0, descuentoCents));
+    const total = Math.max(0, subtotal - descuentoCents);
+    const ganancia = total - costo;
+    const bajoCosto = total > 0 && ganancia < 0;
+
+    return { subtotal, descuentoCents, total, costo, ganancia, bajoCosto };
+  }, [lineas, productos, esEncargo, descuentoTipo, descuentoValorTexto]);
 
   const totalPrendas = useMemo(() => {
     return lineas.reduce((acc, l) => acc + Math.max(1, Math.round(num(l.cantidad))), 0);
@@ -417,6 +445,9 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                 referencia: referenciaPago.trim() || undefined,
               }
             : undefined,
+        descuento_tipo: totales.descuentoCents > 0 ? descuentoTipo : undefined,
+        descuento_valor: totales.descuentoCents > 0 ? num(descuentoValorTexto) : undefined,
+        descuento_motivo: descuentoMotivo.trim() || undefined,
         lineas: lineas.map((l) => ({
           producto_id: l.producto_id,
           variante_id: l.variante_id,
@@ -447,6 +478,25 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
   const anticipoUsd = esEncargo
     ? Math.round((totales.total * num(anticipoTexto) * 100) / 10000)
     : 0;
+
+  const MOTIVOS_DESCUENTO = [
+    '',
+    'Cliente frecuente',
+    'Promoción / Rebaja',
+    'Liquidación',
+    'Cortesía',
+    'Muestra de producto',
+    'Otro',
+  ];
+
+  const PILDORAS_DESCUENTO: { label: string; tipo: TipoDescuento; valor: number }[] = [
+    { label: '5%', tipo: 'PORCENTAJE', valor: 5 },
+    { label: '10%', tipo: 'PORCENTAJE', valor: 10 },
+    { label: '15%', tipo: 'PORCENTAJE', valor: 15 },
+    { label: '$3', tipo: 'MONTO_FIJO', valor: 3 },
+    { label: '$5', tipo: 'MONTO_FIJO', valor: 5 },
+    { label: '$10', tipo: 'MONTO_FIJO', valor: 10 },
+  ];
 
   return (
     <div
@@ -800,7 +850,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                 </div>
                 <div className="text-right">
                   <span className="text-caption text-texto-3 block">Subtotal de la venta</span>
-                  <Money usd_cents={totales.total} size="md" />
+                  <Money usd_cents={totales.subtotal} size="md" />
                 </div>
               </div>
             </div>
@@ -1195,6 +1245,147 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                   </div>
                 )}
               </div>
+
+              {/* Panel de Descuento (colapsable) */}
+              <div className="rounded-xl border border-borde bg-superficie overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setDescuentoAbierto((v) => !v)}
+                  className={cn(
+                    'w-full flex items-center justify-between px-5 py-3.5 text-left transition-colors',
+                    descuentoAbierto ? 'bg-acento-suave/20' : 'hover:bg-superficie-2'
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    <Tag className="w-4 h-4 text-acento" />
+                    <span className="text-label font-semibold text-texto">
+                      {totales.descuentoCents > 0
+                        ? `Descuento aplicado: -${formatearMoneda(totales.descuentoCents, 'USD')}`
+                        : 'Aplicar Descuento'}
+                    </span>
+                    {totales.descuentoCents > 0 && (
+                      <Badge tone="info">
+                        {descuentoTipo === 'PORCENTAJE' ? `${descuentoValorTexto}%` : `$${descuentoValorTexto}`}
+                      </Badge>
+                    )}
+                  </div>
+                  <ChevronDown className={cn('w-4 h-4 text-texto-3 transition-transform', descuentoAbierto && 'rotate-180')} />
+                </button>
+
+                {descuentoAbierto && (
+                  <div className="px-5 pb-5 pt-3 space-y-4 border-t border-borde/60 animate-fade-in">
+                    {/* Píldoras rápidas */}
+                    <div className="flex flex-wrap gap-2">
+                      {PILDORAS_DESCUENTO.map((p) => {
+                        const activa = descuentoTipo === p.tipo && num(descuentoValorTexto) === p.valor;
+                        return (
+                          <button
+                            key={p.label}
+                            type="button"
+                            onClick={() => {
+                              if (activa) {
+                                setDescuentoValorTexto('');
+                              } else {
+                                setDescuentoTipo(p.tipo);
+                                setDescuentoValorTexto(String(p.valor));
+                              }
+                            }}
+                            className={cn(
+                              'px-3 py-1 rounded-full text-caption font-medium border transition-all cursor-pointer active:scale-95',
+                              activa
+                                ? 'bg-acento text-white border-acento shadow-xs'
+                                : 'border-borde text-texto-2 hover:border-acento/50 hover:text-texto bg-superficie-2/40'
+                            )}
+                          >
+                            {p.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Controles manuales */}
+                    <div className="grid grid-cols-3 gap-3">
+                      <Field label="Tipo">
+                        <Select
+                          value={descuentoTipo}
+                          onChange={(e) => setDescuentoTipo(e.target.value as TipoDescuento)}
+                        >
+                          <option value="PORCENTAJE">% Porcentaje</option>
+                          <option value="MONTO_FIJO">$ Monto fijo</option>
+                        </Select>
+                      </Field>
+                      <Field label={descuentoTipo === 'PORCENTAJE' ? 'Porcentaje (%)' : 'Monto (USD)'} hint="Opcional">
+                        <Input
+                          type="number"
+                          min="0"
+                          max={descuentoTipo === 'PORCENTAJE' ? '100' : undefined}
+                          step="0.01"
+                          value={descuentoValorTexto}
+                          onChange={(e) => setDescuentoValorTexto(e.target.value)}
+                          placeholder={descuentoTipo === 'PORCENTAJE' ? '0' : '0.00'}
+                          className="text-right"
+                        />
+                      </Field>
+                      <Field label="Motivo" hint="Opcional">
+                        <Select
+                          value={descuentoMotivo}
+                          onChange={(e) => setDescuentoMotivo(e.target.value)}
+                        >
+                          {MOTIVOS_DESCUENTO.map((m) => (
+                            <option key={m} value={m}>{m || '— Seleccionar —'}</option>
+                          ))}
+                        </Select>
+                      </Field>
+                    </div>
+
+                    {/* Vista previa del desglose */}
+                    {totales.descuentoCents > 0 && (
+                      <div className="space-y-1 text-caption">
+                        <div className="flex justify-between text-texto-2">
+                          <span>Subtotal</span>
+                          <span>{formatearMoneda(totales.subtotal, 'USD')}</span>
+                        </div>
+                        <div className="flex justify-between text-acento font-medium">
+                          <span>Descuento ({descuentoMotivo || 'sin motivo'})</span>
+                          <span>-{formatearMoneda(totales.descuentoCents, 'USD')}</span>
+                        </div>
+                        <div className="flex justify-between font-bold text-texto border-t border-borde/60 pt-1">
+                          <span>Total a pagar</span>
+                          <span>{formatearMoneda(totales.total, 'USD')}</span>
+                        </div>
+                        {totales.costo > 0 && (
+                          <div className={cn('flex justify-between font-medium pt-0.5', totales.bajoCosto ? 'text-danger' : 'text-success')}>
+                            <span>{totales.bajoCosto ? '⚠️ Pérdida (bajo costo)' : 'Ganancia'}</span>
+                            <span>{formatearMoneda(totales.ganancia, 'USD')} ({totales.total > 0 ? Math.round((totales.ganancia * 100) / totales.total) : 0}%)</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Alerta bajo costo */}
+                    {totales.bajoCosto && (
+                      <div className="flex items-start gap-2.5 p-3 rounded-lg bg-danger-50/60 dark:bg-danger-50/20 border border-danger-200 dark:border-danger-500/40 text-danger-800 dark:text-danger-200 text-caption">
+                        <AlertTriangle className="w-4 h-4 text-danger-600 dark:text-danger-400 shrink-0 mt-0.5" />
+                        <span>
+                          <strong>¡Atención!</strong> Con este descuento el precio final ({formatearMoneda(totales.total, 'USD')}) es menor al costo de la mercadería ({formatearMoneda(totales.costo, 'USD')}).
+                          Esto representa una pérdida de <strong>{formatearMoneda(Math.abs(totales.ganancia), 'USD')}</strong>.
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Botón de limpiar descuento */}
+                    {totales.descuentoCents > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => { setDescuentoValorTexto(''); setDescuentoMotivo(''); }}
+                        className="text-caption text-texto-3 underline hover:text-texto cursor-pointer"
+                      >
+                        Quitar descuento
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -1223,8 +1414,10 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                   <div className="rounded-lg bg-superficie-2 p-3">
-                    <span className="text-caption text-texto-3 block">Total de la Venta</span>
-                    <Money usd_cents={totales.total} size="md" />
+                    <span className="text-caption text-texto-3 block">
+                      {totales.descuentoCents > 0 ? 'Subtotal (antes de desc.)' : 'Total de la Venta'}
+                    </span>
+                    <Money usd_cents={totales.subtotal} size="md" />
                   </div>
                   <div className="rounded-lg bg-superficie-2 p-3">
                     <span className="text-caption text-texto-3 block">Costo de mercadería</span>
@@ -1246,6 +1439,20 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                     </div>
                   </div>
                 </div>
+
+                {/* Fila de descuento si aplica */}
+                {totales.descuentoCents > 0 && (
+                  <div className="flex items-center justify-between px-4 py-2.5 rounded-lg bg-acento-suave/15 border border-acento/30 text-caption">
+                    <span className="flex items-center gap-1.5 text-texto-2">
+                      <Tag className="w-3.5 h-3.5 text-acento" />
+                      Descuento aplicado{descuentoMotivo ? ` (${descuentoMotivo})` : ''}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-acento font-semibold">-{formatearMoneda(totales.descuentoCents, 'USD')}</span>
+                      <span className="font-bold text-texto">= {formatearMoneda(totales.total, 'USD')}</span>
+                    </div>
+                  </div>
+                )}
 
                 {/* Banner de estado de cobro */}
                 {!esEncargo && formaCobro === 'CONTADO' && (

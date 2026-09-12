@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Users, Plus, Search, Trash2, X, MessageCircle, MapPin, Wallet, ShoppingBag, Copy, FileEdit, Eye } from 'lucide-react';
-import type { ClienteDetalle, Venta, ParametrosSistema } from '../../../shared/types';
+import { Users, Plus, Search, Trash2, X, MessageCircle, MapPin, Wallet, ShoppingBag, Copy, FileEdit, Eye, CreditCard, Clock, ChevronDown } from 'lucide-react';
+import type { ClienteDetalle, Venta, ParametrosSistema, PagoCompleto, MetodoPago, MonedaPago } from '../../../shared/types';
+import type { AbonoClienteInput } from '../../../shared/ipc-contracts';
 import {
   Button,
   Badge,
@@ -18,6 +19,7 @@ import { EmptyState } from '../components/shared/EmptyState';
 import { useClickOutside } from '../lib/useClickOutside';
 import { useToast } from '../context/ToastContext';
 import { formatearMoneda, formatearFecha } from '@core/moneda';
+import { cn } from '../lib/cn';
 
 interface ClientesViewProps {
   parametros?: ParametrosSistema | null;
@@ -47,6 +49,16 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
     cliente: ClienteDetalle;
   } | null>(null);
 
+  // --- Kardex / Abono ---
+  const [pagosCliente, setPagosCliente] = useState<PagoCompleto[]>([]);
+  const [abonoAbierto, setAbonoAbierto] = useState(false);
+  const [abonoGuardando, setAbonoGuardando] = useState(false);
+  const [abonoMontoTexto, setAbonoMontoTexto] = useState('');
+  const [abonoMetodo, setAbonoMetodo] = useState<MetodoPago>('EFECTIVO');
+  const [abonoMoneda, setAbonoMoneda] = useState<MonedaPago>('COR');
+  const [abonoFecha, setAbonoFecha] = useState(() => new Date().toISOString().slice(0, 10));
+  const [abonoReferencia, setAbonoReferencia] = useState('');
+
   const cargar = useCallback(async () => {
     setCargando(true);
     try {
@@ -65,10 +77,16 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
   useEffect(() => {
     if (!detalle) {
       setVentasCliente([]);
+      setPagosCliente([]);
+      setAbonoAbierto(false);
+      setAbonoMontoTexto('');
       return;
     }
     window.api.ventas.list({ cliente_id: detalle.id }).then((r) => {
       if (r.success) setVentasCliente(r.data);
+    });
+    window.api.pagos.listarPorCliente(detalle.id).then((r) => {
+      if (r.success) setPagosCliente(r.data);
     });
   }, [detalle, clientes]);
 
@@ -89,6 +107,47 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
     setDetalle(null);
     await cargar();
     onCambio();
+  };
+
+  const registrarAbono = async () => {
+    if (!detalle) return;
+    const montoNum = parseFloat(abonoMontoTexto.replace(',', '.'));
+    if (isNaN(montoNum) || montoNum <= 0) {
+      showToast({ message: 'Ingresá un monto válido mayor a cero.', type: 'error' });
+      return;
+    }
+    setAbonoGuardando(true);
+    try {
+      const input: AbonoClienteInput = {
+        cliente_id: detalle.id,
+        fecha: abonoFecha,
+        monto_cents: Math.round(montoNum * 100),
+        moneda: abonoMoneda,
+        metodo: abonoMetodo,
+        referencia: abonoReferencia.trim() || undefined,
+      };
+      const r = await window.api.pagos.registrarAbonoCliente(input);
+      if (!r.success) {
+        showToast({ message: r.error, type: 'error' });
+        return;
+      }
+      showToast({ message: `Abono de ${abonoMoneda === 'USD' ? '$' : 'C$'}${montoNum.toFixed(2)} registrado`, type: 'success' });
+      setAbonoMontoTexto('');
+      setAbonoReferencia('');
+      setAbonoAbierto(false);
+      // Recargar kardex y clientes
+      const [vr, pr, cr] = await Promise.all([
+        window.api.ventas.list({ cliente_id: detalle.id }),
+        window.api.pagos.listarPorCliente(detalle.id),
+        window.api.clientes.get(detalle.id),
+      ]);
+      if (vr.success) setVentasCliente(vr.data);
+      if (pr.success) setPagosCliente(pr.data);
+      if (cr.success && cr.data) setDetalle(cr.data);
+      onCambio();
+    } finally {
+      setAbonoGuardando(false);
+    }
   };
 
   const totalDeuda = clientes.reduce((a, c) => a + c.saldo_pendiente_usd_cents, 0);
@@ -341,7 +400,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
                     )}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-caption font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100/80 px-2 py-0.5 rounded-full border border-emerald-200/70 transition-colors mt-1"
+                    className="inline-flex items-center gap-1.5 text-caption font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100/80 dark:hover:bg-emerald-950 px-2 py-0.5 rounded-full border border-emerald-200/70 dark:border-emerald-800 transition-colors mt-1"
                   >
                     <MessageCircle className="w-3 h-3 shrink-0" />
                     <span>WhatsApp</span>
@@ -388,7 +447,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
               <div className="flex justify-between items-center gap-2 pt-2 border-t border-borde/70">
                 <span className="text-body font-bold text-texto">Debe actualmente</span>
                 {detalle.saldo_pendiente_usd_cents > 0 ? (
-                  <span className="font-bold text-amber-700">
+                  <span className="font-bold text-amber-700 dark:text-amber-400">
                     <Money usd_cents={detalle.saldo_pendiente_usd_cents} size="md" soloUsd />
                   </span>
                 ) : (
@@ -408,7 +467,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
                   )}
                   target="_blank"
                   rel="noreferrer"
-                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-medium text-caption text-emerald-800 bg-emerald-500/15 border border-emerald-500/30 hover:bg-emerald-500/25 transition-all shadow-2xs active:scale-[0.98]"
+                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-medium text-caption text-emerald-800 dark:text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 hover:bg-emerald-500/25 transition-all shadow-2xs active:scale-[0.98]"
                 >
                   <MessageCircle className="w-4 h-4" />
                   <span>Cobrar saldo pendiente por WhatsApp</span>
@@ -423,6 +482,102 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
               </div>
             )}
 
+            {/* Botón Registrar Abono (colapsable) */}
+            {detalle.saldo_pendiente_usd_cents > 0 && (
+              <div className="rounded-xl border border-borde bg-superficie overflow-hidden shadow-xs">
+                <button
+                  type="button"
+                  onClick={() => setAbonoAbierto((v) => !v)}
+                  className={cn(
+                    'w-full flex items-center justify-between px-4 py-3 text-left transition-colors',
+                    abonoAbierto ? 'bg-acento/10' : 'hover:bg-superficie-2'
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="w-4 h-4 text-acento" />
+                    <span className="text-label font-semibold text-texto">Registrar Abono</span>
+                    <Badge tone="warning">
+                      Debe {formatearMoneda(detalle.saldo_pendiente_usd_cents, 'USD')}
+                    </Badge>
+                  </div>
+                  <ChevronDown className={cn('w-4 h-4 text-texto-3 transition-transform', abonoAbierto && 'rotate-180')} />
+                </button>
+
+                {abonoAbierto && (
+                  <div
+                    className="px-4 pb-4 pt-3 space-y-3 border-t border-borde/60 animate-fade-in"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !abonoGuardando && abonoMontoTexto) {
+                        e.preventDefault();
+                        registrarAbono();
+                      }
+                    }}
+                  >
+                    <div className="grid grid-cols-2 gap-2">
+                      <Field label="Moneda" className="mb-0">
+                        <select
+                          value={abonoMoneda}
+                          onChange={(e) => setAbonoMoneda(e.target.value as MonedaPago)}
+                          className="w-full rounded-lg border border-borde bg-superficie-2 px-3 py-2 text-label text-texto focus:outline-none focus:ring-2 focus:ring-acento/50"
+                        >
+                          <option value="COR">C$ Córdobas</option>
+                          <option value="USD">$ Dólares</option>
+                        </select>
+                      </Field>
+                      <Field label="Método" className="mb-0">
+                        <select
+                          value={abonoMetodo}
+                          onChange={(e) => setAbonoMetodo(e.target.value as MetodoPago)}
+                          className="w-full rounded-lg border border-borde bg-superficie-2 px-3 py-2 text-label text-texto focus:outline-none focus:ring-2 focus:ring-acento/50"
+                        >
+                          <option value="EFECTIVO">Efectivo</option>
+                          <option value="TRANSFERENCIA">Transferencia</option>
+                          <option value="OTRO">Otro</option>
+                        </select>
+                      </Field>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Field label={`Monto (${abonoMoneda === 'USD' ? 'USD' : 'C$'})`} className="mb-0">
+                        <Input
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          value={abonoMontoTexto}
+                          onChange={(e) => setAbonoMontoTexto(e.target.value)}
+                          placeholder="0.00"
+                          className="text-right"
+                          autoFocus
+                        />
+                      </Field>
+                      <Field label="Fecha" className="mb-0">
+                        <Input
+                          type="date"
+                          value={abonoFecha}
+                          onChange={(e) => setAbonoFecha(e.target.value)}
+                        />
+                      </Field>
+                    </div>
+                    <Field label="Referencia" hint="Opcional" className="mb-0">
+                      <Input
+                        value={abonoReferencia}
+                        onChange={(e) => setAbonoReferencia(e.target.value)}
+                        placeholder="Ej. Transferencia BAC #1234"
+                      />
+                    </Field>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={registrarAbono}
+                      disabled={abonoGuardando || !abonoMontoTexto}
+                      className="w-full"
+                    >
+                      {abonoGuardando ? 'Guardando...' : 'Confirmar Abono'}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Historial de compras */}
             <div className="rounded-xl border border-borde/80 overflow-hidden shadow-xs">
               <div className="px-4 py-2.5 bg-superficie-2/50 border-b border-borde text-label font-medium text-texto flex items-center justify-between">
@@ -430,7 +585,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
                 <span className="text-caption text-texto-3">{ventasCliente.length} venta(s)</span>
               </div>
               {ventasCliente.length > 0 ? (
-                <ul className="divide-y divide-borde/60 max-h-80 overflow-y-auto">
+                <ul className="divide-y divide-borde/60 max-h-52 overflow-y-auto">
                   {ventasCliente.map((v) => (
                     <li key={v.id}>
                       <button
@@ -461,6 +616,46 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
                 </p>
               )}
             </div>
+
+            {/* Kardex de Pagos */}
+            {pagosCliente.length > 0 && (
+              <div className="rounded-xl border border-borde/80 overflow-hidden shadow-xs">
+                <div className="px-4 py-2.5 bg-superficie-2/50 border-b border-borde text-label font-medium text-texto flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-3.5 h-3.5 text-texto-3" />
+                    <span>Kardex de Pagos</span>
+                  </div>
+                  <span className="text-caption text-texto-3">{pagosCliente.length} pago(s)</span>
+                </div>
+                <ul className="divide-y divide-borde/60 max-h-52 overflow-y-auto">
+                  {pagosCliente.map((p) => (
+                    <li key={p.id} className="px-4 py-2.5 flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="text-label text-texto font-mono">
+                          {formatearFecha(p.fecha)}
+                          {p.es_anticipo && (
+                            <Badge tone="info" className="ml-2">Anticipo</Badge>
+                          )}
+                        </div>
+                        <div className="text-caption text-texto-3 truncate">
+                          {p.metodo === 'EFECTIVO' ? 'Efectivo' : p.metodo === 'TRANSFERENCIA' ? 'Transferencia' : 'Otro'}
+                          {p.venta_codigo && ` · ${p.venta_codigo}`}
+                          {p.referencia && ` · ${p.referencia}`}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <Money usd_cents={p.monto_usd_cents} size="sm" soloUsd />
+                        {p.moneda === 'COR' && (
+                          <div className="text-caption text-texto-3">
+                            {formatearMoneda(p.monto_cor_cents, 'COR')}
+                          </div>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             <div className="pt-2 flex justify-center">
               <Button

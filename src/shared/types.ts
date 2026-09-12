@@ -53,6 +53,8 @@ export interface ParametrosSistema {
 
   // Nuevas configuraciones de confort y cobranza
   plantilla_cobro_whatsapp?: string;
+  plantilla_factura_whatsapp?: string;
+  plantilla_proforma_whatsapp?: string;
   cuentas_bancarias?: CuentaBancaria[];
   dias_alerta_mora?: number;
   dias_alerta_encargos?: number;
@@ -255,6 +257,8 @@ export interface VentaLinea {
   color?: string;
 }
 
+export type TipoDescuento = 'PORCENTAJE' | 'MONTO_FIJO';
+
 export interface Venta {
   id: number;
   codigo: string;
@@ -264,6 +268,12 @@ export interface Venta {
   estado: EstadoVenta;
 
   tasa_cambio_cents: number;
+
+  subtotal_usd_cents?: number;
+  descuento_usd_cents?: number;
+  descuento_tipo?: TipoDescuento;
+  descuento_valor?: number;
+  descuento_motivo?: string;
 
   total_usd_cents: number;
   costo_total_usd_cents: number;
@@ -313,6 +323,11 @@ export interface Pago {
   notas?: string;
   activo: boolean;
   creado_en?: string;
+}
+
+export interface PagoCompleto extends Pago {
+  venta_codigo?: string;
+  cliente_nombre?: string;
 }
 
 // ---------------------------------------------------------------------------

@@ -34,6 +34,7 @@ import { useTheme } from '../context/ThemeContext';
 import { PullToRefresh } from '../components/PullToRefresh';
 import { AbonoModalSheet, type VentaCobroItem } from '../components/AbonoModalSheet';
 import { AbonoSelectorSheet } from '../components/AbonoSelectorSheet';
+import { KardexClienteSheet, type ClienteKardexInfo } from '../components/KardexClienteSheet';
 import { haptics } from '../lib/haptics';
 
 const DIAS_CORTOS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
@@ -78,6 +79,7 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
   // Estados para Abonos y Cobros
   const [sheetAbonoSelectorAbierto, setSheetAbonoSelectorAbierto] = useState(false);
   const [ventaParaCobrar, setVentaParaCobrar] = useState<VentaCobroItem | null>(null);
+  const [clienteParaKardex, setClienteParaKardex] = useState<ClienteKardexInfo | null>(null);
   const [filtroCobro, setFiltroCobro] = useState<'todas' | 'vencidas'>('todas');
 
   const cargar = useCallback(async (forzar = false) => {
@@ -520,7 +522,22 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
                       >
                         {/* Fila 1: Avatar + Nombre + Referencia + Badge de estado */}
                         <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              haptics.selection();
+                              setClienteParaKardex({
+                                cliente_id: f.cliente_id,
+                                cliente_nombre: f.cliente_nombre,
+                                cliente_telefono: f.cliente_telefono,
+                                saldo_usd_cents: f.saldo_usd_cents,
+                                venta_id: f.venta_id,
+                                codigo: f.codigo,
+                              });
+                            }}
+                            className="flex items-center gap-2.5 min-w-0 flex-1 text-left cursor-pointer group"
+                            title="Ver historial de abonos (Kardex)"
+                          >
                             <div
                               className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-black shrink-0 border ${
                                 vencida
@@ -531,14 +548,15 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
                               {inicial}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate leading-tight">
+                              <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate leading-tight group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                                 {f.cliente_nombre}
                               </h3>
-                              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate mt-0.5">
-                                {f.codigo} · {f.fecha}
+                              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate mt-0.5 flex items-center gap-1">
+                                <span>{f.codigo} · {f.fecha}</span>
+                                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold underline">· Ver abonos</span>
                               </p>
                             </div>
-                          </div>
+                          </button>
 
                           {/* Badge de vencimiento o al día */}
                           {vencida ? (
@@ -588,15 +606,36 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
                             target="_blank"
                             rel="noreferrer"
                             aria-label={`Escribir a ${f.cliente_nombre} por WhatsApp`}
-                            className={`m3-press flex items-center justify-center gap-1.5 h-10 px-3.5 rounded-xl border text-xs font-bold transition-all ${
+                            className={`m3-press flex items-center justify-center gap-1.5 h-10 px-3 rounded-xl border text-xs font-bold transition-all shrink-0 ${
                               f.cliente_telefono
                                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/80 hover:bg-emerald-100 dark:hover:bg-emerald-950/60 active:scale-95'
                                 : 'bg-slate-50 text-slate-400 border-slate-200 dark:bg-slate-900/40 dark:text-slate-600 dark:border-slate-800 pointer-events-none'
                             }`}
                           >
-                            <MessageCircle size={15} />
+                            <MessageCircle size={15} className="shrink-0" />
                             <span>WhatsApp</span>
                           </a>
+
+                          {/* Botón Kardex / Historial */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              haptics.impact('light');
+                              setClienteParaKardex({
+                                cliente_id: f.cliente_id,
+                                cliente_nombre: f.cliente_nombre,
+                                cliente_telefono: f.cliente_telefono,
+                                saldo_usd_cents: f.saldo_usd_cents,
+                                venta_id: f.venta_id,
+                                codigo: f.codigo,
+                              });
+                            }}
+                            className="m3-press flex items-center justify-center gap-1 h-10 px-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 transition-all cursor-pointer shrink-0"
+                            title="Ver historial de abonos"
+                          >
+                            <Clock3 size={14} className="shrink-0" />
+                            <span>Kardex</span>
+                          </button>
 
                           {/* Botón Abonar */}
                           <button
@@ -611,11 +650,11 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
                                 saldo_usd_cents: f.saldo_usd_cents,
                               });
                             }}
-                            className="m3-press flex-1 flex items-center justify-center gap-1.5 h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold shadow-sm active:scale-95 transition-all cursor-pointer"
+                            className="m3-press flex-1 flex items-center justify-center gap-1.5 h-10 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold shadow-sm active:scale-95 transition-all cursor-pointer min-w-0"
                             aria-label={`Registrar abono de ${f.cliente_nombre}`}
                           >
-                            <DollarSign size={15} />
-                            <span>Abonar</span>
+                            <DollarSign size={15} className="shrink-0" />
+                            <span className="truncate">Abonar</span>
                           </button>
                         </div>
                       </div>
@@ -694,6 +733,16 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
             );
           }
           cargar(true);
+        }}
+      />
+
+      {/* Modal Bottom Sheet de Kardex de Abonos del Cliente */}
+      <KardexClienteSheet
+        cliente={clienteParaKardex}
+        abierto={Boolean(clienteParaKardex)}
+        onCerrar={() => setClienteParaKardex(null)}
+        onAbonar={(v) => {
+          setVentaParaCobrar(v);
         }}
       />
     </div>

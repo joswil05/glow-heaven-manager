@@ -14,6 +14,7 @@ import {
   DollarSign,
   ImageOff,
   ChevronRight,
+  Tag,
 } from 'lucide-react';
 import { ClientesRepoFirestore } from '@repos/clientes.repo';
 import { VentasRepoFirestore } from '@repos/ventas.repo';
@@ -24,6 +25,7 @@ import type {
   MetodoPago,
   MonedaPago,
   VentaCompleta,
+  TipoDescuento,
 } from '@shared/types';
 import { formatearMoneda } from '@core/moneda';
 import { parsearACentavos } from '@core/numeros';
@@ -150,10 +152,29 @@ export function QuickSaleView() {
     [carrito]
   );
 
-  const totalUsdCents = useMemo(
+  const subtotalUsdCents = useMemo(
     () => carrito.reduce((s, l) => s + l.producto.precio_venta_usd_cents * l.cantidad, 0),
     [carrito]
   );
+
+  // --- Descuento ---------------------------------------------------------------
+  const [descTipo, setDescTipo] = useState<TipoDescuento>('PORCENTAJE');
+  const [descValorTexto, setDescValorTexto] = useState('');
+
+  const descuentoCents = useMemo(() => {
+    const v = parseFloat(descValorTexto) || 0;
+    if (v <= 0) return 0;
+    if (descTipo === 'PORCENTAJE') return Math.round((subtotalUsdCents * v) / 100);
+    return Math.min(subtotalUsdCents, Math.round(v * 100));
+  }, [subtotalUsdCents, descTipo, descValorTexto]);
+
+  const totalUsdCents = Math.max(0, subtotalUsdCents - descuentoCents);
+
+  const costoTotalCarrito = useMemo(
+    () => carrito.reduce((s, l) => s + (l.producto.costo_unitario_usd_cents ?? 0) * l.cantidad, 0),
+    [carrito]
+  );
+  const bajoCosto = totalUsdCents > 0 && totalUsdCents < costoTotalCarrito;
 
   // --- Clienta ---------------------------------------------------------------
   const [clienteQuery, setClienteQuery] = useState('');
@@ -243,6 +264,8 @@ export function QuickSaleView() {
           tipo: 'INVENTARIO',
           entregar_ahora: true,
           lineas: lineasParaGuardar,
+          descuento_tipo: descuentoCents > 0 ? descTipo : undefined,
+          descuento_valor: descuentoCents > 0 ? (parseFloat(descValorTexto) || 0) : undefined,
           pago_inicial: {
             moneda,
             metodo,
@@ -293,6 +316,8 @@ export function QuickSaleView() {
         pagado_usd_cents: pagadoUsd,
         saldo_usd_cents: Math.max(0, totalUsdCents - pagadoUsd),
         anticipo_esperado_usd_cents: 0,
+        descuento_tipo: descuentoCents > 0 ? descTipo : undefined,
+        descuento_valor: descuentoCents > 0 ? (parseFloat(descValorTexto) || 0) : undefined,
         activo: true,
         lineas: carrito.map((l, idx) => ({
           id: idx + 1,
@@ -332,6 +357,8 @@ export function QuickSaleView() {
     setClienteSeleccionado(null);
     setEsCredito(false);
     setMontoAbonoTexto('');
+    setDescValorTexto('');
+    setDescTipo('PORCENTAJE');
   }
 
   if (ventaHecha) {
@@ -688,18 +715,35 @@ export function QuickSaleView() {
         maxHeight="92vh"
         footer={
           <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Total a cobrar:</span>
-              <div className="text-right">
-                <p className="text-xl font-extrabold text-slate-900 dark:text-white tabular-nums">
-                  {formatearMoneda(totalEnMonedaElegida, moneda)}
-                </p>
-                {moneda === 'COR' && (
-                  <p className="text-[11px] font-medium text-slate-400 dark:text-slate-500">
-                    ≈ {formatearMoneda(totalUsdCents, 'USD')}
+            <div className="flex flex-col gap-1">
+              {descuentoCents > 0 && (
+                <div className="flex items-center justify-between text-[11px] text-slate-400 dark:text-slate-500">
+                  <span>Subtotal</span>
+                  <span>{formatearMoneda(subtotalUsdCents, 'USD')}</span>
+                </div>
+              )}
+              {descuentoCents > 0 && (
+                <div className="flex items-center justify-between text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                  <span className="flex items-center gap-1"><Tag size={11} />Descuento ({descTipo === 'PORCENTAJE' ? `${descValorTexto}%` : `$${descValorTexto}`})</span>
+                  <span>-{formatearMoneda(descuentoCents, 'USD')}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Total a cobrar:</span>
+                <div className="text-right">
+                  <p className="text-xl font-extrabold text-slate-900 dark:text-white tabular-nums">
+                    {formatearMoneda(totalEnMonedaElegida, moneda)}
                   </p>
-                )}
+                  {moneda === 'COR' && (
+                    <p className="text-[11px] font-medium text-slate-400 dark:text-slate-500">
+                      ≈ {formatearMoneda(totalUsdCents, 'USD')}
+                    </p>
+                  )}
+                </div>
               </div>
+              {bajoCosto && (
+                <p className="text-[11px] font-bold text-rose-600 dark:text-rose-400 text-center">⚠️ Precio por debajo del costo</p>
+              )}
             </div>
 
             <button
@@ -795,6 +839,80 @@ export function QuickSaleView() {
                 <span>Venta de mostrador (tocar para asignar clienta)</span>
               </button>
             )}
+          </div>
+
+          {/* Panel de Descuento */}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                <Tag size={13} className="text-emerald-600 dark:text-emerald-400" />
+                Descuento
+              </span>
+              {descuentoCents > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setDescValorTexto('')}
+                  className="text-[11px] text-rose-500 dark:text-rose-400 font-semibold cursor-pointer"
+                >
+                  Quitar descuento
+                </button>
+              )}
+            </div>
+            {/* Píldoras rápidas */}
+            <div className="flex flex-wrap gap-1.5">
+              {([
+                { l: '5%', t: 'PORCENTAJE', v: 5 },
+                { l: '10%', t: 'PORCENTAJE', v: 10 },
+                { l: '15%', t: 'PORCENTAJE', v: 15 },
+                { l: '$2', t: 'MONTO_FIJO', v: 2 },
+                { l: '$5', t: 'MONTO_FIJO', v: 5 },
+                { l: '$10', t: 'MONTO_FIJO', v: 10 },
+              ] as { l: string; t: TipoDescuento; v: number }[]).map((p) => {
+                const activa = descTipo === p.t && (parseFloat(descValorTexto) || 0) === p.v;
+                return (
+                  <button
+                    key={p.l}
+                    type="button"
+                    onClick={() => {
+                      haptics.selection();
+                      if (activa) {
+                        setDescValorTexto('');
+                      } else {
+                        setDescTipo(p.t);
+                        setDescValorTexto(String(p.v));
+                      }
+                    }}
+                    className={`min-h-[36px] px-3.5 rounded-full text-xs font-bold border transition-all active:scale-95 cursor-pointer flex items-center justify-center ${
+                      activa
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                        : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200/90 dark:border-slate-700 hover:border-emerald-500/50'
+                    }`}
+                  >
+                    {p.l}
+                  </button>
+                );
+              })}
+            </div>
+            {/* Controles manuales compactos */}
+            <div className="flex gap-2">
+              <select
+                value={descTipo}
+                onChange={(e) => setDescTipo(e.target.value as TipoDescuento)}
+                className="h-10 rounded-xl border border-slate-200/90 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 text-xs font-bold text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 flex-1 transition-all"
+              >
+                <option value="PORCENTAJE">% Porcentaje</option>
+                <option value="MONTO_FIJO">$ Monto fijo</option>
+              </select>
+              <input
+                type="number"
+                step="any"
+                inputMode="decimal"
+                value={descValorTexto}
+                onChange={(e) => setDescValorTexto(e.target.value)}
+                placeholder={descTipo === 'PORCENTAJE' ? 'Ej. 10%' : 'Ej. $5.00'}
+                className="h-10 rounded-xl border border-slate-200/90 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 text-xs font-extrabold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 flex-[2] transition-all"
+              />
+            </div>
           </div>
 
           {/* Opciones de Pago (Contado / Crédito) */}
@@ -975,6 +1093,18 @@ function PantallaExito({ venta, onNuevaVenta }: { venta: VentaCompleta; onNuevaV
   const { parametros } = useDatosNegocio();
   const nombreNegocio = parametros?.nombre_negocio || 'Glow Heaven';
 
+  const subtotalLineas = venta.lineas.reduce((s, l) => s + l.subtotal_usd_cents, 0);
+  const tieneDescuento = Boolean(
+    venta.descuento_valor && subtotalLineas > venta.total_usd_cents
+  );
+  const descTxt = tieneDescuento
+    ? `Descuento: -${formatearMoneda(subtotalLineas - venta.total_usd_cents, 'USD')} (${
+        venta.descuento_tipo === 'PORCENTAJE'
+          ? `${venta.descuento_valor}%`
+          : `$${venta.descuento_valor}`
+      })`
+    : '';
+
   const lineasTexto = venta.lineas
     .map((l) => `• ${l.cantidad} × ${l.producto_nombre ?? l.descripcion}${l.talla || l.color ? ` (${[l.talla, l.color].filter(Boolean).join(' ')})` : ''}`)
     .join('\n');
@@ -985,6 +1115,7 @@ function PantallaExito({ venta, onNuevaVenta }: { venta: VentaCompleta; onNuevaV
     '',
     lineasTexto,
     '',
+    ...(tieneDescuento ? [`Subtotal: ${formatearMoneda(subtotalLineas, 'USD')}`, descTxt] : []),
     `Total: ${formatearMoneda(venta.total_usd_cents, 'USD')}`,
     `Pagado: ${formatearMoneda(venta.pagado_usd_cents, 'USD')}`,
     venta.saldo_usd_cents > 0
@@ -1026,8 +1157,26 @@ function PantallaExito({ venta, onNuevaVenta }: { venta: VentaCompleta; onNuevaV
           ))}
         </div>
 
+        {tieneDescuento && (
+          <div className="py-2.5 border-b border-slate-100 dark:border-slate-800 flex flex-col gap-1 text-xs">
+            <div className="flex justify-between text-slate-500 dark:text-slate-400">
+              <span>Subtotal</span>
+              <span className="tabular-nums font-semibold">{formatearMoneda(subtotalLineas, 'USD')}</span>
+            </div>
+            <div className="flex justify-between font-bold text-emerald-600 dark:text-emerald-400">
+              <span className="flex items-center gap-1">
+                <Tag size={12} />
+                Descuento ({venta.descuento_tipo === 'PORCENTAJE' ? `${venta.descuento_valor}%` : `$${venta.descuento_valor}`})
+              </span>
+              <span className="tabular-nums">-{formatearMoneda(subtotalLineas - venta.total_usd_cents, 'USD')}</span>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-between pt-3">
-          <span className="text-xs font-bold text-slate-600 dark:text-slate-400">Total cobrado:</span>
+          <span className="text-xs font-bold text-slate-600 dark:text-slate-400">
+            {tieneDescuento ? 'Total con descuento:' : 'Total cobrado:'}
+          </span>
           <span className="text-lg font-black text-emerald-700 dark:text-emerald-400 tabular-nums">
             {formatearMoneda(venta.total_usd_cents, 'USD')}
           </span>

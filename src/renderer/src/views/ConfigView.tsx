@@ -74,6 +74,9 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
   const [pinSeguridad, setPinSeguridad] = useState('');
   const [confirmarPin, setConfirmarPin] = useState('');
   const [plantillaCobro, setPlantillaCobro] = useState('');
+  const [plantillaFactura, setPlantillaFactura] = useState('');
+  const [plantillaProforma, setPlantillaProforma] = useState('');
+  const [tabPlantillaWA, setTabPlantillaWA] = useState<'COBRO' | 'FACTURA' | 'PROFORMA'>('COBRO');
   const [cuentasBancarias, setCuentasBancarias] = useState<CuentaBancaria[]>([]);
   const [diasMora, setDiasMora] = useState(15);
   const [diasEncargos, setDiasEncargos] = useState(10);
@@ -107,6 +110,14 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
     setPlantillaCobro(
       parametros.plantilla_cobro_whatsapp ??
         'Hola {cliente}, te saludamos de Glow Heaven ✨ Te recordamos que tienes un saldo pendiente de {saldo_usd} ({saldo_cs}). Si ya realizaste tu abono, por favor compártenos el comprobante. ¡Muchas gracias!'
+    );
+    setPlantillaFactura(
+      parametros.plantilla_factura_whatsapp ??
+        '¡Hola {cliente}! ✨ Muchas gracias por tu compra en Glow Heaven 🛍️\n\n📄 Factura: {codigo}\n💵 Total: {total_usd} (≈ {total_cs})\n{estado_pago}\n\n{cuentas_bancarias}\n¡Esperamos que disfrutes tus prendas! 💖'
+    );
+    setPlantillaProforma(
+      parametros.plantilla_proforma_whatsapp ??
+        '¡Hola {cliente}! ✨ Te compartimos la cotización de tu encargo en Glow Heaven 📦✈️\n\n📋 Cotización: {codigo}\n💰 Total estimado: {total_usd} (≈ {total_cs})\n🔒 Anticipo requerido (50%): {anticipo}\n🤝 Saldo contra entrega: {saldo}\n\n{cuentas_bancarias}\n¡Quedamos atentas a tu comprobante! 💕'
     );
     setCuentasBancarias(parametros.cuentas_bancarias ?? []);
     setDiasMora(parametros.dias_alerta_mora ?? 15);
@@ -199,7 +210,13 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
   };
 
   const insertarEtiquetaWhatsApp = (etiqueta: string) => {
-    setPlantillaCobro((prev) => (prev ? `${prev} ${etiqueta}` : etiqueta));
+    if (tabPlantillaWA === 'COBRO') {
+      setPlantillaCobro((prev) => (prev ? `${prev} ${etiqueta}` : etiqueta));
+    } else if (tabPlantillaWA === 'FACTURA') {
+      setPlantillaFactura((prev) => (prev ? `${prev} ${etiqueta}` : etiqueta));
+    } else {
+      setPlantillaProforma((prev) => (prev ? `${prev} ${etiqueta}` : etiqueta));
+    }
   };
 
   const guardar = async () => {
@@ -235,6 +252,8 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
         telefono_negocio: telefono.trim(),
         pin_seguridad: pinSeguridad.trim(),
         plantilla_cobro_whatsapp: plantillaCobro.trim(),
+        plantilla_factura_whatsapp: plantillaFactura.trim(),
+        plantilla_proforma_whatsapp: plantillaProforma.trim(),
         cuentas_bancarias: cuentasBancarias,
         dias_alerta_mora: diasMora,
         dias_alerta_encargos: diasEncargos,
@@ -535,79 +554,210 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
           </CardContent>
         </Card>
 
-        {/* Cobranza Rápida por WhatsApp */}
+        {/* Mensajes Predeterminados por WhatsApp */}
         <Card>
           <CardHeader>
             <SectionHeader
               icon={MessageSquare}
-              title="Cobranza Rápida por WhatsApp"
-              description="Personalizá el mensaje automático para recordar saldos pendientes con 1 clic"
+              title="Mensajes Predeterminados por WhatsApp"
+              description="Personalizá los mensajes automáticos de cobro, facturas y cotizaciones con 1 clic"
             />
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Pestañas de plantillas */}
+            <div className="flex rounded-xl bg-superficie-2 p-1 border border-borde gap-1">
+              <button
+                type="button"
+                onClick={() => setTabPlantillaWA('COBRO')}
+                className={cn(
+                  'flex-1 py-2 px-3 rounded-lg text-label font-bold transition-all cursor-pointer',
+                  tabPlantillaWA === 'COBRO'
+                    ? 'bg-superficie text-texto shadow-xs border border-borde/70'
+                    : 'text-texto-3 hover:text-texto'
+                )}
+              >
+                Recordatorio de Saldo
+              </button>
+              <button
+                type="button"
+                onClick={() => setTabPlantillaWA('FACTURA')}
+                className={cn(
+                  'flex-1 py-2 px-3 rounded-lg text-label font-bold transition-all cursor-pointer',
+                  tabPlantillaWA === 'FACTURA'
+                    ? 'bg-superficie text-texto shadow-xs border border-borde/70'
+                    : 'text-texto-3 hover:text-texto'
+                )}
+              >
+                Factura Comercial
+              </button>
+              <button
+                type="button"
+                onClick={() => setTabPlantillaWA('PROFORMA')}
+                className={cn(
+                  'flex-1 py-2 px-3 rounded-lg text-label font-bold transition-all cursor-pointer',
+                  tabPlantillaWA === 'PROFORMA'
+                    ? 'bg-superficie text-texto shadow-xs border border-borde/70'
+                    : 'text-texto-3 hover:text-texto'
+                )}
+              >
+                Cotización de Encargo
+              </button>
+            </div>
+
+            {/* Editor de la plantilla activa */}
             <Field
-              label="Plantilla de Mensaje"
-              hint="Podés hacer clic en las etiquetas para agregarlas al texto"
+              label={
+                tabPlantillaWA === 'COBRO'
+                  ? 'Plantilla de Cobro / Saldo Pendiente'
+                  : tabPlantillaWA === 'FACTURA'
+                    ? 'Plantilla de Envío de Factura Comercial'
+                    : 'Plantilla de Proforma / Cotización de Encargo'
+              }
+              hint="Podés hacer clic en las etiquetas para insertarlas directamente al texto"
             >
               <textarea
-                value={plantillaCobro}
-                onChange={(e) => setPlantillaCobro(e.target.value)}
-                rows={3}
+                value={
+                  tabPlantillaWA === 'COBRO'
+                    ? plantillaCobro
+                    : tabPlantillaWA === 'FACTURA'
+                      ? plantillaFactura
+                      : plantillaProforma
+                }
+                onChange={(e) => {
+                  if (tabPlantillaWA === 'COBRO') setPlantillaCobro(e.target.value);
+                  else if (tabPlantillaWA === 'FACTURA') setPlantillaFactura(e.target.value);
+                  else setPlantillaProforma(e.target.value);
+                }}
+                rows={4}
                 className="w-full rounded-xl border border-borde bg-superficie px-3.5 py-2.5 text-body text-texto placeholder:text-texto-3 focus:outline-none focus:ring-2 focus:ring-acento transition-all font-sans leading-relaxed"
-                placeholder="Hola {cliente}, te recordamos que tenés un saldo de..."
+                placeholder="Escribe aquí el texto de tu mensaje..."
               />
             </Field>
 
+            {/* Píldoras de variables según plantilla activa */}
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-caption text-texto-3 font-medium">Insertar variable:</span>
               <button
                 type="button"
                 onClick={() => insertarEtiquetaWhatsApp('{cliente}')}
-                className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie-3 border border-borde text-texto-2 hover:text-texto pill-interactive active:scale-95 cursor-pointer"
+                className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie hover:border-acento/40 hover:text-acento border border-borde text-texto-2 pill-interactive active:scale-95 cursor-pointer transition-all"
               >
                 + &#123;cliente&#125;
               </button>
-              <button
-                type="button"
-                onClick={() => insertarEtiquetaWhatsApp('{saldo_usd}')}
-                className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie-3 border border-borde text-texto-2 hover:text-texto pill-interactive active:scale-95 cursor-pointer"
-              >
-                + &#123;saldo_usd&#125;
-              </button>
-              <button
-                type="button"
-                onClick={() => insertarEtiquetaWhatsApp('{saldo_cs}')}
-                className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie-3 border border-borde text-texto-2 hover:text-texto pill-interactive active:scale-95 cursor-pointer"
-              >
-                + &#123;saldo_cs&#125;
-              </button>
+
+              {tabPlantillaWA !== 'COBRO' && (
+                <button
+                  type="button"
+                  onClick={() => insertarEtiquetaWhatsApp('{codigo}')}
+                  className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie hover:border-acento/40 hover:text-acento border border-borde text-texto-2 pill-interactive active:scale-95 cursor-pointer transition-all"
+                >
+                  + &#123;codigo&#125;
+                </button>
+              )}
+
+              {tabPlantillaWA === 'COBRO' ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => insertarEtiquetaWhatsApp('{saldo_usd}')}
+                    className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie hover:border-acento/40 hover:text-acento border border-borde text-texto-2 pill-interactive active:scale-95 cursor-pointer transition-all"
+                  >
+                    + &#123;saldo_usd&#125;
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertarEtiquetaWhatsApp('{saldo_cs}')}
+                    className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie hover:border-acento/40 hover:text-acento border border-borde text-texto-2 pill-interactive active:scale-95 cursor-pointer transition-all"
+                  >
+                    + &#123;saldo_cs&#125;
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => insertarEtiquetaWhatsApp('{total_usd}')}
+                    className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie hover:border-acento/40 hover:text-acento border border-borde text-texto-2 pill-interactive active:scale-95 cursor-pointer transition-all"
+                  >
+                    + &#123;total_usd&#125;
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertarEtiquetaWhatsApp('{total_cs}')}
+                    className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie hover:border-acento/40 hover:text-acento border border-borde text-texto-2 pill-interactive active:scale-95 cursor-pointer transition-all"
+                  >
+                    + &#123;total_cs&#125;
+                  </button>
+                </>
+              )}
+
+              {tabPlantillaWA === 'FACTURA' && (
+                <button
+                  type="button"
+                  onClick={() => insertarEtiquetaWhatsApp('{estado_pago}')}
+                  className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie hover:border-acento/40 hover:text-acento border border-borde text-texto-2 pill-interactive active:scale-95 cursor-pointer transition-all"
+                >
+                  + &#123;estado_pago&#125;
+                </button>
+              )}
+
+              {tabPlantillaWA === 'PROFORMA' && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => insertarEtiquetaWhatsApp('{anticipo}')}
+                    className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie hover:border-acento/40 hover:text-acento border border-borde text-texto-2 pill-interactive active:scale-95 cursor-pointer transition-all"
+                  >
+                    + &#123;anticipo&#125;
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertarEtiquetaWhatsApp('{saldo}')}
+                    className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie hover:border-acento/40 hover:text-acento border border-borde text-texto-2 pill-interactive active:scale-95 cursor-pointer transition-all"
+                  >
+                    + &#123;saldo&#125;
+                  </button>
+                </>
+              )}
+
               <button
                 type="button"
                 onClick={() => insertarEtiquetaWhatsApp('{cuentas_bancarias}')}
-                className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie-3 border border-borde text-texto-2 hover:text-texto pill-interactive active:scale-95 cursor-pointer"
+                className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie hover:border-acento/40 hover:text-acento border border-borde text-texto-2 pill-interactive active:scale-95 cursor-pointer transition-all"
               >
                 + &#123;cuentas_bancarias&#125;
               </button>
             </div>
 
             {/* Vista previa en vivo del mensaje */}
-            <div className="p-3.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-body text-texto-2">
-              <div className="flex items-center gap-2 text-caption font-semibold text-emerald-700 mb-1">
-                <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                Vista previa del mensaje generado:
+            <div className="p-4 rounded-xl bg-emerald-500/5 dark:bg-emerald-950/20 border border-emerald-500/20 dark:border-emerald-800/50 text-body text-texto">
+              <div className="flex items-center gap-2 text-caption font-bold text-emerald-700 dark:text-emerald-400 mb-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                Vista previa del mensaje ({tabPlantillaWA === 'COBRO' ? 'Cobro' : tabPlantillaWA === 'FACTURA' ? 'Factura' : 'Proforma'}):
               </div>
-              <p className="text-caption text-texto-2 italic whitespace-pre-wrap">
-                {plantillaCobro
+              <div className="p-3 rounded-lg bg-superficie border border-borde/60 shadow-2xs font-sans text-caption text-texto whitespace-pre-wrap leading-relaxed">
+                {(tabPlantillaWA === 'COBRO'
+                  ? plantillaCobro
+                  : tabPlantillaWA === 'FACTURA'
+                    ? plantillaFactura
+                    : plantillaProforma
+                )
                   .replace(/\{cliente\}/g, 'María López')
+                  .replace(/\{codigo\}/g, tabPlantillaWA === 'PROFORMA' ? 'COT-E-0012' : 'FAC-V-0024')
                   .replace(/\{saldo_usd\}/g, '$45.00')
                   .replace(/\{saldo_cs\}/g, 'C$1,647.90')
+                  .replace(/\{total_usd\}/g, '$90.00')
+                  .replace(/\{total_cs\}/g, 'C$3,295.80')
+                  .replace(/\{estado_pago\}/g, '✓ Pagado en su totalidad')
+                  .replace(/\{anticipo\}/g, '$45.00')
+                  .replace(/\{saldo\}/g, '$45.00')
                   .replace(
                     /\{cuentas_bancarias\}/g,
                     cuentasBancarias.length > 0
                       ? cuentasBancarias.map((c) => `${c.banco} (${c.moneda}): ${c.numero}`).join(' | ')
                       : 'BAC (USD): 360-123456-7'
                   )}
-              </p>
+              </div>
             </div>
           </CardContent>
         </Card>

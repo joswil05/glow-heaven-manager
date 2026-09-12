@@ -13,6 +13,7 @@ import {
   Calendar,
   Copy,
   Eye,
+  FileText,
 } from 'lucide-react';
 import type {
   Venta,
@@ -38,6 +39,7 @@ import {
 import { EmptyState } from '../components/shared/EmptyState';
 import { VentaEditor } from './ventas/VentaEditor';
 import { PagoModal } from '../components/PagoModal';
+import { DocumentoModal } from '../components/DocumentoModal';
 import { useClickOutside } from '../lib/useClickOutside';
 import { useToast } from '../context/ToastContext';
 import { cn } from '../lib/cn';
@@ -89,6 +91,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
   const [editorAbierto, setEditorAbierto] = useState(abrirEditorAlEntrar);
   const [ventaDetalle, setVentaDetalle] = useState<VentaCompleta | null>(null);
   const [pagoAbierto, setPagoAbierto] = useState(false);
+  const [documentoAbierto, setDocumentoAbierto] = useState(false);
   const [anulando, setAnulando] = useState<Venta | VentaCompleta | null>(null);
   const [menuContextual, setMenuContextual] = useState<{
     x: number;
@@ -527,8 +530,33 @@ export const VentasView: React.FC<VentasViewProps> = ({
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
             {/* Tarjeta de estado de la cuenta */}
             <div className="rounded-xl border border-borde/80 bg-gradient-to-b from-superficie via-superficie to-superficie-2/30 p-4 space-y-2.5 shadow-xs">
+              {(ventaDetalle.descuento_usd_cents ?? 0) > 0 && (
+                <>
+                  <div className="flex justify-between items-center gap-2">
+                    <span className="text-label text-texto-2 font-medium">Subtotal</span>
+                    <Money
+                      usd_cents={
+                        ventaDetalle.subtotal_usd_cents ??
+                        ventaDetalle.total_usd_cents + ventaDetalle.descuento_usd_cents!
+                      }
+                      size="sm"
+                      soloUsd
+                    />
+                  </div>
+                  <div className="flex justify-between items-center gap-2 text-acento">
+                    <span className="text-label font-medium">
+                      Descuento{ventaDetalle.descuento_motivo ? ` (${ventaDetalle.descuento_motivo})` : ''}
+                    </span>
+                    <span className="text-label font-bold font-mono">
+                      -{formatearMoneda(ventaDetalle.descuento_usd_cents!, 'USD')}
+                    </span>
+                  </div>
+                </>
+              )}
               <div className="flex justify-between items-center gap-2">
-                <span className="text-label text-texto-2 font-medium">Total facturado</span>
+                <span className="text-label text-texto-2 font-medium">
+                  {(ventaDetalle.descuento_usd_cents ?? 0) > 0 ? 'Total con descuento' : 'Total facturado'}
+                </span>
                 <Money usd_cents={ventaDetalle.total_usd_cents} size="sm" />
               </div>
               <div className="flex justify-between items-center gap-2">
@@ -599,6 +627,15 @@ export const VentasView: React.FC<VentasViewProps> = ({
 
             {/* Acciones principales */}
             <div className="space-y-2.5 pt-1">
+              <Button
+                variant="outline"
+                className="w-full flex items-center justify-center gap-1.5 border-acento/40 text-acento hover:bg-acento/10 font-semibold"
+                onClick={() => setDocumentoAbierto(true)}
+              >
+                <FileText className="w-4 h-4" />
+                <span>{esEncargo ? 'Ver Proforma / Cotización' : 'Ver Factura Comercial'}</span>
+              </Button>
+
               {ventaDetalle.estado !== 'CANCELADA' && ventaDetalle.saldo_usd_cents > 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <Button
@@ -703,6 +740,15 @@ export const VentasView: React.FC<VentasViewProps> = ({
         }}
       />
 
+      {parametros && (
+        <DocumentoModal
+          abierto={documentoAbierto}
+          venta={ventaDetalle}
+          parametros={parametros}
+          onCerrar={() => setDocumentoAbierto(false)}
+        />
+      )}
+
       {menuContextual && (
         <ContextMenu
           x={menuContextual.x}
@@ -715,6 +761,18 @@ export const VentasView: React.FC<VentasViewProps> = ({
               icon: <Eye className="w-4 h-4" />,
               shortcut: 'Espacio',
               onClick: () => abrirDetalle(menuContextual.venta.id),
+            },
+            {
+              id: 'ver-factura',
+              label:
+                menuContextual.venta.tipo === 'ENCARGO'
+                  ? 'Ver Proforma / Cotización'
+                  : 'Ver Factura Comercial',
+              icon: <FileText className="w-4 h-4" />,
+              onClick: async () => {
+                await abrirDetalle(menuContextual.venta.id);
+                setDocumentoAbierto(true);
+              },
             },
             ...(menuContextual.venta.saldo_usd_cents > 0 &&
             menuContextual.venta.estado !== 'CANCELADA'

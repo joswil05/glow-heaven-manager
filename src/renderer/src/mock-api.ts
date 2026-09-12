@@ -53,6 +53,10 @@ function almacenInicial(): Almacen {
     onboarding_completado: true,
     plantilla_cobro_whatsapp:
       'Hola {cliente}, te saludamos de Glow Heaven ✨ Te recordamos que tienes un saldo pendiente de {saldo_usd} ({saldo_cs}). Si ya realizaste tu abono, por favor compártenos el comprobante. ¡Muchas gracias!',
+    plantilla_factura_whatsapp:
+      '¡Hola {cliente}! ✨ Muchas gracias por tu compra en Glow Heaven 🛍️\n\n📄 Factura: {codigo}\n💵 Total: {total_usd} (≈ {total_cs})\n{estado_pago}\n\n{cuentas_bancarias}\n¡Esperamos que disfrutes tus prendas! 💖',
+    plantilla_proforma_whatsapp:
+      '¡Hola {cliente}! ✨ Te compartimos la cotización de tu encargo en Glow Heaven 📦✈️\n\n📋 Cotización: {codigo}\n💰 Total estimado: {total_usd} (≈ {total_cs})\n🔒 Anticipo requerido (50%): {anticipo}\n🤝 Saldo contra entrega: {saldo}\n\n{cuentas_bancarias}\n¡Quedamos atentas a tu comprobante! 💕',
     cuentas_bancarias: [
       { banco: 'BAC Credomatic', moneda: 'USD', numero: '360-123456-7', titular: 'Glow Heaven' },
       { banco: 'LAFISE Bancentro', moneda: 'NIO', numero: '102-987654-3', titular: 'Glow Heaven' },
@@ -812,6 +816,51 @@ const api: ApiPuente = {
         excedente_usd_cents: Math.max(0, -venta.saldo_usd_cents),
         anticipo_cubierto: cubierto,
       });
+    },
+    registrarAbonoCliente: (input) => {
+      let targetVentaId = input.venta_id;
+      if (!targetVentaId) {
+        const ventaConSaldo = db.ventas
+          .filter((v) => v.cliente_id === input.cliente_id && v.saldo_usd_cents > 0 && v.estado !== 'CANCELADA')
+          .sort((a, b) => a.fecha.localeCompare(b.fecha))[0];
+        targetVentaId = ventaConSaldo?.id ?? 0;
+      }
+      const venta = db.ventas.find((v) => v.id === targetVentaId);
+      if (!venta) return ok({ ...grupo(), pago_id: 0, pagado_usd_cents: 0, saldo_usd_cents: 0, excedente_usd_cents: 0, anticipo_cubierto: false });
+      const montoUsd = input.moneda === 'COR'
+        ? Math.round((input.monto_cents * 100) / venta.tasa_cambio_cents)
+        : input.monto_cents;
+      const pago: Pago = {
+        id: db.siguienteId++,
+        venta_id: venta.id,
+        cliente_id: venta.cliente_id,
+        fecha: input.fecha,
+        monto_usd_cents: montoUsd,
+        monto_cor_cents: input.moneda === 'COR' ? input.monto_cents : Math.round((montoUsd * venta.tasa_cambio_cents) / 100),
+        moneda: input.moneda,
+        tasa_cambio_cents: venta.tasa_cambio_cents,
+        metodo: input.metodo,
+        referencia: input.referencia,
+        es_anticipo: false,
+        activo: true,
+      };
+      venta.pagos.push(pago);
+      venta.pagado_usd_cents += montoUsd;
+      venta.saldo_usd_cents = venta.total_usd_cents - venta.pagado_usd_cents;
+      return ok({ ...grupo(), pago_id: pago.id, pagado_usd_cents: venta.pagado_usd_cents, saldo_usd_cents: venta.saldo_usd_cents, excedente_usd_cents: Math.max(0, -venta.saldo_usd_cents), anticipo_cubierto: false });
+    },
+    listarPorCliente: (cliente_id) => {
+      const todos = db.ventas
+        .flatMap((v) =>
+          v.pagos
+            .filter((p) => (p.cliente_id === cliente_id || v.cliente_id === cliente_id) && p.activo !== false)
+            .map((p) => ({
+              ...p,
+              venta_codigo: v.codigo,
+            }))
+        )
+        .sort((a, b) => b.fecha.localeCompare(a.fecha));
+      return ok(todos);
     },
     anular: (pago_id) => {
       for (const v of db.ventas) {

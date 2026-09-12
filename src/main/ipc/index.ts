@@ -193,6 +193,14 @@ export function registrarHandlers(): void {
     return { evento_grupo_id, ...r };
   });
 
+  manejar(IPC.PAGOS_REGISTRAR_ABONO_CLIENTE, async (input: Parameters<typeof PagosRepo.registrarAbonoCliente>[0]) => {
+    const evento_grupo_id = nuevoGrupo();
+    const r = await PagosRepo.registrarAbonoCliente(input, evento_grupo_id);
+    return { evento_grupo_id, ...r };
+  });
+
+  manejar(IPC.PAGOS_LISTAR_POR_CLIENTE, (cliente_id: number) => PagosRepo.listarPorCliente(cliente_id));
+
   manejar(IPC.PAGOS_ANULAR, async (pago_id: number) => {
     const evento_grupo_id = nuevoGrupo();
     await PagosRepo.anular(pago_id, evento_grupo_id);
