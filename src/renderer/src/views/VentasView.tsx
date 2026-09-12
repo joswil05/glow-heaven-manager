@@ -38,6 +38,7 @@ import {
 import { EmptyState } from '../components/shared/EmptyState';
 import { VentaEditor } from './ventas/VentaEditor';
 import { PagoModal } from '../components/PagoModal';
+import { useClickOutside } from '../lib/useClickOutside';
 import { useToast } from '../context/ToastContext';
 import { cn } from '../lib/cn';
 import { formatearMoneda, formatearFecha } from '@core/moneda';
@@ -94,6 +95,8 @@ export const VentasView: React.FC<VentasViewProps> = ({
     y: number;
     venta: Venta;
   } | null>(null);
+
+  const lateralRef = useClickOutside<HTMLElement>(Boolean(ventaDetalle), () => setVentaDetalle(null));
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -477,7 +480,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
       </div>
 
       {ventaDetalle && (
-        <aside className="w-[410px] border-l border-borde bg-superficie flex flex-col shrink-0 animate-drawer shadow-xl z-10">
+        <aside ref={lateralRef} className="w-[410px] border-l border-borde bg-superficie flex flex-col shrink-0 animate-drawer shadow-xl z-10">
           {/* Cabecera pegajosa con botón de cerrar */}
           <div className="p-5 border-b border-borde bg-superficie-2/40 flex items-start justify-between gap-3 shrink-0">
             <div className="flex items-start gap-3 min-w-0">

@@ -450,14 +450,18 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-velo/40 backdrop-blur-xs p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-velo/40 backdrop-blur-xs p-4 cursor-pointer"
       role="dialog"
       aria-modal="true"
       aria-labelledby="titulo-venta"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onCerrar();
+      }}
     >
       <div
         onKeyDown={alPresionarEnter}
-        className="bg-superficie rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden border border-borde/80 animate-modal-pop"
+        onClick={(e) => e.stopPropagation()}
+        className="bg-superficie rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden border border-borde/80 animate-modal-pop cursor-default"
       >
         {/* Cabecera */}
         <header className="flex items-center justify-between px-6 py-4 border-b border-borde shrink-0 bg-superficie">

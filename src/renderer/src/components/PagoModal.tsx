@@ -150,12 +150,18 @@ export const PagoModal: React.FC<PagoModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-velo/40 backdrop-blur-xs p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-velo/40 backdrop-blur-xs p-4 cursor-pointer"
       role="dialog"
       aria-modal="true"
       aria-labelledby="titulo-pago"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onCerrar();
+      }}
     >
-      <div className="bg-superficie rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col border border-borde/80 animate-modal-pop overflow-hidden">
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-superficie rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col border border-borde/80 animate-modal-pop overflow-hidden cursor-default"
+      >
         <header className="flex items-center justify-between px-5 py-4 border-b border-borde shrink-0">
           <div>
             <h3 id="titulo-pago" className="text-title text-texto">

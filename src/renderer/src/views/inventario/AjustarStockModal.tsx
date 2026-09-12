@@ -57,12 +57,19 @@ export const AjustarStockModal: React.FC<Props> = ({ ajuste, onCerrar, onConfirm
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-velo/60 backdrop-blur-xs p-4 animate-fade-in"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-velo/60 backdrop-blur-xs p-4 animate-fade-in cursor-pointer"
       role="dialog"
       aria-modal="true"
       aria-labelledby="titulo-ajuste"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onCerrar();
+      }}
     >
-      <form onSubmit={enviar} className="bg-superficie rounded-2xl shadow-2xl w-full max-w-sm border border-borde animate-modal-pop overflow-hidden">
+      <form
+        onSubmit={enviar}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-superficie rounded-2xl shadow-2xl w-full max-w-sm border border-borde animate-modal-pop overflow-hidden cursor-default"
+      >
         <div className="p-6 space-y-4">
           <div>
             <h3 id="titulo-ajuste" className="text-title font-bold text-texto tracking-tight">

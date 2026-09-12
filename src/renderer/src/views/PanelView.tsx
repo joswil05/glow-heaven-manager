@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   AlertTriangle,
   ArrowRight,
@@ -13,6 +13,10 @@ import {
   Flame,
   Sparkles,
   Plus,
+  Eye,
+  DollarSign,
+  MessageCircle,
+  Copy,
 } from 'lucide-react';
 import type { PanelData, Alerta, SeveridadAlerta } from '../../../shared/types';
 import {
@@ -26,7 +30,9 @@ import {
   Money,
   LineaCreciente,
   BarraProgreso,
+  ContextMenu,
 } from '../components/ui';
+import { useToast } from '../context/ToastContext';
 import { cn } from '../lib/cn';
 
 export type DestinoPanel = 'inventario' | 'paquetes' | 'ventas' | 'clientes';
@@ -75,6 +81,20 @@ export const PanelView: React.FC<PanelViewProps> = ({
 
   const { resumen, ganancia_mes_actual, ganancia_mes_anterior, historico, alertas } = data;
 
+  const { showToast } = useToast();
+  const [menuContextual, setMenuContextual] = useState<{
+    x: number;
+    y: number;
+    tipo: 'deudor' | 'stock' | 'vendido' | 'fondo';
+    item?: any;
+  } | null>(null);
+
+  const enviarCobroWhatsApp = (deudor: { cliente_nombre: string; saldo_usd_cents: number; codigo: string }) => {
+    const texto = `Hola ${deudor.cliente_nombre}, te saludamos de Glow Heaven. Te escribimos para recordarte tu saldo pendiente de $${(deudor.saldo_usd_cents / 100).toFixed(2)} correspondiente a la compra ${deudor.codigo}. ¡Muchas gracias!`;
+    const url = `https://wa.me/?text=${encodeURIComponent(texto)}`;
+    window.open(url, '_blank');
+  };
+
   const gananciaActual = ganancia_mes_actual?.ganancia_usd_cents ?? 0;
   const gananciaAnterior = ganancia_mes_anterior?.ganancia_usd_cents ?? 0;
 
@@ -104,10 +124,17 @@ export const PanelView: React.FC<PanelViewProps> = ({
     historico.every((h) => h.ingresos_usd_cents === 0);
 
   return (
-    <div className="flex-1 overflow-y-auto animate-fade-in bg-fondo/50 flex flex-col">
-      <div className="p-3.5 md:p-4 max-w-[1600px] w-full mx-auto flex-1 flex flex-col justify-between gap-3 min-h-full">
+    <div
+      onContextMenu={(e) => {
+        if ((e.target as HTMLElement).closest('button, a, input, [role="menu"]')) return;
+        e.preventDefault();
+        setMenuContextual({ x: e.clientX, y: e.clientY, tipo: 'fondo' });
+      }}
+      className="flex-1 overflow-y-auto animate-fade-in bg-fondo/50 flex flex-col"
+    >
+      <div className="p-3 md:p-3.5 max-w-[1600px] w-full mx-auto flex-1 flex flex-col justify-between gap-2.5 min-h-full">
         {/* Barra superior de bienvenida y accesos directos compacta */}
-        <div className="flex items-center justify-between gap-3 pb-1 border-b border-borde/40 text-caption text-texto-3 shrink-0 flex-wrap">
+        <div className="flex items-center justify-between gap-3 pb-0.5 border-b border-borde/40 text-caption text-texto-3 shrink-0 flex-wrap">
           <div className="flex items-center gap-2">
             <span className="font-bold text-texto text-body">Resumen Financiero y Operativo</span>
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
@@ -141,13 +168,13 @@ export const PanelView: React.FC<PanelViewProps> = ({
             </div>
           </div>
         ) : (
-          /* Nivel 1: Cuatro tarjetas de métricas de alta jerarquía */
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 shrink-0 stagger-children">
+          /* Nivel 1: Cuatro tarjetas de métricas de alta jerarquía compactadas */
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5 shrink-0 stagger-children">
             {/* 1. GANANCIA DE ESTE MES (Métrica estrella) */}
             <StatTile
               label="Ganancia de este mes"
               usd_cents={gananciaActual}
-              size="lg"
+              size="md"
               tone={gananciaActual > 0 ? 'success' : 'neutral'}
               icon={TrendingUp}
               delta={
@@ -166,7 +193,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
             <StatTile
               label="Invertido en bodega"
               usd_cents={inversionTotal}
-              size="lg"
+              size="md"
               tone="purple"
               icon={Boxes}
               hint={`${resumen.unidades_en_inventario} unidad(es) disponibles`}
@@ -177,7 +204,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
             <StatTile
               label="Te deben en la calle"
               usd_cents={resumen.por_cobrar_usd_cents}
-              size="lg"
+              size="md"
               tone={
                 resumen.por_cobrar_usd_cents === 0
                   ? 'neutral'
@@ -198,7 +225,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
             <StatTile
               label="Stock crítico"
               value={data.bajo_stock.length}
-              size="lg"
+              size="md"
               tone={data.bajo_stock.length > 0 ? 'danger' : 'success'}
               icon={PackageX}
               hint={
@@ -237,24 +264,24 @@ export const PanelView: React.FC<PanelViewProps> = ({
         )}
 
         {/* Nivel 3: Gráfica interactiva animada + Dónde está la plata */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-3 shrink-0">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-2.5 shrink-0">
           {/* Gráfica principal con selector y animaciones */}
           <Card className="xl:col-span-2 shadow-2xs flex flex-col">
-            <CardHeader className="px-4 py-2 shrink-0">
+            <CardHeader className="px-3.5 py-1.5 shrink-0">
               <SectionHeader
                 icon={TrendingUp}
                 title="Evolución de Rentabilidad"
                 description="Ganancia neta vs facturación bruta mensual"
               />
             </CardHeader>
-            <CardContent className="p-3 flex-1 flex flex-col justify-center">
+            <CardContent className="p-2.5 pt-1 flex-1 flex flex-col justify-center">
               {serie.some((s) => s.valor > 0 || (s.valorSecundario ?? 0) > 0) ? (
-                <LineaCreciente datos={serie} alto={145} />
+                <LineaCreciente datos={serie} alto={110} />
               ) : (
-                <div className="relative h-[145px] rounded-xl overflow-hidden flex items-center justify-between p-5 bg-gradient-to-r from-superficie to-superficie-2/40 border border-dashed border-borde/80">
+                <div className="relative h-[110px] rounded-xl overflow-hidden flex items-center justify-between p-4 bg-gradient-to-r from-superficie to-superficie-2/40 border border-dashed border-borde/80">
                   <div className="relative z-10 flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-acento-suave text-acento flex items-center justify-center border border-acento/20 shrink-0">
-                      <TrendingUp className="w-4.5 h-4.5 text-acento" />
+                    <div className="w-8 h-8 rounded-xl bg-acento-suave text-acento flex items-center justify-center border border-acento/20 shrink-0">
+                      <TrendingUp className="w-4 h-4 text-acento" />
                     </div>
                     <div>
                       <p className="text-body font-bold text-texto">
@@ -287,7 +314,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
 
             return (
               <Card className="shadow-2xs flex flex-col justify-between">
-                <CardHeader className="px-4 py-2 shrink-0">
+                <CardHeader className="px-3.5 py-1.5 shrink-0">
                   <div className="flex items-center justify-between gap-2">
                     <SectionHeader
                       icon={Wallet}
@@ -304,12 +331,12 @@ export const PanelView: React.FC<PanelViewProps> = ({
                     )}
                   </div>
                 </CardHeader>
-                <CardContent className="px-4 pb-3 pt-1 flex-1 flex flex-col justify-center gap-2.5">
+                <CardContent className="px-3.5 pb-2.5 pt-0.5 flex-1 flex flex-col justify-center gap-2">
                   {capitalTotal > 0 ? (
                     <>
                       {/* Barra segmentada proporcional continua */}
                       <div className="space-y-1">
-                        <div className="h-2 w-full rounded-full bg-superficie-2 border border-borde/60 p-0.5 flex overflow-hidden gap-0.5">
+                        <div className="h-1.5 w-full rounded-full bg-superficie-2 border border-borde/60 p-0.5 flex overflow-hidden gap-0.5">
                           <div
                             className="h-full bg-gradient-to-r from-emerald-600 to-emerald-500 rounded-full transition-all duration-500"
                             style={{ width: `${Math.max(pctBodega > 0 ? 4 : 0, pctBodega)}%` }}
@@ -329,9 +356,9 @@ export const PanelView: React.FC<PanelViewProps> = ({
                         <button
                           type="button"
                           onClick={() => onNavegar('inventario')}
-                          className="text-left rounded-xl border border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10 p-2.5 transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                          className="text-left rounded-xl border border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10 p-2 transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
                         >
-                          <div className="flex items-center justify-between gap-1 mb-1">
+                          <div className="flex items-center justify-between gap-1 mb-0.5">
                             <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-800">
                               <Boxes className="w-3.5 h-3.5 text-emerald-600 group-hover:scale-110 transition-transform" />
                               <span>En bodega</span>
@@ -341,7 +368,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
                             </span>
                           </div>
                           <Money usd_cents={inversionTotal} size="sm" layout="stacked" className="font-bold text-texto" />
-                          <div className="text-[11px] text-texto-3 mt-1 truncate">
+                          <div className="text-[10px] text-texto-3 mt-0.5 truncate">
                             {resumen.unidades_en_inventario} unid. disponibles
                           </div>
                         </button>
@@ -350,9 +377,9 @@ export const PanelView: React.FC<PanelViewProps> = ({
                         <button
                           type="button"
                           onClick={() => onNavegar('ventas')}
-                          className="text-left rounded-xl border border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10 p-2.5 transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                          className="text-left rounded-xl border border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10 p-2 transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
                         >
-                          <div className="flex items-center justify-between gap-1 mb-1">
+                          <div className="flex items-center justify-between gap-1 mb-0.5">
                             <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-800">
                               <Wallet className="w-3.5 h-3.5 text-amber-600 group-hover:scale-110 transition-transform" />
                               <span>Por cobrar</span>
@@ -362,7 +389,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
                             </span>
                           </div>
                           <Money usd_cents={resumen.por_cobrar_usd_cents} size="sm" layout="stacked" className="font-bold text-texto" />
-                          <div className="text-[11px] text-texto-3 mt-1 truncate">
+                          <div className="text-[10px] text-texto-3 mt-0.5 truncate">
                             {data.por_cobrar.length === 0 ? '¡Cuentas al día!' : `${data.por_cobrar.length} ventas con saldo`}
                           </div>
                         </button>
@@ -370,15 +397,15 @@ export const PanelView: React.FC<PanelViewProps> = ({
 
                       {/* Anticipos por entregar si existen */}
                       {resumen.anticipos_por_entregar_usd_cents > 0 && (
-                        <div className="px-3 py-1 rounded-lg border border-amber-200/60 bg-amber-50/70 flex items-center justify-between text-[11px]">
+                        <div className="px-2.5 py-0.5 rounded-lg border border-amber-200/60 bg-amber-50/70 flex items-center justify-between text-[11px]">
                           <span className="font-medium text-amber-900">Anticipos por entregar:</span>
                           <Money usd_cents={resumen.anticipos_por_entregar_usd_cents} size="sm" soloUsd className="font-bold text-amber-950" />
                         </div>
                       )}
                     </>
                   ) : (
-                    <div className="py-6 flex flex-col items-center justify-center text-center gap-1.5 text-texto-3">
-                      <Wallet className="w-7 h-7 text-borde-fuerte" />
+                    <div className="py-5 flex flex-col items-center justify-center text-center gap-1 text-texto-3">
+                      <Wallet className="w-6 h-6 text-borde-fuerte" />
                       <p className="text-body font-semibold text-texto-2">Sin capital registrado aún</p>
                       <p className="text-caption text-texto-3 max-w-xs">
                         Cuando registres tu primer paquete verás el desglose de tu inversión.
@@ -392,10 +419,10 @@ export const PanelView: React.FC<PanelViewProps> = ({
         </div>
 
         {/* Nivel 4: Listas de trabajo operativas que llenan el alto restante armónicamente */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-3 flex-1 min-h-[190px] stagger-children items-stretch">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-2.5 flex-1 min-h-0 stagger-children items-stretch">
           {/* 1. QUIÉN TE DEBE */}
           <Card className="shadow-2xs flex flex-col h-full">
-            <CardHeader className="px-4 py-2 shrink-0">
+            <CardHeader className="px-3.5 py-1.5 shrink-0">
               <SectionHeader
                 icon={Users}
                 title="Quién te debe"
@@ -411,15 +438,20 @@ export const PanelView: React.FC<PanelViewProps> = ({
             <CardContent className="p-0 flex-1 flex flex-col">
               {data.por_cobrar.length > 0 ? (
                 <ul className="divide-y divide-borde/50 flex-1">
-                  {data.por_cobrar.slice(0, 5).map((p) => (
+                  {data.por_cobrar.slice(0, 3).map((p) => (
                     <li key={p.venta_id}>
                       <button
                         onClick={() => onNavegar('ventas', p.venta_id)}
-                        className="w-full text-left px-4 py-2 hover:bg-superficie-2 transition-all focus-visible:outline-none focus-visible:bg-superficie-2 group"
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setMenuContextual({ x: e.clientX, y: e.clientY, tipo: 'deudor', item: p });
+                        }}
+                        className="w-full text-left px-3.5 py-1.5 hover:bg-superficie-2 transition-all focus-visible:outline-none focus-visible:bg-superficie-2 group"
                       >
                         <div className="flex items-center justify-between gap-2.5">
                           <div className="flex items-center gap-2 min-w-0">
-                            <div className="w-6.5 h-6.5 rounded-lg bg-superficie-2 text-texto font-bold text-xs flex items-center justify-center border border-borde shrink-0 group-hover:border-acento">
+                            <div className="w-6 h-6 rounded-lg bg-superficie-2 text-texto font-bold text-xs flex items-center justify-center border border-borde shrink-0 group-hover:border-acento">
                               {p.cliente_nombre.charAt(0).toUpperCase()}
                             </div>
                             <span className="text-body font-semibold text-texto truncate group-hover:text-acento transition-colors">
@@ -429,7 +461,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
                           <Money usd_cents={p.saldo_usd_cents} size="sm" soloUsd className="font-bold text-amber-700" />
                         </div>
 
-                        <div className="flex items-center justify-between gap-2 mt-0.5 pl-8.5">
+                        <div className="flex items-center justify-between gap-2 mt-0.5 pl-8">
                           <span className="text-caption text-texto-3 font-medium">
                             {p.codigo}
                             {p.cuotas_vencidas > 0 && (
@@ -440,7 +472,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
                           </span>
                         </div>
 
-                        <div className="pl-8.5 mt-1">
+                        <div className="pl-8 mt-0.5">
                           <BarraProgreso
                             actual={p.pagado_usd_cents}
                             total={p.total_usd_cents}
@@ -464,7 +496,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
 
           {/* 2. SE ESTÁ ACABANDO */}
           <Card className="shadow-2xs flex flex-col h-full">
-            <CardHeader className="px-4 py-2 shrink-0">
+            <CardHeader className="px-3.5 py-1.5 shrink-0">
               <SectionHeader
                 icon={PackageX}
                 title="Stock por agotarse"
@@ -479,11 +511,16 @@ export const PanelView: React.FC<PanelViewProps> = ({
               {data.bajo_stock.length > 0 ? (
                 <>
                   <ul className="divide-y divide-borde/50 flex-1">
-                    {data.bajo_stock.slice(0, 6).map((p) => (
+                    {data.bajo_stock.slice(0, 4).map((p) => (
                       <li key={p.producto_id}>
                         <button
                           onClick={() => onNavegar('inventario', p.producto_id)}
-                          className="w-full text-left px-4 py-2 hover:bg-superficie-2 transition-all focus-visible:outline-none focus-visible:bg-superficie-2 flex items-center justify-between gap-3 group"
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setMenuContextual({ x: e.clientX, y: e.clientY, tipo: 'stock', item: p });
+                          }}
+                          className="w-full text-left px-3.5 py-1.5 hover:bg-superficie-2 transition-all focus-visible:outline-none focus-visible:bg-superficie-2 flex items-center justify-between gap-3 group"
                         >
                           <span className="text-body font-medium text-texto truncate group-hover:text-acento transition-colors">
                             {p.nombre}
@@ -495,7 +532,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
                       </li>
                     ))}
                   </ul>
-                  <div className="mt-auto px-4 py-2 border-t border-borde/40 bg-superficie-2/20 text-caption text-texto-3 flex items-center gap-1.5">
+                  <div className="mt-auto px-3.5 py-1.5 border-t border-borde/40 bg-superficie-2/20 text-caption text-texto-3 flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                     <span>Resto del catálogo con existencias saludables</span>
                   </div>
@@ -511,7 +548,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
 
           {/* 3. LO QUE MÁS SE VENDE CON PODIO */}
           <Card className="shadow-2xs flex flex-col h-full">
-            <CardHeader className="px-4 py-2 shrink-0">
+            <CardHeader className="px-3.5 py-1.5 shrink-0">
               <SectionHeader
                 icon={Flame}
                 title="Más vendidos"
@@ -521,14 +558,20 @@ export const PanelView: React.FC<PanelViewProps> = ({
             <CardContent className="p-0 flex-1 flex flex-col justify-between">
               {data.mas_vendidos.length > 0 ? (
                 <ul className="divide-y divide-borde/50 flex-1">
-                  {data.mas_vendidos.slice(0, 4).map((p, idx) => {
+                  {data.mas_vendidos.slice(0, 3).map((p, idx) => {
                     const medallas = ['🥇', '🥈', '🥉'];
                     const medalla = medallas[idx];
 
                     return (
                       <li
                         key={p.producto_id}
-                        className="px-4 py-1.5 flex items-center justify-between gap-2.5 hover:bg-superficie-2/40 transition-colors"
+                        onClick={() => onNavegar('inventario', p.producto_id)}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setMenuContextual({ x: e.clientX, y: e.clientY, tipo: 'vendido', item: p });
+                        }}
+                        className="px-3.5 py-1 flex items-center justify-between gap-2.5 hover:bg-superficie-2/40 transition-colors cursor-pointer group"
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           <span className="text-base shrink-0 w-6 text-center">
@@ -539,7 +582,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
                             )}
                           </span>
                           <div className="min-w-0">
-                            <div className="text-body font-semibold text-texto truncate">
+                            <div className="text-body font-semibold text-texto truncate group-hover:text-acento transition-colors">
                               {p.nombre}
                             </div>
                             <div className="text-caption text-texto-3">
@@ -564,7 +607,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
               )}
 
               {data.sin_rotacion.length > 0 && (
-                <div className="mt-auto px-4 py-2 border-t border-borde/60 bg-amber-50/40 rounded-b-xl">
+                <div className="mt-auto px-3.5 py-1.5 border-t border-borde/60 bg-amber-50/40 rounded-b-xl">
                   <div className="text-caption font-semibold text-amber-900 mb-0.5 flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-amber-600" />
                     <span>Sin rotación en 90 días:</span>
@@ -599,6 +642,132 @@ export const PanelView: React.FC<PanelViewProps> = ({
           </Card>
         )}
       </div>
+
+      {menuContextual && (
+        <ContextMenu
+          x={menuContextual.x}
+          y={menuContextual.y}
+          onClose={() => setMenuContextual(null)}
+          items={
+            menuContextual.tipo === 'deudor'
+              ? [
+                  {
+                    id: 'ver-venta',
+                    label: `Ver venta (${menuContextual.item.codigo})`,
+                    icon: <Eye className="w-4 h-4" />,
+                    shortcut: 'Espacio',
+                    onClick: () => onNavegar('ventas', menuContextual.item.venta_id),
+                  },
+                  {
+                    id: 'abono',
+                    label: 'Registrar abono / Cobrar',
+                    icon: <DollarSign className="w-4 h-4" />,
+                    tone: 'success' as const,
+                    onClick: () => onNavegar('ventas', menuContextual.item.venta_id),
+                  },
+                  {
+                    id: 'whatsapp',
+                    label: 'Cobrar por WhatsApp',
+                    icon: <MessageCircle className="w-4 h-4" />,
+                    onClick: () => enviarCobroWhatsApp(menuContextual.item),
+                  },
+                  'separator' as const,
+                  {
+                    id: 'copiar-codigo',
+                    label: `Copiar código (${menuContextual.item.codigo})`,
+                    icon: <Copy className="w-4 h-4" />,
+                    onClick: () => {
+                      navigator.clipboard.writeText(menuContextual.item.codigo);
+                      showToast({ message: 'Código de venta copiado al portapapeles', type: 'info' });
+                    },
+                  },
+                  {
+                    id: 'copiar-cliente',
+                    label: `Copiar cliente (${menuContextual.item.cliente_nombre})`,
+                    icon: <Copy className="w-4 h-4" />,
+                    onClick: () => {
+                      navigator.clipboard.writeText(menuContextual.item.cliente_nombre);
+                      showToast({ message: 'Nombre del cliente copiado', type: 'info' });
+                    },
+                  },
+                ]
+              : menuContextual.tipo === 'stock'
+                ? [
+                    {
+                      id: 'ver-inventario',
+                      label: `Ver en inventario (${menuContextual.item.nombre})`,
+                      icon: <Eye className="w-4 h-4" />,
+                      shortcut: 'Espacio',
+                      onClick: () => onNavegar('inventario', menuContextual.item.producto_id),
+                    },
+                    'separator' as const,
+                    {
+                      id: 'copiar-nombre',
+                      label: 'Copiar nombre del producto',
+                      icon: <Copy className="w-4 h-4" />,
+                      onClick: () => {
+                        navigator.clipboard.writeText(menuContextual.item.nombre);
+                        showToast({ message: 'Nombre del producto copiado', type: 'info' });
+                      },
+                    },
+                  ]
+                : menuContextual.tipo === 'vendido'
+                  ? [
+                      {
+                        id: 'ver-inventario',
+                        label: `Ver en inventario (${menuContextual.item.nombre})`,
+                        icon: <Eye className="w-4 h-4" />,
+                        shortcut: 'Espacio',
+                        onClick: () => onNavegar('inventario', menuContextual.item.producto_id),
+                      },
+                      'separator' as const,
+                      {
+                        id: 'copiar-nombre',
+                        label: 'Copiar nombre del producto',
+                        icon: <Copy className="w-4 h-4" />,
+                        onClick: () => {
+                          navigator.clipboard.writeText(menuContextual.item.nombre);
+                          showToast({ message: 'Nombre del producto copiado', type: 'info' });
+                        },
+                      },
+                    ]
+                  : [
+                      {
+                        id: 'nueva-venta',
+                        label: 'Nueva venta rápida',
+                        icon: <Plus className="w-4 h-4" />,
+                        tone: 'success' as const,
+                        onClick: onNuevaVenta,
+                      },
+                      {
+                        id: 'nuevo-paquete',
+                        label: 'Registrar paquete / envío',
+                        icon: <Package className="w-4 h-4" />,
+                        onClick: onNuevoPaquete,
+                      },
+                      'separator' as const,
+                      {
+                        id: 'ir-inventario',
+                        label: 'Ir a Inventario',
+                        icon: <Boxes className="w-4 h-4" />,
+                        onClick: () => onNavegar('inventario'),
+                      },
+                      {
+                        id: 'ir-ventas',
+                        label: 'Ir a Ventas y Cobros',
+                        icon: <Wallet className="w-4 h-4" />,
+                        onClick: () => onNavegar('ventas'),
+                      },
+                      {
+                        id: 'ir-clientes',
+                        label: 'Ir a Clientes',
+                        icon: <Users className="w-4 h-4" />,
+                        onClick: () => onNavegar('clientes'),
+                      },
+                    ]
+          }
+        />
+      )}
     </div>
   );
 };

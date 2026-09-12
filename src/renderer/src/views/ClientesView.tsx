@@ -15,6 +15,7 @@ import {
   type Column,
 } from '../components/ui';
 import { EmptyState } from '../components/shared/EmptyState';
+import { useClickOutside } from '../lib/useClickOutside';
 import { useToast } from '../context/ToastContext';
 import { formatearMoneda, formatearFecha } from '@core/moneda';
 
@@ -35,6 +36,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
   const [cargando, setCargando] = useState(true);
   const [busqueda, setBusqueda] = useState('');
   const [detalle, setDetalle] = useState<ClienteDetalle | null>(null);
+  const lateralRef = useClickOutside<HTMLElement>(Boolean(detalle), () => setDetalle(null));
   const [ventasCliente, setVentasCliente] = useState<Venta[]>([]);
   const [modalAbierto, setModalAbierto] = useState(false);
   const [editando, setEditando] = useState<ClienteDetalle | null>(null);
@@ -309,7 +311,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
       </div>
 
       {detalle && (
-        <aside className="w-[410px] border-l border-borde bg-superficie flex flex-col shrink-0 animate-drawer shadow-xl z-10">
+        <aside ref={lateralRef} className="w-[410px] border-l border-borde bg-superficie flex flex-col shrink-0 animate-drawer shadow-xl z-10">
           {/* Cabecera pegajosa con avatar y botón de cerrar */}
           <div className="p-5 border-b border-borde bg-superficie-2/40 flex items-start justify-between gap-3 shrink-0">
             <div className="flex items-start gap-3 min-w-0">
@@ -685,14 +687,18 @@ const ClienteModal: React.FC<{
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-velo/40 backdrop-blur-xs p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-velo/40 backdrop-blur-xs p-4 cursor-pointer"
       role="dialog"
       aria-modal="true"
       aria-labelledby="titulo-cliente"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onCerrar();
+      }}
     >
       <div
         onKeyDown={alPresionarEnter}
-        className="bg-superficie rounded-2xl shadow-2xl w-full max-w-lg animate-modal-pop border border-borde/80 overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+        className="bg-superficie rounded-2xl shadow-2xl w-full max-w-lg animate-modal-pop border border-borde/80 overflow-hidden cursor-default"
       >
         <header className="flex items-center justify-between px-5 py-4 border-b border-borde">
           <h3 id="titulo-cliente" className="text-title text-texto">

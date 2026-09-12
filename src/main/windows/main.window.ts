@@ -1,4 +1,4 @@
-import { BrowserWindow, shell } from 'electron';
+import { BrowserWindow, shell, Menu } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -57,6 +57,28 @@ export function createMainWindow(): BrowserWindow {
       shell.openExternal(url);
     }
     return { action: 'deny' };
+  });
+
+  // Menú contextual nativo de Windows para edición de texto y selección
+  mainWindow.webContents.on('context-menu', (_event, params) => {
+    if (params.isEditable) {
+      const menu = Menu.buildFromTemplate([
+        { role: 'undo', label: 'Deshacer' },
+        { role: 'redo', label: 'Rehacer' },
+        { type: 'separator' },
+        { role: 'cut', label: 'Cortar' },
+        { role: 'copy', label: 'Copiar' },
+        { role: 'paste', label: 'Pegar' },
+        { role: 'selectAll', label: 'Seleccionar todo' },
+      ]);
+      menu.popup();
+    } else if (params.selectionText && params.selectionText.trim().length > 0) {
+      const menu = Menu.buildFromTemplate([
+        { role: 'copy', label: 'Copiar' },
+        { role: 'selectAll', label: 'Seleccionar todo' },
+      ]);
+      menu.popup();
+    }
   });
 
   // Cargar contenido según el entorno

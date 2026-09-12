@@ -17,6 +17,7 @@ import {
 } from '../components/ui';
 import { EmptyState } from '../components/shared/EmptyState';
 import { PaqueteEditor } from './paquetes/PaqueteEditor';
+import { useClickOutside } from '../lib/useClickOutside';
 import { useToast } from '../context/ToastContext';
 import { formatearMoneda, formatearPeso, formatearFecha } from '@core/moneda';
 
@@ -59,6 +60,8 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
     y: number;
     compra: Compra;
   } | null>(null);
+
+  const lateralRef = useClickOutside<HTMLElement>(Boolean(detalle), () => setDetalle(null));
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -402,7 +405,7 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
       </div>
 
       {detalle && (
-        <aside className="w-[420px] border-l border-borde bg-superficie flex flex-col shrink-0 animate-drawer shadow-xl z-10">
+        <aside ref={lateralRef} className="w-[420px] border-l border-borde bg-superficie flex flex-col shrink-0 animate-drawer shadow-xl z-10">
           {/* Cabecera pegajosa con botón de cerrar */}
           <div className="p-5 border-b border-borde bg-superficie-2/40 flex items-start justify-between gap-3 shrink-0">
             <div className="flex items-start gap-3 min-w-0">

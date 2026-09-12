@@ -123,7 +123,7 @@ export const StatTile: React.FC<StatTileProps> = ({
       </div>
 
       {/* Fila central: Métrica principal en layout apilado */}
-      <div className="mt-2 flex items-baseline justify-between gap-2">
+      <div className={cn('flex items-baseline justify-between gap-2', size === 'lg' ? 'mt-2' : 'mt-1')}>
         <div className="flex flex-col min-w-0">
           {usd_cents !== undefined ? (
             <Money
@@ -133,7 +133,7 @@ export const StatTile: React.FC<StatTileProps> = ({
               className="font-bold tracking-tight text-texto"
             />
           ) : (
-            <span className="text-texto tabular font-bold text-2xl tracking-tight leading-none">
+            <span className={cn('text-texto tabular font-bold tracking-tight leading-none', size === 'lg' ? 'text-2xl' : 'text-xl')}>
               {value}
             </span>
           )}
@@ -142,7 +142,7 @@ export const StatTile: React.FC<StatTileProps> = ({
 
       {/* Fila inferior: Contexto / Pista */}
       {hint && (
-        <div className="mt-2 pt-1.5 border-t border-borde/40 flex items-center justify-between text-caption text-texto-3 leading-tight">
+        <div className={cn('border-t border-borde/40 flex items-center justify-between text-caption text-texto-3 leading-tight', size === 'lg' ? 'mt-2 pt-1.5' : 'mt-1.5 pt-1')}>
           <span className="truncate">{hint}</span>
           {onClick && (
             <span className="text-[11px] font-medium text-acento inline-flex items-center gap-0.5 group-hover:underline ml-1.5 shrink-0">
@@ -156,7 +156,8 @@ export const StatTile: React.FC<StatTileProps> = ({
   );
 
   const clases = cn(
-    'group relative bg-gradient-to-b from-superficie via-superficie to-superficie-2/20 rounded-xl border p-3.5 text-left w-full shadow-2xs transition-all duration-200',
+    'group relative bg-gradient-to-b from-superficie via-superficie to-superficie-2/20 rounded-xl border text-left w-full shadow-2xs transition-all duration-200',
+    size === 'lg' ? 'p-3.5' : 'p-2.5',
     estilo.borde,
     estilo.glowBg,
     onClick &&
