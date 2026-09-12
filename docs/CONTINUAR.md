@@ -1,13 +1,18 @@
-# Traspaso — Glow Heaven Manager
+# Traspaso — Glow Heaven Manager (Histórico)
 
-Escrito el 2026-09-11. Leé `AGENTS.md` primero: tiene las reglas del dominio
-(centavos enteros, reparto por peso, margen sobre costo aterrizado) y las de
-Firestore (una pasada por colección, nada de N+1). Este documento solo cuenta
-qué se movió en la última sesión y qué queda.
+> [!NOTE]
+> **ESTE DOCUMENTO ES UN REGISTRO HISTÓRICO (2026-09-11).**  
+> Para el estado técnico vigente, arquitectura, reglas y nomenclatura actual, consultá:  
+> 👉 **[docs/CONTEXTO_TECNICO_IA.md](file:///c:/Users/espin/Downloads/Proyectos_Codigo/landing_page_ross/herramienta_de_gestion_interna/docs/CONTEXTO_TECNICO_IA.md)** (Versión `v2.2.8`).  
+> 
+> **Actualizaciones sobre este documento histórico:**
+> 1. **`npm run typecheck`**: Cero errores (la migración a Google Auth concluyó exitosamente).
+> 2. **`npm test`**: 133/133 pruebas pasando en verde.
+> 3. **El ítem P0 (Paquetes)**: **RESUELTO mediante rediseño arquitectónico**. `PaqueteEditor.guardar()` ya no llama a `compras.recibir`. Ahora guarda el paquete atómicamente con peso y costos, y la vinculación de productos se realiza desde Inventario (`ProductoModal.tsx` / `productos.repo.ts`) mediante `paquete_id`, con sus propios movimientos y `evento_grupo_id`.
 
 ---
 
-## ⚠ Estado del árbol al momento de escribir esto
+## ⚠ Estado del árbol al momento de escribir esto (HISTÓRICO - RESUELTO)
 
 **`npm run typecheck` falla con 7 errores.** No son de los cambios descritos
 abajo: son de una migración a **login con Google** que otra persona empezó en
@@ -116,7 +121,15 @@ Verde en las pruebas no quiere decir que el árbol compile.
 
 ## Lo que queda, por orden
 
-### P0 — Un paquete guardado no se puede corregir
+### P0 — Un paquete guardado no se puede corregir (RESUELTO POR REDISEÑO)
+
+> [!NOTE]
+> **ESTADO ACTUAL:** Este problema ya fue resuelto. El flujo fue rediseñado de raíz:
+> - `PaqueteEditor.guardar()` ya **no** llama a `compras.recibir`. Ahora guarda el paquete atómicamente con su peso y costos bajo un único `evento_grupo_id`.
+> - La asignación de productos al paquete se realiza desde Inventario (`ProductoModal.tsx`), asociando `paquete_id` y generando su propio movimiento de inventario atómico en `productos.repo.ts`.
+> - Además, `PaquetesView.tsx` ahora sí permite editar y gestionar paquetes en estado `RECIBIDA`.
+
+*(Texto original histórico guardado abajo como referencia):*
 
 **Esto es una regresión introducida en esta sesión.** Al unificar el guardado
 con la recepción, el paquete queda en `RECIBIDA` de inmediato, y
