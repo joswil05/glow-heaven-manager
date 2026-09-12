@@ -1,7 +1,8 @@
 # AGENTS.md — Glow Heaven Manager
 
-> Si retomás el trabajo, leé también **`docs/CONTINUAR.md`**: tiene el estado
-> del árbol, lo que se movió último y la lista de pendientes por orden.
+> **DOCUMENTO PRINCIPAL DE CONTEXTO TÉCNICO Y NOMENCLATURA:**  
+> Leé primero [docs/CONTEXTO_TECNICO_IA.md](file:///c:/Users/espin/Downloads/Proyectos_Codigo/landing_page_ross/herramienta_de_gestion_interna/docs/CONTEXTO_TECNICO_IA.md). Contiene la arquitectura completa (Desktop + Móvil PWA), nomenclatura financiera (centavos enteros), mapeo de funciones core (`src/core/`), superficie IPC (`ApiPuente`), reglas de Firestore y playbook de comandos para la versión `v2.2.8`.
+> También podés revisar `docs/CONTINUAR.md` para el historial de transiciones.
 
 ## Qué es este negocio
 
