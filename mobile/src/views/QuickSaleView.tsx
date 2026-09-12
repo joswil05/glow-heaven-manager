@@ -339,9 +339,9 @@ export function QuickSaleView() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#f8fafc] text-slate-800">
+    <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#f8fafc] text-slate-800">
       {/* Top App Bar de Venta Rápida */}
-      <header className="sticky top-0 z-20 bg-white/95 backdrop-blur-md border-b border-slate-200/60 pt-safe-t px-4 pb-2.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
+      <header className="shrink-0 z-20 bg-white/95 backdrop-blur-md border-b border-slate-200/60 pt-safe-t px-4 pb-2.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
         <div className="flex items-center justify-between py-1.5">
           <div>
             <span className="text-[10px] font-bold tracking-widest uppercase text-emerald-700 block leading-none mb-0.5">
@@ -446,7 +446,7 @@ export function QuickSaleView() {
       </header>
 
       {/* Catálogo de Productos para Venta Rápida */}
-      <main className="flex-1 overflow-y-auto px-3.5 pt-2.5 pb-28">
+      <main className="flex-1 min-h-0 overflow-y-auto px-3.5 pt-2.5 pb-40">
         {cargandoProductos && (
           <div className="flex flex-col items-center justify-center py-16 gap-3 text-slate-400">
             <div className="h-8 w-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />

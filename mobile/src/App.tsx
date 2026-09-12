@@ -37,13 +37,13 @@ export function App() {
       <DataProvider>
         <div className="flex flex-col h-[100dvh] overflow-hidden bg-[#f8fafc]">
           <div className="flex-1 min-h-0 relative">
-            <div className={`h-full w-full ${vista === 'panel' ? 'block' : 'hidden'}`}>
+            <div className={`h-full w-full overflow-hidden ${vista === 'panel' ? 'block' : 'hidden'}`}>
               <DashboardView onIrAVenta={() => setVista('vender')} />
             </div>
-            <div className={`h-full w-full ${vista === 'vender' ? 'block' : 'hidden'}`}>
+            <div className={`h-full w-full overflow-hidden ${vista === 'vender' ? 'block' : 'hidden'}`}>
               <QuickSaleView />
             </div>
-            <div className={`h-full w-full ${vista === 'inventario' ? 'block' : 'hidden'}`}>
+            <div className={`h-full w-full overflow-hidden ${vista === 'inventario' ? 'block' : 'hidden'}`}>
               <InventoryQuickView />
             </div>
           </div>

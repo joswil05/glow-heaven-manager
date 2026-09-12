@@ -123,9 +123,9 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
   const maxSerie = Math.max(1, ...serie.map((d) => d.total_usd_cents));
 
   return (
-    <div className="flex flex-col h-full bg-[#f8fafc] text-slate-800">
+    <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#f8fafc] text-slate-800">
       {/* Android Top App Bar Moderno y Limpio */}
-      <header className="sticky top-0 z-20 flex items-center justify-between bg-white/95 px-4 pt-safe-t py-2.5 backdrop-blur-md border-b border-slate-200/60 shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
+      <header className="shrink-0 z-20 flex items-center justify-between bg-white/95 px-4 pt-safe-t py-2.5 backdrop-blur-md border-b border-slate-200/60 shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
         <div className="flex items-center gap-2.5">
           <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-emerald-600 to-teal-500 text-white font-bold text-sm shadow-sm ring-2 ring-emerald-500/20">
             {usuario?.photoURL ? (
@@ -173,7 +173,7 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
 
       {/* Contenido con Pull-to-Refresh nativo */}
       <PullToRefresh onRefresh={() => cargar(true)}>
-        <main className="flex flex-col gap-3 px-3.5 pt-2.5 pb-28">
+        <main className="flex flex-col gap-3 px-3.5 pt-2.5 pb-40">
           {error && (
             <div className="rounded-2xl bg-rose-50 border border-rose-200 px-4 py-3 text-xs font-semibold text-rose-700 flex items-center justify-between">
               <span>{error}</span>
@@ -183,7 +183,7 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
 
           {/* Tarjeta Hero: Ventas de Hoy (Optimización de Espacio & Fintech Look) */}
           <section
-            className="relative overflow-hidden rounded-[24px] p-4 shadow-md shadow-emerald-900/10 transition-transform active:scale-[0.99]"
+            className="relative overflow-hidden rounded-[24px] p-4 shadow-md shadow-emerald-900/10"
             style={{
               background: 'linear-gradient(135deg, #059669 0%, #047857 55%, #0f766e 100%)',
               color: '#ffffff',
@@ -425,7 +425,7 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
                   return (
                     <div
                       key={f.venta_id}
-                      className={`flex items-center justify-between gap-3 rounded-2xl border p-3.5 shadow-sm transition-all ${
+                      className={`flex items-center justify-between gap-3 rounded-2xl border p-3.5 shadow-sm transition-colors ${
                         vencida
                           ? 'border-rose-200/80 bg-rose-50/70'
                           : 'border-slate-200/80 bg-white hover:bg-slate-50/80'

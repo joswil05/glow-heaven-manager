@@ -10,36 +10,63 @@ export function PullToRefresh({ onRefresh, children }: PullToRefreshProps) {
   const [pullDistance, setPullDistance] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const startY = useRef<number | null>(null);
+  const startX = useRef<number | null>(null);
+  const isPulling = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const UMBRAL = 70; // Píxeles necesarios para activar el refresh
 
   function handleTouchStart(e: TouchEvent) {
-    if (containerRef.current && containerRef.current.scrollTop === 0) {
+    // Solo permitir pull-to-refresh si el contenedor está en la cima absoluta (scrollTop <= 0)
+    if (containerRef.current && containerRef.current.scrollTop <= 0) {
       startY.current = e.touches[0].clientY;
+      startX.current = e.touches[0].clientX;
+      isPulling.current = false;
     } else {
       startY.current = null;
+      startX.current = null;
+      isPulling.current = false;
     }
   }
 
   function handleTouchMove(e: TouchEvent) {
     if (startY.current === null || refreshing) return;
     const currentY = e.touches[0].clientY;
-    const delta = currentY - startY.current;
+    const currentX = e.touches[0].clientX;
+    const deltaY = currentY - startY.current;
+    const deltaX = currentX - (startX.current ?? currentX);
 
-    if (delta > 0 && containerRef.current?.scrollTop === 0) {
-      // Amortiguación no lineal tipo resorte
-      const factor = Math.min(1, delta / (UMBRAL * 2.5));
-      const distanciaAmortiguada = delta * (1 - factor * 0.5);
-      setPullDistance(Math.min(distanciaAmortiguada, 90));
-    } else {
-      setPullDistance(0);
+    // Si el usuario desliza hacia ARRIBA para scrollear hacia abajo (deltaY <= 0)
+    // o si el gesto es predominantemente horizontal (ej. swipe en gráficas):
+    // Cancelar inmediatamente la detección de pull para ceder 100% el control al scroll nativo fluido
+    if (deltaY <= 0 || Math.abs(deltaX) > Math.abs(deltaY)) {
+      startY.current = null;
+      startX.current = null;
+      isPulling.current = false;
+      if (pullDistance !== 0) setPullDistance(0);
+      return;
+    }
+
+    // Solo si se arrastra hacia abajo y seguimos en el tope superior
+    if (containerRef.current && containerRef.current.scrollTop <= 0) {
+      isPulling.current = true;
+      const factor = Math.min(1, deltaY / (UMBRAL * 2.5));
+      const distanciaAmortiguada = deltaY * (1 - factor * 0.5);
+      const nuevaDistancia = Math.min(distanciaAmortiguada, 90);
+      setPullDistance(nuevaDistancia);
+
+      // Prevenir el pull-to-refresh nativo del navegador Chrome solo mientras se tira hacia abajo
+      if (nuevaDistancia > 8 && e.cancelable) {
+        e.preventDefault();
+      }
     }
   }
 
   async function handleTouchEnd() {
-    if (startY.current === null) return;
+    if (startY.current === null && !isPulling.current) return;
     startY.current = null;
+    startX.current = null;
+    isPulling.current = false;
 
     if (pullDistance >= UMBRAL && !refreshing) {
       setRefreshing(true);
@@ -63,7 +90,11 @@ export function PullToRefresh({ onRefresh, children }: PullToRefreshProps) {
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      className="relative flex-1 h-full overflow-y-auto overscroll-y-contain"
+      style={{
+        touchAction: 'pan-y',
+        WebkitOverflowScrolling: 'touch',
+      }}
+      className="relative flex-1 min-h-0 w-full overflow-y-auto overscroll-y-contain"
     >
       {/* Indicador circular nativo Material 3 */}
       <div
@@ -73,10 +104,10 @@ export function PullToRefresh({ onRefresh, children }: PullToRefreshProps) {
           opacity: pullDistance > 10 || refreshing ? 1 : 0,
         }}
       >
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-lg border border-slate-100 text-acento">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-lg border border-slate-100 text-emerald-600">
           <Loader2
             size={20}
-            className={`${refreshing ? 'animate-spin' : ''}`}
+            className={refreshing ? 'animate-spin' : ''}
             style={{
               transform: refreshing ? undefined : `rotate(${(pullDistance / UMBRAL) * 360}deg)`,
             }}
@@ -85,10 +116,13 @@ export function PullToRefresh({ onRefresh, children }: PullToRefreshProps) {
       </div>
 
       <div
-        style={{
-          transform: pullDistance > 0 ? `translateY(${pullDistance * 0.35}px)` : undefined,
-          transition: pullDistance === 0 ? 'transform 200ms ease-out' : undefined,
-        }}
+        style={
+          pullDistance > 0
+            ? {
+                transform: `translateY(${pullDistance * 0.35}px)`,
+              }
+            : undefined
+        }
       >
         {children}
       </div>
