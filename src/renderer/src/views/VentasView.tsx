@@ -240,7 +240,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4.5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
           <StatTile
             label={esEncargo ? 'Total cotizado' : 'Total facturado'}
             usd_cents={totales.vendido}

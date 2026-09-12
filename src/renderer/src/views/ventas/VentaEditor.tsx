@@ -807,7 +807,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
           {paso === 2 && (
             <div className="space-y-5">
               {/* Sección Cliente y Fecha */}
-              <div className="rounded-xl border border-borde p-4.5 bg-superficie space-y-4">
+              <div className="rounded-xl border border-borde p-5 bg-superficie space-y-4">
                 <div className="flex items-center gap-2 border-b border-borde/60 pb-2">
                   <User className="w-4 h-4 text-acento" />
                   <h4 className="text-label font-semibold text-texto">Cliente y Fecha</h4>
@@ -1030,7 +1030,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
               </div>
 
               {/* Sección Cobro */}
-              <div className="rounded-xl border border-borde p-4.5 bg-superficie space-y-4">
+              <div className="rounded-xl border border-borde p-5 bg-superficie space-y-4">
                 <div className="flex items-center gap-2 border-b border-borde/60 pb-2">
                   <CreditCard className="w-4 h-4 text-acento" />
                   <h4 className="text-label font-semibold text-texto">¿Cómo se cobra?</h4>
@@ -1199,7 +1199,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
           {paso === 3 && (
             <div className="space-y-4">
               {/* Tarjeta de balance financiero */}
-              <div className="rounded-xl border border-borde bg-superficie p-4.5 space-y-4">
+              <div className="rounded-xl border border-borde bg-superficie p-5 space-y-4">
                 <div className="flex items-center justify-between border-b border-borde/60 pb-3">
                   <div>
                     <h4 className="text-label font-semibold text-texto">Balance de la Operación</h4>

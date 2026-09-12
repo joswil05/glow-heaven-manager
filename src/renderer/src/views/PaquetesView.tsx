@@ -248,7 +248,7 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
         </div>
 
         {compras.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4.5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
             <StatTile
               label="Gastado en paquetes"
               usd_cents={gastadoTotal}

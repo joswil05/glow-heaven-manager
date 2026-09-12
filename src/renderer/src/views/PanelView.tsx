@@ -11,8 +11,6 @@ import {
   CheckCircle2,
   Boxes,
   Flame,
-  Plus,
-  PackagePlus,
   Sparkles,
 } from 'lucide-react';
 import type { PanelData, Alerta, SeveridadAlerta } from '../../../shared/types';
@@ -121,26 +119,6 @@ export const PanelView: React.FC<PanelViewProps> = ({
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={onNuevoPaquete}
-              className="shadow-sm rounded-xl"
-            >
-              <PackagePlus className="w-3.5 h-3.5 text-acento" />
-              <span>Registrar Paquete</span>
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={onNuevaVenta}
-              className="shadow-sm rounded-xl font-semibold"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Nueva Venta</span>
-            </Button>
-          </div>
         </div>
 
         {sinDatos ? (
@@ -165,7 +143,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
           </div>
         ) : (
           /* Nivel 1: Cuatro tarjetas de métricas de alta jerarquía */
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4.5 stagger-children">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 stagger-children">
             {/* 1. GANANCIA DE ESTE MES (Métrica estrella) */}
             <StatTile
               label="Ganancia de este mes"
@@ -235,7 +213,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
 
         {/* Nivel 2: Centro de alertas urgentes */}
         {urgentes.length > 0 && (
-          <div className="rounded-2xl border border-rose-300/80 bg-gradient-to-r from-rose-50 to-amber-50/60 p-4.5 shadow-sm animate-slide-up">
+          <div className="rounded-2xl border border-rose-300/80 bg-gradient-to-r from-rose-50 to-amber-50/60 p-5 shadow-sm animate-slide-up">
             <div className="flex items-start gap-3.5">
               <div className="w-9 h-9 rounded-xl bg-rose-500/15 text-rose-700 flex items-center justify-center shrink-0 border border-rose-300">
                 <AlertTriangle className="w-5 h-5" />

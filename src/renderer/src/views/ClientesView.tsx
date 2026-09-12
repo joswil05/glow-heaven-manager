@@ -177,7 +177,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({ onCambio, onVerVenta
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4.5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
           <StatTile
             label="Clientes registrados"
             value={clientes.length}

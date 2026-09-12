@@ -89,7 +89,7 @@ export const PinLockView: React.FC<PinLockViewProps> = ({
           </div>
           <div className="absolute -bottom-2 -right-2 w-9 h-9 rounded-full bg-acento text-white flex items-center justify-center shadow-md">
             {desbloqueando ? (
-              <ShieldCheck className="w-4.5 h-4.5" />
+              <ShieldCheck className="w-5 h-5" />
             ) : (
               <Lock className="w-4 h-4" />
             )}

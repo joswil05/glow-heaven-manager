@@ -67,7 +67,7 @@ export const Confirmar: React.FC<ConfirmarProps> = ({
                 peligroso ? 'bg-danger-50 text-danger-600' : 'bg-acento-suave text-acento'
               )}
             >
-              <AlertTriangle className="w-4.5 h-4.5" />
+              <AlertTriangle className="w-5 h-5" />
             </div>
             <div className="min-w-0">
               <h3 id="titulo-confirmar" className="text-title text-texto">
