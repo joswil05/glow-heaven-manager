@@ -1,6 +1,6 @@
 {
   "name": "glow-heaven-manager",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "type": "module",
   "description": "Herramienta de gestión interna para personal shopping e importación",
   "main": "dist-electron/main/index.js",
@@ -13,6 +13,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
+    "icons:generate": "python scripts/generate_app_icons.py",
     "emulador": "node scripts/emulador.mjs",
     "test:emulador": "node scripts/test-emulador.mjs",
     "dev:mobile": "vite --config mobile/vite.config.ts",
