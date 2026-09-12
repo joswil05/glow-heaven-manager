@@ -395,6 +395,11 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
 
     try {
       const cantidad = Math.round(parsearDecimal(cantidadInicial) ?? 0);
+      const totalVariantes = tieneVariantes
+        ? variantes.reduce((s, v) => s + Math.max(0, Math.round(parsearDecimal(v.existencias) ?? 0)), 0)
+        : 0;
+      const totalUnidades = tieneVariantes ? totalVariantes : cantidad;
+      const costoUnitarioCents = costoInicialTexto.trim() ? Math.max(0, aCentavos(costoInicialTexto)) : undefined;
 
       await onGuardar({
         id: producto?.id,
@@ -415,7 +420,7 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
             ? Math.round((parsearDecimal(multiplicadorTexto) ?? 2) * 10000)
             : undefined,
         precio_manual_usd_cents: modoPrecio === 'MANUAL' ? aCentavos(precioManualTexto) : undefined,
-        costo_unitario_usd_cents: costoInicialTexto.trim() ? aCentavos(costoInicialTexto) : undefined,
+        costo_unitario_usd_cents: costoUnitarioCents,
         stock_minimo: Math.round(parsearDecimal(stockMinimo) ?? 0),
         peso_unitario_mlb: 0,
         unidades_por_paquete: esPack
@@ -425,8 +430,8 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
         foto,
         notas: notas.trim() || undefined,
         stock_inicial:
-          esNuevo && cantidad > 0
-            ? { cantidad, costo_unitario_usd_cents: aCentavos(costoInicialTexto) }
+          esNuevo && totalUnidades > 0 && costoUnitarioCents !== undefined
+            ? { cantidad: totalUnidades, costo_unitario_usd_cents: costoUnitarioCents }
             : undefined,
       });
 

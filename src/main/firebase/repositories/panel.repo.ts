@@ -102,10 +102,13 @@ function calcularResumen(s: Instantanea): ResumenFinanciero {
   }
 
   return {
-    inversion_inventario_usd_cents: s.productos.reduce(
-      (sum, p) => sum + (p.valor_inventario_usd_cents || 0),
-      0
-    ),
+    inversion_inventario_usd_cents: s.productos.reduce((sum, p) => {
+      const val =
+        p.valor_inventario_usd_cents && p.valor_inventario_usd_cents > 0
+          ? p.valor_inventario_usd_cents
+          : (p.existencias || 0) * (p.costo_unitario_usd_cents || 0);
+      return sum + (val || 0);
+    }, 0),
     inversion_en_camino_usd_cents: s.comprasEnCamino.reduce(
       (sum, c) => sum + (c.total_usd_cents || 0),
       0

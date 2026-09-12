@@ -114,13 +114,20 @@ export function registrarSalida(
 /**
  * Ajuste manual de existencias (conteo físico, producto dañado, regalo).
  * Mantiene el costo unitario y mueve el valor para que cuadre.
+ * Si el estado previo tenía 0 existencias, permite usar un costo unitario
+ * de respaldo para no perder la valuación del inventario al agregar unidades.
  */
 export function ajustarExistencias(
   estado: EstadoInventario,
-  nuevas_existencias: number
+  nuevas_existencias: number,
+  costo_unitario_fallback?: number
 ): EstadoInventario {
   const objetivo = Math.max(0, entero(nuevas_existencias));
-  const unitario = costoUnitario(estado);
+  let unitario = costoUnitario(estado);
+
+  if (unitario <= 0 && costo_unitario_fallback && costo_unitario_fallback > 0) {
+    unitario = Math.max(0, entero(costo_unitario_fallback));
+  }
 
   if (objetivo === 0) {
     return { existencias: 0, valor_total_usd_cents: 0 };
@@ -131,3 +138,4 @@ export function ajustarExistencias(
     valor_total_usd_cents: unitario * objetivo,
   };
 }
+

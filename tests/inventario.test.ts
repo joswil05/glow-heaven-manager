@@ -76,7 +76,21 @@ describe('ajuste manual', () => {
     const r = ajustarExistencias({ existencias: 10, valor_total_usd_cents: 10580 }, 0);
     expect(r).toEqual({ existencias: 0, valor_total_usd_cents: 0 });
   });
+
+  it('ajustar desde cero existencias con costo de respaldo calcula el valor correctamente', () => {
+    // Si un producto estaba en 0 unidades y se le ajusta a 5 unidades indicando su costo unitario previo ($8.00 = 800 cents)
+    const r = ajustarExistencias({ existencias: 0, valor_total_usd_cents: 0 }, 5, 800);
+    expect(r.existencias).toBe(5);
+    expect(r.valor_total_usd_cents).toBe(4000); // 5 x $8.00
+  });
+
+  it('ajustar desde cero existencias sin costo de respaldo deja el valor en 0', () => {
+    const r = ajustarExistencias({ existencias: 0, valor_total_usd_cents: 0 }, 5);
+    expect(r.existencias).toBe(5);
+    expect(r.valor_total_usd_cents).toBe(0);
+  });
 });
+
 describe('el ciclo completo cuadra', () => {
   it('caso multipack (pack de boxers): entra como unidades individuales y se vende individual o en bloque', () => {
     // Pack de 5 boxers comprado en USA a $12.00, con flete y tax aterriza a $16.50

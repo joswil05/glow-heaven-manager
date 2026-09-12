@@ -154,7 +154,14 @@ function almacenInicial(): Almacen {
 let db = almacenInicial();
 
 function armarPanel(): PanelData {
-  const inversion = db.productos.reduce((a, p) => a + p.valor_inventario_usd_cents, 0);
+  const inversion = db.productos.reduce(
+    (a, p) =>
+      a +
+      (p.valor_inventario_usd_cents && p.valor_inventario_usd_cents > 0
+        ? p.valor_inventario_usd_cents
+        : p.existencias * (p.costo_unitario_usd_cents || 0)),
+    0
+  );
   const enCamino = db.compras
     .filter((c) => c.estado === 'EN_CAMINO')
     .reduce((a, c) => a + c.total_usd_cents, 0);

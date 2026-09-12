@@ -291,6 +291,54 @@ describe('costo promedio entre paquetes', () => {
     // Al 50% de margen sobre $8.00, precio venta = $12.00 (1200 centavos)
     expect(actualizado.precio_venta_usd_cents).toBe(1200);
   });
+
+  it('crear producto con variantes y costo unitario calcula correctamente el invertido en bodega', async () => {
+    const id = await ProductosRepo.crear(
+      {
+        nombre: 'Camisa Ralph Lauren',
+        tiene_variantes: true,
+        variantes: [
+          { talla: 'S', color: 'Azul', existencias: 3 },
+          { talla: 'M', color: 'Rojo', existencias: 2 },
+        ],
+        costo_unitario_usd_cents: 2000, // $20.00
+        modo_precio: 'MANUAL',
+        precio_manual_usd_cents: 3500,
+      },
+      g()
+    );
+
+    const creado = (await ProductosRepo.getById(id))!;
+    expect(creado.existencias).toBe(5);
+    expect(creado.costo_unitario_usd_cents).toBe(2000);
+    expect(creado.valor_inventario_usd_cents).toBe(10000); // 5 * 2000 = $100.00
+  });
+
+  it('ajustar existencias desde cero hacia arriba preserva el costo unitario y recalcula la valuación', async () => {
+    // Producto creado sin stock
+    const id = await ProductosRepo.crear(
+      {
+        nombre: 'Perfume Lancome',
+        stock_inicial: { cantidad: 0, costo_unitario_usd_cents: 4500 },
+        costo_unitario_usd_cents: 4500,
+        modo_precio: 'MANUAL',
+        precio_manual_usd_cents: 7000,
+      },
+      g()
+    );
+
+    let p = (await ProductosRepo.getById(id))!;
+    expect(p.existencias).toBe(0);
+
+    // Ajuste de stock: se ingresan 4 unidades
+    const varianteId = p.variantes[0].id;
+    await ProductosRepo.ajustar(varianteId, 4, g(), 'Conteo físico', id);
+
+    p = (await ProductosRepo.getById(id))!;
+    expect(p.existencias).toBe(4);
+    expect(p.costo_unitario_usd_cents).toBe(4500);
+    expect(p.valor_inventario_usd_cents).toBe(18000); // 4 * 4500 = $180.00
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -345,7 +393,11 @@ describe('vender del inventario', () => {
       g()
     );
 
-    expect((await ProductosRepo.getById(producto))!.existencias).toBe(0);
+    const prodAgotado = (await ProductosRepo.getById(producto))!;
+    expect(prodAgotado.existencias).toBe(0);
+    expect(prodAgotado.costo_unitario_usd_cents).toBe(710);
+    expect(prodAgotado.valor_inventario_usd_cents).toBe(0);
+
     const v = (await VentasRepo.getById(venta))!;
     expect(v.total_usd_cents).toBe(precio * 6);
     expect(v.costo_total_usd_cents).toBe(4260);

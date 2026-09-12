@@ -102,11 +102,18 @@ function existenciasDe(p: Pick<ProductoDoc, 'variantes'>): number {
 
 function aProductoConStock(p: ProductoDoc, catMap: Map<number, string>): ProductoConStock {
   const variantesActivas = (p.variantes || []).filter((v) => v.activo !== false);
+  const existencias = variantesActivas.reduce((s, v) => s + (v.existencias || 0), 0);
+  const valorInventario =
+    p.valor_inventario_usd_cents && p.valor_inventario_usd_cents > 0
+      ? p.valor_inventario_usd_cents
+      : existencias * (p.costo_unitario_usd_cents || 0);
+
   return {
     ...p,
+    valor_inventario_usd_cents: valorInventario,
     variantes: variantesActivas,
     categoria_nombre: p.categoria_id ? catMap.get(p.categoria_id) : undefined,
-    existencias: variantesActivas.reduce((s, v) => s + (v.existencias || 0), 0),
+    existencias,
     ganancia_unitaria_usd_cents:
       (p.precio_venta_usd_cents ?? 0) - (p.costo_unitario_usd_cents ?? 0),
   };
@@ -181,7 +188,7 @@ export class ProductosRepoFirestore {
 
     const codigo = `P-${String(nuevoId).padStart(4, '0')}`;
     const stockInicial = input.stock_inicial;
-    const valorInicial = stockInicial
+    let valorInicial = stockInicial
       ? Math.max(0, Math.round(stockInicial.cantidad * stockInicial.costo_unitario_usd_cents))
       : 0;
 
@@ -205,10 +212,18 @@ export class ProductosRepoFirestore {
           ];
 
     const totalExistencias = variantes.reduce((s, v) => s + v.existencias, 0);
-    const costo = costoUnitario({
+    let costo = costoUnitario({
       existencias: totalExistencias,
       valor_total_usd_cents: valorInicial,
     });
+
+    const costoEntrante = input.costo_unitario_usd_cents ?? stockInicial?.costo_unitario_usd_cents;
+    if (costo === 0 && costoEntrante && costoEntrante > 0) {
+      costo = Math.max(0, Math.round(costoEntrante));
+      if (valorInicial === 0 && totalExistencias > 0) {
+        valorInicial = totalExistencias * costo;
+      }
+    }
 
     const modoPrecio = input.modo_precio ?? (input.precio_venta_usd_cents ? 'MANUAL' : 'MARGEN');
     const precioManual =
@@ -354,6 +369,10 @@ export class ProductosRepoFirestore {
       if (costo === 0 && p.costo_unitario_usd_cents) {
         costo = p.costo_unitario_usd_cents;
       }
+      // Si el inventario no tenía valor registrado pero hay existencias y costo:
+      if (nuevoValorInventario <= 0 && existencias > 0 && costo > 0) {
+        nuevoValorInventario = existencias * costo;
+      }
     }
 
     const calculo = calcularPrecio({
@@ -478,20 +497,24 @@ export class ProductosRepoFirestore {
       const totalAntes = existenciasDe(p);
       const totalDespues = totalAntes - existenciasViejas + objetivoVariante;
 
-      // `ajustarExistencias` recibe el TOTAL objetivo del producto.
+      // `ajustarExistencias` recibe el TOTAL objetivo del producto y costo de respaldo si estaba en cero.
       const nuevoEstado = ajustarExistencias(
         { existencias: totalAntes, valor_total_usd_cents: p.valor_inventario_usd_cents ?? 0 },
-        totalDespues
+        totalDespues,
+        p.costo_unitario_usd_cents
       );
 
       const variantes = p.variantes.map((v, i) =>
         i === idx ? { ...v, existencias: objetivoVariante } : v
       );
 
-      const costo = costoUnitario({
+      let costo = costoUnitario({
         existencias: totalDespues,
         valor_total_usd_cents: nuevoEstado.valor_total_usd_cents,
       });
+      if (costo === 0 && p.costo_unitario_usd_cents && p.costo_unitario_usd_cents > 0) {
+        costo = p.costo_unitario_usd_cents;
+      }
 
       const calculo = calcularPrecio({
         costo_unitario_usd_cents: costo,
@@ -707,10 +730,14 @@ export class ProductosRepoFirestore {
 
       existenciasDespues = existenciasDe({ variantes });
 
-      const costo = costoUnitario({
+      let costo = costoUnitario({
         existencias: existenciasDespues,
         valor_total_usd_cents: resultado.valor_total_usd_cents,
       });
+      // Preservar costo histórico si el producto se agota para no perder su valor base en reposiciones/ajustes
+      if (costo === 0 && p.costo_unitario_usd_cents && p.costo_unitario_usd_cents > 0) {
+        costo = p.costo_unitario_usd_cents;
+      }
       const calculo = calcularPrecio({
         costo_unitario_usd_cents: costo,
         modo: p.modo_precio,

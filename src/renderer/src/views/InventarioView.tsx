@@ -56,6 +56,18 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
   const [ajustando, setAjustando] = useState<AjusteStock | null>(null);
   const [detalleId, setDetalleId] = useState<number | undefined>(productoInicialId);
   const [movimientos, setMovimientos] = useState<MovimientoInventario[]>([]);
+  const [todosLosProductos, setTodosLosProductos] = useState<ProductoConStock[]>([]);
+
+  const cargarTotalesGenerales = useCallback(async () => {
+    try {
+      const r = await window.api.productos.list({});
+      if (r.success) {
+        setTodosLosProductos(r.data);
+      }
+    } catch {
+      // Ignorar error de fondo en cálculo general
+    }
+  }, []);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -82,6 +94,10 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
   }, [busqueda, categoriaFiltro, filtro, showToast]);
 
   useEffect(() => {
+    cargarTotalesGenerales();
+  }, [cargarTotalesGenerales]);
+
+  useEffect(() => {
     const t = setTimeout(cargar, busqueda ? 200 : 0);
     return () => clearTimeout(t);
   }, [cargar, busqueda]);
@@ -100,11 +116,35 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
     });
   }, [detalleId, productos]);
 
+  const hayFiltroActivo = Boolean(
+    busqueda.trim() || categoriaFiltro !== undefined || filtro !== 'TODOS'
+  );
+
+  const totalesGenerales = useMemo(() => {
+    const fuente = todosLosProductos.length > 0 ? todosLosProductos : productos;
+    const activos = fuente.filter((p) => p.activo !== false);
+    const unidades = activos.reduce((a, p) => a + (p.existencias || 0), 0);
+    const valor = activos.reduce((a, p) => {
+      const v =
+        p.valor_inventario_usd_cents && p.valor_inventario_usd_cents > 0
+          ? p.valor_inventario_usd_cents
+          : (p.existencias || 0) * (p.costo_unitario_usd_cents || 0);
+      return a + (v || 0);
+    }, 0);
+    return { unidades, valor };
+  }, [todosLosProductos, productos]);
+
   const totales = useMemo(() => {
-    const unidades = productos.reduce((a, p) => a + p.existencias, 0);
-    const valor = productos.reduce((a, p) => a + p.valor_inventario_usd_cents, 0);
+    const unidades = productos.reduce((a, p) => a + (p.existencias || 0), 0);
+    const valor = productos.reduce((a, p) => {
+      const v =
+        p.valor_inventario_usd_cents && p.valor_inventario_usd_cents > 0
+          ? p.valor_inventario_usd_cents
+          : (p.existencias || 0) * (p.costo_unitario_usd_cents || 0);
+      return a + (v || 0);
+    }, 0);
     const gananciaPotencial = productos.reduce(
-      (a, p) => a + p.ganancia_unitaria_usd_cents * p.existencias,
+      (a, p) => a + (p.ganancia_unitaria_usd_cents || 0) * (p.existencias || 0),
       0
     );
     return { unidades, valor, gananciaPotencial };
@@ -121,11 +161,12 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
       datos.id ? 'Producto actualizado' : `'${datos.nombre}' agregado al inventario`,
       () => {
         cargar();
+        cargarTotalesGenerales();
         onCambio();
       },
       r.data.evento_grupo_id
     );
-    await cargar();
+    await Promise.all([cargar(), cargarTotalesGenerales()]);
     onCambio();
   };
 
@@ -144,11 +185,12 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
       `Existencias ajustadas a ${nuevas}`,
       () => {
         cargar();
+        cargarTotalesGenerales();
         onCambio();
       },
       r.data.evento_grupo_id
     );
-    await cargar();
+    await Promise.all([cargar(), cargarTotalesGenerales()]);
     onCambio();
   };
 
@@ -162,11 +204,12 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
       `'${p.nombre}' descatalogado del catálogo activo`,
       () => {
         cargar();
+        cargarTotalesGenerales();
         onCambio();
       },
       r.data.evento_grupo_id
     );
-    await cargar();
+    await Promise.all([cargar(), cargarTotalesGenerales()]);
     onCambio();
   };
 
@@ -180,11 +223,12 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
       `'${p.nombre}' reactivado en el inventario activo`,
       () => {
         cargar();
+        cargarTotalesGenerales();
         onCambio();
       },
       r.data.evento_grupo_id
     );
-    await cargar();
+    await Promise.all([cargar(), cargarTotalesGenerales()]);
     onCambio();
   };
 
@@ -392,11 +436,15 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
         {/* Métricas ejecutivas unificadas con el inicio */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
           <StatTile
-            label="Invertido en bodega"
-            usd_cents={totales.valor}
+            label={hayFiltroActivo ? 'Invertido (en filtro)' : 'Invertido en bodega'}
+            usd_cents={hayFiltroActivo ? totales.valor : totalesGenerales.valor}
             tone="purple"
             icon={Boxes}
-            hint={`${totales.unidades} unidad(es) en existencias`}
+            hint={
+              hayFiltroActivo
+                ? `${totales.unidades} unid. visibles (Total bodega: ${formatearMoneda(totalesGenerales.valor, 'USD')})`
+                : `${totalesGenerales.unidades} unidad(es) en existencias`
+            }
             onClick={() => {
               setFiltro('TODOS');
               setCategoriaFiltro(undefined);
