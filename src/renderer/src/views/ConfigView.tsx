@@ -242,10 +242,10 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
                 </Field>
               </div>
 
-              <div className="rounded-lg border border-borde bg-superficie-2 p-4">
-                <div className="text-label font-medium text-texto-2 mb-2">Ejemplo</div>
+              <div className="rounded-xl border border-borde/80 bg-gradient-to-br from-superficie via-superficie to-superficie-2/40 p-4 shadow-xs">
+                <div className="text-label font-semibold text-texto mb-2">Simulación de precio en vivo</div>
                 <p className="text-caption text-texto-3 mb-3">
-                  Un producto que te costó {formatearMoneda(4260, 'USD')} con todo incluido:
+                  Un producto que te costó {formatearMoneda(4260, 'USD')} con flete y tax incluidos:
                 </p>
                 <dl className="space-y-1.5 text-label">
                   <div className="flex justify-between gap-2">

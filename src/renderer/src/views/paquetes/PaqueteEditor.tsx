@@ -154,19 +154,19 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-velo/50 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-velo/40 backdrop-blur-xs p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="titulo-paquete"
     >
       <div
         onKeyDown={alPresionarEnter}
-        className="bg-superficie rounded-xl shadow-2xl w-full max-w-lg flex flex-col border border-borde overflow-hidden animate-scale-in"
+        className="bg-superficie rounded-2xl shadow-2xl w-full max-w-lg flex flex-col border border-borde/80 overflow-hidden animate-scale-in"
       >
         {/* Encabezado */}
         <header className="flex items-center justify-between px-6 py-4 border-b border-borde shrink-0 bg-superficie">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-acento/10 text-acento-fuerte flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-acento/10 text-acento-fuerte border border-acento/20 flex items-center justify-center shrink-0 shadow-xs">
               <Package className="w-5 h-5" />
             </div>
             <div>
@@ -178,7 +178,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
               </p>
             </div>
           </div>
-          <Button variant="ghost" size="sm" onClick={onCerrar} aria-label="Cerrar">
+          <Button variant="ghost" size="sm" onClick={onCerrar} aria-label="Cerrar" className="rounded-lg text-texto-3 hover:text-texto">
             <X className="w-4 h-4" />
           </Button>
         </header>
@@ -188,7 +188,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
           {error && (
             <div
               role="alert"
-              className="flex items-start gap-2 rounded-md border border-danger-200 bg-danger-50 p-3"
+              className="flex items-start gap-2 rounded-xl border border-danger-200 bg-danger-50 p-3.5 shadow-xs"
             >
               <AlertTriangle className="w-4 h-4 text-danger-600 shrink-0 mt-0.5" />
               <p className="text-label text-danger-800">{error}</p>
@@ -204,7 +204,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                   setEnvioManual(false);
                 }}
                 placeholder="Ej. 11.5"
-                className="text-right font-medium"
+                className="text-right font-medium font-mono"
                 inputMode="decimal"
                 autoFocus
               />
@@ -221,7 +221,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                   setEnvioTexto(e.target.value);
                 }}
                 placeholder="Ej. 77.00"
-                className={cn('text-right font-medium', !envioManual && 'text-acento-fuerte')}
+                className={cn('text-right font-medium font-mono', !envioManual && 'text-acento-fuerte')}
                 inputMode="decimal"
               />
             </Field>
@@ -237,7 +237,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                 value={otrosTexto}
                 onChange={(e) => setOtrosTexto(e.target.value)}
                 placeholder="0.00"
-                className="text-right"
+                className="text-right font-mono"
                 inputMode="decimal"
               />
             </Field>
@@ -253,7 +253,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
           </Field>
 
           {/* Tarjeta informativa y resumen de flete */}
-          <div className="rounded-lg border border-acento/25 bg-acento-suave/20 p-4 space-y-3">
+          <div className="rounded-xl border border-acento/20 bg-gradient-to-br from-acento-suave/40 via-acento-suave/15 to-transparent p-4.5 space-y-3 shadow-xs">
             <div className="flex items-center justify-between text-label">
               <span className="text-texto-2 font-medium">Total a pagar al courier:</span>
               <span className="text-lg font-bold text-acento-fuerte">
@@ -262,7 +262,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
             </div>
 
             {pesoTotalMlb > 0 && (
-              <div className="flex justify-between text-caption text-texto-3 pt-2 border-t border-borde/60">
+              <div className="flex justify-between text-caption text-texto-3 pt-2 border-t border-borde/60 font-mono">
                 <span>Peso registrado: {formatearPeso(pesoTotalMlb)}</span>
                 <span>
                   Tarifa efectiva:{' '}

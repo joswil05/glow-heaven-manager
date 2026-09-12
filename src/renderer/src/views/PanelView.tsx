@@ -12,6 +12,7 @@ import {
   Boxes,
   Flame,
   Sparkles,
+  Plus,
 } from 'lucide-react';
 import type { PanelData, Alerta, SeveridadAlerta } from '../../../shared/types';
 import {
@@ -92,6 +93,10 @@ export const PanelView: React.FC<PanelViewProps> = ({
   }));
 
   const urgentes = alertas.filter((a) => a.severidad === 'urgente');
+  // Alertas operativas no urgentes que no dupliquen lo que ya muestra la tarjeta de stock
+  const avisosOperativos = alertas.filter(
+    (a) => a.severidad !== 'urgente' && a.id !== 'agotados' && a.id !== 'bajo-stock'
+  );
 
   const sinDatos =
     inversionTotal === 0 &&
@@ -160,7 +165,8 @@ export const PanelView: React.FC<PanelViewProps> = ({
                   : undefined
               }
               hint={`${ganancia_mes_actual?.ventas_count ?? 0} venta(s) entregada(s)`}
-              className="shadow-sm hover:border-emerald-500/40 hover:shadow-emerald-500/5"
+              onClick={() => onNavegar('ventas')}
+              className="shadow-sm"
             />
 
             {/* 2. INVERTIDO EN MERCADERÍA */}
@@ -172,7 +178,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
               icon={Boxes}
               hint={`${resumen.unidades_en_inventario} unidad(es) disponibles`}
               onClick={() => onNavegar('inventario')}
-              className="shadow-sm hover:border-indigo-500/40 hover:shadow-indigo-500/5"
+              className="shadow-sm"
             />
 
             {/* 3. TE DEBEN (CUENTAS POR COBRAR) */}
@@ -188,9 +194,13 @@ export const PanelView: React.FC<PanelViewProps> = ({
                     : 'warning'
               }
               icon={Wallet}
-              hint={`${data.por_cobrar.length} venta(s) con saldo`}
+              hint={
+                resumen.por_cobrar_usd_cents === 0
+                  ? '¡Cuentas al día! Nadie debe saldo'
+                  : `${data.por_cobrar.length} venta(s) con saldo`
+              }
               onClick={() => onNavegar('ventas')}
-              className="shadow-sm hover:border-amber-500/40 hover:shadow-amber-500/5"
+              className="shadow-sm"
             />
 
             {/* 4. POR ACABARSE (STOCK CRÍTICO) */}
@@ -206,7 +216,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
                   : 'Existencias óptimas en catálogo'
               }
               onClick={() => onNavegar('inventario')}
-              className="shadow-sm hover:border-rose-500/40 hover:shadow-rose-500/5"
+              className="shadow-sm"
             />
           </div>
         )}
@@ -244,24 +254,46 @@ export const PanelView: React.FC<PanelViewProps> = ({
               <SectionHeader
                 icon={TrendingUp}
                 title="Evolución de Ganancias e Ingresos"
-                description="Línea esmeralda continua: ganancia neta. Línea violeta discontinua: ingresos brutos."
+                description="Comportamiento mensual de rentabilidad neta vs. facturación bruta"
               />
             </CardHeader>
             <CardContent>
               {serie.some((s) => s.valor > 0 || (s.valorSecundario ?? 0) > 0) ? (
                 <LineaCreciente datos={serie} alto={230} />
               ) : (
-                <div className="h-[220px] flex flex-col items-center justify-center text-center gap-2.5">
-                  <div className="w-12 h-12 rounded-2xl bg-superficie-2 flex items-center justify-center text-texto-3">
-                    <ShoppingBag className="w-6 h-6" />
+                <div className="relative h-[230px] rounded-xl overflow-hidden flex flex-col items-center justify-center text-center p-6 bg-gradient-to-b from-superficie to-superficie-2/40 border border-dashed border-borde/80">
+                  {/* Gráfica fantasma de fondo (watermark ilustrativo) */}
+                  <svg className="absolute inset-0 w-full h-full opacity-10 pointer-events-none" viewBox="0 0 600 200" preserveAspectRatio="none">
+                    <path d="M0,170 Q150,150 250,100 T450,80 T600,30 L600,200 L0,200 Z" fill="url(#ghost-grad)" />
+                    <path d="M0,170 Q150,150 250,100 T450,80 T600,30" fill="none" stroke="#059669" strokeWidth="3" strokeDasharray="5 5" />
+                    <defs>
+                      <linearGradient id="ghost-grad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#059669" stopOpacity="0.5" />
+                        <stop offset="100%" stopColor="#059669" stopOpacity="0" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+
+                  <div className="relative z-10 flex flex-col items-center gap-2 max-w-sm">
+                    <div className="w-11 h-11 rounded-2xl bg-acento-suave text-acento flex items-center justify-center shadow-xs border border-acento/20 mb-1">
+                      <TrendingUp className="w-5 h-5" />
+                    </div>
+                    <p className="text-body font-bold text-texto">
+                      Tu curva de rentabilidad aparecerá aquí
+                    </p>
+                    <p className="text-caption text-texto-3 leading-relaxed">
+                      Las ganancias se calculan en base al costo asignado a cada producto al entregarse.
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      onClick={onNuevaVenta}
+                      className="mt-1.5 rounded-xl shadow-sm shadow-acento/20 gap-1.5"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Registrar primera venta</span>
+                    </Button>
                   </div>
-                  <p className="text-body font-medium text-texto-2">Todavía no hay ventas entregadas registradas.</p>
-                  <p className="text-caption text-texto-3 max-w-xs">
-                    Las ganancias se calculan en base al costo asignado a cada producto al entregarse.
-                  </p>
-                  <Button size="sm" variant="secondary" onClick={onNuevaVenta} className="mt-1 rounded-xl">
-                    Registrar la primera venta
-                  </Button>
                 </div>
               )}
             </CardContent>
@@ -273,7 +305,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
               <SectionHeader
                 icon={Wallet}
                 title="Dónde está tu plata"
-                description="Capital activo y comprometido"
+                description="Capital activo en inventario y por cobrar"
               />
             </CardHeader>
             <CardContent>
@@ -289,7 +321,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
                       {
                         etiqueta: 'Por cobrar',
                         valor: resumen.por_cobrar_usd_cents,
-                        color: '#ea580c',
+                        color: resumen.por_cobrar_usd_cents > 0 ? '#f59e0b' : '#94a3b8',
                       },
                     ]}
                     centro={
@@ -299,8 +331,8 @@ export const PanelView: React.FC<PanelViewProps> = ({
                         soloUsd
                       />
                     }
-                    subtitulo="Total Comprometido"
-                    tamano={150}
+                    subtitulo="Capital Activo"
+                    tamano={160}
                   />
 
                   {resumen.anticipos_por_entregar_usd_cents > 0 && (
@@ -324,7 +356,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
               ) : (
                 <div className="py-12 flex flex-col items-center justify-center text-center gap-2 text-texto-3">
                   <Wallet className="w-8 h-8 text-borde-fuerte" />
-                  <p className="text-body">Sin capital registrado aún.</p>
+                  <p className="text-body font-medium text-texto-2">Sin capital registrado aún.</p>
                   <p className="text-caption text-texto-3 max-w-xs">
                     Cuando registres tu primer paquete vas a ver acá el desglose de tu inversión.
                   </p>
@@ -351,7 +383,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
                 }
               />
             </CardHeader>
-            <CardContent className="p-0 flex-1">
+            <CardContent className="p-0 flex-1 min-h-[200px] flex flex-col justify-center">
               {data.por_cobrar.length > 0 ? (
                 <ul className="divide-y divide-borde/60">
                   {data.por_cobrar.slice(0, 6).map((p) => (
@@ -397,7 +429,10 @@ export const PanelView: React.FC<PanelViewProps> = ({
                   ))}
                 </ul>
               ) : (
-                <VacioOk mensaje="¡Excelente! Nadie te debe nada." />
+                <VacioOk
+                  mensaje="¡Excelente! Nadie te debe nada."
+                  subtitulo="Todas las cuentas y cuotas pactadas están al día."
+                />
               )}
             </CardContent>
           </Card>
@@ -415,7 +450,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
                 }
               />
             </CardHeader>
-            <CardContent className="p-0 flex-1">
+            <CardContent className="p-0 flex-1 min-h-[200px] flex flex-col justify-center">
               {data.bajo_stock.length > 0 ? (
                 <ul className="divide-y divide-borde/60">
                   {data.bajo_stock.slice(0, 6).map((p) => (
@@ -435,7 +470,10 @@ export const PanelView: React.FC<PanelViewProps> = ({
                   ))}
                 </ul>
               ) : (
-                <VacioOk mensaje="Todo el catálogo con existencias suficientes." />
+                <VacioOk
+                  mensaje="Existencias óptimas en catálogo."
+                  subtitulo="No hay productos en nivel mínimo ni agotados."
+                />
               )}
             </CardContent>
           </Card>
@@ -449,7 +487,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
                 description="Top productos (Últimos 90 días)"
               />
             </CardHeader>
-            <CardContent className="p-0 flex-1">
+            <CardContent className="p-0 flex-1 min-h-[200px] flex flex-col justify-between">
               {data.mas_vendidos.length > 0 ? (
                 <ul className="divide-y divide-borde/60">
                   {data.mas_vendidos.map((p, idx) => {
@@ -488,11 +526,14 @@ export const PanelView: React.FC<PanelViewProps> = ({
                   })}
                 </ul>
               ) : (
-                <VacioOk mensaje="Todavía no hay historial de ventas suficiente." />
+                <VacioInfo
+                  mensaje="Todavía no hay historial suficiente."
+                  subtitulo="Los productos con mayor rotación se destacarán aquí."
+                />
               )}
 
               {data.sin_rotacion.length > 0 && (
-                <div className="px-5 py-3 border-t border-borde/70 bg-amber-50/40 rounded-b-2xl">
+                <div className="px-5 py-3 border-t border-borde/70 bg-amber-50/50 rounded-b-2xl">
                   <div className="text-caption font-semibold text-amber-900 mb-1 flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-amber-600" />
                     <span>Sin rotación en 90 días:</span>
@@ -509,21 +550,19 @@ export const PanelView: React.FC<PanelViewProps> = ({
           </Card>
         </div>
 
-        {/* Avisos secundarios que no son urgentes */}
-        {alertas.length > urgentes.length && (
+        {/* Avisos secundarios que no son urgentes ni duplicados de stock */}
+        {avisosOperativos.length > 0 && (
           <Card className="shadow-sm">
             <CardHeader>
-              <SectionHeader icon={AlertTriangle} title="Avisos del Sistema" />
+              <SectionHeader icon={AlertTriangle} title="Avisos Operativos del Sistema" />
             </CardHeader>
             <CardContent className="p-0">
               <ul className="divide-y divide-borde/60">
-                {alertas
-                  .filter((a) => a.severidad !== 'urgente')
-                  .map((a) => (
-                    <li key={a.id} className="px-5 py-3 hover:bg-superficie-2/40 transition-colors">
-                      <FilaAlerta alerta={a} onNavegar={onNavegar} />
-                    </li>
-                  ))}
+                {avisosOperativos.map((a) => (
+                  <li key={a.id} className="px-5 py-3 hover:bg-superficie-2/40 transition-colors">
+                    <FilaAlerta alerta={a} onNavegar={onNavegar} />
+                  </li>
+                ))}
               </ul>
             </CardContent>
           </Card>
@@ -535,12 +574,23 @@ export const PanelView: React.FC<PanelViewProps> = ({
 
 // ---------------------------------------------------------------------------
 
-const VacioOk: React.FC<{ mensaje: string }> = ({ mensaje }) => (
-  <div className="px-4 py-10 flex flex-col items-center gap-2 text-center">
-    <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200/60">
+const VacioOk: React.FC<{ mensaje: string; subtitulo?: string }> = ({ mensaje, subtitulo }) => (
+  <div className="px-4 py-8 flex flex-col items-center justify-center gap-2 text-center h-full min-h-[160px]">
+    <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200/60 shadow-xs">
       <CheckCircle2 className="w-5 h-5" />
     </div>
-    <p className="text-body font-medium text-texto-2">{mensaje}</p>
+    <p className="text-body font-semibold text-texto-2">{mensaje}</p>
+    {subtitulo && <p className="text-caption text-texto-3 max-w-xs">{subtitulo}</p>}
+  </div>
+);
+
+const VacioInfo: React.FC<{ mensaje: string; subtitulo?: string }> = ({ mensaje, subtitulo }) => (
+  <div className="px-4 py-8 flex flex-col items-center justify-center gap-2 text-center h-full min-h-[160px]">
+    <div className="w-10 h-10 rounded-2xl bg-superficie-2 text-texto-3 flex items-center justify-center border border-borde/70 shadow-xs">
+      <ShoppingBag className="w-5 h-5 text-texto-3" />
+    </div>
+    <p className="text-body font-semibold text-texto-2">{mensaje}</p>
+    {subtitulo && <p className="text-caption text-texto-3 max-w-xs">{subtitulo}</p>}
   </div>
 );
 

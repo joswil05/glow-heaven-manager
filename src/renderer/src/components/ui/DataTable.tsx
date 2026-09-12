@@ -28,60 +28,67 @@ export function DataTable<T>({
 }: DataTableProps<T>) {
   if (rows.length === 0) {
     return (
-      <div className="bg-superficie rounded-lg border border-borde p-8 text-center text-body text-texto-3">
+      <div className="bg-superficie rounded-2xl border border-dashed border-borde p-10 text-center text-body text-texto-3 shadow-xs">
         {emptyMessage}
       </div>
     );
   }
 
   return (
-    <div className="bg-superficie rounded-lg border border-borde overflow-x-auto">
-      <table className="w-full border-collapse">
-        <thead>
-          <tr className="border-b border-borde">
-            {columns.map((col) => (
-              <th
-                key={col.key}
-                style={col.width ? { width: col.width } : undefined}
-                className={cn(
-                  'px-4 py-2.5 text-caption font-semibold uppercase tracking-wide text-texto-3',
-                  col.align === 'right' ? 'text-right' : 'text-left'
-                )}
-              >
-                {col.header}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => {
-            const key = rowKey(row);
-            return (
-              <tr
-                key={key}
-                onClick={onRowClick ? () => onRowClick(row) : undefined}
-                className={cn(
-                  'border-b border-borde last:border-0',
-                  onRowClick && 'cursor-pointer hover:bg-superficie-2',
-                  selectedKey === key && 'bg-acento-suave hover:bg-acento-suave'
-                )}
-              >
-                {columns.map((col) => (
-                  <td
-                    key={col.key}
-                    className={cn(
-                      'px-4 py-2.5 text-body text-texto-2',
-                      col.align === 'right' && 'text-right tabular'
-                    )}
-                  >
-                    {col.render(row)}
-                  </td>
-                ))}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+    <div className="bg-superficie rounded-2xl border border-borde shadow-xs overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse">
+          <thead>
+            <tr className="border-b border-borde bg-superficie-2/50">
+              {columns.map((col) => (
+                <th
+                  key={col.key}
+                  style={col.width ? { width: col.width } : undefined}
+                  className={cn(
+                    'px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-texto-3 select-none',
+                    col.align === 'right' ? 'text-right' : 'text-left'
+                  )}
+                >
+                  {col.header}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-borde/70">
+            {rows.map((row) => {
+              const key = rowKey(row);
+              const esSeleccionado = selectedKey === key;
+              return (
+                <tr
+                  key={key}
+                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  className={cn(
+                    'transition-colors duration-150',
+                    onRowClick && 'cursor-pointer',
+                    esSeleccionado
+                      ? 'bg-acento-suave/80 hover:bg-acento-suave'
+                      : onRowClick
+                        ? 'hover:bg-superficie-2/50'
+                        : ''
+                  )}
+                >
+                  {columns.map((col) => (
+                    <td
+                      key={col.key}
+                      className={cn(
+                        'px-4 py-3 text-body text-texto-2',
+                        col.align === 'right' && 'text-right tabular'
+                      )}
+                    >
+                      {col.render(row)}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

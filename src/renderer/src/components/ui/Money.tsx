@@ -27,6 +27,8 @@ export interface MoneyProps {
   soloUsd?: boolean;
   /** Pinta en rojo un monto negativo y en verde uno positivo. */
   colorearSigno?: boolean;
+  /** Disposición del contravalor en córdobas. 'inline' por defecto, 'stacked' apilado vertical, 'badge' en pastilla. */
+  layout?: 'inline' | 'stacked' | 'badge';
   className?: string;
 }
 
@@ -35,6 +37,7 @@ export const Money: React.FC<MoneyProps> = ({
   size = 'md',
   soloUsd = false,
   colorearSigno = false,
+  layout = 'inline',
   className,
 }) => {
   const { tasa_cambio_cents, mostrar_cordobas } = useMoneda();
@@ -49,6 +52,36 @@ export const Money: React.FC<MoneyProps> = ({
         ? 'text-success-700'
         : 'text-texto'
     : 'text-texto';
+
+  if (layout === 'stacked') {
+    return (
+      <div className={cn('flex flex-col items-start tabular', className)}>
+        <span className={cn(PRIMARIO[size], colorPrincipal, 'leading-tight')}>
+          {formatearMoneda(usd_cents, 'USD')}
+        </span>
+        {mostrarCor && (
+          <span className={cn(SECUNDARIO[size], 'text-texto-3 font-medium mt-0.5')}>
+            ≈ {formatearMoneda(cor, 'COR')}
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  if (layout === 'badge') {
+    return (
+      <span className={cn('inline-flex items-center gap-2 tabular flex-wrap', className)}>
+        <span className={cn(PRIMARIO[size], colorPrincipal, 'leading-tight')}>
+          {formatearMoneda(usd_cents, 'USD')}
+        </span>
+        {mostrarCor && (
+          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-superficie-2 text-texto-2 border border-borde/70">
+            ≈ {formatearMoneda(cor, 'COR')}
+          </span>
+        )}
+      </span>
+    );
+  }
 
   return (
     <span className={cn('inline-flex items-baseline gap-1.5 tabular', className)}>

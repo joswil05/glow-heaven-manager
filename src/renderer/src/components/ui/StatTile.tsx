@@ -25,40 +25,41 @@ export interface StatTileProps {
 const ESTILOS_TONO: Record<
   Tone | 'purple',
   {
-    bordeTop: string;
+    borde: string;
     iconBox: string;
     glowBg: string;
+    tagClass?: string;
   }
 > = {
   neutral: {
-    bordeTop: 'border-t-slate-300',
-    iconBox: 'bg-slate-100 text-slate-600 border-slate-200/80',
-    glowBg: 'hover:border-slate-300',
+    borde: 'border-borde hover:border-borde-fuerte',
+    iconBox: 'bg-slate-100 text-slate-700 border-slate-200/80 shadow-sm',
+    glowBg: 'hover:shadow-slate-200/40',
   },
   success: {
-    bordeTop: 'border-t-emerald-500',
-    iconBox: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 shadow-sm shadow-emerald-500/10',
-    glowBg: 'hover:border-emerald-500/40',
+    borde: 'border-borde hover:border-emerald-500/40',
+    iconBox: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20 shadow-sm shadow-emerald-500/10',
+    glowBg: 'hover:shadow-emerald-500/5',
   },
   warning: {
-    bordeTop: 'border-t-amber-500',
-    iconBox: 'bg-amber-500/10 text-amber-600 border-amber-500/20 shadow-sm shadow-amber-500/10',
-    glowBg: 'hover:border-amber-500/40',
+    borde: 'border-borde hover:border-amber-500/40',
+    iconBox: 'bg-amber-500/10 text-amber-700 border-amber-500/20 shadow-sm shadow-amber-500/10',
+    glowBg: 'hover:shadow-amber-500/5',
   },
   danger: {
-    bordeTop: 'border-t-rose-500',
-    iconBox: 'bg-rose-500/10 text-rose-600 border-rose-500/20 shadow-sm shadow-rose-500/10',
-    glowBg: 'hover:border-rose-500/40',
+    borde: 'border-borde hover:border-rose-500/40',
+    iconBox: 'bg-rose-500/10 text-rose-700 border-rose-500/20 shadow-sm shadow-rose-500/10',
+    glowBg: 'hover:shadow-rose-500/5',
   },
   info: {
-    bordeTop: 'border-t-sky-500',
-    iconBox: 'bg-sky-500/10 text-sky-600 border-sky-500/20 shadow-sm shadow-sky-500/10',
-    glowBg: 'hover:border-sky-500/40',
+    borde: 'border-borde hover:border-sky-500/40',
+    iconBox: 'bg-sky-500/10 text-sky-700 border-sky-500/20 shadow-sm shadow-sky-500/10',
+    glowBg: 'hover:shadow-sky-500/5',
   },
   purple: {
-    bordeTop: 'border-t-indigo-500',
-    iconBox: 'bg-indigo-500/10 text-indigo-600 border-indigo-500/20 shadow-sm shadow-indigo-500/10',
-    glowBg: 'hover:border-indigo-500/40',
+    borde: 'border-borde hover:border-indigo-500/40',
+    iconBox: 'bg-indigo-500/10 text-indigo-700 border-indigo-500/20 shadow-sm shadow-indigo-500/10',
+    glowBg: 'hover:shadow-indigo-500/5',
   },
 };
 
@@ -78,13 +79,13 @@ export const StatTile: React.FC<StatTileProps> = ({
 
   const contenido = (
     <div className="flex flex-col h-full justify-between">
-      {/* Fila superior: Icono + Label + Badges */}
+      {/* Fila superior: Icono + Label + Indicador click */}
       <div className="flex items-center justify-between gap-2.5">
         <div className="flex items-center gap-2.5 min-w-0">
           {Icon && (
             <div
               className={cn(
-                'w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border transition-transform duration-200 group-hover:scale-105',
+                'w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border transition-all duration-200 group-hover:scale-105',
                 estilo.iconBox
               )}
             >
@@ -96,25 +97,28 @@ export const StatTile: React.FC<StatTileProps> = ({
 
         <div className="flex items-center gap-1.5 shrink-0">
           {onClick && (
-            <ArrowUpRight className="w-3.5 h-3.5 text-texto-3 opacity-0 group-hover:opacity-100 transition-opacity -translate-y-0.5" />
+            <div className="w-6 h-6 rounded-lg bg-superficie-2/70 flex items-center justify-center text-texto-3 group-hover:text-acento group-hover:bg-acento-suave/50 transition-colors">
+              <ArrowUpRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+            </div>
           )}
           {tone !== 'neutral' && !Icon && <StatusDot tone={tone as Tone} />}
         </div>
       </div>
 
-      {/* Fila central: Métrica principal y badge de variación */}
-      <div className="mt-3 flex items-baseline justify-between gap-2 flex-wrap">
-        <div className="flex items-baseline gap-2">
+      {/* Fila central: Métrica principal en layout apilado y badge de variación */}
+      <div className="mt-3.5 flex items-start justify-between gap-3">
+        <div className="flex flex-col min-w-0">
           {usd_cents !== undefined ? (
             <Money
               usd_cents={usd_cents}
               size={size === 'lg' ? 'xl' : 'lg'}
+              layout="stacked"
               className="font-bold tracking-tight text-texto"
             />
           ) : (
             <span
               className={cn(
-                'text-texto tabular font-bold tracking-tight',
+                'text-texto tabular font-bold tracking-tight leading-none',
                 size === 'lg' ? 'text-metric' : 'text-metric-sm'
               )}
             >
@@ -126,7 +130,7 @@ export const StatTile: React.FC<StatTileProps> = ({
         {delta && (
           <span
             className={cn(
-              'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold tabular border shrink-0',
+              'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold tabular border shrink-0 mt-0.5 shadow-sm',
               delta.positivo
                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200/70'
                 : 'bg-rose-50 text-rose-700 border-rose-200/70'
@@ -144,11 +148,12 @@ export const StatTile: React.FC<StatTileProps> = ({
 
       {/* Fila inferior: Contexto / Pista */}
       {hint && (
-        <div className="mt-2.5 pt-2 border-t border-borde/40 flex items-center justify-between text-caption text-texto-3">
+        <div className="mt-3 pt-2.5 border-t border-borde/50 flex items-center justify-between text-caption text-texto-3">
           <span className="truncate">{hint}</span>
           {onClick && (
-            <span className="text-[11px] font-medium text-acento group-hover:underline ml-2 shrink-0">
-              Ver detalles &rarr;
+            <span className="text-[11px] font-medium text-acento inline-flex items-center gap-1 group-hover:underline ml-2 shrink-0">
+              Ver detalles
+              <span className="transition-transform duration-200 group-hover:translate-x-0.5">&rarr;</span>
             </span>
           )}
         </div>
@@ -157,12 +162,11 @@ export const StatTile: React.FC<StatTileProps> = ({
   );
 
   const clases = cn(
-    'group relative bg-superficie rounded-2xl border border-borde/90 p-4 text-left w-full shadow-[0_1px_3px_rgba(0,0,0,0.03)] transition-all duration-200',
-    'border-t-2',
-    estilo.bordeTop,
+    'group relative bg-gradient-to-b from-superficie via-superficie to-superficie-2/20 rounded-2xl border p-4 text-left w-full shadow-sm transition-all duration-200',
+    estilo.borde,
     estilo.glowBg,
     onClick &&
-      'cursor-pointer hover:-translate-y-0.5 hover:shadow-md hover:border-borde-fuerte focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento',
+      'cursor-pointer hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento',
     className
   );
 

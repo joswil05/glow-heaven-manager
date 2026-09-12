@@ -628,13 +628,14 @@ export const Anillo: React.FC<AnilloProps> = ({
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
   const total = segmentos.reduce((a, s) => a + Math.max(0, s.valor), 0);
-  const radio = tamano / 2 - 14;
+  const grosorBase = 13;
+  const radio = tamano / 2 - grosorBase;
   const circunferencia = 2 * Math.PI * radio;
 
   let acumulado = 0;
 
   return (
-    <div className={cn('flex items-center gap-6', className)}>
+    <div className={cn('flex items-center gap-5', className)}>
       <div className="relative shrink-0 flex items-center justify-center">
         <svg
           width={tamano}
@@ -655,8 +656,8 @@ export const Anillo: React.FC<AnilloProps> = ({
             r={radio}
             fill="none"
             stroke="currentColor"
-            strokeWidth={16}
-            className="text-borde/60"
+            strokeWidth={grosorBase}
+            className="text-borde/50"
           />
 
           {total > 0 &&
@@ -677,7 +678,7 @@ export const Anillo: React.FC<AnilloProps> = ({
                   r={radio}
                   fill="none"
                   stroke={s.color}
-                  strokeWidth={esHover ? 20 : 16}
+                  strokeWidth={esHover ? grosorBase + 3 : grosorBase}
                   strokeDasharray={`${largo} ${circunferencia - largo}`}
                   strokeDashoffset={offset}
                   strokeLinecap="round"
@@ -694,14 +695,14 @@ export const Anillo: React.FC<AnilloProps> = ({
         </svg>
 
         {/* Círculo central con datos si se requiere en el centro */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center p-2">
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center px-2">
           {centro !== undefined && (
-            <div className="text-metric-sm font-bold text-texto tabular tracking-tight">
+            <div className="text-metric-sm font-bold text-texto tabular tracking-tight leading-none">
               {centro}
             </div>
           )}
           {subtitulo && (
-            <div className="text-[10px] uppercase font-semibold text-texto-3 tracking-wider mt-0.5">
+            <div className="text-[9px] uppercase font-bold text-texto-3 tracking-wider mt-1.5 px-2 py-0.5 rounded-full bg-superficie-2/80 border border-borde/50">
               {subtitulo}
             </div>
           )}

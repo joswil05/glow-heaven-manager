@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button, Field, Input } from '../../components/ui';
+import { cn } from '../../lib/cn';
 
 /**
  * Conteo físico de una variante.
@@ -56,24 +57,24 @@ export const AjustarStockModal: React.FC<Props> = ({ ajuste, onCerrar, onConfirm
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-velo/50 p-4"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-velo/60 backdrop-blur-xs p-4 animate-fade-in"
       role="dialog"
       aria-modal="true"
       aria-labelledby="titulo-ajuste"
     >
-      <form onSubmit={enviar} className="bg-superficie rounded-xl shadow-2xl w-full max-w-sm">
-        <div className="p-5 space-y-3">
+      <form onSubmit={enviar} className="bg-superficie rounded-2xl shadow-2xl w-full max-w-sm border border-borde animate-scale-in overflow-hidden">
+        <div className="p-6 space-y-4">
           <div>
-            <h3 id="titulo-ajuste" className="text-title text-texto">
-              Contar existencias
+            <h3 id="titulo-ajuste" className="text-title font-bold text-texto tracking-tight">
+              Ajustar existencias
             </h3>
-            <p className="mt-0.5 text-body text-texto-2">{ajuste.nombre}</p>
+            <p className="mt-0.5 text-body text-texto-2 font-medium truncate">{ajuste.nombre}</p>
           </div>
 
           <Field
-            label="¿Cuántas unidades tenés en realidad?"
-            hint={`El sistema tiene anotadas ${ajuste.actual}`}
-            error={texto.trim() && !valido ? 'Escribí un número de unidades.' : undefined}
+            label="¿Cuántas unidades físicas tenés?"
+            hint={`El sistema registra actualmente: ${ajuste.actual} unidad(es)`}
+            error={texto.trim() && !valido ? 'Escribí un número válido mayor o igual a 0.' : undefined}
           >
             <Input
               ref={campoRef}
@@ -81,26 +82,45 @@ export const AjustarStockModal: React.FC<Props> = ({ ajuste, onCerrar, onConfirm
               min="0"
               value={texto}
               onChange={(e) => setTexto(e.target.value)}
-              className="text-right"
+              className="text-right font-bold text-base"
             />
           </Field>
 
           {valido && diferencia !== 0 && (
-            <p className="rounded-md border border-borde bg-superficie-2 p-2.5 text-label text-texto-2">
-              {diferencia > 0
-                ? `Se van a sumar ${diferencia} unidad${diferencia === 1 ? '' : 'es'}.`
-                : `Se van a quitar ${-diferencia} unidad${diferencia === -1 ? '' : 'es'}.`}{' '}
-              Queda el movimiento anotado en el historial.
-            </p>
+            <div
+              className={cn(
+                'rounded-xl border p-3 text-caption flex items-center gap-2.5 transition-colors',
+                diferencia > 0
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200/80'
+                  : 'bg-rose-50 text-rose-800 border-rose-200/80'
+              )}
+            >
+              <span
+                className={cn(
+                  'px-2 py-0.5 rounded-full text-xs font-bold shrink-0',
+                  diferencia > 0
+                    ? 'bg-emerald-200/80 text-emerald-900'
+                    : 'bg-rose-200/80 text-rose-900'
+                )}
+              >
+                {diferencia > 0 ? `+${diferencia}` : diferencia}
+              </span>
+              <span>
+                {diferencia > 0
+                  ? `Se sumarán ${diferencia} unidad(es) al inventario.`
+                  : `Se descontarán ${Math.abs(diferencia)} unidad(es) del inventario.`}{' '}
+                El cambio quedará registrado en el historial.
+              </span>
+            </div>
           )}
         </div>
 
-        <footer className="flex items-center justify-end gap-2 px-5 py-4 border-t border-borde">
-          <Button type="button" variant="secondary" onClick={onCerrar}>
+        <footer className="flex items-center justify-end gap-2.5 px-6 py-4 border-t border-borde bg-superficie-2/40">
+          <Button type="button" variant="secondary" onClick={onCerrar} className="rounded-xl">
             Cancelar
           </Button>
-          <Button type="submit" variant="primary" disabled={!valido}>
-            Guardar el conteo
+          <Button type="submit" variant="primary" disabled={!valido} className="rounded-xl font-semibold shadow-xs">
+            Guardar conteo
           </Button>
         </footer>
       </form>

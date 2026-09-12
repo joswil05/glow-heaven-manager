@@ -85,21 +85,43 @@ export const ClientesView: React.FC<ClientesViewProps> = ({ onCambio, onVerVenta
     {
       key: 'nombre',
       header: 'Cliente',
-      render: (c) => (
-        <div className="min-w-0">
-          <div className="text-body text-texto truncate">{c.nombre}</div>
-          <div className="text-caption text-texto-3 truncate">
-            {[c.telefono, c.ciudad].filter(Boolean).join(' · ') || 'Sin datos de contacto'}
+      render: (c) => {
+        const iniciales =
+          c.nombre
+            .split(' ')
+            .filter(Boolean)
+            .map((n) => n[0])
+            .slice(0, 2)
+            .join('')
+            .toUpperCase() || 'CL';
+        return (
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-acento/10 text-acento-fuerte border border-acento/20 flex items-center justify-center font-bold text-caption shrink-0 shadow-xs">
+              {iniciales}
+            </div>
+            <div className="min-w-0">
+              <div className="text-body font-semibold text-texto tracking-tight truncate">{c.nombre}</div>
+              <div className="text-caption text-texto-3 truncate flex items-center gap-1.5 font-mono">
+                {c.telefono && <span>{c.telefono}</span>}
+                {c.telefono && c.ciudad && <span>·</span>}
+                {c.ciudad && <span className="font-sans">{c.ciudad}</span>}
+                {!c.telefono && !c.ciudad && <span className="font-sans italic text-texto-3">Sin contacto</span>}
+              </div>
+            </div>
           </div>
-        </div>
-      ),
+        );
+      },
     },
     {
       key: 'compras',
       header: 'Compras',
       align: 'right',
-      width: '100px',
-      render: (c) => <span className="text-label text-texto-2 tabular">{c.compras_count}</span>,
+      width: '110px',
+      render: (c) => (
+        <span className="text-label text-texto-2 tabular font-mono">
+          {c.compras_count} {c.compras_count === 1 ? 'pedido' : 'pedidos'}
+        </span>
+      ),
     },
     {
       key: 'total',
@@ -115,7 +137,9 @@ export const ClientesView: React.FC<ClientesViewProps> = ({ onCambio, onVerVenta
       width: '150px',
       render: (c) =>
         c.saldo_pendiente_usd_cents > 0 ? (
-          <Money usd_cents={c.saldo_pendiente_usd_cents} size="sm" soloUsd />
+          <span className="font-bold text-amber-700">
+            <Money usd_cents={c.saldo_pendiente_usd_cents} size="sm" soloUsd />
+          </span>
         ) : (
           <Badge tone="success">Al día</Badge>
         ),
@@ -143,7 +167,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({ onCambio, onVerVenta
             variant="ghost"
             aria-label={`Eliminar a ${c.nombre}`}
             title="Eliminar cliente"
-            className="text-texto-3 hover:text-danger-600"
+            className="text-texto-3 hover:text-danger-600 rounded-lg"
             onClick={(e) => {
               e.stopPropagation();
               setArchivando(c);
@@ -207,9 +231,19 @@ export const ClientesView: React.FC<ClientesViewProps> = ({ onCambio, onVerVenta
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar por nombre o teléfono..."
-            className="pl-9"
+            className="pl-9 pr-9"
             aria-label="Buscar clientes"
           />
+          {busqueda && (
+            <button
+              type="button"
+              onClick={() => setBusqueda('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-texto-3 hover:text-texto rounded-md transition-colors"
+              aria-label="Limpiar búsqueda"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
         {cargando ? (
@@ -250,76 +284,124 @@ export const ClientesView: React.FC<ClientesViewProps> = ({ onCambio, onVerVenta
       </div>
 
       {detalle && (
-        <aside className="w-[380px] border-l border-borde bg-superficie overflow-y-auto shrink-0">
-          <div className="p-5 space-y-4">
-            <div>
-              <h3 className="text-title text-texto">{detalle.nombre}</h3>
-              {detalle.alias && <p className="text-caption text-texto-3">{detalle.alias}</p>}
+        <aside className="w-[410px] border-l border-borde bg-superficie flex flex-col shrink-0 animate-fade-in shadow-xl z-10">
+          {/* Cabecera pegajosa con avatar y botón de cerrar */}
+          <div className="p-5 border-b border-borde bg-superficie-2/40 flex items-start justify-between gap-3 shrink-0">
+            <div className="flex items-start gap-3 min-w-0">
+              <div className="w-12 h-12 rounded-xl bg-acento/10 text-acento-fuerte border border-acento/20 flex items-center justify-center font-bold text-body shrink-0 shadow-xs">
+                {detalle.nombre
+                  .split(' ')
+                  .filter(Boolean)
+                  .map((n) => n[0])
+                  .slice(0, 2)
+                  .join('')
+                  .toUpperCase() || 'CL'}
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-title font-bold text-texto tracking-tight truncate">
+                  {detalle.nombre}
+                </h3>
+                {detalle.alias && (
+                  <p className="text-caption text-texto-3 font-medium">"{detalle.alias}"</p>
+                )}
+                {detalle.telefono && (
+                  <a
+                    href={enlaceWhatsApp(
+                      detalle.telefono,
+                      detalle.nombre,
+                      detalle.saldo_pendiente_usd_cents
+                    )}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 text-caption font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100/80 px-2 py-0.5 rounded-full border border-emerald-200/70 transition-colors mt-1"
+                  >
+                    <MessageCircle className="w-3 h-3 shrink-0" />
+                    <span>WhatsApp</span>
+                  </a>
+                )}
+              </div>
             </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setDetalle(null)}
+              aria-label="Cerrar detalle"
+              className="text-texto-3 hover:text-texto rounded-lg -mr-1 -mt-1 shrink-0"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
 
-            <div className="space-y-1.5 text-label">
-              {detalle.telefono && (
-                <a
-                  href={enlaceWhatsApp(detalle.telefono, detalle.nombre, detalle.saldo_pendiente_usd_cents)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-2 text-acento hover:text-acento-fuerte focus-visible:outline-none focus-visible:text-acento-fuerte"
-                >
-                  <MessageCircle className="w-3.5 h-3.5 shrink-0" />
-                  <span>{detalle.telefono}</span>
-                  <span className="text-caption text-texto-3">WhatsApp</span>
-                </a>
-              )}
-              {(detalle.direccion || detalle.ciudad) && (
-                <div className="flex items-start gap-2 text-texto-2">
-                  <MapPin className="w-3.5 h-3.5 text-texto-3 shrink-0 mt-0.5" />
-                  <span>{[detalle.direccion, detalle.ciudad].filter(Boolean).join(', ')}</span>
-                </div>
-              )}
-            </div>
+          <div className="flex-1 overflow-y-auto p-5 space-y-4">
+            {/* Contacto y ubicación */}
+            {(detalle.telefono || detalle.direccion || detalle.ciudad) && (
+              <div className="rounded-xl border border-borde/70 bg-superficie-2/30 p-3.5 space-y-2 text-label">
+                {detalle.telefono && (
+                  <div className="flex items-center gap-2 text-texto font-mono">
+                    <span className="text-caption text-texto-3">Teléfono:</span>
+                    <span>{detalle.telefono}</span>
+                  </div>
+                )}
+                {(detalle.direccion || detalle.ciudad) && (
+                  <div className="flex items-start gap-2 text-texto-2">
+                    <MapPin className="w-3.5 h-3.5 text-texto-3 shrink-0 mt-0.5" />
+                    <span>{[detalle.direccion, detalle.ciudad].filter(Boolean).join(', ')}</span>
+                  </div>
+                )}
+              </div>
+            )}
 
-            <div className="rounded-lg border border-borde bg-superficie-2 p-4 space-y-2">
-              <div className="flex justify-between gap-2">
-                <span className="text-label text-texto-2">Ha comprado</span>
+            {/* Resumen financiero */}
+            <div className="rounded-xl border border-borde/80 bg-gradient-to-b from-superficie via-superficie to-superficie-2/30 p-4 space-y-2.5 shadow-xs">
+              <div className="flex justify-between items-center gap-2">
+                <span className="text-label text-texto-2 font-medium">Ha comprado en total</span>
                 <Money usd_cents={detalle.total_comprado_usd_cents} size="sm" soloUsd />
               </div>
-              <div className="flex justify-between gap-2 pt-2 border-t border-borde">
-                <span className="text-body font-medium text-texto">Debe</span>
-                <Money usd_cents={detalle.saldo_pendiente_usd_cents} size="md" soloUsd />
+              <div className="flex justify-between items-center gap-2 pt-2 border-t border-borde/70">
+                <span className="text-body font-bold text-texto">Debe actualmente</span>
+                {detalle.saldo_pendiente_usd_cents > 0 ? (
+                  <span className="font-bold text-amber-700">
+                    <Money usd_cents={detalle.saldo_pendiente_usd_cents} size="md" soloUsd />
+                  </span>
+                ) : (
+                  <Badge tone="success">Al día / Sin saldo</Badge>
+                )}
               </div>
             </div>
 
             {detalle.notas && (
-              <div className="rounded-md border border-borde p-3">
-                <div className="text-caption text-texto-3 mb-0.5">Notas</div>
-                <p className="text-label text-texto-2">{detalle.notas}</p>
+              <div className="rounded-xl border border-borde/70 bg-superficie-2/20 p-3.5 shadow-xs">
+                <div className="text-caption font-medium text-texto-3 mb-1">Notas</div>
+                <p className="text-label text-texto-2 leading-relaxed">{detalle.notas}</p>
               </div>
             )}
 
-            <div className="rounded-lg border border-borde">
-              <div className="px-4 py-2.5 border-b border-borde text-label font-medium text-texto-2">
-                Historial
+            {/* Historial de compras */}
+            <div className="rounded-xl border border-borde/80 overflow-hidden shadow-xs">
+              <div className="px-4 py-2.5 bg-superficie-2/50 border-b border-borde text-label font-medium text-texto flex items-center justify-between">
+                <span>Historial de pedidos</span>
+                <span className="text-caption text-texto-3">{ventasCliente.length} venta(s)</span>
               </div>
               {ventasCliente.length > 0 ? (
-                <ul className="divide-y divide-borde max-h-80 overflow-y-auto">
+                <ul className="divide-y divide-borde/60 max-h-80 overflow-y-auto">
                   {ventasCliente.map((v) => (
                     <li key={v.id}>
                       <button
                         onClick={() => onVerVenta(v.id, v.tipo)}
-                        className="w-full text-left px-4 py-2.5 hover:bg-superficie-2 transition-colors focus-visible:outline-none focus-visible:bg-superficie-2"
+                        className="w-full text-left px-4 py-3 hover:bg-superficie-2/30 transition-colors focus-visible:outline-none focus-visible:bg-superficie-2/30"
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-label text-texto">{v.codigo}</span>
+                          <span className="text-label font-medium text-texto font-mono">{v.codigo}</span>
                           <Money usd_cents={v.total_usd_cents} size="sm" soloUsd />
                         </div>
-                        <div className="flex items-center justify-between gap-2 mt-0.5">
-                          <span className="text-caption text-texto-3">{formatearFecha(v.fecha)}</span>
+                        <div className="flex items-center justify-between gap-2 mt-1">
+                          <span className="text-caption text-texto-3 font-mono">{formatearFecha(v.fecha)}</span>
                           {v.saldo_usd_cents > 0 ? (
-                            <span className="text-caption text-warning-700">
+                            <span className="text-caption font-semibold text-amber-700">
                               Debe {formatearMoneda(v.saldo_usd_cents, 'USD')}
                             </span>
                           ) : (
-                            <span className="text-caption text-success-700">Saldada</span>
+                            <span className="text-caption font-medium text-emerald-700">Saldada</span>
                           )}
                         </div>
                       </button>
@@ -333,17 +415,15 @@ export const ClientesView: React.FC<ClientesViewProps> = ({ onCambio, onVerVenta
               )}
             </div>
 
-            <div className="flex gap-2">
+            <div className="pt-2 flex justify-center">
               <Button
                 variant="ghost"
-                className="flex-1 text-danger-600 hover:text-danger-700 hover:bg-danger-50"
+                size="sm"
+                className="text-texto-3 hover:text-danger-600 rounded-lg text-caption"
                 onClick={() => detalle && setArchivando(detalle)}
               >
-                <Trash2 className="w-4 h-4 mr-1.5" />
-                <span>Eliminar</span>
-              </Button>
-              <Button variant="secondary" className="flex-1" onClick={() => setDetalle(null)}>
-                Cerrar
+                <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                <span>Eliminar cliente</span>
               </Button>
             </div>
           </div>
@@ -482,12 +562,15 @@ const ClienteModal: React.FC<{
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-velo/50 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-velo/40 backdrop-blur-xs p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="titulo-cliente"
     >
-      <div onKeyDown={alPresionarEnter} className="bg-superficie rounded-xl shadow-2xl w-full max-w-lg animate-scale-in">
+      <div
+        onKeyDown={alPresionarEnter}
+        className="bg-superficie rounded-2xl shadow-2xl w-full max-w-lg animate-scale-in border border-borde/80 overflow-hidden"
+      >
         <header className="flex items-center justify-between px-5 py-4 border-b border-borde">
           <h3 id="titulo-cliente" className="text-title text-texto">
             {cliente ? `Editar ${cliente.nombre}` : 'Agregar cliente'}

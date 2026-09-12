@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Package, Plus, CheckCircle2, FileEdit, Trash2, Boxes, Truck, Scale, Clock } from 'lucide-react';
+import { Package, Plus, CheckCircle2, FileEdit, Trash2, Boxes, Truck, Scale, Clock, X } from 'lucide-react';
+import { cn } from '../lib/cn';
 import type { Compra, CompraCompleta, Venta, ParametrosSistema } from '../../../shared/types';
 import {
   Card,
@@ -134,25 +135,44 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
       key: 'codigo',
       header: 'Paquete',
       render: (c) => (
-        <div>
-          <div className="text-body text-texto">{c.codigo}</div>
-          <div className="text-caption text-texto-3">{formatearFecha(c.fecha)}</div>
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-10 h-10 rounded-xl bg-superficie-2 border border-borde/80 flex items-center justify-center shrink-0 shadow-xs text-texto-2">
+            <Package className="w-4 h-4 text-texto-3" />
+          </div>
+          <div className="min-w-0">
+            <div className="text-body font-semibold text-texto tracking-tight">{c.codigo}</div>
+            <div className="text-caption font-mono text-texto-3">{formatearFecha(c.fecha)}</div>
+          </div>
         </div>
       ),
     },
     {
       key: 'estado',
       header: 'Estado',
-      width: '120px',
-      render: (c) => <Badge tone={ESTADO_TONO[c.estado]}>{ESTADO_TEXTO[c.estado]}</Badge>,
+      width: '130px',
+      render: (c) => (
+        <Badge tone={ESTADO_TONO[c.estado]} className="gap-1.5 font-medium">
+          <span
+            className={cn(
+              'w-1.5 h-1.5 rounded-full shrink-0',
+              c.estado === 'RECIBIDA'
+                ? 'bg-emerald-500'
+                : c.estado === 'EN_CAMINO'
+                  ? 'bg-amber-500 animate-pulse'
+                  : 'bg-slate-400'
+            )}
+          />
+          {ESTADO_TEXTO[c.estado]}
+        </Badge>
+      ),
     },
     {
       key: 'peso',
       header: 'Peso',
       align: 'right',
-      width: '100px',
+      width: '110px',
       render: (c) => (
-        <span className="text-label text-texto-2 tabular">
+        <span className="text-label text-texto-2 tabular font-mono">
           {formatearPeso(c.peso_total_mlb)}
         </span>
       ),
@@ -177,7 +197,7 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
       align: 'right',
       width: '250px',
       render: (c) => (
-        <div className="flex items-center justify-end gap-1">
+        <div className="flex items-center justify-end gap-1.5">
           {c.estado !== 'RECIBIDA' ? (
             <>
               <Button
@@ -194,6 +214,7 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
               <Button
                 size="sm"
                 variant="primary"
+                className="shadow-xs"
                 onClick={(e) => {
                   e.stopPropagation();
                   setPorConfirmar({ tipo: 'recibir', compra: c });
@@ -204,7 +225,8 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
               </Button>
             </>
           ) : (
-            <span className="text-caption text-texto-3 mr-1">
+            <span className="text-caption text-texto-3 mr-1 inline-flex items-center gap-1">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
               Recibido
             </span>
           )}
@@ -213,7 +235,7 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
             variant="ghost"
             aria-label={`Eliminar ${c.codigo}`}
             title="Eliminar paquete"
-            className="text-texto-3 hover:text-danger-600"
+            className="text-texto-3 hover:text-danger-600 rounded-lg"
             onClick={(e) => {
               e.stopPropagation();
               setPorConfirmar({ tipo: 'archivar', compra: c });
@@ -319,55 +341,113 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
       </div>
 
       {detalle && (
-        <aside className="w-[420px] border-l border-borde bg-superficie overflow-y-auto shrink-0">
-          <div className="p-5 space-y-4">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <h3 className="text-title text-texto">{detalle.codigo}</h3>
-                <p className="text-caption text-texto-3">
+        <aside className="w-[420px] border-l border-borde bg-superficie flex flex-col shrink-0 animate-fade-in shadow-xl z-10">
+          {/* Cabecera pegajosa con botón de cerrar */}
+          <div className="p-5 border-b border-borde bg-superficie-2/40 flex items-start justify-between gap-3 shrink-0">
+            <div className="flex items-start gap-3 min-w-0">
+              <div className="w-12 h-12 rounded-xl bg-acento/10 text-acento-fuerte border border-acento/20 flex items-center justify-center shrink-0 shadow-xs">
+                <Package className="w-6 h-6" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-title font-bold text-texto tracking-tight">{detalle.codigo}</h3>
+                  <Badge tone={ESTADO_TONO[detalle.estado]} className="gap-1.5 text-[11px]">
+                    <span
+                      className={cn(
+                        'w-1.5 h-1.5 rounded-full shrink-0',
+                        detalle.estado === 'RECIBIDA'
+                          ? 'bg-emerald-500'
+                          : detalle.estado === 'EN_CAMINO'
+                            ? 'bg-amber-500 animate-pulse'
+                            : 'bg-slate-400'
+                      )}
+                    />
+                    {ESTADO_TEXTO[detalle.estado]}
+                  </Badge>
+                </div>
+                <p className="text-caption text-texto-3 font-mono mt-0.5">
                   {formatearFecha(detalle.fecha)} · {formatearPeso(detalle.peso_total_mlb)} ·{' '}
-                  {detalle.unidades_totales} unidad(es)
+                  {detalle.unidades_totales} unid.
                 </p>
               </div>
-              <Badge tone={ESTADO_TONO[detalle.estado]}>{ESTADO_TEXTO[detalle.estado]}</Badge>
             </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setDetalle(null)}
+              aria-label="Cerrar detalle"
+              className="text-texto-3 hover:text-texto rounded-lg -mr-1 -mt-1 shrink-0"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
 
-            <Card>
-              <CardContent className="space-y-2">
-                <FilaResumen etiqueta="Productos" usd={detalle.subtotal_productos_usd_cents} />
-                <FilaResumen etiqueta="Tax" usd={detalle.tax_total_usd_cents} />
-                <FilaResumen etiqueta="Envío" usd={detalle.envio_total_usd_cents} />
+          <div className="flex-1 overflow-y-auto p-5 space-y-4">
+            {/* Banner de acción rápida para paquetes en camino */}
+            {detalle.estado !== 'RECIBIDA' && (
+              <div className="p-3.5 rounded-xl border border-amber-200 bg-amber-50/80 flex items-center justify-between gap-3 shadow-xs">
+                <div className="min-w-0">
+                  <p className="text-label font-semibold text-amber-900">¿Ya llegó a tus manos?</p>
+                  <p className="text-caption text-amber-700 leading-tight">
+                    Mete las unidades directo a tu inventario activo.
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={() => setPorConfirmar({ tipo: 'recibir', compra: detalle })}
+                  className="shrink-0 shadow-xs"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Recibir</span>
+                </Button>
+              </div>
+            )}
+
+            {/* Desglose financiero */}
+            <Card className="rounded-xl border-borde/80 shadow-xs overflow-hidden">
+              <div className="px-4 py-2.5 bg-superficie-2/50 border-b border-borde text-label font-medium text-texto">
+                Desglose financiero
+              </div>
+              <CardContent className="p-4 space-y-2.5">
+                <FilaResumen etiqueta="Productos / Mercancía" usd={detalle.subtotal_productos_usd_cents} />
+                <FilaResumen etiqueta="Tax USA" usd={detalle.tax_total_usd_cents} />
+                <FilaResumen etiqueta="Flete courier" usd={detalle.envio_total_usd_cents} />
                 {detalle.otros_costos_usd_cents > 0 && (
-                  <FilaResumen etiqueta="Otros gastos" usd={detalle.otros_costos_usd_cents} />
+                  <FilaResumen etiqueta="Otros gastos de gestión" usd={detalle.otros_costos_usd_cents} />
                 )}
-                <div className="pt-2 border-t border-borde flex items-center justify-between gap-2">
-                  <span className="text-body font-medium text-texto">Total pagado</span>
+                <div className="pt-2.5 border-t border-borde flex items-center justify-between gap-2">
+                  <span className="text-body font-bold text-texto">Total pagado</span>
                   <Money usd_cents={detalle.total_usd_cents} size="md" />
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
+            {/* Qué venía adentro */}
+            <Card className="rounded-xl border-borde/80 shadow-xs overflow-hidden">
               <CardContent className="p-0">
-                <div className="px-4 py-2.5 border-b border-borde text-label font-medium text-texto-2">
-                  Qué venía adentro
+                <div className="px-4 py-2.5 bg-superficie-2/50 border-b border-borde text-label font-medium text-texto flex items-center justify-between">
+                  <span>Qué venía adentro</span>
+                  {detalle.lineas.length > 0 && (
+                    <span className="text-caption text-texto-3">{detalle.lineas.length} artículo(s)</span>
+                  )}
                 </div>
                 {detalle.lineas.length === 0 ? (
-                  <div className="p-5 text-center space-y-2">
+                  <div className="p-5 text-center space-y-2 bg-superficie">
                     <p className="text-body font-medium text-texto">
                       Factura de courier registrada
                     </p>
-                    <p className="text-caption text-texto-3">
-                      Este paquete se registró sin transcripción rápida de productos. Podés cargar los productos desde el módulo de <strong>Inventario</strong> vinculándolos a este paquete para heredar su tarifa de courier.
+                    <p className="text-caption text-texto-3 leading-relaxed">
+                      Este paquete se registró con flete consolidado. Podés cargar los productos desde el módulo de <strong>Inventario</strong> vinculándolos a este paquete para heredar su tarifa de courier.
                     </p>
                   </div>
                 ) : (
-                  <ul className="divide-y divide-borde">
+                  <ul className="divide-y divide-borde/60 max-h-[380px] overflow-y-auto">
                     {detalle.lineas.map((l) => (
-                      <li key={l.id} className="px-4 py-3">
+                      <li key={l.id} className="px-4 py-3 hover:bg-superficie-2/20 transition-colors">
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
-                            <div className="text-body text-texto truncate">
+                            <div className="text-body font-medium text-texto truncate">
                               {l.descripcion}
                             </div>
                             <div className="text-caption text-texto-3">
@@ -391,7 +471,7 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
                         </dl>
 
                         {l.cantidad > 1 && (
-                          <p className="mt-1 text-caption text-acento-fuerte">
+                          <p className="mt-1.5 text-caption font-medium text-acento-fuerte">
                             Cada unidad te salió en{' '}
                             {formatearMoneda(l.costo_unitario_usd_cents, 'USD')}
                           </p>
@@ -402,10 +482,6 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
                 )}
               </CardContent>
             </Card>
-
-            <Button variant="secondary" onClick={() => setDetalle(null)} className="w-full">
-              Cerrar detalle
-            </Button>
           </div>
         </aside>
       )}

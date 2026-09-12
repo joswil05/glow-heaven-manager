@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Package, Plus, Search, SlidersHorizontal, Trash2, History, Boxes, TrendingUp, AlertTriangle } from 'lucide-react';
+import { Package, Plus, Search, SlidersHorizontal, Trash2, History, Boxes, TrendingUp, AlertTriangle, X } from 'lucide-react';
 import type {
   ProductoConStock,
   Categoria,
@@ -172,22 +172,24 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
             <img
               src={p.foto}
               alt=""
-              className="w-10 h-10 rounded-md object-cover border border-borde shrink-0"
+              className="w-10 h-10 rounded-xl object-cover border border-borde/80 shrink-0 shadow-xs"
             />
           ) : (
             <div
               aria-hidden="true"
-              className="w-10 h-10 rounded-md bg-superficie-2 border border-borde flex items-center justify-center shrink-0"
+              className="w-10 h-10 rounded-xl bg-superficie-2 border border-borde/80 flex items-center justify-center shrink-0 shadow-xs"
             >
               <Package className="w-4 h-4 text-texto-3" />
             </div>
           )}
           <div className="min-w-0">
-            <div className="text-body text-texto truncate">{p.nombre}</div>
-            <div className="text-caption text-texto-3">
-              {p.codigo}
-              {p.categoria_nombre ? ` · ${p.categoria_nombre}` : ''}
-              {p.tiene_variantes ? ` · ${p.variantes.length} variante(s)` : ''}
+            <div className="text-body font-medium text-texto truncate">{p.nombre}</div>
+            <div className="text-caption text-texto-3 flex items-center gap-1.5 truncate">
+              <span className="font-mono text-[11px] text-texto-2 bg-superficie-2 px-1.5 py-0.5 rounded border border-borde/60">
+                {p.codigo}
+              </span>
+              {p.categoria_nombre && <span>· {p.categoria_nombre}</span>}
+              {p.tiene_variantes && <span>· {p.variantes.length} variante(s)</span>}
             </div>
           </div>
         </div>
@@ -208,7 +210,7 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
                 : 'neutral'
           }
         >
-          {p.existencias === 0 ? 'Agotado' : p.existencias}
+          {p.existencias === 0 ? 'Agotado' : `${p.existencias} unid.`}
         </Badge>
       ),
     },
@@ -339,6 +341,11 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
             tone="purple"
             icon={Boxes}
             hint={`${totales.unidades} unidad(es) en ${productos.length} producto(s)`}
+            onClick={() => {
+              setFiltro('TODOS');
+              setCategoriaFiltro(undefined);
+              setBusqueda('');
+            }}
           />
           <StatTile
             label="Ganancia potencial esperada"
@@ -358,7 +365,13 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
                 : 'success'
             }
             icon={AlertTriangle}
-            hint="En o por debajo del mínimo configurado"
+            hint={
+              filtro === 'BAJO_STOCK'
+                ? 'Mostrando solo productos con bajo stock'
+                : 'Clic para filtrar productos por reponer'
+            }
+            onClick={() => setFiltro(filtro === 'BAJO_STOCK' ? 'TODOS' : 'BAJO_STOCK')}
+            className={filtro === 'BAJO_STOCK' ? 'ring-2 ring-danger-500/50' : undefined}
           />
         </div>
 
@@ -369,9 +382,19 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               placeholder="Buscar por nombre o código..."
-              className="pl-9"
+              className="pl-9 pr-9"
               aria-label="Buscar productos"
             />
+            {busqueda && (
+              <button
+                type="button"
+                onClick={() => setBusqueda('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-texto-3 hover:text-texto rounded-md transition-colors"
+                aria-label="Limpiar búsqueda"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
           <Select
@@ -390,24 +413,24 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
             ))}
           </Select>
 
-          <div className="flex rounded-md border border-borde-fuerte overflow-hidden">
+          {/* Segmented Pill Control */}
+          <div className="inline-flex items-center p-1 bg-superficie-2/80 rounded-xl border border-borde/70 text-caption font-medium">
             {(
               [
                 { id: 'TODOS', etiqueta: 'Todos' },
                 { id: 'CON_STOCK', etiqueta: 'Con existencias' },
                 { id: 'BAJO_STOCK', etiqueta: 'Por acabarse' },
               ] as { id: Filtro; etiqueta: string }[]
-            ).map((f, i) => (
+            ).map((f) => (
               <button
                 key={f.id}
                 onClick={() => setFiltro(f.id)}
                 aria-pressed={filtro === f.id}
                 className={cn(
-                  'px-3 py-2 text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-acento',
-                  i > 0 && 'border-l border-borde-fuerte',
+                  'px-3 py-1.5 rounded-lg transition-all text-label focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento',
                   filtro === f.id
-                    ? 'bg-acento-suave text-acento-fuerte font-medium'
-                    : 'bg-superficie text-texto-2 hover:bg-superficie-2'
+                    ? 'bg-superficie text-texto font-semibold shadow-xs border border-borde/50'
+                    : 'text-texto-3 hover:text-texto hover:bg-superficie/50'
                 )}
               >
                 {f.etiqueta}
@@ -455,37 +478,59 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
 
       {/* Panel lateral con variantes e historial */}
       {detalle && (
-        <aside className="w-[380px] border-l border-borde bg-superficie overflow-y-auto shrink-0">
-          <div className="p-5 space-y-5">
-            <div className="flex items-start gap-3">
-              {detalle.foto && (
+        <aside className="w-[390px] border-l border-borde bg-superficie flex flex-col shrink-0 animate-fade-in shadow-xl z-10">
+          {/* Cabecera pegajosa con botón de cerrar */}
+          <div className="p-5 border-b border-borde bg-superficie-2/40 flex items-start justify-between gap-3 shrink-0">
+            <div className="flex items-start gap-3 min-w-0">
+              {detalle.foto ? (
                 <img
                   src={detalle.foto}
                   alt=""
-                  className="w-20 h-20 rounded-lg object-cover border border-borde shrink-0"
+                  className="w-16 h-16 rounded-xl object-cover border border-borde/80 shadow-xs shrink-0"
                 />
+              ) : (
+                <div className="w-16 h-16 rounded-xl bg-superficie-2 border border-borde/80 flex items-center justify-center shrink-0 shadow-xs">
+                  <Package className="w-6 h-6 text-texto-3" />
+                </div>
               )}
               <div className="min-w-0">
-                <h3 className="text-title text-texto">{detalle.nombre}</h3>
-                <p className="text-caption text-texto-3">{detalle.codigo}</p>
-                <p className="mt-1 text-label text-texto-2">
-                  {formatearMoneda(detalle.precio_venta_usd_cents, 'USD')} ·{' '}
-                  {detalle.existencias} en existencia
-                </p>
+                <h3 className="text-title font-semibold text-texto leading-snug truncate">
+                  {detalle.nombre}
+                </h3>
+                <p className="text-caption font-mono text-texto-3">{detalle.codigo}</p>
+                <div className="mt-1 flex items-center gap-2 flex-wrap">
+                  <Badge tone={detalle.existencias === 0 ? 'danger' : 'neutral'}>
+                    {detalle.existencias} en existencia
+                  </Badge>
+                  <span className="text-caption text-texto-2">
+                    {formatearMoneda(detalle.precio_venta_usd_cents, 'USD')}
+                  </span>
+                </div>
               </div>
             </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setDetalleId(undefined)}
+              aria-label="Cerrar detalle"
+              className="text-texto-3 hover:text-texto rounded-lg -mr-1 -mt-1 shrink-0"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
 
+          <div className="flex-1 overflow-y-auto p-5 space-y-5">
             {detalle.tiene_variantes && (
-              <Card>
+              <Card className="rounded-xl border-borde/80 shadow-xs overflow-hidden">
                 <CardContent className="p-0">
-                  <div className="px-4 py-2.5 border-b border-borde text-label font-medium text-texto-2">
+                  <div className="px-4 py-2.5 bg-superficie-2/50 border-b border-borde text-label font-medium text-texto">
                     Existencias por variante
                   </div>
-                  <ul className="divide-y divide-borde">
+                  <ul className="divide-y divide-borde/60">
                     {detalle.variantes.map((v) => (
                       <li
                         key={v.id}
-                        className="px-4 py-2.5 flex items-center justify-between gap-2"
+                        className="px-4 py-2.5 flex items-center justify-between gap-2 hover:bg-superficie-2/30 transition-colors"
                       >
                         <span className="text-body text-texto-2">
                           {[v.talla, v.color].filter(Boolean).join(' · ') || 'Única'}
@@ -518,16 +563,16 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
               </Card>
             )}
 
-            <Card>
+            <Card className="rounded-xl border-borde/80 shadow-xs overflow-hidden">
               <CardContent className="p-0">
-                <div className="px-4 py-2.5 border-b border-borde flex items-center gap-2 text-label font-medium text-texto-2">
+                <div className="px-4 py-2.5 bg-superficie-2/50 border-b border-borde flex items-center gap-2 text-label font-medium text-texto">
                   <History className="w-3.5 h-3.5 text-texto-3" />
-                  Movimientos
+                  Movimientos de existencias
                 </div>
                 {movimientos.length > 0 ? (
-                  <ul className="divide-y divide-borde max-h-[420px] overflow-y-auto">
+                  <ul className="divide-y divide-borde/60 max-h-[420px] overflow-y-auto">
                     {movimientos.map((m) => (
-                      <li key={m.id} className="px-4 py-2.5">
+                      <li key={m.id} className="px-4 py-2.5 hover:bg-superficie-2/20 transition-colors">
                         <div className="flex items-center justify-between gap-2">
                           <Badge
                             tone={
@@ -544,7 +589,7 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
                                 ? `-${m.cantidad}`
                                 : `= ${m.existencias_despues}`}
                           </Badge>
-                          <span className="text-caption text-texto-3 tabular">
+                          <span className="text-caption text-texto-3 tabular font-mono">
                             {formatearFecha(m.fecha)}
                           </span>
                         </div>
@@ -561,10 +606,6 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
                 )}
               </CardContent>
             </Card>
-
-            <Button variant="secondary" onClick={() => setDetalleId(undefined)} className="w-full">
-              Cerrar detalle
-            </Button>
           </div>
         </aside>
       )}

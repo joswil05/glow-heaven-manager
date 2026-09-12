@@ -29,44 +29,52 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="h-14 bg-superficie border-b border-borde flex items-center justify-between px-4 shrink-0 select-none">
       <div className="flex items-center gap-3 min-w-0">
-        <h1 className="text-title text-texto truncate">{titulo}</h1>
-        <span className="text-caption text-texto-3 tabular hidden sm:inline">
-          {formatearMoneda(tasaCambioCents, 'COR')} por dólar
-        </span>
-        {onRefrescar && (
-          <button
-            type="button"
-            onClick={onRefrescar}
-            title="Actualizar datos ahora"
-            aria-label="Actualizar datos"
-            className="p-1 rounded text-texto-3 hover:text-texto hover:bg-superficie-2 transition-colors cursor-pointer"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-          </button>
-        )}
+        <h1 className="text-title font-bold text-texto truncate tracking-tight">{titulo}</h1>
+        
+        {/* Badge estilizado para la tasa de cambio */}
+        <div className="hidden sm:inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-superficie-2/80 border border-borde/80 text-caption font-medium text-texto-2 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+          <span className="tabular font-semibold text-texto">
+            1 USD = {formatearMoneda(tasaCambioCents, 'COR')}
+          </span>
+          {onRefrescar && (
+            <button
+              type="button"
+              onClick={onRefrescar}
+              title="Actualizar datos ahora"
+              aria-label="Actualizar datos"
+              className="p-0.5 rounded text-texto-3 hover:text-texto hover:bg-superficie transition-all cursor-pointer group"
+            >
+              <RefreshCw className="w-3 h-3 group-hover:rotate-180 transition-transform duration-500" />
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="flex items-center gap-2">
-        <Button variant="secondary" size="sm" onClick={onNuevoPaquete}>
-          <PackagePlus className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Paquete</span>
+      <div className="flex items-center gap-2.5">
+        <Button variant="secondary" size="sm" onClick={onNuevoPaquete} className="rounded-xl">
+          <PackagePlus className="w-3.5 h-3.5 text-texto-2" />
+          <span className="hidden sm:inline font-medium">Paquete</span>
         </Button>
 
-        <Button variant="primary" size="sm" onClick={onNuevaVenta}>
+        <Button variant="primary" size="sm" onClick={onNuevaVenta} className="rounded-xl shadow-sm shadow-acento/20 font-semibold">
           <Plus className="w-3.5 h-3.5" />
           <span>Nueva venta</span>
+          <kbd className="hidden lg:inline-flex ml-1 px-1.5 py-0.5 rounded bg-white/20 text-[10px] font-mono font-medium text-white leading-none">
+            Ctrl+N
+          </kbd>
         </Button>
 
-        <div className="h-5 w-px bg-borde mx-1 hidden sm:block" />
+        <div className="h-5 w-px bg-borde mx-0.5 hidden sm:block" />
 
         {/* Perfil del usuario Google */}
         {usuario && (
-          <div className="flex items-center gap-2 pl-1">
+          <div className="flex items-center gap-2 pl-1 py-1 pr-1.5 rounded-xl hover:bg-superficie-2/60 transition-colors">
             {usuario.foto ? (
               <img
                 src={usuario.foto}
                 alt={usuario.nombre}
-                className="w-7 h-7 rounded-full object-cover border border-borde"
+                className="w-7 h-7 rounded-full object-cover border border-borde shadow-xs"
                 referrerPolicy="no-referrer"
               />
             ) : (
@@ -75,10 +83,10 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             )}
             <div className="hidden lg:flex flex-col text-left">
-              <span className="text-xs font-medium text-texto truncate max-w-[130px]">
+              <span className="text-xs font-semibold text-texto truncate max-w-[130px] leading-tight">
                 {usuario.nombre}
               </span>
-              <span className="text-[10px] text-texto-3 truncate max-w-[130px]">
+              <span className="text-[10px] text-texto-3 truncate max-w-[130px] leading-tight">
                 {usuario.email}
               </span>
             </div>
@@ -91,7 +99,7 @@ export const Header: React.FC<HeaderProps> = ({
           onClick={onCerrarSesion}
           title="Cerrar sesión de Google"
           aria-label="Cerrar sesión"
-          className="text-texto-3 hover:text-danger-600"
+          className="text-texto-3 hover:text-danger-600 rounded-xl"
         >
           <LogOut className="w-4 h-4" />
         </Button>
