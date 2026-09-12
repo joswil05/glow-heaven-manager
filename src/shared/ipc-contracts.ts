@@ -8,7 +8,6 @@ import type {
   CompraCompleta,
   Venta,
   VentaCompleta,
-  Pago,
   PagoCompleto,
   PanelData,
   ModoPrecio,
@@ -330,8 +329,9 @@ export interface ApiPuente {
     registrar(input: RegistrarPagoInput): Promise<Resultado<ResultadoPago>>;
     registrarAbonoCliente(input: AbonoClienteInput): Promise<Resultado<ResultadoPago>>;
     listarPorCliente(cliente_id: number): Promise<Resultado<PagoCompleto[]>>;
+    listarPorVenta(venta_id: number): Promise<Resultado<PagoCompleto[]>>;
     anular(pago_id: number): Promise<Resultado<ConGrupo>>;
-    recientes(limite?: number): Promise<Resultado<Pago[]>>;
+    recientes(limite?: number): Promise<Resultado<PagoCompleto[]>>;
   };
   clientes: {
     list(busqueda?: string): Promise<Resultado<ClienteDetalle[]>>;
@@ -356,6 +356,13 @@ export interface ApiPuente {
   sistema: {
     deshacer(grupo_id?: string): Promise<Resultado<{ revertido: boolean; descripcion: string }>>;
     info(): Promise<Resultado<InfoSistema>>;
+  };
+  documentos?: {
+    imprimir(html: string): Promise<Resultado<{ ok: boolean }>>;
+    guardarPdf(input: {
+      html: string;
+      nombreSugerido: string;
+    }): Promise<Resultado<{ guardado: boolean; ruta?: string }>>;
   };
   actualizador?: {
     onUpdateChecking(cb: () => void): () => void;

@@ -13,6 +13,7 @@ const HOY = new Date().toISOString().slice(0, 10);
 beforeEach(async () => {
   reiniciarFirestoreFalso();
   Par.invalidarCache();
+  Panel.invalidarCache();
   await Par.getParametros();
   await Par.getCategorias();
 });
@@ -22,6 +23,7 @@ describe('medicion', () => {
     for (const n of [12, 50, 200]) {
       reiniciarFirestoreFalso();
       Par.invalidarCache();
+      Panel.invalidarCache();
       await Par.getParametros();
       await Par.getCategorias();
 

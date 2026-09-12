@@ -1,5 +1,7 @@
-import { ipcMain } from 'electron';
+import { ipcMain, BrowserWindow, dialog } from 'electron';
 import { randomUUID } from 'node:crypto';
+import fs from 'node:fs/promises';
+import { getMainWindow } from '../windows/main.window';
 import { IPC } from '../../shared/ipc-channels';
 import type { Resultado } from '../../shared/ipc-contracts';
 import { ParametrosRepoFirestore as ParametrosRepo } from '../firebase/repositories/parametros.repo';
@@ -200,6 +202,7 @@ export function registrarHandlers(): void {
   });
 
   manejar(IPC.PAGOS_LISTAR_POR_CLIENTE, (cliente_id: number) => PagosRepo.listarPorCliente(cliente_id));
+  manejar(IPC.PAGOS_LISTAR_POR_VENTA, (venta_id: number) => PagosRepo.listarPorVenta(venta_id));
 
   manejar(IPC.PAGOS_ANULAR, async (pago_id: number) => {
     const evento_grupo_id = nuevoGrupo();
@@ -277,4 +280,87 @@ export function registrarHandlers(): void {
     ruta_base_datos: 'Firebase Cloud Firestore [glow-heaven-db-app:nam5]',
     tamano_base_datos_bytes: 0,
   }));
+
+  // -------------------------------------------------------------------------
+  // Documentos e Impresión
+  // -------------------------------------------------------------------------
+  manejar(IPC.DOCUMENTOS_IMPRIMIR, async (html: string) => {
+    const win = new BrowserWindow({
+      show: false,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+      },
+    });
+
+    try {
+      await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+      await new Promise<void>((resolve, reject) => {
+        win.webContents.print(
+          {
+            silent: false,
+            printBackground: true,
+            color: true,
+          },
+          (success, failureReason) => {
+            if (!success && failureReason && failureReason !== 'Print job canceled') {
+              reject(new Error(failureReason || 'Error al enviar a la impresora'));
+            } else {
+              resolve();
+            }
+          }
+        );
+      });
+      return { ok: true };
+    } finally {
+      if (!win.isDestroyed()) win.close();
+    }
+  });
+
+  manejar(
+    IPC.DOCUMENTOS_GUARDAR_PDF,
+    async (input: { html: string; nombreSugerido: string }) => {
+      const mainWindow = getMainWindow();
+      const options = {
+        title: 'Guardar documento como PDF',
+        defaultPath: `${input.nombreSugerido || 'Documento'}.pdf`,
+        filters: [{ name: 'Documentos PDF (*.pdf)', extensions: ['pdf'] }],
+      };
+      const saveDialogResult = mainWindow
+        ? await dialog.showSaveDialog(mainWindow, options)
+        : await dialog.showSaveDialog(options);
+
+      if (saveDialogResult.canceled || !saveDialogResult.filePath) {
+        return { guardado: false };
+      }
+
+      const win = new BrowserWindow({
+        show: false,
+        webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true,
+        },
+      });
+
+      try {
+        await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(input.html)}`);
+        const pdfBuffer = await win.webContents.printToPDF({
+          printBackground: true,
+          landscape: false,
+          pageSize: 'A4',
+          margins: {
+            top: 0.4,
+            bottom: 0.4,
+            left: 0.4,
+            right: 0.4,
+          },
+        });
+
+        await fs.writeFile(saveDialogResult.filePath, pdfBuffer);
+        return { guardado: true, ruta: saveDialogResult.filePath };
+      } finally {
+        if (!win.isDestroyed()) win.close();
+      }
+    }
+  );
 }

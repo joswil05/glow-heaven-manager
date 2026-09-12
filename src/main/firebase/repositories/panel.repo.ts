@@ -58,7 +58,19 @@ function dinero(cents: number): string {
   return formatearMoneda(cents, 'USD');
 }
 
-async function tomarInstantanea(): Promise<Instantanea> {
+let instantaneaCache: { data: Instantanea; timestamp: number } | null = null;
+const PANEL_CACHE_TTL_MS = 20_000; // 20 segundos de caché en memoria
+
+export function invalidarPanelCache(): void {
+  instantaneaCache = null;
+}
+
+async function tomarInstantanea(forzarRefresco = false): Promise<Instantanea> {
+  const ahora = Date.now();
+  if (!forzarRefresco && instantaneaCache && ahora - instantaneaCache.timestamp < PANEL_CACHE_TTL_MS) {
+    return instantaneaCache.data;
+  }
+
   const db = getFirestoreDb();
 
   const [productos, ventasSnap, clientes, comprasSnap] = await Promise.all([
@@ -74,7 +86,7 @@ async function tomarInstantanea(): Promise<Instantanea> {
     ),
   ]);
 
-  return {
+  const datos: Instantanea = {
     productos: productos.filter((p) => p.activo !== false),
     ventas: ventasSnap.docs.map((d) => d.data() as VentaDoc).filter((v) => v.activo !== false),
     clientes: clientes.filter((c) => c.activo !== false),
@@ -82,6 +94,9 @@ async function tomarInstantanea(): Promise<Instantanea> {
       .map((d) => d.data() as Compra)
       .filter((c) => c.activo !== false),
   };
+
+  instantaneaCache = { data: datos, timestamp: ahora };
+  return datos;
 }
 
 // ---------------------------------------------------------------------------
@@ -341,9 +356,13 @@ function calcularAlertas(s: Instantanea): Alerta[] {
 // ---------------------------------------------------------------------------
 
 export class PanelRepoFirestore {
+  static invalidarCache(): void {
+    invalidarPanelCache();
+  }
+
   /** Carga completa del panel con una sola pasada por cada colección. */
-  static async cargar(): Promise<PanelData> {
-    const s = await tomarInstantanea();
+  static async cargar(forzarRefresco = false): Promise<PanelData> {
+    const s = await tomarInstantanea(forzarRefresco);
     const historico = calcularHistorico(s, 6);
     const rotacion = calcularRotacion(s);
 

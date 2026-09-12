@@ -240,8 +240,8 @@ export class PagosRepoFirestore {
     });
   }
 
-  /** Acotado en el servidor: traer todos los pagos para mostrar veinte no escala. */
-  static async recientes(limite = 20): Promise<Pago[]> {
+  /** Acotado en el servidor: pagos recientes enriquecidos con código de venta y nombre de clienta. */
+  static async recientes(limite = 50): Promise<PagoCompleto[]> {
     const db = getFirestoreDb();
     const snap = await getDocs(
       query(
@@ -252,7 +252,29 @@ export class PagosRepoFirestore {
         limit(limite)
       )
     );
-    return snap.docs.map((d) => d.data() as Pago);
+    const pagos = snap.docs.map((d) => d.data() as Pago);
+    if (pagos.length === 0) return [];
+
+    const ventaIds = [...new Set(pagos.map((p) => p.venta_id).filter(Boolean))];
+    const ventasDocs = await Promise.all(
+      ventaIds.map(async (vid) => {
+        const v = await leerDoc<VentaDoc>('ventas', vid);
+        return [vid, v?.codigo, v?.cliente_nombre] as const;
+      })
+    );
+    const infoMap = new Map<number, { codigo?: string; cliente?: string }>();
+    for (const [vid, cod, cli] of ventasDocs) {
+      infoMap.set(vid, { codigo: cod, cliente: cli });
+    }
+
+    return pagos.map((p) => {
+      const info = infoMap.get(p.venta_id);
+      return {
+        ...p,
+        venta_codigo: info?.codigo || `V-#${p.venta_id}`,
+        cliente_nombre: info?.cliente || 'Cliente',
+      };
+    });
   }
 
   /**

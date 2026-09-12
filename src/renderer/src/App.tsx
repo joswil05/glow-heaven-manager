@@ -8,6 +8,7 @@ import { InventarioView } from './views/InventarioView';
 import { PaquetesView } from './views/PaquetesView';
 import { VentasView } from './views/VentasView';
 import { ClientesView } from './views/ClientesView';
+import { CobranzaView } from './views/CobranzaView';
 import { ConfigView } from './views/ConfigView';
 import { MonedaProvider } from './context/MonedaContext';
 import { useToast } from './context/ToastContext';
@@ -38,6 +39,7 @@ export const App: React.FC = () => {
   // Selección que viaja entre vistas al hacer clic en una alerta.
   const [productoSeleccionado, setProductoSeleccionado] = useState<number | undefined>();
   const [ventaSeleccionada, setVentaSeleccionada] = useState<number | undefined>();
+  const [clienteSeleccionado, setClienteSeleccionado] = useState<number | undefined>();
   const [abrirEditor, setAbrirEditor] = useState<NavTab | null>(null);
   const [actualizacionLista, setActualizacionLista] = useState<{ version: string } | null>(null);
   const [descargandoUpdate, setDescargandoUpdate] = useState<number | null>(null);
@@ -205,6 +207,7 @@ export const App: React.FC = () => {
   const irA = (destino: NavTab, id?: number, abrirNuevo = false) => {
     setProductoSeleccionado(destino === 'inventario' ? id : undefined);
     setVentaSeleccionada(destino === 'ventas' || destino === 'encargos' ? id : undefined);
+    setClienteSeleccionado(destino === 'clientes' ? id : undefined);
     setAbrirEditor(abrirNuevo ? destino : null);
     setTab(destino);
   };
@@ -345,9 +348,22 @@ export const App: React.FC = () => {
                 />
               )}
 
+              {tab === 'cobranza' && (
+                <CobranzaView
+                  clientes={clientes}
+                  parametros={parametros}
+                  onCambio={cargar}
+                  onVerCliente={(id) => irA('clientes', id)}
+                  onVerVenta={(id, tipoVenta) =>
+                    irA(tipoVenta === 'ENCARGO' ? 'encargos' : 'ventas', id)
+                  }
+                />
+              )}
+
               {tab === 'clientes' && (
                 <ClientesView
                   parametros={parametros}
+                  clienteInicialId={clienteSeleccionado}
                   onCambio={cargar}
                   onVerVenta={(id, tipoVenta) =>
                     irA(tipoVenta === 'ENCARGO' ? 'encargos' : 'ventas', id)

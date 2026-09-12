@@ -14,6 +14,8 @@ import {
   Copy,
   Eye,
   FileText,
+  MoreVertical,
+  Clock,
 } from 'lucide-react';
 import type {
   Venta,
@@ -313,6 +315,43 @@ export const VentasView: React.FC<VentasViewProps> = ({
       align: 'right',
       width: '130px',
       render: (v) => <Money usd_cents={v.ganancia_usd_cents} size="sm" soloUsd colorearSigno />,
+    },
+    {
+      key: 'acciones',
+      header: '',
+      align: 'right',
+      width: '150px',
+      render: (v) => (
+        <div className="flex items-center justify-end gap-1">
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-acento border-acento/30 hover:bg-acento/10 font-medium text-xs px-2.5 py-1 h-7 rounded-lg"
+            title={v.tipo === 'ENCARGO' ? 'Ver / Imprimir Cotización' : 'Ver / Imprimir Factura'}
+            onClick={async (e) => {
+              e.stopPropagation();
+              await abrirDetalle(v.id);
+              setDocumentoAbierto(true);
+            }}
+          >
+            <FileText className="w-3.5 h-3.5 mr-1" />
+            <span>{v.tipo === 'ENCARGO' ? 'Proforma' : 'Factura'}</span>
+          </Button>
+
+          <Button
+            size="sm"
+            variant="ghost"
+            className="p-1 text-texto-3 hover:text-texto rounded-lg h-7 w-7 flex items-center justify-center cursor-pointer"
+            title="Más opciones de venta"
+            onClick={(e) => {
+              e.stopPropagation();
+              setMenuContextual({ x: e.clientX, y: e.clientY, venta: v });
+            }}
+          >
+            <MoreVertical className="w-3.5 h-3.5" />
+          </Button>
+        </div>
+      ),
     },
   ];
 
@@ -626,6 +665,51 @@ export const VentasView: React.FC<VentasViewProps> = ({
                 <p className="text-label text-texto-2 leading-relaxed">{ventaDetalle.notas}</p>
               </div>
             )}
+
+            {/* Historial de abonos de esta venta */}
+            <div className="rounded-xl border border-borde/80 overflow-hidden shadow-xs">
+              <div className="px-4 py-2.5 bg-superficie-2/50 border-b border-borde text-label font-medium text-texto flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-3.5 h-3.5 text-texto-3" />
+                  <span className="font-semibold">Historial de abonos</span>
+                </div>
+                <span className="text-caption text-texto-3 font-semibold">
+                  {ventaDetalle.pagos?.length || 0} pago(s)
+                </span>
+              </div>
+              {ventaDetalle.pagos && ventaDetalle.pagos.length > 0 ? (
+                <ul className="divide-y divide-borde/60 max-h-44 overflow-y-auto">
+                  {ventaDetalle.pagos.map((p) => (
+                    <li key={p.id} className="px-4 py-2 flex items-center justify-between gap-2 hover:bg-superficie-2/20 transition-colors">
+                      <div className="min-w-0">
+                        <div className="text-label text-texto font-mono flex items-center gap-1.5">
+                          <span>{formatearFecha(p.fecha)}</span>
+                          {p.es_anticipo && (
+                            <Badge tone="info">Anticipo</Badge>
+                          )}
+                        </div>
+                        <div className="text-caption text-texto-3 truncate">
+                          {p.metodo === 'EFECTIVO' ? 'Efectivo' : p.metodo === 'TRANSFERENCIA' ? 'Transferencia' : 'Otro'}
+                          {p.referencia && ` · ${p.referencia}`}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <Money usd_cents={p.monto_usd_cents} size="sm" soloUsd />
+                        {p.moneda === 'COR' && (
+                          <div className="text-caption text-texto-3 font-mono">
+                            {formatearMoneda(p.monto_cor_cents, 'COR')}
+                          </div>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="py-4 px-4 text-center text-caption text-texto-3">
+                  Sin abonos registrados en esta venta
+                </div>
+              )}
+            </div>
 
             {/* Acciones principales */}
             <div className="space-y-2.5 pt-1">

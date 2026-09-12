@@ -23,12 +23,14 @@ import { cn } from '../lib/cn';
 
 interface ClientesViewProps {
   parametros?: ParametrosSistema | null;
+  clienteInicialId?: number;
   onCambio: () => void;
   onVerVenta: (ventaId: number, tipo: 'INVENTARIO' | 'ENCARGO') => void;
 }
 
 export const ClientesView: React.FC<ClientesViewProps> = ({
   parametros,
+  clienteInicialId,
   onCambio,
   onVerVenta,
 }) => {
@@ -43,6 +45,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
   const [modalAbierto, setModalAbierto] = useState(false);
   const [editando, setEditando] = useState<ClienteDetalle | null>(null);
   const [archivando, setArchivando] = useState<ClienteDetalle | null>(null);
+  const [pagoAnulando, setPagoAnulando] = useState<PagoCompleto | null>(null);
   const [menuContextual, setMenuContextual] = useState<{
     x: number;
     y: number;
@@ -89,6 +92,36 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
       if (r.success) setPagosCliente(r.data);
     });
   }, [detalle, clientes]);
+
+  useEffect(() => {
+    if (clienteInicialId && clientes.length > 0) {
+      const c = clientes.find((item) => item.id === clienteInicialId);
+      if (c) setDetalle(c);
+    }
+  }, [clienteInicialId, clientes]);
+
+  const confirmarAnularPago = async () => {
+    if (!pagoAnulando) return;
+    const r = await window.api.pagos.anular(pagoAnulando.id);
+    if (r.success) {
+      showToast({ message: 'Abono anulado con éxito', type: 'success' });
+      setPagoAnulando(null);
+      await cargar();
+      if (detalle) {
+        const [vr, pr, cr] = await Promise.all([
+          window.api.ventas.list({ cliente_id: detalle.id }),
+          window.api.pagos.listarPorCliente(detalle.id),
+          window.api.clientes.get(detalle.id),
+        ]);
+        if (vr.success) setVentasCliente(vr.data);
+        if (pr.success) setPagosCliente(pr.data);
+        if (cr.success && cr.data) setDetalle(cr.data);
+      }
+      onCambio();
+    } else {
+      showToast({ message: r.error, type: 'error' });
+    }
+  };
 
   const archivar = async (c: ClienteDetalle) => {
     const r = await window.api.clientes.archivar(c.id);
@@ -220,9 +253,22 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
       key: 'acciones',
       header: '',
       align: 'right',
-      width: '150px',
+      width: '180px',
       render: (c) => (
         <div className="flex items-center justify-end gap-1">
+          <Button
+            size="sm"
+            variant="ghost"
+            title="Ver historial de abonos y pedidos"
+            className="text-acento hover:bg-acento/10 rounded-lg text-caption font-semibold flex items-center gap-1"
+            onClick={(e) => {
+              e.stopPropagation();
+              setDetalle(c);
+            }}
+          >
+            <Clock className="w-3.5 h-3.5" />
+            <span>Abonos</span>
+          </Button>
           <Button
             size="sm"
             variant="ghost"
@@ -619,24 +665,24 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
               )}
             </div>
 
-            {/* Kardex de Pagos */}
-            {pagosCliente.length > 0 && (
-              <div className="rounded-xl border border-borde/80 overflow-hidden shadow-xs">
-                <div className="px-4 py-2.5 bg-superficie-2/50 border-b border-borde text-label font-medium text-texto flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-3.5 h-3.5 text-texto-3" />
-                    <span>Kardex de Pagos</span>
-                  </div>
-                  <span className="text-caption text-texto-3">{pagosCliente.length} pago(s)</span>
+            {/* Historial de Abonos (Kardex) */}
+            <div className="rounded-xl border border-borde/80 overflow-hidden shadow-xs">
+              <div className="px-4 py-2.5 bg-superficie-2/50 border-b border-borde text-label font-medium text-texto flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-3.5 h-3.5 text-texto-3" />
+                  <span className="font-semibold">Historial de Abonos</span>
                 </div>
+                <span className="text-caption text-texto-3 font-semibold">{pagosCliente.length} pago(s)</span>
+              </div>
+              {pagosCliente.length > 0 ? (
                 <ul className="divide-y divide-borde/60 max-h-52 overflow-y-auto">
                   {pagosCliente.map((p) => (
-                    <li key={p.id} className="px-4 py-2.5 flex items-center justify-between gap-2">
+                    <li key={p.id} className="px-4 py-2.5 flex items-center justify-between gap-2 hover:bg-superficie-2/25 transition-colors">
                       <div className="min-w-0">
-                        <div className="text-label text-texto font-mono">
-                          {formatearFecha(p.fecha)}
+                        <div className="text-label text-texto font-mono flex items-center gap-1.5">
+                          <span>{formatearFecha(p.fecha)}</span>
                           {p.es_anticipo && (
-                            <Badge tone="info" className="ml-2">Anticipo</Badge>
+                            <Badge tone="info">Anticipo</Badge>
                           )}
                         </div>
                         <div className="text-caption text-texto-3 truncate">
@@ -645,19 +691,39 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
                           {p.referencia && ` · ${p.referencia}`}
                         </div>
                       </div>
-                      <div className="text-right shrink-0">
-                        <Money usd_cents={p.monto_usd_cents} size="sm" soloUsd />
-                        {p.moneda === 'COR' && (
-                          <div className="text-caption text-texto-3">
-                            {formatearMoneda(p.monto_cor_cents, 'COR')}
-                          </div>
-                        )}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <div className="text-right">
+                          <Money usd_cents={p.monto_usd_cents} size="sm" soloUsd />
+                          {p.moneda === 'COR' && (
+                            <div className="text-caption text-texto-3 font-mono">
+                              {formatearMoneda(p.monto_cor_cents, 'COR')}
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setPagoAnulando(p)}
+                          title="Anular este abono"
+                          className="text-texto-3 hover:text-danger-600 p-1 rounded transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </li>
                   ))}
                 </ul>
-              </div>
-            )}
+              ) : (
+                <div className="py-6 px-4 text-center">
+                  <div className="w-8 h-8 rounded-full bg-superficie-2 text-texto-3 flex items-center justify-center mx-auto mb-1.5">
+                    <Clock className="w-4 h-4" />
+                  </div>
+                  <p className="text-label font-bold text-texto">Sin abonos registrados</p>
+                  <p className="text-caption text-texto-3 mt-0.5">
+                    Esta clienta todavía no tiene abonos o amortizaciones en su cuenta.
+                  </p>
+                </div>
+              )}
+            </div>
 
             <div className="pt-2 flex justify-center">
               <Button
@@ -673,6 +739,20 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
           </div>
         </aside>
       )}
+
+      <Confirmar
+        abierto={pagoAnulando !== null}
+        peligroso
+        titulo="¿Anular este abono?"
+        consecuencias={[
+          `Monto: ${formatearMoneda(pagoAnulando?.monto_usd_cents || 0, 'USD')}.`,
+          'El saldo adeudado por la clienta se restaurará automáticamente.',
+        ]}
+        textoConfirmar="Sí, anular abono"
+        textoCancelar="No, mantener"
+        onConfirmar={confirmarAnularPago}
+        onCerrar={() => setPagoAnulando(null)}
+      />
 
       <Confirmar
         abierto={archivando !== null}

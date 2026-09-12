@@ -15,6 +15,10 @@ import {
   DollarSign,
   MessageCircle,
   Copy,
+  BarChart3,
+  Percent,
+  Award,
+  Layers,
 } from 'lucide-react';
 import type { PanelData, Alerta, SeveridadAlerta } from '../../../shared/types';
 import {
@@ -27,13 +31,66 @@ import {
   SectionHeader,
   Money,
   LineaCreciente,
+  GraficaVolumen,
+  GraficaMargen,
+  GraficaTopProductos,
+  GraficaCostosIngresos,
   ContextMenu,
+  type PuntoVolumen,
+  type PuntoMargen,
+  type PuntoTopProducto,
+  type PuntoCostosIngresos,
 } from '../components/ui';
 import { useToast } from '../context/ToastContext';
 import { cn } from '../lib/cn';
 import { useScrollReveal } from '../lib/useScrollReveal';
 
-export type DestinoPanel = 'inventario' | 'paquetes' | 'ventas' | 'clientes';
+export type DestinoPanel = 'inventario' | 'paquetes' | 'ventas' | 'clientes' | 'cobranza';
+export type TipoGraficaPanel = 'rentabilidad' | 'volumen' | 'margen' | 'top_productos' | 'costos';
+
+const OPCIONES_GRAFICA: {
+  id: TipoGraficaPanel;
+  titulo: string;
+  subtitulo: string;
+  icono: React.ElementType;
+  etiquetaCorta: string;
+}[] = [
+  {
+    id: 'rentabilidad',
+    titulo: 'Evolución de Rentabilidad',
+    subtitulo: 'Ganancia neta vs facturación bruta mensual',
+    icono: TrendingUp,
+    etiquetaCorta: 'Rentabilidad',
+  },
+  {
+    id: 'volumen',
+    titulo: 'Volumen de Pedidos y Ventas',
+    subtitulo: 'Cantidad de órdenes entregadas y ticket promedio mensual',
+    icono: BarChart3,
+    etiquetaCorta: 'Pedidos',
+  },
+  {
+    id: 'margen',
+    titulo: 'Margen Neto de Ganancia (%)',
+    subtitulo: 'Porcentaje de utilidad operativa mes a mes vs meta',
+    icono: Percent,
+    etiquetaCorta: 'Margen %',
+  },
+  {
+    id: 'top_productos',
+    titulo: 'Top 5 Artículos Más Vendidos',
+    subtitulo: 'Rotación, unidades vendidas y ganancia en 90 días',
+    icono: Award,
+    etiquetaCorta: 'Top Artículos',
+  },
+  {
+    id: 'costos',
+    titulo: 'Facturación vs Costo de Mercancía',
+    subtitulo: 'Relación entre inversión en compras/envíos y retorno neto',
+    icono: Layers,
+    etiquetaCorta: 'Ingresos vs Costos',
+  },
+];
 
 interface PanelViewProps {
   data: PanelData | null;
@@ -77,7 +134,31 @@ export const PanelView: React.FC<PanelViewProps> = ({
     );
   }
 
-  const { resumen, ganancia_mes_actual, ganancia_mes_anterior, historico, alertas } = data;
+  const { resumen, ganancia_mes_actual, ganancia_mes_anterior, historico, alertas, mas_vendidos } = data;
+
+  const [tipoGrafica, setTipoGrafica] = useState<TipoGraficaPanel>(() => {
+    try {
+      const guardada = localStorage.getItem('glow_panel_grafica_tipo') as TipoGraficaPanel;
+      if (['rentabilidad', 'volumen', 'margen', 'top_productos', 'costos'].includes(guardada)) {
+        return guardada;
+      }
+    } catch {
+      // Ignorar errores de localStorage
+    }
+    return 'rentabilidad';
+  });
+
+  const cambiarTipoGrafica = (tipo: TipoGraficaPanel) => {
+    setTipoGrafica(tipo);
+    try {
+      localStorage.setItem('glow_panel_grafica_tipo', tipo);
+    } catch {
+      // Ignorar
+    }
+  };
+
+  const infoGraficaActual = OPCIONES_GRAFICA.find((o) => o.id === tipoGrafica) || OPCIONES_GRAFICA[0];
+  const IconoActual = infoGraficaActual.icono;
 
   const { showToast } = useToast();
   const scrollRevealRef = useScrollReveal<HTMLDivElement>({ threshold: 0.05, staggerMs: 30 });
@@ -108,6 +189,36 @@ export const PanelView: React.FC<PanelViewProps> = ({
     etiqueta: etiquetaMes(h.mes),
     valor: h.ganancia_usd_cents,
     valorSecundario: h.ingresos_usd_cents,
+  }));
+
+  const datosVolumen: PuntoVolumen[] = historico.map((h) => ({
+    etiqueta: etiquetaMes(h.mes),
+    ordenes: h.ventas_count ?? 0,
+    ingresosUsdCents: h.ingresos_usd_cents,
+  }));
+
+  const datosMargen: PuntoMargen[] = historico.map((h) => ({
+    etiqueta: etiquetaMes(h.mes),
+    margenPct:
+      h.ingresos_usd_cents > 0
+        ? Math.max(0, Math.round((h.ganancia_usd_cents / h.ingresos_usd_cents) * 100))
+        : 0,
+    gananciaUsdCents: h.ganancia_usd_cents,
+    ingresosUsdCents: h.ingresos_usd_cents,
+  }));
+
+  const datosTopProductos: PuntoTopProducto[] = (mas_vendidos ?? []).map((m) => ({
+    nombre: m.nombre,
+    unidadesVendidas: m.unidades_vendidas_90d,
+    gananciaUsdCents: m.ganancia_90d_usd_cents,
+    existencias: m.existencias,
+  }));
+
+  const datosCostosIngresos: PuntoCostosIngresos[] = historico.map((h) => ({
+    etiqueta: etiquetaMes(h.mes),
+    ingresosUsdCents: h.ingresos_usd_cents,
+    costosUsdCents: h.costos_usd_cents,
+    gananciaUsdCents: h.ganancia_usd_cents,
   }));
 
   const urgentes = alertas.filter((a) => a.severidad === 'urgente');
@@ -267,18 +378,65 @@ export const PanelView: React.FC<PanelViewProps> = ({
 
         {/* Nivel 3: Gráfica interactiva animada + Dónde está la plata */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-2.5 shrink-0">
-          {/* Gráfica principal con selector y animaciones */}
+          {/* Gráfica principal con selector ergonómico y animaciones */}
           <Card className="xl:col-span-2 shadow-2xs flex flex-col">
-            <CardHeader className="px-3.5 py-1.5 shrink-0">
-              <SectionHeader
-                icon={TrendingUp}
-                title="Evolución de Rentabilidad"
-                description="Ganancia neta vs facturación bruta mensual"
-              />
+            <CardHeader className="px-3.5 py-2 shrink-0 border-b border-borde/40">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-xl bg-acento/10 text-acento flex items-center justify-center shrink-0 border border-acento/20">
+                    <IconoActual className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-title font-bold text-texto tracking-tight truncate">
+                      {infoGraficaActual.titulo}
+                    </h3>
+                    <p className="text-caption text-texto-3 mt-0.5 truncate">
+                      {infoGraficaActual.subtitulo}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Selector Segmentado de Gráfica (Pills Switcher) */}
+                <div
+                  className="flex items-center p-1 rounded-xl bg-superficie-2/90 border border-borde/70 shadow-2xs gap-0.5 overflow-x-auto max-w-full"
+                  role="tablist"
+                  aria-label="Seleccionar perspectiva de gráfica"
+                >
+                  {OPCIONES_GRAFICA.map((opc) => {
+                    const activa = tipoGrafica === opc.id;
+                    const Icono = opc.icono;
+                    return (
+                      <button
+                        key={opc.id}
+                        type="button"
+                        role="tab"
+                        aria-selected={activa}
+                        onClick={() => cambiarTipoGrafica(opc.id)}
+                        className={cn(
+                          'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-caption font-semibold transition-all duration-150 whitespace-nowrap cursor-pointer shrink-0',
+                          activa
+                            ? 'bg-superficie text-texto shadow-xs border border-borde/80 scale-[1.02]'
+                            : 'text-texto-3 hover:text-texto hover:bg-superficie/60'
+                        )}
+                        title={opc.subtitulo}
+                      >
+                        <Icono className={cn('w-3.5 h-3.5', activa ? 'text-acento' : 'text-texto-3')} />
+                        <span>{opc.etiquetaCorta}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </CardHeader>
-            <CardContent className="p-2.5 pt-1 flex-1 flex flex-col justify-center">
-              {serie.some((s) => s.valor > 0 || (s.valorSecundario ?? 0) > 0) ? (
-                <LineaCreciente datos={serie} alto={145} />
+            <CardContent className="p-3 pt-2 flex-1 flex flex-col justify-center min-h-[220px]">
+              {serie.some((s) => s.valor > 0 || (s.valorSecundario ?? 0) > 0) || (tipoGrafica === 'top_productos' && datosTopProductos.length > 0) ? (
+                <>
+                  {tipoGrafica === 'rentabilidad' && <LineaCreciente datos={serie} alto={145} />}
+                  {tipoGrafica === 'volumen' && <GraficaVolumen datos={datosVolumen} alto={145} />}
+                  {tipoGrafica === 'margen' && <GraficaMargen datos={datosMargen} alto={145} />}
+                  {tipoGrafica === 'top_productos' && <GraficaTopProductos productos={datosTopProductos} />}
+                  {tipoGrafica === 'costos' && <GraficaCostosIngresos datos={datosCostosIngresos} alto={145} />}
+                </>
               ) : (
                 <div className="relative h-[145px] rounded-xl overflow-hidden flex items-center justify-between p-4 bg-gradient-to-r from-superficie to-superficie-2/40 border border-dashed border-borde/80">
                   <div className="relative z-10 flex items-center gap-3">
@@ -287,10 +445,10 @@ export const PanelView: React.FC<PanelViewProps> = ({
                     </div>
                     <div>
                       <p className="text-body font-bold text-texto">
-                        Tu curva de rentabilidad aparecerá aquí
+                        Tus métricas aparecerán aquí
                       </p>
                       <p className="text-caption text-texto-3 mt-0.5">
-                        Se calculará automáticamente con las ventas entregadas y costos reales.
+                        Se calcularán automáticamente con las ventas entregadas y costos reales.
                       </p>
                     </div>
                   </div>
@@ -315,8 +473,8 @@ export const PanelView: React.FC<PanelViewProps> = ({
             const pctCobrar = capitalTotal > 0 ? 100 - pctBodega : 0;
 
             return (
-              <Card className="shadow-2xs flex flex-col justify-between">
-                <CardHeader className="px-3.5 py-1.5 shrink-0">
+              <Card className="shadow-2xs flex flex-col justify-between h-full">
+                <CardHeader className="px-4 py-3 border-b border-borde/50 shrink-0">
                   <div className="flex items-center justify-between gap-2">
                     <SectionHeader
                       icon={Wallet}
@@ -328,49 +486,81 @@ export const PanelView: React.FC<PanelViewProps> = ({
                         <div className="text-[10px] font-semibold uppercase tracking-wider text-texto-3">
                           Capital Activo
                         </div>
-                        <Money usd_cents={capitalTotal} size="sm" soloUsd className="font-bold text-texto" />
+                        <Money usd_cents={capitalTotal} size="sm" soloUsd className="font-bold text-texto font-mono" />
                       </div>
                     )}
                   </div>
                 </CardHeader>
-                <CardContent className="px-3.5 pb-2.5 pt-0.5 flex-1 flex flex-col justify-center gap-2">
+                <CardContent className="p-4 flex-1 flex flex-col justify-between gap-3">
                   {capitalTotal > 0 ? (
                     <>
-                      {/* Barra segmentada proporcional continua */}
-                      <div className="space-y-1">
-                        <div className="h-1.5 w-full rounded-full bg-superficie-2 border border-borde/60 p-0.5 flex overflow-hidden gap-0.5">
+                      {/* Estado diagnóstico balanceado */}
+                      <div className="rounded-xl p-2.5 bg-superficie-2/70 border border-borde/60 flex items-center justify-between gap-2 text-xs">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span
+                            className={cn(
+                              'w-2 h-2 rounded-full shrink-0',
+                              pctCobrar > 50 ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'
+                            )}
+                          />
+                          <span className="text-texto-2 font-medium truncate text-[11px] sm:text-xs">
+                            {pctCobrar > 60
+                              ? 'Mayor parte en crédito por cobrar en la calle'
+                              : pctBodega > 60
+                                ? 'Mayor parte invertida en mercadería en bodega'
+                                : 'Distribución equilibrada de capital activo'}
+                          </span>
+                        </div>
+                        <span className="font-mono font-bold text-texto text-[11px] sm:text-xs shrink-0">
+                          {pctCobrar}% a crédito
+                        </span>
+                      </div>
+
+                      {/* Barra segmentada proporcional con etiquetas */}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-[11px] text-texto-3 font-medium">
+                          <span className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-semibold">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                            Bodega ({pctBodega}%)
+                          </span>
+                          <span className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400 font-semibold">
+                            <span className="w-2 h-2 rounded-full bg-amber-500" />
+                            Por cobrar ({pctCobrar}%)
+                          </span>
+                        </div>
+                        <div className="h-2 w-full rounded-full bg-superficie-2 border border-borde/70 p-0.5 flex overflow-hidden gap-0.5">
                           <div
                             className="h-full bg-gradient-to-r from-emerald-600 to-emerald-500 rounded-full transition-all duration-500"
-                            style={{ width: `${Math.max(pctBodega > 0 ? 4 : 0, pctBodega)}%` }}
+                            style={{ width: `${Math.max(pctBodega > 0 ? 5 : 0, pctBodega)}%` }}
                             title={`En bodega: ${pctBodega}%`}
                           />
                           <div
                             className="h-full bg-gradient-to-r from-amber-500 to-amber-400 rounded-full transition-all duration-500"
-                            style={{ width: `${Math.max(pctCobrar > 0 ? 4 : 0, pctCobrar)}%` }}
+                            style={{ width: `${Math.max(pctCobrar > 0 ? 5 : 0, pctCobrar)}%` }}
                             title={`Por cobrar: ${pctCobrar}%`}
                           />
                         </div>
                       </div>
 
                       {/* Tarjetas Bento interactivas de desglose */}
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-2 gap-2.5">
                         {/* Caja Bodega */}
                         <button
                           type="button"
                           onClick={() => onNavegar('inventario')}
-                          className="text-left rounded-xl border border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10 p-2 transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                          className="text-left rounded-xl border border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10 p-2.5 transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 cursor-pointer"
                         >
-                          <div className="flex items-center justify-between gap-1 mb-0.5">
-                            <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-800">
+                          <div className="flex items-center justify-between gap-1 mb-1">
+                            <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-800 dark:text-emerald-300">
                               <Boxes className="w-3.5 h-3.5 text-emerald-600 group-hover:scale-110 transition-transform" />
                               <span>En bodega</span>
                             </div>
-                            <span className="text-[11px] font-bold px-1.5 py-0.2 rounded-md bg-emerald-100/80 text-emerald-800">
+                            <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300">
                               {pctBodega}%
                             </span>
                           </div>
-                          <Money usd_cents={inversionTotal} size="sm" layout="stacked" className="font-bold text-texto" />
-                          <div className="text-[10px] text-texto-3 mt-0.5 truncate">
+                          <Money usd_cents={inversionTotal} size="sm" layout="stacked" className="font-bold text-texto font-mono" />
+                          <div className="text-[10px] text-texto-3 mt-1 truncate">
                             {resumen.unidades_en_inventario} unid. disponibles
                           </div>
                         </button>
@@ -378,20 +568,20 @@ export const PanelView: React.FC<PanelViewProps> = ({
                         {/* Caja Por Cobrar */}
                         <button
                           type="button"
-                          onClick={() => onNavegar('ventas')}
-                          className="text-left rounded-xl border border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10 p-2 transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                          onClick={() => onNavegar('cobranza')}
+                          className="text-left rounded-xl border border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10 p-2.5 transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 cursor-pointer"
                         >
-                          <div className="flex items-center justify-between gap-1 mb-0.5">
-                            <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-800">
+                          <div className="flex items-center justify-between gap-1 mb-1">
+                            <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-800 dark:text-amber-300">
                               <Wallet className="w-3.5 h-3.5 text-amber-600 group-hover:scale-110 transition-transform" />
                               <span>Por cobrar</span>
                             </div>
-                            <span className="text-[11px] font-bold px-1.5 py-0.2 rounded-md bg-amber-100/80 text-amber-800">
+                            <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300">
                               {pctCobrar}%
                             </span>
                           </div>
-                          <Money usd_cents={resumen.por_cobrar_usd_cents} size="sm" layout="stacked" className="font-bold text-texto" />
-                          <div className="text-[10px] text-texto-3 mt-0.5 truncate">
+                          <Money usd_cents={resumen.por_cobrar_usd_cents} size="sm" layout="stacked" className="font-bold text-texto font-mono" />
+                          <div className="text-[10px] text-texto-3 mt-1 truncate">
                             {data.por_cobrar.length === 0 ? '¡Cuentas al día!' : `${data.por_cobrar.length} ventas con saldo`}
                           </div>
                         </button>
@@ -399,9 +589,9 @@ export const PanelView: React.FC<PanelViewProps> = ({
 
                       {/* Anticipos por entregar si existen */}
                       {resumen.anticipos_por_entregar_usd_cents > 0 && (
-                        <div className="px-2.5 py-0.5 rounded-lg border border-amber-200/60 bg-amber-50/70 flex items-center justify-between text-[11px]">
-                          <span className="font-medium text-amber-900">Anticipos por entregar:</span>
-                          <Money usd_cents={resumen.anticipos_por_entregar_usd_cents} size="sm" soloUsd className="font-bold text-amber-950" />
+                        <div className="px-3 py-1.5 rounded-lg border border-amber-200/60 bg-amber-50/70 dark:bg-amber-950/30 flex items-center justify-between text-[11px]">
+                          <span className="font-medium text-amber-900 dark:text-amber-300">Anticipos por entregar:</span>
+                          <Money usd_cents={resumen.anticipos_por_entregar_usd_cents} size="sm" soloUsd className="font-bold text-amber-950 dark:text-amber-200 font-mono" />
                         </div>
                       )}
                     </>
@@ -506,9 +696,9 @@ export const PanelView: React.FC<PanelViewProps> = ({
 
             <div
               className="px-4 py-2 border-t border-borde/40 bg-superficie-2/20 flex items-center justify-between text-[11px] font-semibold text-texto-3 hover:text-acento transition-colors cursor-pointer group"
-              onClick={() => onNavegar('clientes')}
+              onClick={() => onNavegar('cobranza')}
             >
-              <span>Ver cartera de clientes ({data.por_cobrar.length})</span>
+              <span>Ver cartera completa e historial de abonos ({data.por_cobrar.length})</span>
               <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
             </div>
           </Card>

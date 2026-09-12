@@ -7,6 +7,7 @@ import {
   ClipboardList,
   Users,
   Settings,
+  HandCoins,
 } from 'lucide-react';
 import { Badge } from '../ui';
 import { cn } from '../../lib/cn';
@@ -18,6 +19,7 @@ export type NavTab =
   | 'paquetes'
   | 'ventas'
   | 'encargos'
+  | 'cobranza'
   | 'clientes'
   | 'config';
 
@@ -40,6 +42,7 @@ export const TITULOS: Record<NavTab, string> = {
   paquetes: 'Paquetes',
   ventas: 'Ventas',
   encargos: 'Encargos',
+  cobranza: 'Cobros y Abonos',
   clientes: 'Clientes',
   config: 'Configuración',
 };
@@ -65,8 +68,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'panel', icon: LayoutDashboard },
     { id: 'inventario', icon: Boxes, badge: avisos.bajoStock, tono: 'warning' },
     { id: 'paquetes', icon: PackagePlus },
-    { id: 'ventas', icon: ShoppingBag, badge: avisos.porCobrar, tono: 'danger' },
+    { id: 'ventas', icon: ShoppingBag },
     { id: 'encargos', icon: ClipboardList, badge: avisos.encargosPendientes, tono: 'warning' },
+    { id: 'cobranza', icon: HandCoins, badge: avisos.porCobrar, tono: 'danger' },
     { id: 'clientes', icon: Users },
     { id: 'config', icon: Settings },
   ];

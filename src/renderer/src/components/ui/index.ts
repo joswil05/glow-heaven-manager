@@ -10,8 +10,24 @@ export { Field, Input, Select, Textarea } from './Field';
 export { DataTable } from './DataTable';
 export type { Column, DataTableProps } from './DataTable';
 export { SectionHeader } from './SectionHeader';
-export { Barras, LineaCreciente, Anillo, BarraProgreso } from './Graficas';
-export type { PuntoSerie, LineaCrecienteProps } from './Graficas';
+export {
+  Barras,
+  LineaCreciente,
+  Anillo,
+  BarraProgreso,
+  GraficaVolumen,
+  GraficaMargen,
+  GraficaTopProductos,
+  GraficaCostosIngresos,
+} from './Graficas';
+export type {
+  PuntoSerie,
+  LineaCrecienteProps,
+  PuntoVolumen,
+  PuntoMargen,
+  PuntoTopProducto,
+  PuntoCostosIngresos,
+} from './Graficas';
 export { Confirmar } from './Confirmar';
 export type { ConfirmarProps } from './Confirmar';
 export { ContextMenu } from './ContextMenu';

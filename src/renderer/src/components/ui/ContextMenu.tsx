@@ -24,22 +24,26 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose }
   const [coords, setCoords] = useState({ left: x, top: y });
 
   useEffect(() => {
+    setCoords({ left: x, top: y });
     // Ajustar posición si se desborda de la ventana visible
-    if (menuRef.current) {
-      const rect = menuRef.current.getBoundingClientRect();
-      const padding = 12;
-      let left = x;
-      let top = y;
+    const timer = setTimeout(() => {
+      if (menuRef.current) {
+        const rect = menuRef.current.getBoundingClientRect();
+        const padding = 12;
+        let left = x;
+        let top = y;
 
-      if (left + rect.width > window.innerWidth - padding) {
-        left = Math.max(padding, window.innerWidth - rect.width - padding);
-      }
-      if (top + rect.height > window.innerHeight - padding) {
-        top = Math.max(padding, window.innerHeight - rect.height - padding);
-      }
+        if (left + rect.width > window.innerWidth - padding) {
+          left = Math.max(padding, window.innerWidth - rect.width - padding);
+        }
+        if (top + rect.height > window.innerHeight - padding) {
+          top = Math.max(padding, window.innerHeight - rect.height - padding);
+        }
 
-      setCoords({ left, top });
-    }
+        setCoords({ left, top });
+      }
+    }, 0);
+    return () => clearTimeout(timer);
   }, [x, y]);
 
   useEffect(() => {
@@ -55,7 +59,6 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose }
       }
     };
 
-    // Prevenir menú por defecto mientras el menú contextual está abierto
     const handleContextMenu = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         onClose();
@@ -63,10 +66,15 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose }
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('mousedown', handleClickOutside);
-    window.addEventListener('contextmenu', handleContextMenu);
+
+    // Retardo breve para evitar que el mismo click de apertura dispare el cierre involuntario
+    const timer = setTimeout(() => {
+      window.addEventListener('mousedown', handleClickOutside);
+      window.addEventListener('contextmenu', handleContextMenu);
+    }, 60);
 
     return () => {
+      clearTimeout(timer);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('mousedown', handleClickOutside);
       window.removeEventListener('contextmenu', handleContextMenu);

@@ -21,6 +21,7 @@ const HOY = new Date().toISOString().slice(0, 10);
 beforeEach(async () => {
   reiniciarFirestoreFalso();
   ParametrosRepo.invalidarCache();
+  PanelRepo.invalidarCache();
   // Siembra los parámetros y categorías, igual que hace el arranque real.
   await ParametrosRepo.getParametros();
   await ParametrosRepo.getCategorias();

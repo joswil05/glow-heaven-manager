@@ -60,6 +60,7 @@ export const api: ApiPuente = {
     registrar: (input) => ipcRenderer.invoke(IPC.PAGOS_REGISTRAR, input),
     registrarAbonoCliente: (input) => ipcRenderer.invoke(IPC.PAGOS_REGISTRAR_ABONO_CLIENTE, input),
     listarPorCliente: (cliente_id) => ipcRenderer.invoke(IPC.PAGOS_LISTAR_POR_CLIENTE, cliente_id),
+    listarPorVenta: (venta_id) => ipcRenderer.invoke(IPC.PAGOS_LISTAR_POR_VENTA, venta_id),
     anular: (pago_id) => ipcRenderer.invoke(IPC.PAGOS_ANULAR, pago_id),
     recientes: (limite) => ipcRenderer.invoke(IPC.PAGOS_RECIENTES, limite),
   },
@@ -86,6 +87,11 @@ export const api: ApiPuente = {
   sistema: {
     deshacer: (grupo_id) => ipcRenderer.invoke(IPC.SISTEMA_DESHACER, grupo_id),
     info: () => ipcRenderer.invoke(IPC.SISTEMA_INFO),
+  },
+  documentos: {
+    imprimir: (html: string) => ipcRenderer.invoke(IPC.DOCUMENTOS_IMPRIMIR, html),
+    guardarPdf: (input: { html: string; nombreSugerido: string }) =>
+      ipcRenderer.invoke(IPC.DOCUMENTOS_GUARDAR_PDF, input),
   },
   actualizador: {
     onUpdateChecking: (cb) => {

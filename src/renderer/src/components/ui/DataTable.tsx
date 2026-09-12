@@ -68,6 +68,7 @@ export function DataTable<T>({
                     onRowContextMenu
                       ? (e) => {
                           e.preventDefault();
+                          e.stopPropagation();
                           onRowContextMenu(row, e);
                         }
                       : undefined

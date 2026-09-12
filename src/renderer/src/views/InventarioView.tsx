@@ -14,6 +14,7 @@ import {
   Copy,
   FileEdit,
   Archive,
+  MoreVertical,
 } from 'lucide-react';
 import type {
   ProductoConStock,
@@ -82,7 +83,12 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
   const [movimientos, setMovimientos] = useState<MovimientoInventario[]>([]);
   const [todosLosProductos, setTodosLosProductos] = useState<ProductoConStock[]>([]);
 
+  const hayFiltroActivo = Boolean(
+    busqueda.trim() || categoriaFiltro !== undefined || filtro !== 'TODOS'
+  );
+
   const cargarTotalesGenerales = useCallback(async () => {
+    if (todosLosProductos.length > 0) return;
     try {
       const r = await window.api.productos.list({});
       if (r.success) {
@@ -91,7 +97,7 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
     } catch {
       // Ignorar error de fondo en cálculo general
     }
-  }, []);
+  }, [todosLosProductos.length]);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -105,6 +111,9 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
       });
       if (r.success) {
         let items = r.data;
+        if (!busqueda.trim() && categoriaFiltro === undefined && filtro === 'TODOS') {
+          setTodosLosProductos(items);
+        }
         if (filtro === 'AGOTADOS') {
           items = items.filter((p) => p.existencias === 0);
         }
@@ -118,8 +127,10 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
   }, [busqueda, categoriaFiltro, filtro, showToast]);
 
   useEffect(() => {
-    cargarTotalesGenerales();
-  }, [cargarTotalesGenerales]);
+    if (hayFiltroActivo && todosLosProductos.length === 0) {
+      cargarTotalesGenerales();
+    }
+  }, [hayFiltroActivo, todosLosProductos.length, cargarTotalesGenerales]);
 
   useEffect(() => {
     const t = setTimeout(cargar, busqueda ? 200 : 0);
@@ -139,10 +150,6 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
       if (r.success) setMovimientos(r.data);
     });
   }, [detalleId, productos]);
-
-  const hayFiltroActivo = Boolean(
-    busqueda.trim() || categoriaFiltro !== undefined || filtro !== 'TODOS'
-  );
 
   const totalesGenerales = useMemo(() => {
     const fuente = todosLosProductos.length > 0 ? todosLosProductos : productos;
@@ -369,7 +376,7 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
       key: 'acciones',
       header: '',
       align: 'right',
-      width: '210px',
+      width: '260px',
       render: (p) => (
         <div className="flex items-center justify-end gap-1">
           {!p.activo ? (
@@ -377,7 +384,7 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
               <Button
                 size="sm"
                 variant="outline"
-                className="text-emerald-700 bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/20 hover:text-emerald-800 transition-all font-medium rounded-lg shadow-2xs"
+                className="text-emerald-700 bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/20 hover:text-emerald-800 transition-all font-medium rounded-lg shadow-2xs h-7 text-xs px-2.5"
                 onClick={(e) => {
                   e.stopPropagation();
                   reactivar(p);
@@ -391,7 +398,7 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
                 variant="ghost"
                 title="Eliminar definitivamente de la base de datos"
                 aria-label={`Eliminar definitivamente ${p.nombre}`}
-                className="text-texto-3 hover:text-danger hover:bg-danger/10 rounded-lg p-1.5"
+                className="text-texto-3 hover:text-danger hover:bg-danger/10 rounded-lg p-1.5 h-7 w-7 flex items-center justify-center cursor-pointer"
                 onClick={(e) => {
                   e.stopPropagation();
                   setEliminandoDefinitivo(p);
@@ -405,6 +412,7 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
               <Button
                 size="sm"
                 variant="ghost"
+                className="h-7 text-xs px-2 text-texto-2 hover:text-texto"
                 onClick={(e) => {
                   e.stopPropagation();
                   if (p.variantes.length === 1) {
@@ -419,12 +427,13 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
                   }
                 }}
               >
-                <SlidersHorizontal className="w-3.5 h-3.5" />
+                <SlidersHorizontal className="w-3.5 h-3.5 mr-1 text-texto-3" />
                 <span>Ajustar</span>
               </Button>
               <Button
                 size="sm"
                 variant="ghost"
+                className="h-7 text-xs px-2 text-texto-2 hover:text-texto"
                 onClick={(e) => {
                   e.stopPropagation();
                   setProductoEditando(p);
@@ -437,14 +446,27 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
                 size="sm"
                 variant="ghost"
                 aria-label={`Descatalogar ${p.nombre}`}
-                title="Descatalogar del inventario"
-                className="text-texto-3 hover:text-danger-600"
+                title="Descatalogar del inventario (pasa a descatalogados sin perder historial)"
+                className="h-7 text-xs px-2 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 hover:text-amber-800 font-medium rounded-lg"
                 onClick={(e) => {
                   e.stopPropagation();
                   setArchivando(p);
                 }}
               >
-                <Trash2 className="w-3.5 h-3.5" />
+                <Archive className="w-3.5 h-3.5 mr-1 text-amber-600" />
+                <span>Descatalogar</span>
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="p-1 text-texto-3 hover:text-texto rounded-lg h-7 w-7 flex items-center justify-center cursor-pointer"
+                title="Más opciones"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMenuContextual({ x: e.clientX, y: e.clientY, producto: p });
+                }}
+              >
+                <MoreVertical className="w-3.5 h-3.5" />
               </Button>
             </>
           )}
@@ -795,6 +817,77 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
                 )}
               </CardContent>
             </Card>
+          </div>
+
+          {/* Pie fijo de acciones del producto */}
+          <div className="p-4 border-t border-borde bg-superficie-2/40 space-y-2 shrink-0">
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-center text-xs font-semibold rounded-xl"
+                onClick={() => {
+                  setProductoEditando(detalle);
+                  setModalAbierto(true);
+                }}
+              >
+                <FileEdit className="w-3.5 h-3.5 mr-1.5" />
+                <span>Editar</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-center text-xs font-semibold rounded-xl"
+                onClick={() => {
+                  if (detalle.variantes.length === 1) {
+                    setAjustando({
+                      variante_id: detalle.variantes[0].id,
+                      producto_id: detalle.id,
+                      nombre: detalle.nombre,
+                      actual: detalle.variantes[0].existencias,
+                    });
+                  } else {
+                    showToast({ message: 'Selecciona una variante arriba para ajustar su stock', type: 'info' });
+                  }
+                }}
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5 mr-1.5" />
+                <span>Ajustar stock</span>
+              </Button>
+            </div>
+
+            {detalle.activo ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-center text-xs font-semibold text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 border border-amber-500/30 rounded-xl"
+                onClick={() => setArchivando(detalle)}
+              >
+                <Archive className="w-3.5 h-3.5 mr-1.5 text-amber-600" />
+                <span>Descatalogar producto</span>
+              </Button>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full justify-center text-xs font-semibold text-emerald-700 bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/20 rounded-xl"
+                  onClick={() => reactivar(detalle)}
+                >
+                  <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+                  <span>Reactivar</span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-center text-xs font-semibold text-danger hover:bg-danger/10 border border-danger/30 rounded-xl"
+                  onClick={() => setEliminandoDefinitivo(detalle)}
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                  <span>Eliminar</span>
+                </Button>
+              </div>
+            )}
           </div>
         </aside>
       )}

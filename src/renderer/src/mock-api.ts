@@ -872,7 +872,22 @@ const api: ApiPuente = {
       }
       return ok(grupo());
     },
-    recientes: () => ok(db.ventas.flatMap((v) => v.pagos).slice(0, 20)),
+    listarPorVenta: (venta_id) => {
+      const v = db.ventas.find((x) => x.id === venta_id);
+      return ok((v?.pagos || []).map((p) => ({ ...p, venta_codigo: v?.codigo })));
+    },
+    recientes: () =>
+      ok(
+        db.ventas
+          .flatMap((v) =>
+            v.pagos.map((p) => ({
+              ...p,
+              venta_codigo: v.codigo,
+              cliente_nombre: db.clientes.find((c) => c.id === v.cliente_id)?.nombre || 'Cliente',
+            }))
+          )
+          .slice(0, 20)
+      ),
   },
   clientes: {
     list: (busqueda) => {
@@ -934,6 +949,16 @@ const api: ApiPuente = {
         ruta_base_datos: 'memoria',
         tamano_base_datos_bytes: 0,
       }),
+  },
+  documentos: {
+    imprimir: async () => {
+      window.print();
+      return ok({ ok: true });
+    },
+    guardarPdf: async () => {
+      window.print();
+      return ok({ guardado: true });
+    },
   },
 };
 

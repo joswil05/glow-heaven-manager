@@ -1,7 +1,8 @@
-import React, { useMemo } from 'react';
-import { X, Printer, MessageCircle, FileText } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { X, Printer, MessageCircle, FileText, Download, Loader2 } from 'lucide-react';
 import type { VentaCompleta, ParametrosSistema, CuentaBancaria } from '../../../shared/types';
 import { Button } from './ui';
+import { useToast } from '../context/ToastContext';
 import {
   generarHtmlFactura,
   generarHtmlProforma,
@@ -22,6 +23,10 @@ export const DocumentoModal: React.FC<DocumentoModalProps> = ({
   parametros,
   onCerrar,
 }) => {
+  const { showToast } = useToast();
+  const [guardandoPdf, setGuardandoPdf] = useState(false);
+  const [imprimiendo, setImprimiendo] = useState(false);
+
   React.useEffect(() => {
     if (!abierto) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -43,8 +48,45 @@ export const DocumentoModal: React.FC<DocumentoModalProps> = ({
     return generarHtmlFactura(venta, parametros);
   }, [venta, parametros, esEncargo]);
 
-  const handleImprimir = () => {
-    imprimirHtml(html);
+  const handleGuardarPdf = async () => {
+    setGuardandoPdf(true);
+    try {
+      if (window.api?.documentos?.guardarPdf) {
+        const res = await window.api.documentos.guardarPdf({
+          html,
+          nombreSugerido: `${esEncargo ? 'Cotizacion' : 'Factura'}-${venta.codigo}`,
+        });
+        if (res.success && res.data.guardado) {
+          showToast({ message: 'Documento guardado como PDF en tu equipo', type: 'success' });
+        } else if (!res.success) {
+          showToast({ message: res.error || 'No se pudo generar el PDF', type: 'error' });
+        }
+      } else {
+        imprimirHtml(html);
+      }
+    } catch {
+      showToast({ message: 'Error al exportar PDF', type: 'error' });
+    } finally {
+      setGuardandoPdf(false);
+    }
+  };
+
+  const handleImprimir = async () => {
+    setImprimiendo(true);
+    try {
+      if (window.api?.documentos?.imprimir) {
+        const res = await window.api.documentos.imprimir(html);
+        if (!res.success) {
+          showToast({ message: res.error || 'Error al enviar a la impresora', type: 'error' });
+        }
+      } else {
+        imprimirHtml(html);
+      }
+    } catch {
+      showToast({ message: 'Error al abrir diálogo de impresión', type: 'error' });
+    } finally {
+      setImprimiendo(false);
+    }
   };
 
   const handleEnviarWhatsApp = () => {
@@ -144,23 +186,43 @@ export const DocumentoModal: React.FC<DocumentoModalProps> = ({
               className="text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/20"
             >
               <MessageCircle className="w-4 h-4 mr-1.5" />
-              <span>Enviar por WhatsApp</span>
+              <span>WhatsApp</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleImprimir}
+              disabled={imprimiendo}
+              className="shadow-2xs"
+            >
+              {imprimiendo ? (
+                <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+              ) : (
+                <Printer className="w-4 h-4 mr-1.5" />
+              )}
+              <span>Imprimir</span>
             </Button>
 
             <Button
               variant="primary"
               size="sm"
-              onClick={handleImprimir}
-              className="shadow-xs"
+              onClick={handleGuardarPdf}
+              disabled={guardandoPdf}
+              className="shadow-xs font-semibold"
             >
-              <Printer className="w-4 h-4 mr-1.5" />
-              <span>Imprimir / PDF</span>
+              {guardandoPdf ? (
+                <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4 mr-1.5" />
+              )}
+              <span>Guardar PDF</span>
             </Button>
 
             <button
               type="button"
               onClick={onCerrar}
-              className="p-1.5 rounded-lg text-texto-3 hover:text-texto hover:bg-superficie-2 transition-colors ml-2"
+              className="p-1.5 rounded-lg text-texto-3 hover:text-texto hover:bg-superficie-2 transition-colors ml-2 cursor-pointer"
               aria-label="Cerrar modal"
             >
               <X className="w-5 h-5" />

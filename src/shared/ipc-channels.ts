@@ -41,6 +41,7 @@ export const IPC = {
   PAGOS_REGISTRAR: 'pagos:registrar',
   PAGOS_REGISTRAR_ABONO_CLIENTE: 'pagos:registrarAbonoCliente',
   PAGOS_LISTAR_POR_CLIENTE: 'pagos:listarPorCliente',
+  PAGOS_LISTAR_POR_VENTA: 'pagos:listarPorVenta',
   PAGOS_ANULAR: 'pagos:anular',
   PAGOS_RECIENTES: 'pagos:recientes',
 
@@ -52,6 +53,10 @@ export const IPC = {
 
   // Panel
   PANEL_CARGAR: 'panel:cargar',
+
+  // Documentos e Impresión
+  DOCUMENTOS_IMPRIMIR: 'documentos:imprimir',
+  DOCUMENTOS_GUARDAR_PDF: 'documentos:guardarPdf',
 
   // Sistema
   SISTEMA_DESHACER: 'sistema:deshacer',
