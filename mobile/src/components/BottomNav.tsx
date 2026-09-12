@@ -1,6 +1,7 @@
 import { LayoutDashboard, ShoppingBag, Search } from 'lucide-react';
 import type { Vista } from '../App';
 import { haptics } from '../lib/haptics';
+import { useTheme } from '../context/ThemeContext';
 
 interface BottomNavProps {
   actual: Vista;
@@ -15,25 +16,19 @@ const ITEMS: { vista: Vista; etiqueta: string; Icono: typeof LayoutDashboard }[]
 ];
 
 export function BottomNav({ actual, onCambiar, badgeCarrito = 0 }: BottomNavProps) {
+  const { effectiveTheme } = useTheme();
+  const isDark = effectiveTheme === 'dark';
+
   return (
     <nav
+      className="fixed bottom-0 left-0 right-0 w-full z-40 bg-white dark:bg-[#121826] border-t border-slate-200/80 dark:border-slate-800/80 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_-4px_25px_rgba(0,0,0,0.5)] transition-colors duration-200"
       style={{
-        position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        width: '100%',
-        backgroundColor: '#ffffff',
-        borderTop: '1px solid #e2e8f0',
-        boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.06)',
-        zIndex: 40,
         paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 0.5rem)',
       }}
       aria-label="Navegación principal Android"
     >
       <div
         className="mx-auto flex w-full max-w-lg items-center justify-around px-2 pt-2 pb-1"
-        style={{ display: 'flex', width: '100%', justifyContent: 'space-around' }}
       >
         {ITEMS.map(({ vista, etiqueta, Icono }) => {
           const activo = actual === vista;
@@ -45,37 +40,32 @@ export function BottomNav({ actual, onCambiar, badgeCarrito = 0 }: BottomNavProp
                 if (actual !== vista) haptics.selection();
                 onCambiar(vista);
               }}
-              className="flex flex-1 flex-col items-center justify-center py-1 px-1 tocable outline-none transition-transform duration-100 active:scale-95"
-              style={{
-                flex: '1 1 0%',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-              }}
+              className="flex flex-1 flex-col items-center justify-center py-1 px-1 tocable outline-none transition-transform duration-100 active:scale-95 cursor-pointer"
               aria-current={activo ? 'page' : undefined}
             >
               {/* Contenedor Pill de Material 3 */}
               <div className="relative">
                 <div
-                  className="flex items-center justify-center w-16 h-8 rounded-full transition-all duration-200"
+                  className="flex items-center justify-center w-15 h-8 rounded-full transition-all duration-200"
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: '60px',
-                    height: '32px',
-                    borderRadius: '9999px',
-                    backgroundColor: activo ? '#d1fae5' : 'transparent',
-                    color: activo ? '#065f46' : '#64748b',
+                    backgroundColor: activo
+                      ? isDark
+                        ? 'rgba(16, 185, 129, 0.22)'
+                        : '#d1fae5'
+                      : 'transparent',
                   }}
                 >
                   <Icono
                     size={20}
                     style={{
                       strokeWidth: activo ? 2.5 : 1.8,
-                      color: activo ? '#047857' : '#64748b',
+                      color: activo
+                        ? isDark
+                          ? '#34d399'
+                          : '#047857'
+                        : isDark
+                          ? '#94a3b8'
+                          : '#64748b',
                     }}
                   />
                 </div>
@@ -113,7 +103,13 @@ export function BottomNav({ actual, onCambiar, badgeCarrito = 0 }: BottomNavProp
                   marginTop: '4px',
                   letterSpacing: '-0.01em',
                   fontWeight: activo ? 700 : 500,
-                  color: activo ? '#047857' : '#64748b',
+                  color: activo
+                    ? isDark
+                      ? '#34d399'
+                      : '#047857'
+                    : isDark
+                      ? '#94a3b8'
+                      : '#64748b',
                 }}
               >
                 {etiqueta}

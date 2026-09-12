@@ -12,6 +12,9 @@ import {
   ChevronRight,
   HandCoins,
   CheckCircle2,
+  Sun,
+  Moon,
+  Monitor,
 } from 'lucide-react';
 import { PanelRepoFirestore } from '@repos/panel.repo';
 import type { PanelData } from '@shared/types';
@@ -27,6 +30,7 @@ import { linkWhatsapp } from '../lib/util';
 import { MoneyDual } from '../components/MoneyDual';
 import { useAuth } from '../context/AuthContext';
 import { useDatosNegocio } from '../context/DataContext';
+import { useTheme } from '../context/ThemeContext';
 import { PullToRefresh } from '../components/PullToRefresh';
 import { AbonoModalSheet, type VentaCobroItem } from '../components/AbonoModalSheet';
 import { AbonoSelectorSheet } from '../components/AbonoSelectorSheet';
@@ -57,6 +61,8 @@ let cacheDashboard: {
 export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
   const { usuario, salir } = useAuth();
   const { parametros } = useDatosNegocio();
+  const { theme, effectiveTheme, toggleTheme } = useTheme();
+  const isDark = effectiveTheme === 'dark';
   const tasa = parametros?.tasa_cambio_cents ?? 3662;
 
   const [panel, setPanel] = useState<PanelData | null>(cacheDashboard.panel);
@@ -124,14 +130,14 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
   const maxSerie = Math.max(1, ...serie.map((d) => d.total_usd_cents));
 
   return (
-    <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#f8fafc] text-slate-800">
+    <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#f8fafc] dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 transition-colors">
       {/* Top App Bar fija y limpia */}
-      <header className="shrink-0 z-20 bg-white/95 backdrop-blur-md border-b border-slate-200/60 pt-safe-t px-4 pb-2 shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
+      <header className="shrink-0 z-20 bg-white/95 dark:bg-[#121826]/95 backdrop-blur-md border-b border-slate-200/60 dark:border-slate-800/80 pt-safe-t px-4 pb-2 shadow-[0_1px_3px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.3)] transition-colors">
         <div className="flex items-center justify-between py-1.5">
           <div className="flex items-center gap-2.5">
             {/* Avatar pequeño y discreto (sin quitar protagonismo) */}
             <div
-              className="relative shrink-0 overflow-hidden rounded-full border border-slate-200/80 shadow-xs"
+              className="relative shrink-0 overflow-hidden rounded-full border border-slate-200/80 dark:border-slate-700 shadow-xs"
               style={{ width: '32px', height: '32px', minWidth: '32px', minHeight: '32px' }}
             >
               {usuario?.photoURL ? (
@@ -147,16 +153,36 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
               )}
             </div>
             <div>
-              <span className="text-[10px] font-bold tracking-widest uppercase text-emerald-700 block leading-none mb-0.5">
+              <span className="text-[10px] font-bold tracking-widest uppercase text-emerald-700 dark:text-emerald-400 block leading-none mb-0.5">
                 Glow Heaven
               </span>
-              <h1 className="text-sm font-extrabold text-slate-900 leading-tight">
+              <h1 className="text-sm font-extrabold text-slate-900 dark:text-white leading-tight">
                 {usuario?.displayName?.split(' ')[0] || 'Mi Negocio'}
               </h1>
             </div>
           </div>
 
           <div className="flex items-center gap-1.5">
+            {/* Toggle de Modo Oscuro / Claro / Sistema */}
+            <button
+              type="button"
+              onClick={() => {
+                haptics.selection();
+                toggleTheme();
+              }}
+              aria-label="Cambiar tema de apariencia"
+              title={`Tema: ${theme === 'system' ? 'Automático' : theme === 'dark' ? 'Oscuro' : 'Claro'}`}
+              className="m3-press flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100/90 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-90 transition-all border border-slate-200/50 dark:border-slate-700/60 cursor-pointer"
+            >
+              {theme === 'system' ? (
+                <Monitor size={16} className="text-slate-500 dark:text-slate-400" />
+              ) : effectiveTheme === 'dark' ? (
+                <Moon size={16} className="text-emerald-400" />
+              ) : (
+                <Sun size={16} className="text-amber-500" />
+              )}
+            </button>
+
             <button
               type="button"
               onClick={() => {
@@ -164,9 +190,9 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
                 cargar(true);
               }}
               aria-label="Actualizar datos"
-              className="m3-press flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100/90 text-slate-600 hover:bg-slate-200 active:scale-90 transition-all border border-slate-200/50 cursor-pointer"
+              className="m3-press flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100/90 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-90 transition-all border border-slate-200/50 dark:border-slate-700/60 cursor-pointer"
             >
-              <RefreshCw size={16} className={cargando ? 'animate-spin text-emerald-600' : ''} />
+              <RefreshCw size={16} className={cargando ? 'animate-spin text-emerald-600 dark:text-emerald-400' : ''} />
             </button>
             <button
               type="button"
@@ -175,7 +201,7 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
                 salir();
               }}
               aria-label="Cerrar sesión"
-              className="m3-press flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100/90 text-slate-400 hover:text-rose-600 hover:bg-rose-50 active:scale-90 transition-all border border-slate-200/50 cursor-pointer"
+              className="m3-press flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100/90 dark:bg-slate-800/90 text-slate-400 dark:text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 active:scale-90 transition-all border border-slate-200/50 dark:border-slate-700/60 cursor-pointer"
             >
               <LogOut size={16} />
             </button>
@@ -274,54 +300,54 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
                 haptics.impact('light');
                 setSheetAbonoSelectorAbierto(true);
               }}
-              className="m3-card p-3.5 flex flex-col justify-between cursor-pointer hover:border-amber-300 transition-colors active:scale-[0.99]"
+              className="m3-card p-3.5 flex flex-col justify-between cursor-pointer hover:border-amber-300 dark:hover:border-amber-500/50 transition-colors active:scale-[0.99]"
             >
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center gap-1.5">
                     <span className="h-2 w-2 rounded-full bg-amber-500" />
-                    <p className="text-xs font-semibold text-slate-500">Por cobrar</p>
+                    <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Por cobrar</p>
                   </div>
-                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-md">
+                  <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded-md">
                     Abonar
                   </span>
                 </div>
                 <MoneyDual usdCents={panel?.resumen.por_cobrar_usd_cents ?? 0} size="sm" />
               </div>
-              <span className="text-[10px] text-slate-400 mt-1.5 font-medium">Toca para abonar</span>
+              <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-1.5 font-medium">Toca para abonar</span>
             </div>
 
             <div className="m3-card p-3.5 flex flex-col justify-between">
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <span className="h-2 w-2 rounded-full bg-blue-500" />
-                  <p className="text-xs font-semibold text-slate-500">Inventario</p>
+                  <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Inventario</p>
                 </div>
                 <MoneyDual usdCents={panel?.resumen.inversion_inventario_usd_cents ?? 0} size="sm" />
               </div>
-              <span className="text-[10px] text-slate-400 mt-1.5 font-medium">Costo invertido</span>
+              <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-1.5 font-medium">Costo invertido</span>
             </div>
           </section>
 
           {/* Gráfico 7 días interactivo */}
           <section className="m3-card p-4">
             <div className="mb-3 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
-                <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-100">
+                <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400">
                   <TrendingUp size={15} />
                 </div>
                 <span>Ventas últimos 7 días</span>
               </div>
-              <span className="text-[11px] font-semibold text-slate-400">USD</span>
+              <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">USD</span>
             </div>
 
             {/* Detalle flotante si se toca una barra */}
             {diaSeleccionado && (
-              <div className="mb-3 flex items-center justify-between rounded-xl bg-slate-50 border border-slate-200/70 px-3 py-1.5 text-xs animate-m3-fade">
-                <span className="font-semibold text-slate-700 capitalize">
+              <div className="mb-3 flex items-center justify-between rounded-xl bg-slate-50 dark:bg-slate-800/90 border border-slate-200/70 dark:border-slate-700 px-3 py-1.5 text-xs animate-m3-fade">
+                <span className="font-semibold text-slate-700 dark:text-slate-200 capitalize">
                   {nombreDia(diaSeleccionado.fecha)} {diaSeleccionado.fecha.slice(5)}:
                 </span>
-                <span className="font-bold text-emerald-700">
+                <span className="font-bold text-emerald-700 dark:text-emerald-400">
                   {formatearMoneda(diaSeleccionado.total_usd_cents, 'USD')} ({diaSeleccionado.cantidad} vtas.)
                 </span>
               </div>
@@ -348,8 +374,10 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
                       }`}
                       style={{
                         height: '64px',
-                        backgroundColor: estaSeleccionado ? '#ecfdf5' : '#f1f5f9',
-                        border: '1px solid #e2e8f0',
+                        backgroundColor: estaSeleccionado
+                          ? (isDark ? '#064e3b' : '#ecfdf5')
+                          : (isDark ? '#1e293b' : '#f1f5f9'),
+                        border: isDark ? '1px solid #334155' : '1px solid #e2e8f0',
                       }}
                     >
                       <div
@@ -359,7 +387,7 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
                           height: tieneVenta ? `${Math.max(16, porcentaje)}%` : '4px',
                           background: tieneVenta
                             ? 'linear-gradient(180deg, #10b981 0%, #059669 100%)'
-                            : '#cbd5e1',
+                            : (isDark ? '#475569' : '#cbd5e1'),
                           transition: 'height 300ms ease-out',
                         }}
                       />
@@ -368,7 +396,11 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
                       className="text-[11px] uppercase tracking-tight transition-colors leading-none"
                       style={{
                         fontWeight: estaSeleccionado || tieneVenta ? 700 : 500,
-                        color: estaSeleccionado ? '#047857' : tieneVenta ? '#0f172a' : '#94a3b8',
+                        color: estaSeleccionado
+                          ? (isDark ? '#34d399' : '#047857')
+                          : tieneVenta
+                            ? (isDark ? '#f8fafc' : '#0f172a')
+                            : (isDark ? '#64748b' : '#94a3b8'),
                       }}
                     >
                       {nombreDia(d.fecha)}
@@ -386,27 +418,27 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 shrink-0">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-400 shrink-0">
                       <HandCoins size={14} />
                     </span>
-                    <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700 truncate">
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 truncate">
                       Cuentas por Cobrar
                     </h2>
                   </div>
 
                   {/* Total general acumulado por cobrar */}
                   <div className="text-right shrink-0">
-                    <span className="text-xs font-black text-slate-900 tabular-nums">
+                    <span className="text-xs font-black text-slate-900 dark:text-white tabular-nums">
                       {formatearMoneda(totalPorCobrarUsd, 'USD')}
                     </span>
-                    <span className="text-[10px] text-slate-500 font-medium ml-1">
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium ml-1">
                       (≈ {formatearMoneda(totalPorCobrarCor, 'COR')})
                     </span>
                   </div>
                 </div>
 
                 {/* Filtro Segmentado: Todas / Vencidas con ancho completo y objetivos táctiles cómodos */}
-                <div className="grid grid-cols-2 p-1 rounded-xl bg-slate-100/90 border border-slate-200/70 text-xs font-bold gap-1">
+                <div className="grid grid-cols-2 p-1 rounded-xl bg-slate-100/90 dark:bg-slate-900/90 border border-slate-200/70 dark:border-slate-800 text-xs font-bold gap-1">
                   <button
                     type="button"
                     onClick={() => {
@@ -415,16 +447,16 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
                     }}
                     className={`flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg transition-all cursor-pointer ${
                       filtroCobro === 'todas'
-                        ? 'bg-white text-slate-900 shadow-xs font-extrabold'
-                        : 'text-slate-500 hover:text-slate-700 font-semibold'
+                        ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs font-extrabold'
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 font-semibold'
                     }`}
                   >
                     <span>Todas</span>
                     <span
                       className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
                         filtroCobro === 'todas'
-                          ? 'bg-slate-100 text-slate-800'
-                          : 'bg-slate-200/80 text-slate-600'
+                          ? 'bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200'
+                          : 'bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
                       }`}
                     >
                       {cuentasPorCobrar.length}
@@ -439,18 +471,18 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
                     }}
                     className={`flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg transition-all cursor-pointer ${
                       filtroCobro === 'vencidas'
-                        ? 'bg-white text-rose-700 shadow-xs font-extrabold'
-                        : 'text-slate-500 hover:text-slate-700 font-semibold'
+                        ? 'bg-white dark:bg-slate-800 text-rose-700 dark:text-rose-400 shadow-xs font-extrabold'
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 font-semibold'
                     }`}
                   >
                     <span>Vencidas</span>
                     <span
                       className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
                         filtroCobro === 'vencidas'
-                          ? 'bg-rose-100 text-rose-700'
+                          ? 'bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-400'
                           : cuotasVencidas.length > 0
                             ? 'bg-rose-500 text-white'
-                            : 'bg-slate-200/80 text-slate-600'
+                            : 'bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
                       }`}
                     >
                       {cuotasVencidas.length}
@@ -462,12 +494,12 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
               {/* Lista de deudores */}
               <div className="flex flex-col gap-2.5">
                 {cuentasAMostrar.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-6 px-4 bg-white rounded-2xl border border-slate-200/80 text-center shadow-xs">
-                    <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mb-2">
+                  <div className="flex flex-col items-center justify-center py-6 px-4 bg-white dark:bg-[#161f30] rounded-2xl border border-slate-200/80 dark:border-slate-800 text-center shadow-xs">
+                    <div className="w-10 h-10 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-2">
                       <CheckCircle2 size={20} />
                     </div>
-                    <p className="text-xs font-bold text-slate-800">¡Al día! No hay cuentas vencidas</p>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
+                    <p className="text-xs font-bold text-slate-800 dark:text-slate-100">¡Al día! No hay cuentas vencidas</p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                       Todas tus cuentas al crédito están dentro de su plazo acordado.
                     </p>
                   </div>
@@ -482,8 +514,8 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
                         key={f.venta_id}
                         className={`flex flex-col gap-2.5 rounded-2xl border p-3.5 shadow-xs transition-all ${
                           vencida
-                            ? 'border-rose-300/80 bg-rose-50/40'
-                            : 'border-slate-200/90 bg-white hover:border-slate-300'
+                            ? 'border-rose-300/80 bg-rose-50/40 dark:border-rose-900/60 dark:bg-rose-950/20'
+                            : 'border-slate-200/90 bg-white dark:border-slate-800 dark:bg-[#161f30] hover:border-slate-300 dark:hover:border-slate-700'
                         }`}
                       >
                         {/* Fila 1: Avatar + Nombre + Referencia + Badge de estado */}
@@ -492,17 +524,17 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
                             <div
                               className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-black shrink-0 border ${
                                 vencida
-                                  ? 'bg-rose-100 text-rose-800 border-rose-200'
-                                  : 'bg-emerald-100/90 text-emerald-800 border-emerald-200/70'
+                                  ? 'bg-rose-100 text-rose-800 border-rose-200 dark:bg-rose-950/80 dark:text-rose-300 dark:border-rose-800'
+                                  : 'bg-emerald-100/90 text-emerald-800 border-emerald-200/70 dark:bg-emerald-950/70 dark:text-emerald-300 dark:border-emerald-800'
                               }`}
                             >
                               {inicial}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <h3 className="text-sm font-bold text-slate-900 truncate leading-tight">
+                              <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate leading-tight">
                                 {f.cliente_nombre}
                               </h3>
-                              <p className="text-[11px] text-slate-500 font-medium truncate mt-0.5">
+                              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate mt-0.5">
                                 {f.codigo} · {f.fecha}
                               </p>
                             </div>
@@ -510,27 +542,27 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
 
                           {/* Badge de vencimiento o al día */}
                           {vencida ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-0.5 text-[10px] font-extrabold text-rose-700 shrink-0 border border-rose-200">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 dark:bg-rose-950/80 px-2.5 py-0.5 text-[10px] font-extrabold text-rose-700 dark:text-rose-400 shrink-0 border border-rose-200 dark:border-rose-800">
                               <AlertTriangle size={11} />
                               {f.cuotas_vencidas} {f.cuotas_vencidas === 1 ? 'vencida' : 'vencidas'}
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700 shrink-0 border border-emerald-200/60">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 shrink-0 border border-emerald-200/60 dark:border-emerald-800/80">
                               Al día
                             </span>
                           )}
                         </div>
 
                         {/* Fila 2: Saldo pendiente destacado */}
-                        <div className="flex items-baseline justify-between px-3 py-2 rounded-xl bg-slate-50/90 border border-slate-100/90">
-                          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                        <div className="flex items-baseline justify-between px-3 py-2 rounded-xl bg-slate-50/90 border border-slate-100/90 dark:bg-slate-900/60 dark:border-slate-800/80">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                             Saldo pendiente
                           </span>
                           <div className="text-right">
-                            <span className="text-base font-black text-slate-900 tabular-nums">
+                            <span className="text-base font-black text-slate-900 dark:text-white tabular-nums">
                               {formatearMoneda(f.saldo_usd_cents, 'USD')}
                             </span>
-                            <span className="text-xs font-semibold text-slate-500 ml-1.5">
+                            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 ml-1.5">
                               (≈ {formatearMoneda(saldoCor, 'COR')})
                             </span>
                           </div>
@@ -558,8 +590,8 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
                             aria-label={`Escribir a ${f.cliente_nombre} por WhatsApp`}
                             className={`m3-press flex items-center justify-center gap-1.5 h-10 px-3.5 rounded-xl border text-xs font-bold transition-all ${
                               f.cliente_telefono
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 active:scale-98'
-                                : 'bg-slate-50 text-slate-400 border-slate-200 pointer-events-none'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/80 hover:bg-emerald-100 dark:hover:bg-emerald-950/60 active:scale-98'
+                                : 'bg-slate-50 text-slate-400 border-slate-200 dark:bg-slate-900/40 dark:text-slate-600 dark:border-slate-800 pointer-events-none'
                             }`}
                           >
                             <MessageCircle size={15} />
@@ -598,15 +630,15 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
           {/* Stock crítico */}
           {(panel?.bajo_stock.length ?? 0) > 0 && (
             <section className="flex flex-col gap-1.5">
-              <h2 className="flex items-center gap-1 text-[11px] font-bold text-amber-700 uppercase tracking-wide">
+              <h2 className="flex items-center gap-1 text-[11px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide">
                 <PackageX size={13} />
                 Stock crítico ({panel!.bajo_stock.length})
               </h2>
-              <div className="m3-card overflow-hidden divide-y divide-slate-100 rounded-xl">
+              <div className="m3-card overflow-hidden divide-y divide-slate-100 dark:divide-slate-800 rounded-xl">
                 {panel!.bajo_stock.slice(0, 6).map((p) => (
                   <div key={p.producto_id} className="flex items-center justify-between px-3 py-2 text-xs">
-                    <p className="truncate text-xs font-semibold text-slate-800">{p.nombre}</p>
-                    <span className="shrink-0 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.2 text-[10px] font-bold text-amber-700 ml-2">
+                    <p className="truncate text-xs font-semibold text-slate-800 dark:text-slate-200">{p.nombre}</p>
+                    <span className="shrink-0 rounded-full bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/70 px-2 py-0.2 text-[10px] font-bold text-amber-700 dark:text-amber-400 ml-2">
                       {p.existencias} und.
                     </span>
                   </div>
@@ -618,18 +650,18 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
           {/* Encargos pendientes */}
           {encargos.length > 0 && (
             <section className="flex flex-col gap-1.5">
-              <h2 className="flex items-center gap-1 text-[11px] font-bold text-slate-700 uppercase tracking-wide">
+              <h2 className="flex items-center gap-1 text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide">
                 <Clock3 size={13} />
                 Encargos pendientes ({encargos.length})
               </h2>
-              <div className="m3-card overflow-hidden divide-y divide-slate-100 rounded-xl">
+              <div className="m3-card overflow-hidden divide-y divide-slate-100 dark:divide-slate-800 rounded-xl">
                 {encargos.slice(0, 6).map((e) => (
                   <div key={e.id} className="flex items-center justify-between px-3 py-2 text-xs">
                     <div className="min-w-0">
-                      <p className="truncate text-xs font-bold text-slate-800">{e.cliente_nombre}</p>
-                      <p className="text-[10px] text-slate-400 font-medium">{e.codigo}</p>
+                      <p className="truncate text-xs font-bold text-slate-800 dark:text-slate-200">{e.cliente_nombre}</p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">{e.codigo}</p>
                     </div>
-                    <span className="text-xs font-bold text-slate-800 tabular-nums">
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 tabular-nums">
                       {formatearMoneda(e.saldo_usd_cents, 'USD')}
                     </span>
                   </div>

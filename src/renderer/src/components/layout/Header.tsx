@@ -1,8 +1,9 @@
 import React from 'react';
-import { Plus, PackagePlus, LogOut, RefreshCw } from 'lucide-react';
+import { Plus, PackagePlus, LogOut, RefreshCw, Sun, Moon, Monitor } from 'lucide-react';
 import { formatearMoneda } from '@core/moneda';
 import { Button } from '../ui';
 import { cn } from '../../lib/cn';
+import { useTheme } from '../../context/ThemeContext';
 import type { UsuarioGoogle } from '../../../../shared/ipc-contracts';
 
 interface HeaderProps {
@@ -28,6 +29,7 @@ export const Header: React.FC<HeaderProps> = ({
   onRefrescar,
 }) => {
   const inicial = (usuario?.nombre || usuario?.email || 'U').charAt(0).toUpperCase();
+  const { theme, effectiveTheme, toggleTheme } = useTheme();
 
   return (
     <header className="h-14 bg-superficie border-b border-borde flex items-center justify-between px-4 shrink-0 select-none">
@@ -78,6 +80,24 @@ export const Header: React.FC<HeaderProps> = ({
         </Button>
 
         <div className="h-5 w-px bg-borde mx-0.5 hidden sm:block" />
+
+        {/* Selector rápido de Modo Oscuro / Claro */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={toggleTheme}
+          title={`Tema actual: ${theme === 'system' ? 'Sistema (' + (effectiveTheme === 'dark' ? 'Oscuro' : 'Claro') + ')' : theme === 'dark' ? 'Oscuro' : 'Claro'}. Clic para cambiar.`}
+          aria-label="Cambiar tema de apariencia"
+          className="text-texto-2 hover:text-acento hover:bg-superficie-2/80 rounded-xl px-2 transition-transform active:scale-90"
+        >
+          {theme === 'system' ? (
+            <Monitor className="w-4 h-4 text-texto-2" />
+          ) : effectiveTheme === 'dark' ? (
+            <Moon className="w-4 h-4 text-emerald-400" />
+          ) : (
+            <Sun className="w-4 h-4 text-amber-500" />
+          )}
+        </Button>
 
         {/* Perfil del usuario Google */}
         {usuario && (

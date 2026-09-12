@@ -14,8 +14,13 @@ import {
   Trash2,
   Clock,
   Check,
+  Palette,
+  Sun,
+  Moon,
+  Monitor,
 } from 'lucide-react';
 import { cn } from '../lib/cn';
+import { useTheme } from '../context/ThemeContext';
 import type { ParametrosSistema, Categoria, CuentaBancaria } from '../../../shared/types';
 import type { InfoSistema } from '../../../shared/ipc-contracts';
 import {
@@ -54,6 +59,7 @@ const num = (t: string): number => parsearDecimal(t) ?? 0;
 
 export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, onCambio }) => {
   const { showToast } = useToast();
+  const { theme, effectiveTheme, setTheme } = useTheme();
 
   const [tasa, setTasa] = useState('');
   const [tax, setTax] = useState('');
@@ -298,6 +304,92 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
 
         {/* Conexión con la base. Va primero porque sin esto nada funciona. */}
         <NubeSection />
+
+        {/* Apariencia del Sistema (Modo Oscuro / Claro / Automático) */}
+        <Card>
+          <CardHeader>
+            <SectionHeader
+              icon={Palette}
+              title="Apariencia del Sistema"
+              description="Personalizá el tema visual de la aplicación para mayor confort ocular"
+            />
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Opción Claro */}
+              <button
+                type="button"
+                onClick={() => setTheme('light')}
+                className={cn(
+                  'flex flex-col items-center p-3.5 rounded-2xl border text-center transition-all cursor-pointer',
+                  theme === 'light'
+                    ? 'border-acento bg-acento/10 ring-2 ring-acento/30 shadow-xs'
+                    : 'border-borde bg-superficie hover:border-borde-fuerte hover:bg-superficie-2/50'
+                )}
+              >
+                <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center mb-2 shadow-xs">
+                  <Sun size={20} />
+                </div>
+                <span className="text-sm font-bold text-texto">Modo Claro</span>
+                <span className="text-[11px] text-texto-3 mt-0.5">Luminoso y clásico</span>
+                {theme === 'light' && (
+                  <span className="inline-flex items-center gap-1 mt-2 text-[10px] font-bold text-acento bg-acento/15 px-2 py-0.5 rounded-full">
+                    <Check size={10} /> Activo
+                  </span>
+                )}
+              </button>
+
+              {/* Opción Oscuro */}
+              <button
+                type="button"
+                onClick={() => setTheme('dark')}
+                className={cn(
+                  'flex flex-col items-center p-3.5 rounded-2xl border text-center transition-all cursor-pointer',
+                  theme === 'dark'
+                    ? 'border-acento bg-acento/10 ring-2 ring-acento/30 shadow-xs'
+                    : 'border-borde bg-superficie hover:border-borde-fuerte hover:bg-superficie-2/50'
+                )}
+              >
+                <div className="w-10 h-10 rounded-xl bg-slate-800 text-emerald-400 flex items-center justify-center mb-2 shadow-xs border border-slate-700">
+                  <Moon size={20} />
+                </div>
+                <span className="text-sm font-bold text-texto">Modo Oscuro</span>
+                <span className="text-[11px] text-texto-3 mt-0.5">Elegante Deep Slate</span>
+                {theme === 'dark' && (
+                  <span className="inline-flex items-center gap-1 mt-2 text-[10px] font-bold text-acento bg-acento/15 px-2 py-0.5 rounded-full">
+                    <Check size={10} /> Activo
+                  </span>
+                )}
+              </button>
+
+              {/* Opción Sistema */}
+              <button
+                type="button"
+                onClick={() => setTheme('system')}
+                className={cn(
+                  'flex flex-col items-center p-3.5 rounded-2xl border text-center transition-all cursor-pointer',
+                  theme === 'system'
+                    ? 'border-acento bg-acento/10 ring-2 ring-acento/30 shadow-xs'
+                    : 'border-borde bg-superficie hover:border-borde-fuerte hover:bg-superficie-2/50'
+                )}
+              >
+                <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center mb-2 shadow-xs border border-borde">
+                  <Monitor size={20} />
+                </div>
+                <span className="text-sm font-bold text-texto">Automático</span>
+                <span className="text-[11px] text-texto-3 mt-0.5">
+                  Sigue a Windows ({effectiveTheme === 'dark' ? 'Noche' : 'Día'})
+                </span>
+                {theme === 'system' && (
+                  <span className="inline-flex items-center gap-1 mt-2 text-[10px] font-bold text-acento bg-acento/15 px-2 py-0.5 rounded-full">
+                    <Check size={10} /> Activo
+                  </span>
+                )}
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+
 
         {/* Costos de importación */}
         <Card>

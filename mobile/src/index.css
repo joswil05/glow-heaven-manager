@@ -32,6 +32,36 @@
   --velo: 15 23 42;
 }
 
+.dark {
+  --fondo: 11 15 25;
+  --superficie: 22 31 48;
+  --superficie-2: 30 41 59;
+  --borde: 51 65 85;
+  --borde-fuerte: 71 85 105;
+
+  --texto: 248 250 252;
+  --texto-2: 148 163 184;
+  --texto-3: 100 116 139;
+
+  --acento: 16 185 129;
+  --acento-fuerte: 5 150 105;
+  --acento-suave: 6 78 59;
+  --acento-texto: 255 255 255;
+
+  --exito: 16 185 129;
+  --exito-suave: 6 78 59;
+  --alerta: 245 158 11;
+  --alerta-suave: 120 53 15;
+  --peligro: 244 63 94;
+  --peligro-suave: 136 19 55;
+
+  --inverso: 248 250 252;
+  --inverso-2: 241 245 249;
+  --inverso-texto: 15 23 42;
+  --inverso-texto-2: 71 85 105;
+  --velo: 0 0 0;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -81,6 +111,12 @@ input, textarea, [contenteditable="true"] {
   border-radius: 1.5rem; /* 24px */
   box-shadow: 0 2px 10px -2px rgba(15, 23, 42, 0.05), 0 1px 3px -1px rgba(15, 23, 42, 0.03);
   border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.dark .m3-card {
+  background-color: #161f30;
+  box-shadow: 0 4px 14px -2px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(51, 65, 85, 0.7);
 }
 
 /* Tiras horizontales sin scrollbar visible pero con swipe suave */

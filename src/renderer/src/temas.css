@@ -48,3 +48,45 @@
   --inverso-texto-2: 140 155 180;
   --velo: 12 20 38;
 }
+
+.dark {
+  /* Fondo y superficies oscuras */
+  --fondo: 11 15 25;
+  --superficie: 22 31 48;
+  --superficie-2: 30 41 59;
+  --borde: 51 65 85;
+  --borde-fuerte: 71 85 105;
+
+  /* Texto */
+  --texto: 248 250 252;
+  --texto-2: 148 163 184;
+  --texto-3: 100 116 139;
+
+  /* Barra lateral */
+  --barra: 18 24 38;
+  --barra-2: 25 34 52;
+  --barra-texto: 241 245 249;
+  --barra-texto-2: 148 163 184;
+
+  /* Acento: Esmeralda vibrante en oscuridad */
+  --acento: 16 185 129;
+  --acento-fuerte: 5 150 105;
+  --acento-suave: 6 78 59;
+  --acento-texto: 255 255 255;
+
+  /* Estados con contraste optimizado */
+  --exito: 16 185 129;
+  --exito-suave: 6 78 59;
+  --alerta: 245 158 11;
+  --alerta-suave: 120 53 15;
+  --peligro: 244 63 94;
+  --peligro-suave: 136 19 55;
+
+  /* Superficie inversa */
+  --inverso: 248 250 252;
+  --inverso-2: 241 245 249;
+  --inverso-texto: 15 23 42;
+  --inverso-texto-2: 71 85 105;
+  --velo: 0 0 0;
+}
+
