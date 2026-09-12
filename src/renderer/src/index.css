@@ -1,3 +1,5 @@
+@import './temas.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -5,6 +7,8 @@
 @layer base {
   body {
     font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background-color: rgb(var(--fondo));
+    color: rgb(var(--texto));
   }
 
   /* Los montos se comparan en columna: sin cifras de ancho fijo, los
@@ -22,30 +26,236 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #f8fafc;
+  background: rgb(var(--fondo));
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: rgb(var(--borde-fuerte));
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: rgb(var(--texto-3));
 }
 
-/* Animaciones sutiles */
+/* ═══════════════════════════════════════════════════════════════════════
+   ANIMACIONES
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Fade-in universal */
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(4px);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
-
 .animate-fade-in {
-  animation: fadeIn 0.15s ease-out forwards;
+  animation: fadeIn 0.25s ease-out forwards;
+}
+
+/* Shake para PIN incorrecto */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-8px); }
+  40%, 80% { transform: translateX(8px); }
+}
+.animate-shake {
+  animation: shake 0.4s ease-in-out forwards;
+}
+
+/* Slide-up para tarjetas y contenedores */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-slide-up {
+  animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Escalonado: cada hijo se anima con delay progresivo */
+.stagger-children > * {
+  opacity: 0;
+  animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 60ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 120ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 180ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 240ms; }
+.stagger-children > *:nth-child(6) { animation-delay: 300ms; }
+.stagger-children > *:nth-child(7) { animation-delay: 360ms; }
+.stagger-children > *:nth-child(8) { animation-delay: 420ms; }
+
+/* Scale-in para modales y popovers */
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.animate-scale-in {
+  animation: scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Contador numérico (pulse) para stat tiles */
+@keyframes countPulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.04);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.animate-count-pulse {
+  animation: countPulse 0.5s ease-out;
+}
+
+/* Dibujo de línea SVG con pathLength 100 normalizado */
+@keyframes drawLineSvg {
+  from {
+    stroke-dashoffset: 100;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.animate-draw-svg {
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: drawLineSvg 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Dibujo de línea SVG tradicional (fallback) */
+@keyframes drawLine {
+  from {
+    stroke-dashoffset: var(--line-length, 2000);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.animate-draw-line {
+  stroke-dasharray: var(--line-length, 2000);
+  stroke-dashoffset: var(--line-length, 2000);
+  animation: drawLine 1.2s cubic-bezier(0.33, 1, 0.68, 1) forwards;
+}
+
+/* Puntos de datos de gráfica que brotan escalonadamente */
+@keyframes popIn {
+  0% {
+    opacity: 0;
+    transform: scale(0);
+  }
+  70% {
+    transform: scale(1.25);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.animate-pop-in {
+  transform-origin: center;
+  animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+
+/* Relleno gradual del área de gráfica */
+@keyframes areaReveal {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.animate-area-reveal {
+  animation: areaReveal 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.25s forwards;
+  opacity: 0;
+}
+.animate-fill-area {
+  animation: areaReveal 0.8s ease-out 0.4s forwards;
+  opacity: 0;
+}
+
+/* Anillo animado */
+@keyframes ringGrow {
+  from {
+    stroke-dashoffset: var(--ring-circumference, 1000);
+  }
+  to {
+    stroke-dashoffset: var(--ring-offset, 0);
+  }
+}
+.animate-ring-segment {
+  animation: ringGrow 0.8s cubic-bezier(0.33, 1, 0.68, 1) forwards;
+}
+
+/* Punto pulsante */
+@keyframes dotPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+.animate-dot-pulse {
+  animation: dotPulse 2s ease-in-out infinite;
+}
+
+/* PIN dots aparecen */
+@keyframes pinDotIn {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.animate-pin-dot {
+  animation: pinDotIn 0.15s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Glow del logo en lock screen */
+@keyframes logoGlow {
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(5, 165, 110, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 28px rgba(5, 165, 110, 0.35);
+  }
+}
+.animate-logo-glow {
+  animation: logoGlow 3s ease-in-out infinite;
+}
+
+/* Barra de progreso animada */
+@keyframes barGrow {
+  from {
+    width: 0%;
+  }
+}
+.animate-bar-grow {
+  animation: barGrow 0.6s cubic-bezier(0.33, 1, 0.68, 1) forwards;
 }

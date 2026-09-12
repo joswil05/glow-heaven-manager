@@ -1,241 +1,317 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Header } from './components/layout/Header';
-import { Sidebar, NavTab } from './components/layout/Sidebar';
-import { CommandPalette } from './components/CommandPalette';
-import { OnboardingModal } from './components/OnboardingModal';
-import { HoyView } from './views/HoyView';
-import { CotizadorView } from './views/CotizadorView';
-import { ComprasView } from './views/ComprasView';
-import { PedidosView } from './views/PedidosView';
+import { Sidebar, TITULOS, type NavTab } from './components/layout/Sidebar';
+import { LoginView } from './views/LoginView';
+import { PinLockView } from './views/PinLockView';
+import { PanelView, type DestinoPanel } from './views/PanelView';
+import { InventarioView } from './views/InventarioView';
+import { PaquetesView } from './views/PaquetesView';
+import { VentasView } from './views/VentasView';
 import { ClientesView } from './views/ClientesView';
 import { ConfigView } from './views/ConfigView';
+import { MonedaProvider } from './context/MonedaContext';
+import { useToast } from './context/ToastContext';
+import type { UsuarioGoogle } from '../../shared/ipc-contracts';
 import type {
   ParametrosSistema,
   Categoria,
-  Tienda,
-  Cliente,
-  Pedido,
+  ClienteDetalle,
+  ProductoConStock,
+  PanelData,
 } from '../../shared/types';
-import type { HoyViewData } from '../../shared/ipc-contracts';
-import { useToast } from './context/ToastContext';
 
 export const App: React.FC = () => {
   const { showToast } = useToast();
 
-  const [activeTab, setActiveTab] = useState<NavTab>('hoy');
-  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const [usuario, setUsuario] = useState<UsuarioGoogle | null>(null);
+  const [verificandoAuth, setVerificandoAuth] = useState(true);
+  const [pinDesbloqueado, setPinDesbloqueado] = useState(false);
+  const [tab, setTab] = useState<NavTab>('panel');
 
-  // Datos globales
   const [parametros, setParametros] = useState<ParametrosSistema | null>(null);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
-  const [tiendas, setTiendas] = useState<Tienda[]>([]);
-  const [clientes, setClientes] = useState<Cliente[]>([]);
-  const [pedidos, setPedidos] = useState<Pedido[]>([]);
-  const [hoyData, setHoyData] = useState<HoyViewData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [clientes, setClientes] = useState<ClienteDetalle[]>([]);
+  const [productos, setProductos] = useState<ProductoConStock[]>([]);
+  const [panel, setPanel] = useState<PanelData | null>(null);
+  const [cargando, setCargando] = useState(true);
 
-  // Filtro / Selección activa
-  const [selectedPedidoId, setSelectedPedidoId] = useState<number | undefined>(undefined);
+  // Selección que viaja entre vistas al hacer clic en una alerta.
+  const [productoSeleccionado, setProductoSeleccionado] = useState<number | undefined>();
+  const [ventaSeleccionada, setVentaSeleccionada] = useState<number | undefined>();
+  const [abrirEditor, setAbrirEditor] = useState<NavTab | null>(null);
+  const [actualizacionLista, setActualizacionLista] = useState<{ version: string } | null>(null);
+  const [descargandoUpdate, setDescargandoUpdate] = useState<number | null>(null);
 
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const [paramRes, catRes, tiendaRes, cliRes, pedRes, hoyRes] = await Promise.all([
-        window.api.parametros.get(),
-        window.api.categorias.list(),
-        window.api.tiendas.list(),
-        window.api.clientes.list(),
-        window.api.pedidos.list(),
-        window.api.vistas.getHoy(),
-      ]);
+  useEffect(() => {
+    if (!window.api?.actualizador) return;
 
-      if (paramRes.success) {
-        setParametros(paramRes.data);
-        // Si no tiene cuentas bancarias configuradas, mostrar onboarding
-        if (!paramRes.data.cuentas_bancarias || paramRes.data.cuentas_bancarias.length === 0) {
-          setOnboardingOpen(true);
+    const unregAvailable = window.api.actualizador.onUpdateAvailable((info) => {
+      showToast({
+        message: `Nueva versión v${info.version} encontrada. Descargando en segundo plano…`,
+        type: 'info',
+      });
+    });
+
+    const unregProgress = window.api.actualizador.onUpdateProgress((p) => {
+      setDescargandoUpdate(p.percent);
+    });
+
+    const unregDownloaded = window.api.actualizador.onUpdateDownloaded((info) => {
+      setDescargandoUpdate(null);
+      setActualizacionLista(info);
+      showToast({
+        message: `¡Versión v${info.version} lista para instalar!`,
+        type: 'success',
+      });
+    });
+
+    return () => {
+      unregAvailable();
+      unregProgress();
+      unregDownloaded();
+    };
+  }, [showToast]);
+
+  useEffect(() => {
+    window.api.auth
+      .obtenerUsuario()
+      .then((res) => {
+        if (res.success && res.data) {
+          setUsuario(res.data);
         }
-      }
-      if (catRes.success) setCategorias(catRes.data);
-      if (tiendaRes.success) setTiendas(tiendaRes.data);
-      if (cliRes.success) setClientes(cliRes.data);
-      if (pedRes.success) setPedidos(pedRes.data);
-      if (hoyRes.success) setHoyData(hoyRes.data);
-    } catch (err) {
-      console.error('Error cargando datos principales:', err);
-    } finally {
-      setLoading(false);
-    }
+      })
+      .finally(() => {
+        setVerificandoAuth(false);
+      });
   }, []);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  const cerrarSesion = useCallback(async () => {
+    await window.api.auth.cerrarSesion();
+    setUsuario(null);
+    setPinDesbloqueado(false);
+  }, []);
 
-  // Atajos globales de teclado (U3)
+  const cargar = useCallback(async () => {
+    setCargando(true);
+    try {
+      const [rp, rc, rcl, rpr, rpanel] = await Promise.all([
+        window.api.parametros.get(),
+        window.api.categorias.list(),
+        window.api.clientes.list(),
+        window.api.productos.list(),
+        window.api.panel.cargar(),
+      ]);
+
+      if (rp.success) setParametros(rp.data);
+      if (rc.success) setCategorias(rc.data);
+      if (rcl.success) setClientes(rcl.data);
+      if (rpr.success) setProductos(rpr.data);
+      if (rpanel.success) setPanel(rpanel.data);
+
+      const fallo = [rp, rc, rcl, rpr, rpanel].find((r) => !r.success);
+      if (fallo && !fallo.success) {
+        showToast({ message: fallo.error, type: 'error' });
+      }
+    } finally {
+      setCargando(false);
+    }
+  }, [showToast]);
+
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl+K: Buscar
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        setCommandPaletteOpen((prev) => !prev);
-      }
-      // Ctrl+N: Nueva cotización
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n' && !e.shiftKey) {
-        e.preventDefault();
-        setActiveTab('cotizador');
-      }
-      // Ctrl+B: Respaldo manual
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
-        e.preventDefault();
-        window.api.sistema.crearBackup().then((res) => {
-          if (res.success) {
-            showToast({ message: 'Respaldo manual completado (Ctrl+B)', type: 'success' });
-          }
-        });
+    if (usuario) cargar();
+  }, [usuario, cargar]);
+
+  // Al entrar al panel o cambiar de pestaña, asegurar que los datos estén frescos
+  useEffect(() => {
+    if (usuario && tab === 'panel') {
+      window.api.panel.cargar().then((r) => {
+        if (r.success) setPanel(r.data);
+      });
+    }
+  }, [tab, usuario]);
+
+  // Atajos de teclado
+  useEffect(() => {
+    if (!usuario) return;
+
+    const alPresionar = (e: KeyboardEvent) => {
+      const conModificador = e.ctrlKey || e.metaKey;
+      if (!conModificador) return;
+
+      switch (e.key.toLowerCase()) {
+        case 'n':
+          e.preventDefault();
+          irA('ventas', undefined, true);
+          break;
+        case 'l':
+          e.preventDefault();
+          cerrarSesion();
+          break;
+        default:
+          break;
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showToast]);
+    window.addEventListener('keydown', alPresionar);
+    return () => window.removeEventListener('keydown', alPresionar);
+  }, [usuario, cerrarSesion]);
 
-  // Semáforo counts para la cabecera
-  const semaforoCounts = React.useMemo(() => {
-    let verde = 0;
-    let amarillo = 0;
-    let rojo = 0;
+  const irA = (destino: NavTab, id?: number, abrirNuevo = false) => {
+    setProductoSeleccionado(destino === 'inventario' ? id : undefined);
+    setVentaSeleccionada(destino === 'ventas' || destino === 'encargos' ? id : undefined);
+    setAbrirEditor(abrirNuevo ? destino : null);
+    setTab(destino);
+  };
 
-    for (const p of pedidos) {
-      const pagadoCorCents = p.total_cor_cents - p.saldo_pendiente_cor_cents;
-      if (p.anticipo_verificado) {
-        verde++;
-      } else if (pagadoCorCents > 0) {
-        amarillo++;
-      } else {
-        rojo++;
-      }
+  const navegarDesdePanel = (destino: DestinoPanel, id?: number) => {
+    if (destino === 'ventas' && id) {
+      const esEncargo = panel?.por_cobrar.find((p) => p.venta_id === id)?.tipo === 'ENCARGO';
+      irA(esEncargo ? 'encargos' : 'ventas', id);
+      return;
     }
+    irA(destino as NavTab, id);
+  };
 
-    return { verde, amarillo, rojo };
-  }, [pedidos]);
+  const avisos = useMemo(
+    () => ({
+      bajoStock: panel?.bajo_stock.length ?? 0,
+      porCobrar: panel?.por_cobrar.filter((p) => p.cuotas_vencidas > 0).length ?? 0,
+      encargosPendientes:
+        panel?.alertas.filter((a) => a.id.startsWith('encargo-')).length ?? 0,
+    }),
+    [panel]
+  );
 
-  const pedidosRequierenAtencionCount = React.useMemo(() => {
-    return pedidos.filter((p) => p.requiere_atencion).length;
-  }, [pedidos]);
+  if (verificandoAuth) {
+    return (
+      <div className="min-h-screen w-screen bg-inverso flex items-center justify-center text-inverso-texto text-sm">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 rounded-full border-2 border-acento border-t-transparent animate-spin" />
+          <span className="text-inverso-texto-2">Iniciando Glow Heaven Manager...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!usuario) {
+    return <LoginView onLoginSuccess={(u) => setUsuario(u)} />;
+  }
+
+  if (parametros?.pin_seguridad && !pinDesbloqueado) {
+    return (
+      <PinLockView
+        pinCorrecto={parametros.pin_seguridad}
+        onDesbloqueado={() => setPinDesbloqueado(true)}
+        onCerrarSesion={cerrarSesion}
+      />
+    );
+  }
+
+  const monedaConfig = {
+    tasa_cambio_cents: parametros?.tasa_cambio_cents ?? 3662,
+    mostrar_cordobas: parametros?.mostrar_cordobas ?? true,
+  };
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-slate-100 overflow-hidden select-none">
-      {/* Header Superior */}
-      <Header
-        tasaCambioCents={parametros?.tasa_cambio_oficial_cents ?? 3662}
-        onOpenCommandPalette={() => setCommandPaletteOpen(true)}
-        onNewCotizacion={() => setActiveTab('cotizador')}
-        semaforoCounts={semaforoCounts}
-      />
-
-      {/* Contenido Principal con Sidebar */}
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar
-          activeTab={activeTab}
-          onSelectTab={(tab) => {
-            setSelectedPedidoId(undefined);
-            setActiveTab(tab);
-          }}
-          pedidosRequierenAtencionCount={pedidosRequierenAtencionCount}
+    <MonedaProvider valor={monedaConfig}>
+      <div className="flex flex-col h-screen w-screen bg-superficie-2 overflow-hidden select-none">
+        {actualizacionLista && (
+          <div className="bg-emerald-600 text-white px-5 py-2 flex items-center justify-between text-xs font-bold shadow-md shrink-0 z-50">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-emerald-200 animate-pulse" />
+              <span>Nueva actualización v{actualizacionLista.version} lista para instalar.</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => window.api?.actualizador?.reiniciarYAplicar()}
+              className="bg-white text-emerald-800 px-3.5 py-1 rounded-lg text-xs font-extrabold shadow-sm hover:bg-emerald-50 active:scale-95 transition-all cursor-pointer"
+            >
+              Reiniciar y actualizar ahora
+            </button>
+          </div>
+        )}
+        {descargandoUpdate !== null && (
+          <div className="bg-slate-800 text-white px-5 py-1.5 flex items-center justify-between text-xs shrink-0 z-50">
+            <span>Descargando actualización en segundo plano: {descargandoUpdate.toFixed(0)}%</span>
+            <div className="w-32 bg-slate-700 h-1.5 rounded-full overflow-hidden">
+              <div className="bg-emerald-400 h-full transition-all duration-300" style={{ width: `${descargandoUpdate}%` }} />
+            </div>
+          </div>
+        )}
+        <Header
+          titulo={tab === 'panel' ? 'Tu negocio hoy' : TITULOS[tab]}
+          tasaCambioCents={monedaConfig.tasa_cambio_cents}
+          usuario={usuario}
+          onRefrescar={tab === 'panel' ? cargar : undefined}
+          onNuevaVenta={() => irA('ventas', undefined, true)}
+          onNuevoPaquete={() => irA('paquetes', undefined, true)}
+          onCerrarSesion={cerrarSesion}
         />
 
-        <main className="flex-1 flex overflow-hidden">
-          {activeTab === 'hoy' && (
-            <HoyView
-              data={hoyData}
-              loading={loading}
-              pedidosBloqueados={semaforoCounts.rojo}
-              pedidosListos={semaforoCounts.verde}
-              onNewCotizacion={() => setActiveTab('cotizador')}
-              onNavigateToPedidos={(pedidoId) => {
-                setSelectedPedidoId(pedidoId);
-                setActiveTab('pedidos');
-              }}
-            />
-          )}
+        <div className="flex flex-1 overflow-hidden">
+          <Sidebar
+            activeTab={tab}
+            onSelectTab={(t) => irA(t)}
+            avisos={avisos}
+            nombreNegocio={parametros?.nombre_negocio || 'Glow Heaven'}
+          />
 
-          {activeTab === 'cotizador' && (
-            <CotizadorView
-              clientes={clientes}
-              categorias={categorias}
-              tiendas={tiendas}
-              parametros={parametros}
-              onNewCliente={() => setActiveTab('clientes')}
-              onCotizacionConvertedToPedido={(pedId) => {
-                loadData();
-                setSelectedPedidoId(pedId);
-                setActiveTab('pedidos');
-              }}
-            />
-          )}
+          <main className="flex-1 flex overflow-hidden">
+            {tab === 'panel' && (
+              <PanelView
+                data={panel}
+                loading={cargando}
+                onNavegar={navegarDesdePanel}
+                onNuevaVenta={() => irA('ventas', undefined, true)}
+                onNuevoPaquete={() => irA('paquetes', undefined, true)}
+              />
+            )}
 
-          {activeTab === 'compras' && (
-            <ComprasView />
-          )}
+            {tab === 'inventario' && (
+              <InventarioView
+                categorias={categorias}
+                parametros={parametros}
+                productoInicialId={productoSeleccionado}
+                onCambio={cargar}
+              />
+            )}
 
-          {activeTab === 'pedidos' && (
-            <PedidosView
-              pedidos={pedidos}
-              loading={loading}
-              onRefresh={loadData}
-              initialPedidoId={selectedPedidoId}
-            />
-          )}
+            {tab === 'paquetes' && (
+              <PaquetesView
+                parametros={parametros}
+                abrirEditorAlEntrar={abrirEditor === 'paquetes'}
+                onCambio={cargar}
+              />
+            )}
 
-          {activeTab === 'clientes' && (
-            <ClientesView
-              clientes={clientes}
-              loading={loading}
-              onRefresh={loadData}
-            />
-          )}
+            {(tab === 'ventas' || tab === 'encargos') && (
+              <VentasView
+                key={tab}
+                tipo={tab === 'encargos' ? 'ENCARGO' : 'INVENTARIO'}
+                productos={productos}
+                clientes={clientes}
+                parametros={parametros}
+                ventaInicialId={ventaSeleccionada}
+                abrirEditorAlEntrar={abrirEditor === tab}
+                onCambio={cargar}
+              />
+            )}
 
-          {activeTab === 'config' && (
-            <ConfigView
-              parametros={parametros}
-              categorias={categorias}
-              onRefresh={loadData}
-            />
-          )}
-        </main>
+            {tab === 'clientes' && (
+              <ClientesView
+                onCambio={cargar}
+                onVerVenta={(id, tipoVenta) =>
+                  irA(tipoVenta === 'ENCARGO' ? 'encargos' : 'ventas', id)
+                }
+              />
+            )}
+
+            {tab === 'config' && (
+              <ConfigView parametros={parametros} categorias={categorias} onCambio={cargar} />
+            )}
+          </main>
+        </div>
       </div>
-
-      {/* Omnibox / Paleta de Comandos (Ctrl+K) */}
-      <CommandPalette
-        isOpen={commandPaletteOpen}
-        onClose={() => setCommandPaletteOpen(false)}
-        onAction={(action) => {
-          if (action === 'new-cotizacion') setActiveTab('cotizador');
-          if (action === 'new-cliente') setActiveTab('clientes');
-          if (action === 'backup') {
-            window.api.sistema.crearBackup().then((res) => {
-              if (res.success) showToast({ message: 'Respaldo manual completado', type: 'success' });
-            });
-          }
-        }}
-        onSelectCliente={() => setActiveTab('clientes')}
-        onSelectPedido={(p) => {
-          setSelectedPedidoId(p.id);
-          setActiveTab('pedidos');
-        }}
-      />
-
-      {/* Asistente Inicial de Bienvenida (U5) */}
-      <OnboardingModal
-        isOpen={onboardingOpen}
-        onFinish={() => {
-          setOnboardingOpen(false);
-          loadData();
-        }}
-        categorias={categorias}
-      />
-    </div>
+    </MonedaProvider>
   );
 };

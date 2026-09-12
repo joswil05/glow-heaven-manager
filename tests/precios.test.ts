@@ -1,160 +1,146 @@
 import { describe, it, expect } from 'vitest';
 import {
-  calcularCotizacion,
-  CotizarItemInput,
-  ParametrosEntidadesCotizacion,
-} from '../src/core/precios';
+  calcularPrecio,
+  calcularPrecioPaquete,
+  margenDeVenta,
+  redondearHaciaArriba,
+} from '@core/precios';
 
-describe('src/core/precios.ts - Cotizador Multítem', () => {
-  const defaultParams: ParametrosEntidadesCotizacion = {
-    tasa_cambio_cents: 3662, // C$36.62
-    tarifa_flete_cents_lb: 650, // $6.50 / lb
-    flete_minimo_usd_cents: 0,
-    umbral_arancel_excedente_usd_cents: 5000, // $50.00
-    arancel_default_bp: 3000, // 30%
-    tax_usa_default_bp: 700, // 7%
-    comision_minima_cotizacion_cor_cents: 30000, // C$300.00
-    anticipo_default_bp: 5000, // 50%
-  };
+describe('redondearHaciaArriba', () => {
+  it('sube al siguiente dólar entero', () => {
+    expect(redondearHaciaArriba(4260, 100)).toBe(4300);
+    expect(redondearHaciaArriba(4201, 100)).toBe(4300);
+  });
 
-  it('calcula arancel sobre el total de la cotización y no por ítem (Bloqueador 1)', () => {
-    // 5 labiales de $40 c/u = $200.00 total. Excedente sobre $50 = $150.00.
-    // Con arancel 32.5% (3250 bp) -> arancel total = $150 * 0.325 = $48.75 (4875 centavos).
-    // Si fuera por ítem individual ($40 < $50), daría $0.00 de arancel (error grave).
-    const items: CotizarItemInput[] = Array.from({ length: 5 }, (_, i) => ({
-      id: i + 1,
-      descripcion: `Labial ${i + 1}`,
-      precio_usa_usd_cents: 4000,
-      peso_mlb: 200, // 0.2 lb
-      comision_categoria_bp: 3500, // 35%
-      tax_rate_tienda_bp: 0, // Sin tax para coincidir con la tabla de ejemplo ($200 total)
-      arancel_categoria_bp: 3250,
-      redondeo_categoria_cor_cents: 5000,
-    }));
+  it('deja quieto lo que ya cae en el escalón', () => {
+    expect(redondearHaciaArriba(4300, 100)).toBe(4300);
+  });
 
-    const resultado = calcularCotizacion(items, defaultParams);
+  it('sube al siguiente múltiplo de $5', () => {
+    expect(redondearHaciaArriba(4260, 500)).toBe(4500);
+    expect(redondearHaciaArriba(4001, 500)).toBe(4500);
+    expect(redondearHaciaArriba(4000, 500)).toBe(4000);
+  });
 
-    expect(resultado.totales.arancel_estimado_total_usd_cents).toBe(4875);
-    // Cada labial de los 5 recibe 4875 / 5 = 975 centavos de arancel
-    for (const item of resultado.items) {
-      expect(item.arancel_estimado_usd_cents).toBe(975);
+  it('nunca redondea hacia abajo', () => {
+    for (let v = 1; v <= 1000; v++) {
+      expect(redondearHaciaArriba(v, 100)).toBeGreaterThanOrEqual(v);
+    }
+  });
+});
+
+describe('calcularPrecio - margen sobre costo', () => {
+  it('la ganancia se mide contra el costo real, no contra el precio de USA', () => {
+    // Boxers: $30 producto, pero el costo real con tax y envío es $42.60
+    const r = calcularPrecio({
+      costo_unitario_usd_cents: 4260,
+      modo: 'MARGEN',
+      margen_bp: 4000,
+      paso_redondeo_usd_cents: 100,
+    });
+
+    expect(r.precio_crudo_usd_cents).toBe(5964); // 42.60 x 1.40
+    expect(r.precio_usd_cents).toBe(6000); // sube a $60
+    expect(r.ganancia_usd_cents).toBe(1740);
+    // El margen entregado nunca queda por debajo del pedido.
+    expect(r.margen_sobre_costo_bp).toBeGreaterThanOrEqual(4000);
+  });
+
+  it('el redondeo hacia arriba nunca deja el margen por debajo del pedido', () => {
+    for (let costo = 100; costo <= 20000; costo += 137) {
+      for (const margen of [2000, 3500, 4000, 5000, 10000]) {
+        const r = calcularPrecio({
+          costo_unitario_usd_cents: costo,
+          modo: 'MARGEN',
+          margen_bp: margen,
+          paso_redondeo_usd_cents: 100,
+        });
+        expect(r.margen_sobre_costo_bp).toBeGreaterThanOrEqual(margen - 1);
+        expect(r.bajo_costo).toBe(false);
+      }
     }
   });
 
-  it('respeta tax_rate_bp por tienda (0% en Amazon, 7% en Sephora)', () => {
-    const items: CotizarItemInput[] = [
-      {
-        id: 1,
-        descripcion: 'Kindle en Amazon',
-        precio_usa_usd_cents: 10000,
-        peso_mlb: 1000,
-        tax_rate_tienda_bp: 0, // Amazon sin tax
-        comision_categoria_bp: 3000,
-      },
-      {
-        id: 2,
-        descripcion: 'Perfume en Sephora',
-        precio_usa_usd_cents: 10000,
-        peso_mlb: 1000,
-        tax_rate_tienda_bp: 700, // Sephora 7%
-        comision_categoria_bp: 3500,
-      },
-    ];
-
-    const resultado = calcularCotizacion(items, defaultParams);
-
-    expect(resultado.items[0].tax_usa_usd_cents).toBe(0);
-    expect(resultado.items[1].tax_usa_usd_cents).toBe(700);
-  });
-
-  it('redondea el precio final al múltiplo más cercano, hacia abajo cuando corresponde', () => {
-    // Producto $50.00 = C$1831.00, comisión 35% = C$640.85, sin tax, flete ni arancel.
-    // Bruto = C$2471.85. Al múltiplo de C$50 más cercano: C$2450.00 (no C$2500.00).
-    const items: CotizarItemInput[] = [
-      {
-        id: 1,
-        descripcion: 'Perfume',
-        precio_usa_usd_cents: 5000,
-        peso_mlb: 1000,
-        tax_rate_tienda_bp: 0,
-        arancel_categoria_bp: 0,
-        comision_categoria_bp: 3500,
-        redondeo_categoria_cor_cents: 5000,
-      },
-    ];
-
-    const resultado = calcularCotizacion(items, {
-      ...defaultParams,
-      tarifa_flete_cents_lb: 0,
-      arancel_default_bp: 0,
-      comision_minima_cotizacion_cor_cents: 0,
+  it('reporta los dos márgenes por separado y no los confunde', () => {
+    const r = calcularPrecio({
+      costo_unitario_usd_cents: 5000,
+      modo: 'MARGEN',
+      margen_bp: 10000, // el doble
+      paso_redondeo_usd_cents: 100,
     });
-
-    expect(resultado.items[0].precio_final_cor_cents).toBe(245000);
+    expect(r.precio_usd_cents).toBe(10000);
+    expect(r.margen_sobre_costo_bp).toBe(10000); // 100% sobre costo
+    expect(r.margen_sobre_venta_bp).toBe(5000); // 50% del precio
   });
 
-  it('nunca redondea a cero un precio positivo', () => {
-    const items: CotizarItemInput[] = [
-      {
-        id: 1,
-        descripcion: 'Muestra diminuta',
-        precio_usa_usd_cents: 1,
-        peso_mlb: 1,
-        tax_rate_tienda_bp: 0,
-        arancel_categoria_bp: 0,
-        comision_categoria_bp: 0,
-        redondeo_categoria_cor_cents: 5000,
-      },
-    ];
-
-    const resultado = calcularCotizacion(items, {
-      ...defaultParams,
-      tarifa_flete_cents_lb: 0,
-      arancel_default_bp: 0,
-      comision_minima_cotizacion_cor_cents: 0,
+  it('un costo de cero no divide entre cero', () => {
+    const r = calcularPrecio({
+      costo_unitario_usd_cents: 0,
+      modo: 'MARGEN',
+      margen_bp: 4000,
+      paso_redondeo_usd_cents: 100,
     });
-
-    expect(resultado.items[0].precio_final_cor_cents).toBe(5000);
+    expect(r.margen_sobre_costo_bp).toBe(0);
+    expect(r.precio_usd_cents).toBe(0);
   });
+});
 
-  it('aplica comisión mínima por cotización si la suma no alcanza el mínimo', () => {
-    // 1 ítem muy barato donde 35% de $5 es ~$1.75 (~C$64). La cotización exige mínimo C$300 (30000 cents).
-    const items: CotizarItemInput[] = [
-      {
-        id: 1,
-        descripcion: 'Bálsamo Labial',
-        precio_usa_usd_cents: 500, // $5.00
-        peso_mlb: 100, // 0.1 lb
-        comision_categoria_bp: 3500,
-      },
-    ];
-
-    const resultado = calcularCotizacion(items, defaultParams);
-    expect(resultado.totales.comision_total_cor_cents).toBeGreaterThanOrEqual(30000);
-  });
-
-  it('calcula la comisión sobre el precio del producto, no sobre el costo aterrizado', () => {
-    // Producto $100.00 a tasa C$36.62 = C$3662.00. Comisión 35% = C$1281.70.
-    // El flete de $6.50 y el tax NO deben entrar en la base de la comisión.
-    const items: CotizarItemInput[] = [
-      {
-        id: 1,
-        descripcion: 'Producto de referencia',
-        precio_usa_usd_cents: 10000,
-        peso_mlb: 1000,
-        tax_rate_tienda_bp: 700,
-        arancel_categoria_bp: 0,
-        comision_categoria_bp: 3500,
-        redondeo_categoria_cor_cents: 0,
-      },
-    ];
-
-    const resultado = calcularCotizacion(items, {
-      ...defaultParams,
-      umbral_arancel_excedente_usd_cents: 5000,
-      arancel_default_bp: 0,
+describe('calcularPrecio - multiplicador', () => {
+  it('x2 sobre el costo real', () => {
+    const r = calcularPrecio({
+      costo_unitario_usd_cents: 4260,
+      modo: 'MULTIPLICADOR',
+      multiplicador_bp: 20000,
+      paso_redondeo_usd_cents: 100,
     });
+    expect(r.precio_crudo_usd_cents).toBe(8520);
+    expect(r.precio_usd_cents).toBe(8600);
+  });
+});
 
-    expect(resultado.items[0].comision_calculada_cor_cents).toBe(128170);
+describe('calcularPrecio - manual', () => {
+  it('respeta el precio escrito sin subirlo al escalón', () => {
+    const r = calcularPrecio({
+      costo_unitario_usd_cents: 4260,
+      modo: 'MANUAL',
+      precio_manual_usd_cents: 5550,
+      paso_redondeo_usd_cents: 100,
+    });
+    expect(r.precio_usd_cents).toBe(5550);
+    expect(r.ajuste_redondeo_usd_cents).toBe(0);
+  });
+
+  it('avisa cuando el precio no cubre el costo', () => {
+    const r = calcularPrecio({
+      costo_unitario_usd_cents: 4260,
+      modo: 'MANUAL',
+      precio_manual_usd_cents: 3000,
+      paso_redondeo_usd_cents: 100,
+    });
+    expect(r.bajo_costo).toBe(true);
+    expect(r.ganancia_usd_cents).toBe(-1260);
+  });
+});
+
+describe('calcularPrecioPaquete', () => {
+  it('el paquete completo vale el unitario por la cantidad', () => {
+    expect(calcularPrecioPaquete(1200, 6)).toBe(7200);
+  });
+
+  it('cantidad cero se trata como una unidad, no como precio cero', () => {
+    expect(calcularPrecioPaquete(1200, 0)).toBe(1200);
+  });
+});
+
+describe('margenDeVenta', () => {
+  it('usa el costo congelado de la venta', () => {
+    const r = margenDeVenta(6000, 4260);
+    expect(r.ganancia_usd_cents).toBe(1740);
+    expect(r.margen_sobre_costo_bp).toBe(4085);
+  });
+
+  it('una venta bajo costo da ganancia negativa, no cero', () => {
+    const r = margenDeVenta(3000, 4260);
+    expect(r.ganancia_usd_cents).toBe(-1260);
   });
 });

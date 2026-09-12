@@ -5,9 +5,9 @@ export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 export type ButtonSize = 'sm' | 'md';
 
 const VARIANTES: Record<ButtonVariant, string> = {
-  primary: 'bg-brand-600 text-white border-transparent hover:bg-brand-700 active:bg-brand-800',
-  secondary: 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50',
-  ghost: 'bg-transparent text-slate-600 border-transparent hover:bg-slate-100',
+  primary: 'bg-acento text-acento-texto border-transparent hover:bg-acento-fuerte',
+  secondary: 'bg-superficie text-texto-2 border-borde-fuerte hover:bg-superficie-2',
+  ghost: 'bg-transparent text-texto-2 border-transparent hover:bg-superficie-2',
   danger: 'bg-danger-600 text-white border-transparent hover:bg-danger-700',
 };
 
@@ -21,16 +21,19 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   size?: ButtonSize;
 }
 
-export const Button: React.FC<ButtonProps> = ({
-  variant = 'primary',
-  size = 'md',
-  className,
-  ...rest
-}) => (
+// `forwardRef` para que un diálogo pueda poner el foco en un botón concreto:
+// en una confirmación destructiva el foco arranca en la salida, no en la
+// acción que destruye.
+export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+  { variant = 'primary', size = 'md', className, ...rest },
+  ref
+) {
+  return (
   <button
+    ref={ref}
     className={cn(
       'inline-flex items-center justify-center rounded-md border transition-colors',
-      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-1',
+      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento focus-visible:ring-offset-1',
       'disabled:opacity-50 disabled:pointer-events-none',
       VARIANTES[variant],
       TAMANOS[size],
@@ -38,4 +41,5 @@ export const Button: React.FC<ButtonProps> = ({
     )}
     {...rest}
   />
-);
+  );
+});

@@ -20,7 +20,7 @@ export default defineConfig({
           build: {
             outDir: path.join(__dirname, 'dist-electron/main'),
             rollupOptions: {
-              external: ['better-sqlite3'],
+              external: [],
             },
           },
         },
@@ -29,6 +29,11 @@ export default defineConfig({
         entry: path.join(__dirname, 'src/preload/index.ts'),
         vite: {
           build: {
+            lib: {
+              entry: path.join(__dirname, 'src/preload/index.ts'),
+              formats: ['cjs'],
+              fileName: () => 'index.cjs',
+            },
             outDir: path.join(__dirname, 'dist-electron/preload'),
           },
         },

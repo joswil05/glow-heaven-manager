@@ -28,23 +28,23 @@ export function DataTable<T>({
 }: DataTableProps<T>) {
   if (rows.length === 0) {
     return (
-      <div className="bg-white rounded-lg border border-slate-200 p-8 text-center text-body text-slate-500">
+      <div className="bg-superficie rounded-lg border border-borde p-8 text-center text-body text-texto-3">
         {emptyMessage}
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-lg border border-slate-200 overflow-x-auto">
+    <div className="bg-superficie rounded-lg border border-borde overflow-x-auto">
       <table className="w-full border-collapse">
         <thead>
-          <tr className="border-b border-slate-200">
+          <tr className="border-b border-borde">
             {columns.map((col) => (
               <th
                 key={col.key}
                 style={col.width ? { width: col.width } : undefined}
                 className={cn(
-                  'px-4 py-2.5 text-caption font-semibold uppercase tracking-wide text-slate-500',
+                  'px-4 py-2.5 text-caption font-semibold uppercase tracking-wide text-texto-3',
                   col.align === 'right' ? 'text-right' : 'text-left'
                 )}
               >
@@ -61,16 +61,16 @@ export function DataTable<T>({
                 key={key}
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
                 className={cn(
-                  'border-b border-slate-100 last:border-0',
-                  onRowClick && 'cursor-pointer hover:bg-slate-50',
-                  selectedKey === key && 'bg-brand-50 hover:bg-brand-50'
+                  'border-b border-borde last:border-0',
+                  onRowClick && 'cursor-pointer hover:bg-superficie-2',
+                  selectedKey === key && 'bg-acento-suave hover:bg-acento-suave'
                 )}
               >
                 {columns.map((col) => (
                   <td
                     key={col.key}
                     className={cn(
-                      'px-4 py-2.5 text-body text-slate-700',
+                      'px-4 py-2.5 text-body text-texto-2',
                       col.align === 'right' && 'text-right tabular'
                     )}
                   >

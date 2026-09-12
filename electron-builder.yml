@@ -8,9 +8,8 @@ files:
   - "dist-electron/**/*"
   - "package.json"
 asar: true
-asarUnpack:
-  - "**/node_modules/better-sqlite3/**"
 win:
+  icon: build/icon.ico
   target:
     - target: nsis
       arch:
@@ -20,3 +19,11 @@ nsis:
   perMachine: false
   allowToChangeInstallationDirectory: true
   deleteAppDataOnUninstall: false
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+publish:
+  provider: github
+  owner: joswil05
+  repo: glow-heaven-manager
+  releaseType: release
+

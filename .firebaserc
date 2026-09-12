@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "default": "glow-heaven-db-app"
+  },
+  "targets": {
+    "glow-heaven-db-app": {
+      "hosting": {
+        "movil": [
+          "glow-heaven-movil"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

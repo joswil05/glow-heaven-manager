@@ -1,0 +1,110 @@
+rules_version = '2';
+
+// ============================================================================
+// Reglas de Glow Heaven Manager
+//
+// La configuración anterior era `allow read, write: if true`, el modo de
+// prueba que crea la consola de Firebase. Con esa regla, cualquiera que
+// conozca el ID del proyecto puede leer y escribir la base entera: nombres y
+// teléfonos de clientes, costos, ganancias y deudas. El ID viaja dentro de la
+// aplicación, así que no es un secreto.
+//
+// Acá solo entra una sesión autenticada. Antes de publicar estas reglas hay
+// que dejar lista la cuenta, o la aplicación se queda sin acceso:
+//
+//   1. Consola de Firebase > Authentication > Sign-in method
+//      Habilitar "Correo electrónico/contraseña".
+//   2. Authentication > Users > Add user
+//      Crear UNA cuenta para el negocio y anotar el correo y la contraseña.
+//   3. En la aplicación: Configuración > Acceso a la base, escribir esos
+//      datos. Se guardan cifrados en esta computadora.
+//   4. Recién entonces: firebase deploy --only firestore:rules
+//
+// Si más adelante hay más de una persona operando, lo correcto es una cuenta
+// por persona y una lista de UID permitidos acá.
+// ============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function autenticado() {
+      return request.auth != null && request.auth.uid != null;
+    }
+
+    // El dinero siempre es entero de centavos. Un decimal acá significa que
+    // algo escribió fuera de la aplicación.
+    //
+    // En un `delete` no existe `request.resource`, así que esta función solo
+    // puede usarse en create y update. Llamarla en un `write` (que incluye
+    // delete) hace fallar el borrado con "Null value error", que es lo que
+    // pasaba antes: deshacer la creación de un producto quedaba bloqueado.
+    function centavosValidos(campo) {
+      return !(campo in request.resource.data)
+          || (request.resource.data[campo] is int);
+    }
+
+    match /productos/{id} {
+      allow read, delete: if autenticado();
+      allow create, update: if autenticado()
+                   && centavosValidos('valor_inventario_usd_cents')
+                   && centavosValidos('costo_unitario_usd_cents')
+                   && centavosValidos('precio_venta_usd_cents');
+    }
+
+    match /ventas/{id} {
+      allow read, delete: if autenticado();
+      allow create, update: if autenticado()
+                   && centavosValidos('total_usd_cents')
+                   && centavosValidos('costo_total_usd_cents')
+                   && centavosValidos('saldo_usd_cents');
+    }
+
+    match /compras/{id} {
+      allow read, delete: if autenticado();
+      allow create, update: if autenticado()
+                   && centavosValidos('total_usd_cents')
+                   && centavosValidos('envio_total_usd_cents');
+    }
+
+    match /pagos/{id} {
+      allow read, delete: if autenticado();
+      allow create, update: if autenticado()
+                   && centavosValidos('monto_usd_cents');
+    }
+
+    match /clientes/{id} {
+      allow read, write: if autenticado();
+    }
+
+    match /categorias/{id} {
+      allow read, write: if autenticado();
+    }
+
+    match /parametros/{id} {
+      allow read, write: if autenticado();
+    }
+
+    match /movimientos_inventario/{id} {
+      // El historial de inventario explica por qué las existencias son las
+      // que son. Se agrega y se lee, pero no se edita ni se borra.
+      allow read, create: if autenticado();
+      allow update, delete: if false;
+    }
+
+    match /eventos/{id} {
+      // La auditoría se borra solo al deshacer, que es parte del flujo.
+      allow read, create, delete: if autenticado();
+      allow update: if false;
+    }
+
+    match /_secuencias/{id} {
+      allow read, write: if autenticado();
+    }
+
+    // Cualquier colección que no esté nombrada arriba queda cerrada. Si el
+    // modelo crece, la regla nueva se agrega acá a propósito.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

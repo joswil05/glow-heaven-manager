@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@core/*": ["../src/core/*"],
+      "@shared/*": ["../src/shared/*"],
+      "@repos/*": ["../src/main/firebase/repositories/*"],
+      "@firebase-client": ["../src/main/firebase/client.ts"]
+    },
+    "types": ["vite/client"]
+  },
+  // Solo `src/` es raíz del programa. Los módulos reutilizados de
+  // `../src/core`, `../src/shared` y `../src/main/firebase/{client,repositories}`
+  // entran igual al chequeo porque este código los importa, pero no se
+  // arrastra el resto de `src/main/firebase` (como `auth.ts` o
+  // `google-auth.service.ts`, que dependen de tipos de Electron y de una
+  // migración de login en curso ajena a esta app: ver `docs/CONTINUAR.md`).
+  "include": ["src", "vite.config.ts"]
+}

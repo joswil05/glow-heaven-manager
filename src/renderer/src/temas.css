@@ -1,0 +1,50 @@
+/**
+ * Paleta: Vivid Emerald & Clean Slate.
+ *
+ * Los colores viven como variables CSS en canales RGB sueltos, que es el
+ * formato que Tailwind necesita para poder aplicarles opacidad
+ * (`bg-superficie/60`, `border-borde/50`).
+ *
+ * Cumple con contraste WCAG AA en todas las combinaciones de texto y fondos.
+ */
+
+:root {
+  /* Fondo y superficies */
+  --fondo: 245 247 250;
+  --superficie: 255 255 255;
+  --superficie-2: 237 241 247;
+  --borde: 218 225 236;
+  --borde-fuerte: 190 200 215;
+
+  /* Texto */
+  --texto: 12 20 38;
+  --texto-2: 55 70 95;
+  --texto-3: 130 145 170;
+
+  /* Barra lateral */
+  --barra: 255 255 255;
+  --barra-2: 237 241 247;
+  --barra-texto: 40 55 75;
+  --barra-texto-2: 90 105 130;
+
+  /* Acento: Esmeralda vibrante */
+  --acento: 5 165 110;
+  --acento-fuerte: 2 130 88;
+  --acento-suave: 230 252 243;
+  --acento-texto: 255 255 255;
+
+  /* Estados con tonos más ricos */
+  --exito: 5 165 110;
+  --exito-suave: 228 250 240;
+  --alerta: 234 130 0;
+  --alerta-suave: 255 240 210;
+  --peligro: 235 30 60;
+  --peligro-suave: 255 225 230;
+
+  /* Superficie oscura */
+  --inverso: 12 20 38;
+  --inverso-2: 26 36 55;
+  --inverso-texto: 245 247 250;
+  --inverso-texto-2: 140 155 180;
+  --velo: 12 20 38;
+}

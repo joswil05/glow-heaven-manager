@@ -69,3 +69,41 @@ export function formatearPorcentaje(bp: number): string {
   const pct = bp / 100;
   return `${pct % 1 === 0 ? pct.toFixed(0) : pct.toFixed(1)}%`;
 }
+
+/**
+ * Fecha legible. Las pantallas mezclaban `11/09/2026` (del input nativo) con
+ * `2026-09-11` (ISO crudo) en la misma vista, y ninguno de los dos es como
+ * habla nadie.
+ */
+const MESES_CORTOS = [
+  'ene', 'feb', 'mar', 'abr', 'may', 'jun',
+  'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
+];
+
+export function formatearFecha(iso: string | undefined | null): string {
+  if (!iso) return '';
+  const [a, m, d] = iso.slice(0, 10).split('-').map(Number);
+  if (!a || !m || !d) return String(iso);
+
+  const mes = MESES_CORTOS[m - 1] ?? String(m);
+  const esteAno = new Date().getFullYear();
+  return a === esteAno ? `${d} ${mes}` : `${d} ${mes} ${a}`;
+}
+
+/**
+ * Cuánto falta o cuánto hace, en palabras. Una fecha de vencimiento obliga a
+ * restar contra el calendario; "vence en 3 días" no.
+ */
+export function relativoAHoy(iso: string | undefined | null): string {
+  if (!iso) return '';
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  const objetivo = new Date(`${iso.slice(0, 10)}T00:00:00`);
+  const dias = Math.round((objetivo.getTime() - hoy.getTime()) / 86_400_000);
+
+  if (dias === 0) return 'vence hoy';
+  if (dias === 1) return 'vence mañana';
+  if (dias === -1) return 'venció ayer';
+  if (dias > 1) return `vence en ${dias} días`;
+  return `venció hace ${Math.abs(dias)} días`;
+}

@@ -1,406 +1,547 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Building2,
-  Plane,
-  ShieldAlert,
-  Percent,
-  Save,
-  Trash2,
-  Plus,
-} from 'lucide-react';
-import type { ParametrosSistema, Categoria, CuentaBancariaJSON } from '../../../shared/types';
-import { parsearACentavos } from '@core/numeros';
-import { useToast } from '../context/ToastContext';
+import { Save, Database, RefreshCw, Plus, Archive, Tag, ShieldCheck, Lock } from 'lucide-react';
+import type { ParametrosSistema, Categoria } from '../../../shared/types';
+import type { InfoSistema } from '../../../shared/ipc-contracts';
 import {
   Card,
   CardHeader,
   CardContent,
   SectionHeader,
+  Button,
   Field,
   Input,
   Select,
-  Button,
+  Badge,
 } from '../components/ui';
-import { cn } from '../lib/cn';
-import { CategoriasSection } from './config/CategoriasSection';
-
-const SECCIONES = [
-  { id: 'tasa_courier' as const, label: 'Tasa y courier' },
-  { id: 'aduana' as const, label: 'Aduana' },
-  { id: 'categorias' as const, label: 'Categorías y ganancia' },
-  { id: 'cuentas' as const, label: 'Cuentas bancarias' },
-];
+import { parsearDecimal } from '@core/numeros';
+import { calcularPrecio } from '@core/precios';
+import { useToast } from '../context/ToastContext';
+import { NubeSection } from './config/NubeSection';
+import { formatearMoneda } from '@core/moneda';
 
 interface ConfigViewProps {
   parametros: ParametrosSistema | null;
   categorias: Categoria[];
-  onRefresh: () => void;
+  onCambio: () => void;
 }
 
-export const ConfigView: React.FC<ConfigViewProps> = ({
-  parametros,
-  categorias,
-  onRefresh,
-}) => {
-  const { showToast, showUndoToast } = useToast();
-  const [seccion, setSeccion] = useState<'tasa_courier' | 'aduana' | 'categorias' | 'cuentas'>('tasa_courier');
+const PASOS = [
+  { valor: 100, etiqueta: 'Al dólar entero ($43, $44)' },
+  { valor: 500, etiqueta: 'A múltiplos de $5 ($45, $50)' },
+  { valor: 1000, etiqueta: 'A múltiplos de $10 ($50, $60)' },
+  { valor: 50, etiqueta: 'A los 50 centavos ($43.50)' },
+  { valor: 25, etiqueta: 'A los 25 centavos ($43.25)' },
+  { valor: 1, etiqueta: 'Sin redondear ($43.27)' },
+];
 
-  // Estados locales en formato humano
-  const [tasaCambio, setTasaCambio] = useState('36.62');
-  const [tarifaFlete, setTarifaFlete] = useState('6.50');
-  const [fleteMinimo, setFleteMinimo] = useState('15.00');
-  const [otrosCostosFijos, setOtrosCostosFijos] = useState('10.00');
-  const [umbralArancel, setUmbralArancel] = useState('50.00');
-  const [arancelDefault, setArancelDefault] = useState('32.5');
-  const [comisionMinima, setComisionMinima] = useState('300.00');
-  const [anticipoDefault, setAnticipoDefault] = useState('50');
-  const [cuentas, setCuentas] = useState<CuentaBancariaJSON[]>([]);
+const num = (t: string): number => parsearDecimal(t) ?? 0;
+
+export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, onCambio }) => {
+  const { showToast } = useToast();
+
+  const [tasa, setTasa] = useState('');
+  const [tax, setTax] = useState('');
+  const [tarifaEnvio, setTarifaEnvio] = useState('');
+  const [margen, setMargen] = useState('');
+  const [paso, setPaso] = useState(100);
+  const [anticipo, setAnticipo] = useState('');
+  const [stockMinimo, setStockMinimo] = useState('');
+  const [mostrarCordobas, setMostrarCordobas] = useState(true);
+  const [nombreNegocio, setNombreNegocio] = useState('');
+  const [telefono, setTelefono] = useState('');
+  const [pinSeguridad, setPinSeguridad] = useState('');
+  const [confirmarPin, setConfirmarPin] = useState('');
   const [guardando, setGuardando] = useState(false);
+  const [info, setInfo] = useState<InfoSistema | null>(null);
 
   useEffect(() => {
-    if (parametros) {
-      setTasaCambio((parametros.tasa_cambio_oficial_cents / 100).toFixed(2));
-      setTarifaFlete((parametros.tarifa_flete_cents_lb / 100).toFixed(2));
-      setFleteMinimo((parametros.flete_minimo_usd_cents / 100).toFixed(2));
-      setOtrosCostosFijos(((parametros.otros_costos_fijos_usd_cents || 1000) / 100).toFixed(2));
-      setUmbralArancel((parametros.umbral_arancel_excedente_usd_cents / 100).toFixed(2));
-      setArancelDefault((parametros.arancel_default_bp / 100).toFixed(1));
-      setComisionMinima((parametros.comision_minima_cotizacion_cor_cents / 100).toFixed(2));
-      setAnticipoDefault((parametros.anticipo_default_bp / 100).toFixed(0));
-      setCuentas(parametros.cuentas_bancarias || []);
-    }
+    if (!parametros) return;
+    setTasa((parametros.tasa_cambio_cents / 100).toFixed(2));
+    setTax(String(parametros.tax_bp / 100));
+    setTarifaEnvio((parametros.tarifa_envio_cents_lb / 100).toFixed(2));
+    setMargen(String(parametros.margen_defecto_bp / 100));
+    setPaso(parametros.paso_redondeo_usd_cents);
+    setAnticipo(String(parametros.anticipo_defecto_bp / 100));
+    setStockMinimo(String(parametros.stock_minimo_defecto));
+    setMostrarCordobas(parametros.mostrar_cordobas);
+    setNombreNegocio(parametros.nombre_negocio);
+    setTelefono(parametros.telefono_negocio);
+    setPinSeguridad(parametros.pin_seguridad ?? '');
+    setConfirmarPin(parametros.pin_seguridad ?? '');
   }, [parametros]);
 
-  const handleAddCuenta = () => {
-    setCuentas((prev) => [
-      ...prev,
-      { banco: 'BAC Credomatic', numero: '', titular: 'Rossana Espinoza', moneda: 'COR' },
-    ]);
-  };
+  useEffect(() => {
+    window.api.sistema.info().then((r) => {
+      if (r.success) setInfo(r.data);
+    });
+  }, []);
 
-  const handleUpdateCuenta = (index: number, field: keyof CuentaBancariaJSON, value: string) => {
-    setCuentas((prev) =>
-      prev.map((c, i) => (i === index ? { ...c, [field]: value } : c))
-    );
-  };
+  // Ejemplo en vivo con un costo típico, para que el efecto de cambiar
+  // margen o redondeo se vea antes de guardar.
+  const ejemplo = calcularPrecio({
+    costo_unitario_usd_cents: 4260,
+    modo: 'MARGEN',
+    margen_bp: Math.round(num(margen) * 100),
+    paso_redondeo_usd_cents: paso,
+  });
 
-  const handleRemoveCuenta = (index: number) => {
-    setCuentas((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      setGuardando(true);
-
-      const campos: { clave: string; etiqueta: string; texto: string; min: number; max: number }[] = [
-        { clave: 'tasa_cambio_oficial_cents', etiqueta: 'Tasa de cambio', texto: tasaCambio, min: 1, max: 1000 },
-        { clave: 'tarifa_flete_cents_lb', etiqueta: 'Tarifa de flete', texto: tarifaFlete, min: 0, max: 1000 },
-        { clave: 'flete_minimo_usd_cents', etiqueta: 'Flete mínimo', texto: fleteMinimo, min: 0, max: 1000 },
-        { clave: 'otros_costos_fijos_usd_cents', etiqueta: 'Casillero', texto: otrosCostosFijos, min: 0, max: 1000 },
-        { clave: 'umbral_arancel_excedente_usd_cents', etiqueta: 'Exoneración de aduana', texto: umbralArancel, min: 0, max: 100000 },
-        { clave: 'comision_minima_cotizacion_cor_cents', etiqueta: 'Comisión mínima', texto: comisionMinima, min: 0, max: 1000000 },
-        { clave: 'arancel_default_bp', etiqueta: 'Arancel por defecto', texto: arancelDefault, min: 0, max: 100 },
-        { clave: 'anticipo_default_bp', etiqueta: 'Anticipo por defecto', texto: anticipoDefault, min: 0, max: 100 },
-      ];
-
-      const valores: Record<string, string> = {};
-      for (const campo of campos) {
-        const n = parsearACentavos(campo.texto, { min: campo.min, max: campo.max });
-        if (n === null) {
-          showToast({
-            message: `Revisá "${campo.etiqueta}": escribí solo números, por ejemplo 36.62`,
-            type: 'error',
-          });
-          setGuardando(false);
-          return;
-        }
-        valores[campo.clave] = n.toString();
-      }
-      valores['cuentas_bancarias'] = JSON.stringify(cuentas);
-
-      const res = await window.api.parametros.updateMany(valores);
-      if (!res.success) {
-        showToast({ message: res.error.message, type: 'error' });
+  const guardar = async () => {
+    if (pinSeguridad.trim()) {
+      if (!/^\d{4,6}$/.test(pinSeguridad.trim())) {
+        showToast({
+          message: 'El PIN debe contener entre 4 y 6 dígitos numéricos (ej. 1234).',
+          type: 'error',
+        });
         return;
       }
-      showUndoToast('Parámetros de configuración actualizados correctamente', () => onRefresh(), res.data.evento_grupo_id);
-      onRefresh();
-    } catch {
-      showToast({ message: 'Error al guardar la configuración', type: 'error' });
+      if (pinSeguridad.trim() !== confirmarPin.trim()) {
+        showToast({
+          message: 'El PIN y la confirmación no coinciden.',
+          type: 'error',
+        });
+        return;
+      }
+    }
+
+    setGuardando(true);
+    try {
+      const r = await window.api.parametros.update({
+        tasa_cambio_cents: Math.round(num(tasa) * 100),
+        tax_bp: Math.round(num(tax) * 100),
+        tarifa_envio_cents_lb: Math.round(num(tarifaEnvio) * 100),
+        margen_defecto_bp: Math.round(num(margen) * 100),
+        paso_redondeo_usd_cents: paso,
+        anticipo_defecto_bp: Math.round(num(anticipo) * 100),
+        stock_minimo_defecto: Math.round(num(stockMinimo)),
+        mostrar_cordobas: mostrarCordobas,
+        nombre_negocio: nombreNegocio.trim(),
+        telefono_negocio: telefono.trim(),
+        pin_seguridad: pinSeguridad.trim(),
+      });
+
+      if (!r.success) {
+        showToast({ message: r.error, type: 'error' });
+        return;
+      }
+
+      showToast({ message: 'Configuración guardada con éxito', type: 'success' });
+      onCambio();
     } finally {
       setGuardando(false);
     }
   };
 
+  const recalcular = async () => {
+    const r = await window.api.parametros.recalcularPrecios();
+    if (r.success) {
+      showToast({
+        message: `Precios recalculados en ${r.data.productos} producto(s).`,
+        type: 'success',
+      });
+      onCambio();
+    }
+  };
+
+  const alPresionarEnter = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Enter') return;
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'TEXTAREA' || target.tagName === 'BUTTON') return;
+
+    if (target.tagName === 'INPUT' || target.tagName === 'SELECT') {
+      e.preventDefault();
+      const contenedor = e.currentTarget;
+      const campos = Array.from(
+        contenedor.querySelectorAll<HTMLElement>(
+          'input:not([type="hidden"]):not([type="checkbox"]):not([disabled]), select:not([disabled])'
+        )
+      ).filter((el) => el.offsetParent !== null);
+
+      const idx = campos.indexOf(target);
+      if (idx !== -1 && idx + 1 < campos.length) {
+        const siguiente = campos[idx + 1];
+        siguiente.focus();
+        if (siguiente instanceof HTMLInputElement) {
+          siguiente.select?.();
+        }
+      } else {
+        guardar();
+      }
+    }
+  };
+
   return (
-    <div className="flex-1 p-6 overflow-y-auto bg-slate-50 space-y-6 animate-fade-in">
-      <div>
-        <h2 className="text-display text-slate-900 tracking-tight">
-          Configuración del Sistema
-        </h2>
-        <p className="text-label text-slate-500 mt-0.5">
-          Ajustá los costos, tarifas, cuentas y márgenes en lenguaje claro.
-        </p>
-      </div>
+    <div className="flex-1 overflow-y-auto p-6 animate-fade-in" onKeyDown={alPresionarEnter}>
+      <div className="max-w-4xl mx-auto space-y-5">
+        <div>
+          <p className="text-label text-texto-2">
+            Los costos que pagás y cómo se calculan tus precios.
+          </p>
+        </div>
 
-      <div className="grid grid-cols-4 gap-6">
-        <nav className="space-y-1">
-          {SECCIONES.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => setSeccion(s.id)}
-              className={cn(
-                'w-full text-left px-3 py-2 rounded-md text-body transition-colors',
-                seccion === s.id
-                  ? 'bg-brand-50 text-brand-700 font-medium'
-                  : 'text-slate-600 hover:bg-slate-100'
-              )}
-            >
-              {s.label}
-            </button>
-          ))}
-        </nav>
+        {/* Conexión con la base. Va primero porque sin esto nada funciona. */}
+        <NubeSection />
 
-        <div className="col-span-3 space-y-4">
-          {seccion === 'tasa_courier' && (
-            <Card>
-              <CardHeader>
-                <SectionHeader
-                  icon={Plane}
-                  title="Tasa de Cambio y Tarifas de Courier USA"
-                  description="Parámetros base para conversión de divisas y flete internacional."
+        {/* Costos de importación */}
+        <Card>
+          <CardHeader>
+            <SectionHeader
+              icon={Database}
+              title="Lo que te cobran"
+              description="Se usa para calcular el costo de cada paquete que traés"
+            />
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Field label="Tax de compra (%)" hint="Lo que te cobran las tiendas en USA">
+                <Input value={tax} onChange={(e) => setTax(e.target.value)} className="text-right" />
+              </Field>
+              <Field label="Envío por libra ($)" hint="Solo es una sugerencia: podés escribir el real">
+                <Input
+                  value={tarifaEnvio}
+                  onChange={(e) => setTarifaEnvio(e.target.value)}
+                  className="text-right"
                 />
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSave} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <Field label="Tasa Oficial (C$ / $1 USD)">
-                      <Input
-                        value={tasaCambio}
-                        onChange={(e) => setTasaCambio(e.target.value)}
-                        placeholder="36.62"
-                      />
-                    </Field>
-
-                    <Field label="Flete Courier ($ / Lb)">
-                      <Input
-                        value={tarifaFlete}
-                        onChange={(e) => setTarifaFlete(e.target.value)}
-                        placeholder="6.50"
-                      />
-                    </Field>
-
-                    <Field
-                      label="Flete mínimo por envío (USD)"
-                      hint="Dejalo en 0 si tu courier solo cobra por libra. Un mínimo alto encarece mucho los productos livianos."
-                    >
-                      <Input
-                        value={fleteMinimo}
-                        onChange={(e) => setFleteMinimo(e.target.value)}
-                        placeholder="0.00"
-                      />
-                    </Field>
-
-                    <Field label="Casillero / Handling Fijo ($ USD)">
-                      <Input
-                        value={otrosCostosFijos}
-                        onChange={(e) => setOtrosCostosFijos(e.target.value)}
-                        placeholder="10.00"
-                      />
-                    </Field>
-                  </div>
-
-                  <div className="flex justify-end pt-2">
-                    <Button type="submit" variant="primary" disabled={guardando}>
-                      <Save className="w-4 h-4 mr-1.5" />
-                      <span>{guardando ? 'Guardando...' : 'Guardar Cambios'}</span>
-                    </Button>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
-          )}
-
-          {seccion === 'aduana' && (
-            <Card>
-              <CardHeader>
-                <SectionHeader
-                  icon={ShieldAlert}
-                  title="Aduana y Aranceles de Importación"
-                  description="Reglas fiscales y porcentaje arancelario general."
-                />
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSave} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <Field
-                      label="Umbral de Exoneración ($ USD por envío)"
-                      hint="El arancel aplica únicamente sobre el monto que exceda este umbral."
-                    >
-                      <Input
-                        value={umbralArancel}
-                        onChange={(e) => setUmbralArancel(e.target.value)}
-                        placeholder="50.00"
-                      />
-                    </Field>
-
-                    <Field
-                      label="Arancel Estimado por Defecto (%)"
-                      hint="Porcentaje típico para mercadería general (ej: 32.5%). Dejalo en 0 si no pagas aduana."
-                    >
-                      <Input
-                        value={arancelDefault}
-                        onChange={(e) => setArancelDefault(e.target.value)}
-                        placeholder="32.5"
-                      />
-                    </Field>
-                  </div>
-
-                  <div className="flex justify-end pt-2">
-                    <Button type="submit" variant="primary" disabled={guardando}>
-                      <Save className="w-4 h-4 mr-1.5" />
-                      <span>{guardando ? 'Guardando...' : 'Guardar Cambios'}</span>
-                    </Button>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
-          )}
-
-          {seccion === 'categorias' && (
-            <div className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <SectionHeader
-                    icon={Percent}
-                    title="Parámetros Globales de Ganancia y Anticipo"
-                  />
-                </CardHeader>
-                <CardContent>
-                  <form onSubmit={handleSave} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <Field
-                        label="Comisión Mínima por Cotización (C$)"
-                        hint="Si la suma de comisiones no alcanza este valor, se ajusta al mínimo."
-                      >
-                        <Input
-                          value={comisionMinima}
-                          onChange={(e) => setComisionMinima(e.target.value)}
-                          placeholder="300.00"
-                        />
-                      </Field>
-
-                      <Field
-                        label="Anticipo por Defecto (%)"
-                        hint="Porcentaje de anticipo sugerido en nuevas cotizaciones."
-                      >
-                        <Input
-                          value={anticipoDefault}
-                          onChange={(e) => setAnticipoDefault(e.target.value)}
-                          placeholder="50"
-                        />
-                      </Field>
-                    </div>
-
-                    <div className="flex justify-end pt-2">
-                      <Button type="submit" variant="primary" disabled={guardando}>
-                        <Save className="w-4 h-4 mr-1.5" />
-                        <span>{guardando ? 'Guardando...' : 'Guardar Parámetros'}</span>
-                      </Button>
-                    </div>
-                  </form>
-                </CardContent>
-              </Card>
-
-              <CategoriasSection categorias={categorias} onRefresh={onRefresh} />
+              </Field>
+              <Field label="Córdobas por dólar" hint="Solo para mostrar el equivalente en C$">
+                <Input value={tasa} onChange={(e) => setTasa(e.target.value)} className="text-right" />
+              </Field>
             </div>
-          )}
+          </CardContent>
+        </Card>
 
-          {seccion === 'cuentas' && (
-            <Card>
-              <CardHeader>
-                <SectionHeader
-                  icon={Building2}
-                  title="Cuentas Bancarias para Mensajes de WhatsApp"
-                  description="Estas cuentas se adjuntan automáticamente al generar mensajes para clientes."
-                  action={
-                    <Button size="sm" variant="secondary" onClick={handleAddCuenta}>
-                      <Plus className="w-3.5 h-3.5 mr-1" />
-                      <span>Agregar Cuenta</span>
-                    </Button>
-                  }
-                />
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSave} className="space-y-4">
-                  <div className="space-y-3">
-                    {cuentas.map((c, idx) => (
-                      <div
-                        key={idx}
-                        className="p-3 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between gap-3"
-                      >
-                        <div className="grid grid-cols-4 gap-2 flex-1">
-                          <Input
-                            value={c.banco}
-                            onChange={(e) => handleUpdateCuenta(idx, 'banco', e.target.value)}
-                            placeholder="Banco (ej: BAC)"
-                          />
-                          <Input
-                            value={c.numero}
-                            onChange={(e) => handleUpdateCuenta(idx, 'numero', e.target.value)}
-                            placeholder="Número de cuenta"
-                            className="font-mono"
-                          />
-                          <Input
-                            value={c.titular}
-                            onChange={(e) => handleUpdateCuenta(idx, 'titular', e.target.value)}
-                            placeholder="Titular de cuenta"
-                          />
-                          <Select
-                            value={c.moneda}
-                            onChange={(e) =>
-                              handleUpdateCuenta(idx, 'moneda', e.target.value as 'COR' | 'USD')
-                            }
-                          >
-                            <option value="COR">C$ Córdobas</option>
-                            <option value="USD">$ Dólares</option>
-                          </Select>
-                        </div>
-
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleRemoveCuenta(idx)}
-                          className="text-slate-400 hover:text-danger-500 p-2 shrink-0 self-center"
-                          title="Eliminar cuenta"
-                          aria-label="Eliminar cuenta"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
+        {/* Precios */}
+        <Card>
+          <CardHeader>
+            <SectionHeader
+              icon={Tag}
+              title="Cómo se calculan tus precios"
+              description="La ganancia siempre se mide contra el costo real, ya con tax y envío adentro"
+            />
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-4">
+                <Field
+                  label="Ganancia por defecto (%)"
+                  hint="Sobre el costo. Cada categoría o producto puede tener el suyo."
+                >
+                  <Input
+                    value={margen}
+                    onChange={(e) => setMargen(e.target.value)}
+                    className="text-right"
+                  />
+                </Field>
+                <Field label="Redondear el precio" hint="Siempre hacia arriba, nunca hacia abajo">
+                  <Select value={paso} onChange={(e) => setPaso(Number(e.target.value))}>
+                    {PASOS.map((p) => (
+                      <option key={p.valor} value={p.valor}>
+                        {p.etiqueta}
+                      </option>
                     ))}
-                    {cuentas.length === 0 && (
-                      <p className="text-body text-slate-500 text-center py-4">
-                        No hay cuentas bancarias registradas. Agrega al menos una para compartirla con tus clientes.
-                      </p>
-                    )}
-                  </div>
+                  </Select>
+                </Field>
+              </div>
 
-                  <div className="flex justify-end pt-2">
-                    <Button type="submit" variant="primary" disabled={guardando}>
-                      <Save className="w-4 h-4 mr-1.5" />
-                      <span>{guardando ? 'Guardando...' : 'Guardar Cuentas'}</span>
-                    </Button>
+              <div className="rounded-lg border border-borde bg-superficie-2 p-4">
+                <div className="text-label font-medium text-texto-2 mb-2">Ejemplo</div>
+                <p className="text-caption text-texto-3 mb-3">
+                  Un producto que te costó {formatearMoneda(4260, 'USD')} con todo incluido:
+                </p>
+                <dl className="space-y-1.5 text-label">
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-texto-2">Fórmula da</dt>
+                    <dd className="tabular text-texto-2">
+                      {formatearMoneda(ejemplo.precio_crudo_usd_cents, 'USD')}
+                    </dd>
                   </div>
-                </form>
-              </CardContent>
-            </Card>
-          )}
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-texto-2">Precio final</dt>
+                    <dd className="tabular font-semibold text-texto">
+                      {formatearMoneda(ejemplo.precio_usd_cents, 'USD')}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-2 pt-1.5 border-t border-borde">
+                    <dt className="text-texto-2">Ganás</dt>
+                    <dd className="flex items-center gap-1.5">
+                      <span className="tabular text-texto">
+                        {formatearMoneda(ejemplo.ganancia_usd_cents, 'USD')}
+                      </span>
+                      <Badge tone="success">
+                        {(ejemplo.margen_sobre_costo_bp / 100).toFixed(0)}%
+                      </Badge>
+                    </dd>
+                  </div>
+                </dl>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={recalcular}
+                  className="mt-3 w-full"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Recalcular precios del inventario</span>
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Categorías */}
+        <CategoriasSection categorias={categorias} onCambio={onCambio} margenGlobal={num(margen)} />
+
+        {/* Ventas */}
+        <Card>
+          <CardHeader>
+            <SectionHeader icon={Tag} title="Ventas y encargos" />
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Field label="Anticipo por defecto (%)" hint="Lo que pedís en los encargos">
+                <Input
+                  value={anticipo}
+                  onChange={(e) => setAnticipo(e.target.value)}
+                  className="text-right"
+                />
+              </Field>
+              <Field label="Avisar cuando queden" hint="Unidades mínimas de un producto nuevo">
+                <Input
+                  value={stockMinimo}
+                  onChange={(e) => setStockMinimo(e.target.value)}
+                  className="text-right"
+                />
+              </Field>
+              <div className="flex items-end pb-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={mostrarCordobas}
+                    onChange={(e) => setMostrarCordobas(e.target.checked)}
+                    className="w-4 h-4 rounded border-borde-fuerte text-acento focus-visible:ring-2 focus-visible:ring-acento"
+                  />
+                  <span className="text-body text-texto-2">Mostrar también en córdobas</span>
+                </label>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Negocio */}
+        <Card>
+          <CardHeader>
+            <SectionHeader icon={Database} title="Tu negocio" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="Nombre del negocio">
+                <Input value={nombreNegocio} onChange={(e) => setNombreNegocio(e.target.value)} />
+              </Field>
+              <Field label="Teléfono">
+                <Input value={telefono} onChange={(e) => setTelefono(e.target.value)} />
+              </Field>
+            </div>
+
+            <p className="text-caption text-texto-3">
+              {info
+                ? `Versión ${info.version}. Todo se guarda solo en la nube.`
+                : 'Cargando información del sistema...'}
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Seguridad y Bloqueo por PIN */}
+        <Card>
+          <CardHeader>
+            <SectionHeader
+              icon={ShieldCheck}
+              title="Seguridad y Bloqueo con PIN"
+              description="Exigí un código numérico cada vez que abras la app para proteger tus datos"
+            />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-body text-texto-2 leading-relaxed">
+              Configurá un PIN de 4 a 6 dígitos numéricos. Al abrir la app, nadie podrá ver tus productos ni finanzas sin ingresar este código. Si lo dejás en blanco, la app entra de inmediato sin solicitarlo.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg">
+              <Field label="PIN de acceso (4 a 6 dígitos)" hint="Solo números">
+                <Input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={6}
+                  placeholder="Ej: 1234"
+                  value={pinSeguridad}
+                  onChange={(e) => setPinSeguridad(e.target.value.replace(/\D/g, ''))}
+                />
+              </Field>
+              <Field label="Confirmar PIN" hint="Escribí el mismo PIN para verificar">
+                <Input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={6}
+                  placeholder="Repetir PIN"
+                  value={confirmarPin}
+                  onChange={(e) => setConfirmarPin(e.target.value.replace(/\D/g, ''))}
+                />
+              </Field>
+            </div>
+
+            {pinSeguridad && (
+              <div className="flex items-center gap-3 pt-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setPinSeguridad('');
+                    setConfirmarPin('');
+                  }}
+                  className="text-danger-600 hover:text-danger-700"
+                >
+                  <Lock className="w-3.5 h-3.5 mr-1" />
+                  <span>Quitar / Desactivar PIN</span>
+                </Button>
+                <span className="text-caption text-texto-3">
+                  (Guardá la configuración para aplicar el cambio)
+                </span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <div className="flex justify-end sticky bottom-0 py-4 bg-gradient-to-t from-fondo via-fondo">
+          <Button variant="primary" onClick={guardar} disabled={guardando}>
+            <Save className="w-4 h-4" />
+            <span>{guardando ? 'Guardando...' : 'Guardar configuración'}</span>
+          </Button>
         </div>
       </div>
     </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+
+const CategoriasSection: React.FC<{
+  categorias: Categoria[];
+  margenGlobal: number;
+  onCambio: () => void;
+}> = ({ categorias, margenGlobal, onCambio }) => {
+  const { showToast } = useToast();
+  const [editando, setEditando] = useState<Record<number, string>>({});
+  const [nueva, setNueva] = useState('');
+
+  const guardarMargen = async (c: Categoria) => {
+    const texto = editando[c.id];
+    if (texto === undefined) return;
+
+    const r = await window.api.categorias.guardar({
+      id: c.id,
+      nombre: c.nombre,
+      margen_defecto_bp: Math.round(num(texto) * 100),
+    });
+
+    if (!r.success) {
+      showToast({ message: r.error, type: 'error' });
+      return;
+    }
+    setEditando((p) => {
+      const copia = { ...p };
+      delete copia[c.id];
+      return copia;
+    });
+    showToast({ message: `Margen de ${c.nombre} actualizado`, type: 'success' });
+    onCambio();
+  };
+
+  const agregar = async () => {
+    if (!nueva.trim()) return;
+
+    const r = await window.api.categorias.guardar({
+      nombre: nueva.trim(),
+      margen_defecto_bp: Math.round(margenGlobal * 100),
+    });
+
+    if (!r.success) {
+      showToast({ message: r.error, type: 'error' });
+      return;
+    }
+    setNueva('');
+    showToast({ message: 'Categoría creada', type: 'success' });
+    onCambio();
+  };
+
+  const archivar = async (c: Categoria) => {
+    const r = await window.api.categorias.archivar(c.id);
+    showToast({
+      message: r.success ? `'${c.nombre}' archivada` : r.error,
+      type: r.success ? 'success' : 'error',
+    });
+    if (r.success) onCambio();
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <SectionHeader
+          icon={Tag}
+          title="Ganancia por categoría"
+          description="Un producto sin margen propio usa el de su categoría"
+        />
+      </CardHeader>
+      <CardContent className="p-0">
+        <ul className="divide-y divide-borde">
+          {categorias.map((c) => {
+            const texto = editando[c.id] ?? String(c.margen_defecto_bp / 100);
+            const cambiado = editando[c.id] !== undefined;
+
+            return (
+              <li key={c.id} className="px-4 py-2.5 flex items-center gap-3">
+                <span className="flex-1 text-body text-texto">{c.nombre}</span>
+                <div className="flex items-center gap-1">
+                  <Input
+                    value={texto}
+                    onChange={(e) => setEditando((p) => ({ ...p, [c.id]: e.target.value }))}
+                    className="w-20 text-right"
+                    aria-label={`Ganancia de ${c.nombre}`}
+                  />
+                  <span className="text-label text-texto-3">%</span>
+                </div>
+                {cambiado ? (
+                  <Button size="sm" variant="primary" onClick={() => guardarMargen(c)}>
+                    Guardar
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    aria-label={`Archivar ${c.nombre}`}
+                    className="text-texto-3 hover:text-danger-600"
+                    onClick={() => archivar(c)}
+                  >
+                    <Archive className="w-3.5 h-3.5" />
+                  </Button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+
+        <div className="px-4 py-3 border-t border-borde flex gap-2">
+          <Input
+            value={nueva}
+            onChange={(e) => setNueva(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') agregar();
+            }}
+            placeholder="Nombre de una categoría nueva"
+            className="flex-1"
+            aria-label="Nombre de la categoría nueva"
+          />
+          <Button variant="secondary" onClick={agregar} disabled={!nueva.trim()}>
+            <Plus className="w-4 h-4" />
+            <span>Agregar</span>
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 };

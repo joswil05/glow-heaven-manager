@@ -1,103 +1,124 @@
 import React from 'react';
 import {
-  CalendarDays,
-  Calculator,
-  ShoppingCart,
+  LayoutDashboard,
+  Boxes,
+  PackagePlus,
   ShoppingBag,
+  ClipboardList,
   Users,
   Settings,
 } from 'lucide-react';
 import { Badge } from '../ui';
 import { cn } from '../../lib/cn';
+import logoImg from '../../assets/logo.jpg';
 
-export type NavTab = 'hoy' | 'cotizador' | 'compras' | 'pedidos' | 'clientes' | 'config';
+export type NavTab =
+  | 'panel'
+  | 'inventario'
+  | 'paquetes'
+  | 'ventas'
+  | 'encargos'
+  | 'clientes'
+  | 'config';
+
+export interface AvisosNav {
+  bajoStock?: number;
+  porCobrar?: number;
+  encargosPendientes?: number;
+}
 
 interface SidebarProps {
   activeTab: NavTab;
   onSelectTab: (tab: NavTab) => void;
-  pedidosRequierenAtencionCount?: number;
+  avisos?: AvisosNav;
+  nombreNegocio?: string;
 }
 
+export const TITULOS: Record<NavTab, string> = {
+  panel: 'Inicio',
+  inventario: 'Inventario',
+  paquetes: 'Paquetes',
+  ventas: 'Ventas',
+  encargos: 'Encargos',
+  clientes: 'Clientes',
+  config: 'Configuración',
+};
+
+/**
+ * Menú principal. Eran cuatro grupos con título ("Resumen", "Mercadería",
+ * "Dinero", "Ajustes") para siete destinos que caben de un vistazo, más el
+ * nombre del negocio repetido abajo. Para una persona que usa esto todos los
+ * días, los rótulos de grupo solo agregan ruido: ahora es una lista.
+ */
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   onSelectTab,
-  pedidosRequierenAtencionCount = 0,
+  avisos = {},
+  nombreNegocio = 'Glow Heaven',
 }) => {
-  const navItems = [
-    {
-      id: 'hoy' as NavTab,
-      label: 'Hoy',
-      icon: CalendarDays,
-      description: 'Pendientes y resumen',
-      badge: pedidosRequierenAtencionCount > 0 ? pedidosRequierenAtencionCount : undefined,
-    },
-    {
-      id: 'cotizador' as NavTab,
-      label: 'Cotizador',
-      icon: Calculator,
-      description: 'Calcular y cotizar',
-    },
-    {
-      id: 'compras' as NavTab,
-      label: 'Compras USA',
-      icon: ShoppingCart,
-      description: 'Lista por tienda',
-    },
-    {
-      id: 'pedidos' as NavTab,
-      label: 'Pedidos',
-      icon: ShoppingBag,
-      description: 'Semáforo y seguimiento',
-    },
-    {
-      id: 'clientes' as NavTab,
-      label: 'Clientes',
-      icon: Users,
-      description: 'Directorio',
-    },
-    {
-      id: 'config' as NavTab,
-      label: 'Configuración',
-      icon: Settings,
-      description: 'Cuentas y parámetros',
-    },
+  const items: {
+    id: NavTab;
+    icon: typeof LayoutDashboard;
+    badge?: number;
+    tono?: 'danger' | 'warning';
+  }[] = [
+    { id: 'panel', icon: LayoutDashboard },
+    { id: 'inventario', icon: Boxes, badge: avisos.bajoStock, tono: 'warning' },
+    { id: 'paquetes', icon: PackagePlus },
+    { id: 'ventas', icon: ShoppingBag, badge: avisos.porCobrar, tono: 'danger' },
+    { id: 'encargos', icon: ClipboardList, badge: avisos.encargosPendientes, tono: 'warning' },
+    { id: 'clientes', icon: Users },
+    { id: 'config', icon: Settings },
   ];
 
   return (
-    <aside className="w-56 bg-navy-900 text-slate-300 flex flex-col justify-between shrink-0 p-3 select-none">
-      <div className="space-y-1">
-        <div className="px-3 py-2 text-caption font-medium tracking-wide text-slate-500 uppercase">
-          Menú Principal
+    <aside className="w-56 bg-barra flex flex-col shrink-0 select-none border-r border-borde">
+      <div className="px-3.5 py-4 flex items-center gap-3 border-b border-barra-2">
+        <div className="w-11 h-11 rounded-xl overflow-hidden border-2 border-acento/25 shadow-sm shrink-0 bg-white p-0.5">
+          <img
+            src={logoImg}
+            alt="Glow Heaven"
+            className="w-full h-full object-contain rounded-lg"
+          />
         </div>
-        {navItems.map((item) => {
+        <div className="flex flex-col min-w-0">
+          <span className="text-body font-bold text-barra-texto truncate leading-tight">
+            {nombreNegocio}
+          </span>
+          <span className="text-[9px] text-acento font-semibold tracking-[0.15em] uppercase">
+            PURE • MAGIC • DIVINE
+          </span>
+        </div>
+      </div>
+
+      <nav className="p-3 space-y-0.5" aria-label="Menú principal">
+        {items.map((item) => {
           const Icon = item.icon;
-          const isActive = activeTab === item.id;
+          const activo = activeTab === item.id;
           return (
             <button
               key={item.id}
               onClick={() => onSelectTab(item.id)}
+              aria-current={activo ? 'page' : undefined}
               className={cn(
                 'w-full flex items-center justify-between px-3 py-2 rounded-md text-body transition-colors text-left border-l-2',
-                isActive
-                  ? 'bg-navy-800 text-white border-l-brand-500 font-medium'
-                  : 'border-l-transparent text-slate-400 hover:bg-navy-800/60 hover:text-white'
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento focus-visible:ring-inset',
+                activo
+                  ? 'bg-superficie text-texto border-l-acento font-medium shadow-sm'
+                  : 'border-l-transparent text-barra-texto hover:bg-barra-2'
               )}
             >
-              <div className="flex items-center gap-3">
-                <Icon className={cn('w-4 h-4', isActive ? 'text-white' : 'text-slate-400')} />
-                <span>{item.label}</span>
-              </div>
-              {item.badge && <Badge tone="danger">{item.badge}</Badge>}
+              <span className="flex items-center gap-3">
+                <Icon className={cn('w-4 h-4', activo ? 'text-acento' : 'text-barra-texto-2')} />
+                <span>{TITULOS[item.id]}</span>
+              </span>
+              {item.badge !== undefined && item.badge > 0 && (
+                <Badge tone={item.tono ?? 'danger'}>{item.badge}</Badge>
+              )}
             </button>
           );
         })}
-      </div>
-
-      {/* Pie de Sidebar */}
-      <div className="p-3 bg-navy-800/60 rounded-lg border border-navy-700/50 text-caption text-slate-400">
-        <div className="font-medium text-slate-200 mb-0.5">Glow Heaven v1.0</div>
-        <div>Modo Local Seguro</div>
-      </div>
+      </nav>
     </aside>
   );
 };

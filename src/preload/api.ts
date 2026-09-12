@@ -1,141 +1,119 @@
 import { ipcRenderer } from 'electron';
-import { IPC_CHANNELS } from '../shared/ipc-channels';
-import type {
-  IpcResult,
-  GuardarParametrosInicialesInput,
-  CategoriaCambio,
-  CrearClienteInput,
-  ActualizarClienteInput,
-  CrearCotizacionInput,
-  CrearPagoInput,
-  GuardarBufferInput,
-  HoyViewData,
-} from '../shared/ipc-contracts';
-import type {
-  Cliente,
-  ClienteDetalle,
-  Cotizacion,
-  CotizacionCompleta,
-  Pedido,
-  PedidoCompleto,
-  Pago,
-  ParametrosSistema,
-  Categoria,
-  Tienda,
-  AlertaRow,
-  CapitalLibreData,
-  EstadoCotizacion,
-  EstadoItem,
-  ItemListaCompraRow,
-} from '../shared/types';
+import { IPC } from '../shared/ipc-channels';
+import type { ApiPuente } from '../shared/ipc-contracts';
 
-export const api = {
+/**
+ * Puente entre el renderer y el proceso main.
+ * `ApiPuente` es el contrato: si un método no está en el tipo, TypeScript
+ * lo rechaza acá y en la interfaz al mismo tiempo.
+ */
+export const api: ApiPuente = {
+  auth: {
+    iniciarGoogle: () => ipcRenderer.invoke(IPC.AUTH_GOOGLE_INICIAR),
+    obtenerUsuario: () => ipcRenderer.invoke(IPC.AUTH_GET_USER),
+    cerrarSesion: () => ipcRenderer.invoke(IPC.AUTH_LOGOUT),
+  },
   parametros: {
-    get: (): Promise<IpcResult<ParametrosSistema>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.PARAMETROS_GET),
-    update: (clave: string, valor: string): Promise<IpcResult<void>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.PARAMETROS_UPDATE, { clave, valor }),
-    updateMany: (valores: Record<string, string>): Promise<IpcResult<{ evento_grupo_id: string }>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.PARAMETROS_UPDATE_MANY, { valores }),
-    guardarIniciales: (input: GuardarParametrosInicialesInput): Promise<IpcResult<void>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.PARAMETROS_GUARDAR_INICIALES, input),
+    get: () => ipcRenderer.invoke(IPC.PARAMETROS_GET),
+    update: (valores) => ipcRenderer.invoke(IPC.PARAMETROS_UPDATE, valores),
+    recalcularPrecios: () => ipcRenderer.invoke(IPC.PARAMETROS_RECALCULAR_PRECIOS),
   },
   categorias: {
-    list: (): Promise<IpcResult<Categoria[]>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.CATEGORIAS_LIST),
-    update: (cambios: CategoriaCambio[]): Promise<IpcResult<{ evento_grupo_id: string }>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.CATEGORIAS_UPDATE, { cambios }),
+    list: () => ipcRenderer.invoke(IPC.CATEGORIAS_LIST),
+    guardar: (input) => ipcRenderer.invoke(IPC.CATEGORIAS_GUARDAR, input),
+    archivar: (id) => ipcRenderer.invoke(IPC.CATEGORIAS_ARCHIVAR, id),
   },
-  tiendas: {
-    list: (): Promise<IpcResult<Tienda[]>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.TIENDAS_LIST),
-  },
-  clientes: {
-    list: (query?: string, activo: boolean = true): Promise<IpcResult<Cliente[]>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.CLIENTES_LIST, { query, activo }),
-    getById: (id: number): Promise<IpcResult<ClienteDetalle>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.CLIENTES_GET_BY_ID, id),
-    create: (data: CrearClienteInput): Promise<IpcResult<Cliente & { evento_grupo_id: string }>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.CLIENTES_CREATE, data),
-    update: (id: number, data: ActualizarClienteInput): Promise<IpcResult<Cliente & { evento_grupo_id: string }>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.CLIENTES_UPDATE, { id, data }),
-  },
-  cotizaciones: {
-    list: (estado?: EstadoCotizacion, cliente_id?: number): Promise<IpcResult<Cotizacion[]>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.COTIZACIONES_LIST, { estado, cliente_id }),
-    getById: (id: number): Promise<IpcResult<CotizacionCompleta>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.COTIZACIONES_GET_BY_ID, id),
-    create: (data: CrearCotizacionInput): Promise<IpcResult<CotizacionCompleta>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.COTIZACIONES_CREATE, data),
-    marcarEnviada: (id: number): Promise<IpcResult<{ evento_grupo_id: string }>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.COTIZACIONES_MARCAR_ENVIADA, id),
-    aceptar: (id: number): Promise<IpcResult<{ evento_grupo_id: string }>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.COTIZACIONES_ACEPTAR, id),
-    rechazar: (id: number, motivo?: string): Promise<IpcResult<{ evento_grupo_id: string }>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.COTIZACIONES_RECHAZAR, { id, motivo }),
-    convertirAPedido: (
-      cotizacion_id: number,
-      notas?: string
-    ): Promise<IpcResult<PedidoCompleto & { evento_grupo_id: string }>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.COTIZACIONES_CONVERTIR_A_PEDIDO, { cotizacion_id, notas }),
-  },
-  pedidos: {
-    list: (
-      estado_derivado?: string,
-      requiere_atencion?: boolean
-    ): Promise<IpcResult<Pedido[]>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.PEDIDOS_LIST, { estado_derivado, requiere_atencion }),
-    getById: (id: number): Promise<IpcResult<PedidoCompleto>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.PEDIDOS_GET_BY_ID, id),
-    cambiarEstadoItem: (
-      item_id: number,
-      nuevo_estado: EstadoItem,
-      motivo?: string
-    ): Promise<IpcResult<{ evento_grupo_id: string }>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.PEDIDOS_CAMBIAR_ESTADO_ITEM, {
-        item_id,
-        nuevo_estado,
+  productos: {
+    list: (filtros) => ipcRenderer.invoke(IPC.PRODUCTOS_LIST, filtros),
+    get: (id) => ipcRenderer.invoke(IPC.PRODUCTOS_GET, id),
+    crear: (input) => ipcRenderer.invoke(IPC.PRODUCTOS_CREAR, input),
+    actualizar: (input) => ipcRenderer.invoke(IPC.PRODUCTOS_ACTUALIZAR, input),
+    ajustarStock: (variante_id, existencias, motivo, producto_id) =>
+      ipcRenderer.invoke(
+        IPC.PRODUCTOS_AJUSTAR_STOCK,
+        variante_id,
+        existencias,
         motivo,
-      }),
+        producto_id
+      ),
+    archivar: (id) => ipcRenderer.invoke(IPC.PRODUCTOS_ARCHIVAR, id),
+    movimientos: (producto_id) => ipcRenderer.invoke(IPC.PRODUCTOS_MOVIMIENTOS, producto_id),
+    simularPrecio: (input) => ipcRenderer.invoke(IPC.PRODUCTOS_SIMULAR_PRECIO, input),
+  },
+  compras: {
+    list: () => ipcRenderer.invoke(IPC.COMPRAS_LIST),
+    get: (id) => ipcRenderer.invoke(IPC.COMPRAS_GET, id),
+    guardar: (input) => ipcRenderer.invoke(IPC.COMPRAS_GUARDAR, input),
+    previsualizar: (input) => ipcRenderer.invoke(IPC.COMPRAS_PREVISUALIZAR, input),
+    recibir: (id) => ipcRenderer.invoke(IPC.COMPRAS_RECIBIR, id),
+    archivar: (id) => ipcRenderer.invoke(IPC.COMPRAS_ARCHIVAR, id),
+  },
+  ventas: {
+    list: (filtros) => ipcRenderer.invoke(IPC.VENTAS_LIST, filtros),
+    get: (id) => ipcRenderer.invoke(IPC.VENTAS_GET, id),
+    crear: (input) => ipcRenderer.invoke(IPC.VENTAS_CREAR, input),
+    cambiarEstado: (id, estado) => ipcRenderer.invoke(IPC.VENTAS_CAMBIAR_ESTADO, id, estado),
   },
   pagos: {
-    create: (data: CrearPagoInput): Promise<IpcResult<Pago & { evento_grupo_id: string }>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.PAGOS_CREATE, data),
-    verificar: (pago_id: number, verificado: boolean): Promise<IpcResult<{ evento_grupo_id: string }>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.PAGOS_VERIFICAR, { pago_id, verificado }),
-    listByPedido: (pedido_id: number): Promise<IpcResult<Pago[]>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.PAGOS_LIST_BY_PEDIDO, pedido_id),
+    registrar: (input) => ipcRenderer.invoke(IPC.PAGOS_REGISTRAR, input),
+    anular: (pago_id) => ipcRenderer.invoke(IPC.PAGOS_ANULAR, pago_id),
+    recientes: (limite) => ipcRenderer.invoke(IPC.PAGOS_RECIENTES, limite),
   },
-  vistas: {
-    getHoy: (): Promise<IpcResult<HoyViewData>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.VISTAS_GET_HOY),
-    getAlertas: (): Promise<IpcResult<AlertaRow[]>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.VISTAS_GET_ALERTAS),
-    getCapitalLibre: (): Promise<IpcResult<CapitalLibreData>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.VISTAS_GET_CAPITAL_LIBRE),
-    getSemaforo: (): Promise<IpcResult<any[]>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.VISTAS_GET_SEMAFORO),
-    getListaComprasUsa: (): Promise<IpcResult<ItemListaCompraRow[]>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.VISTAS_GET_LISTA_COMPRAS),
-    getPendientesDeLista: (): Promise<IpcResult<ItemListaCompraRow[]>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.VISTAS_GET_PENDIENTES_LISTA),
+  clientes: {
+    list: (busqueda) => ipcRenderer.invoke(IPC.CLIENTES_LIST, busqueda),
+    get: (id) => ipcRenderer.invoke(IPC.CLIENTES_GET, id),
+    guardar: (input) => ipcRenderer.invoke(IPC.CLIENTES_GUARDAR, input),
+    archivar: (id) => ipcRenderer.invoke(IPC.CLIENTES_ARCHIVAR, id),
   },
-  adjuntos: {
-    guardarBuffer: (input: GuardarBufferInput): Promise<IpcResult<{ id: number; ruta_archivo: string }>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.ADJUNTOS_GUARDAR_BUFFER, input),
+  panel: {
+    cargar: () => ipcRenderer.invoke(IPC.PANEL_CARGAR),
+  },
+  acceso: {
+    tienePin: () => ipcRenderer.invoke(IPC.ACCESO_TIENE_PIN),
+    establecerPin: (pin) => ipcRenderer.invoke(IPC.ACCESO_ESTABLECER_PIN, pin),
+    verificarPin: (pin) => ipcRenderer.invoke(IPC.ACCESO_VERIFICAR_PIN, pin),
+    cambiarPin: (actual, nuevo) => ipcRenderer.invoke(IPC.ACCESO_CAMBIAR_PIN, actual, nuevo),
+  },
+  nube: {
+    estado: () => ipcRenderer.invoke(IPC.NUBE_ESTADO),
+    configurar: (correo, clave) => ipcRenderer.invoke(IPC.NUBE_CONFIGURAR, correo, clave),
+    reconectar: () => ipcRenderer.invoke(IPC.NUBE_RECONECTAR),
   },
   sistema: {
-    crearBackup: (
-      destinoPath?: string
-    ): Promise<IpcResult<{ ruta_backup: string; timestamp: string }>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.SISTEMA_CREAR_BACKUP, { destinoPath }),
-    deshacerUltimoGrupo: (
-      grupoId?: string
-    ): Promise<IpcResult<{ revertido: boolean; descripcion: string }>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.SISTEMA_DESHACER_ULTIMO_GRUPO, grupoId),
-    abrirWhatsApp: (telefono: string, mensaje: string): Promise<IpcResult<void>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.SISTEMA_ABRIR_WHATSAPP, { telefono, mensaje }),
+    deshacer: (grupo_id) => ipcRenderer.invoke(IPC.SISTEMA_DESHACER, grupo_id),
+    info: () => ipcRenderer.invoke(IPC.SISTEMA_INFO),
+  },
+  actualizador: {
+    onUpdateChecking: (cb) => {
+      const listener = () => cb();
+      ipcRenderer.on('app:update-checking', listener);
+      return () => {
+        ipcRenderer.removeListener('app:update-checking', listener);
+      };
+    },
+    onUpdateAvailable: (cb) => {
+      const listener = (_: any, data: any) => cb(data);
+      ipcRenderer.on('app:update-available', listener);
+      return () => {
+        ipcRenderer.removeListener('app:update-available', listener);
+      };
+    },
+    onUpdateProgress: (cb) => {
+      const listener = (_: any, data: any) => cb(data);
+      ipcRenderer.on('app:update-progress', listener);
+      return () => {
+        ipcRenderer.removeListener('app:update-progress', listener);
+      };
+    },
+    onUpdateDownloaded: (cb) => {
+      const listener = (_: any, data: any) => cb(data);
+      ipcRenderer.on('app:update-downloaded', listener);
+      return () => {
+        ipcRenderer.removeListener('app:update-downloaded', listener);
+      };
+    },
+    reiniciarYAplicar: () => ipcRenderer.invoke('app:restart-and-install-update'),
+    verificarManual: () => ipcRenderer.invoke('app:check-for-updates'),
   },
 };
 
-export type ElectronApi = typeof api;

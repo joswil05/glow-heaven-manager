@@ -1,11 +1,13 @@
-import { app, BrowserWindow } from 'electron';
-import { getDb, closeDb } from './db/database';
-import { runMigrations } from './db/migrations';
-import { registerAllIpcHandlers } from './ipc';
+import { app, BrowserWindow, dialog } from 'electron';
+import { getFirestoreDb } from './firebase/client';
+import { AccesoFirebase } from './firebase/auth';
+import { ParametrosRepoFirestore } from './firebase/repositories/parametros.repo';
+import { registrarHandlers } from './ipc';
 import { createMainWindow } from './windows/main.window';
-import { BackupService } from './services/backup.service';
+import { iniciarActualizador } from './updater';
 
-// Prevenir múltiples instancias de la app
+app.setName('glow-heaven-manager');
+
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
   app.quit();
@@ -18,33 +20,38 @@ if (!gotTheLock) {
     }
   });
 
-  app.whenReady().then(() => {
-    // 1. Inicializar base de datos SQLite y migraciones
-    const db = getDb();
-    runMigrations(db);
-
-    // 2. Registrar todos los canales IPC
-    registerAllIpcHandlers();
-
-    // 3. Crear ventana principal
-    createMainWindow();
-
-    app.on('activate', () => {
-      if (BrowserWindow.getAllWindows().length === 0) {
-        createMainWindow();
-      }
-    });
-  });
-
-  // Respaldo automático obligatorio al cerrar la aplicación (Bloqueador 3)
-  app.on('before-quit', async () => {
+  app.whenReady().then(async () => {
     try {
-      console.log('Creando respaldo automático antes de cerrar...');
-      await BackupService.crearBackup();
+      getFirestoreDb();
+
+      // Las reglas de Firestore exigen una sesión. Si falta configurarla, la
+      // aplicación abre igual y lo pide desde Configuración: cerrarla dejaría
+      // al usuario sin ninguna pantalla donde resolverlo.
+      const acceso = await AccesoFirebase.conectar();
+
+      if (acceso.conectado) {
+        // Semilla de parámetros y categorías, solo con sesión válida.
+        await ParametrosRepoFirestore.getParametros();
+        await ParametrosRepoFirestore.getCategorias();
+      }
+
+      registrarHandlers();
+      const win = createMainWindow();
+      iniciarActualizador(win);
+
+      app.on('activate', () => {
+        if (BrowserWindow.getAllWindows().length === 0) {
+          const nuevaWin = createMainWindow();
+          iniciarActualizador(nuevaWin);
+        }
+      });
     } catch (err) {
-      console.error('Error durante el respaldo automático al salir:', err);
-    } finally {
-      closeDb();
+      console.error('Error durante la inicialización de la aplicación:', err);
+      dialog.showErrorBox(
+        'Error al iniciar Glow Heaven Manager',
+        `No se pudo conectar con Firebase:\n\n${(err as Error)?.message || String(err)}`
+      );
+      app.exit(1);
     }
   });
 

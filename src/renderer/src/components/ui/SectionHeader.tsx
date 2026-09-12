@@ -16,10 +16,14 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({
 }) => (
   <div className="flex items-start justify-between gap-3">
     <div className="flex items-start gap-2.5">
-      {Icon && <Icon className="w-4 h-4 mt-0.5 text-slate-400 shrink-0" />}
+      {Icon && (
+        <div className="w-7 h-7 rounded-lg bg-acento/10 text-acento flex items-center justify-center shrink-0 border border-acento/15">
+          <Icon className="w-4 h-4" />
+        </div>
+      )}
       <div>
-        <h3 className="text-title text-slate-900">{title}</h3>
-        {description && <p className="text-label text-slate-500 mt-0.5">{description}</p>}
+        <h3 className="text-title font-bold text-texto tracking-tight">{title}</h3>
+        {description && <p className="text-label text-texto-3 mt-0.5">{description}</p>}
       </div>
     </div>
     {action}

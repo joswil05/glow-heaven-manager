@@ -6,6 +6,8 @@ import {
   formatearMonedaDual,
   formatearPeso,
   formatearPorcentaje,
+  formatearFecha,
+  relativoAHoy,
 } from '../src/core/moneda';
 
 describe('src/core/moneda.ts', () => {
@@ -44,5 +46,40 @@ describe('src/core/moneda.ts', () => {
     expect(formatearPorcentaje(3500)).toBe('35%');
     expect(formatearPorcentaje(3250)).toBe('32.5%');
     expect(formatearPorcentaje(700)).toBe('7%');
+  });
+});
+
+describe('formatearFecha', () => {
+  it('escribe la fecha como la diría una persona', () => {
+    const esteAno = new Date().getFullYear();
+    expect(formatearFecha(`${esteAno}-09-11`)).toBe('11 sep');
+    expect(formatearFecha('2024-01-05')).toBe('5 ene 2024');
+  });
+
+  it('sin fecha devuelve vacío, no "Invalid Date"', () => {
+    expect(formatearFecha(undefined)).toBe('');
+    expect(formatearFecha('')).toBe('');
+  });
+});
+
+describe('relativoAHoy', () => {
+  const enDias = (n: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + n);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  it('dice cuánto falta en vez de obligar a restar contra el calendario', () => {
+    expect(relativoAHoy(enDias(0))).toBe('vence hoy');
+    expect(relativoAHoy(enDias(1))).toBe('vence mañana');
+    expect(relativoAHoy(enDias(3))).toBe('vence en 3 días');
+  });
+
+  it('distingue vencido de por vencer', () => {
+    expect(relativoAHoy(enDias(-1))).toBe('venció ayer');
+    expect(relativoAHoy(enDias(-5))).toBe('venció hace 5 días');
   });
 });

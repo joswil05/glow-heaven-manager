@@ -1,325 +1,407 @@
-import React, { useState, useEffect } from 'react';
-import { X, Check, Image as ImageIcon } from 'lucide-react';
-import type { Pedido, MetodoPago, TipoPago } from '../../../shared/types';
-import { useToast } from '../context/ToastContext';
-import { formatearMoneda } from '@core/moneda';
+import React, { useState, useEffect, useMemo } from 'react';
+import { X, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import type { VentaCompleta, MetodoPago, MonedaPago } from '../../../shared/types';
+import {
+  Button,
+  Field,
+  Input,
+  Select,
+  Textarea,
+  Badge,
+  Money,
+  BarraProgreso,
+  Confirmar,
+} from './ui';
 import { parsearDecimal } from '@core/numeros';
-import { Field, Input, Select, Button } from './ui';
+import {
+  usdCentavosACorCentavos,
+  formatearMoneda,
+  formatearFecha,
+  relativoAHoy,
+} from '@core/moneda';
+import { useToast } from '../context/ToastContext';
+import { cn } from '../lib/cn';
 
 interface PagoModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  pedido: Pedido;
-  initialBuffer?: Uint8Array;
-  onPaymentSuccess: () => void;
+  abierto: boolean;
+  venta: VentaCompleta | null;
+  onCerrar: () => void;
+  onRegistrado: () => Promise<void>;
 }
 
+const METODOS: { valor: MetodoPago; etiqueta: string }[] = [
+  { valor: 'EFECTIVO', etiqueta: 'Efectivo' },
+  { valor: 'TRANSFERENCIA', etiqueta: 'Transferencia' },
+  { valor: 'OTRO', etiqueta: 'Otro' },
+];
+
 export const PagoModal: React.FC<PagoModalProps> = ({
-  isOpen,
-  onClose,
-  pedido,
-  initialBuffer,
-  onPaymentSuccess,
+  abierto,
+  venta,
+  onCerrar,
+  onRegistrado,
 }) => {
   const { showToast, showUndoToast } = useToast();
 
-  const [moneda, setMoneda] = useState<'COR' | 'USD'>('COR');
-  const [monto, setMonto] = useState<string>(() => {
-    if (!pedido.anticipo_verificado && pedido.anticipo_esperado_cor_cents > 0) {
-      return (pedido.anticipo_esperado_cor_cents / 100).toFixed(2);
-    }
-    return (pedido.saldo_pendiente_cor_cents / 100).toFixed(2);
-  });
-  const [metodo, setMetodo] = useState<MetodoPago>('TRANSFERENCIA_BAC');
+  const [montoTexto, setMontoTexto] = useState('');
+  const [moneda, setMoneda] = useState<MonedaPago>('USD');
+  const [metodo, setMetodo] = useState<MetodoPago>('EFECTIVO');
   const [referencia, setReferencia] = useState('');
-  const [tipoPago, setTipoPago] = useState<TipoPago>(() => {
-    return !pedido.anticipo_verificado ? 'ANTICIPO' : 'SALDO';
-  });
-  // Arranca en falso a propósito. Marcar un pago como verificado desbloquea
-  // la compra en USA; tiene que ser un acto deliberado, no el valor por defecto.
-  const [verificado, setVerificado] = useState(false);
-  const [comprobanteBuffer, setComprobanteBuffer] = useState<Uint8Array | undefined>(initialBuffer);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [notas, setNotas] = useState('');
+  const [fecha, setFecha] = useState(() => new Date().toISOString().slice(0, 10));
   const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [anulandoId, setAnulandoId] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!previewUrl) return;
-    return () => URL.revokeObjectURL(previewUrl);
-  }, [previewUrl]);
+    if (!abierto || !venta) return;
+    setError(null);
+    setMoneda('USD');
+    setMetodo('EFECTIVO');
+    setReferencia('');
+    setNotas('');
+    setFecha(new Date().toISOString().slice(0, 10));
+
+    // La cuota pendiente más vieja es lo que el cliente viene a pagar casi
+    // siempre. Si no hay plan, el saldo completo.
+    const cuotaPendiente = venta.cuotas.find((c) => c.pagado_usd_cents < c.monto_usd_cents);
+    const sugerido = cuotaPendiente
+      ? cuotaPendiente.monto_usd_cents - cuotaPendiente.pagado_usd_cents
+      : venta.saldo_usd_cents;
+
+    setMontoTexto(sugerido > 0 ? (sugerido / 100).toFixed(2) : '');
+  }, [abierto, venta]);
 
   useEffect(() => {
-    if (initialBuffer) {
-      setComprobanteBuffer(initialBuffer);
-      const blob = new Blob([new Uint8Array(initialBuffer)], { type: 'image/png' });
-      setPreviewUrl(URL.createObjectURL(blob));
-    }
-  }, [initialBuffer]);
-
-  const handleCambioMoneda = (nueva: 'COR' | 'USD') => {
-    if (nueva === moneda) return;
-    const actual = parsearDecimal(monto);
-    if (actual !== null) {
-      const tasa = pedido.tasa_cambio_cents / 100;
-      const convertido = nueva === 'USD' ? actual / tasa : actual * tasa;
-      setMonto(convertido.toFixed(2));
-    }
-    setMoneda(nueva);
-  };
-
-  // Listener para Ctrl+V dentro del modal
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handlePaste = async (e: ClipboardEvent) => {
-      const items = e.clipboardData?.items;
-      if (!items) return;
-
-      for (const item of Array.from(items)) {
-        if (item.type.startsWith('image/')) {
-          const file = item.getAsFile();
-          if (file) {
-            const arrayBuffer = await file.arrayBuffer();
-            const uint8 = new Uint8Array(arrayBuffer);
-            setComprobanteBuffer(uint8);
-            setPreviewUrl(URL.createObjectURL(file));
-            showToast({ message: 'Comprobante pegado desde el portapapeles', type: 'info' });
-          }
-        }
-      }
+    if (!abierto) return;
+    const alPresionar = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onCerrar();
     };
+    window.addEventListener('keydown', alPresionar);
+    return () => window.removeEventListener('keydown', alPresionar);
+  }, [abierto, onCerrar]);
 
-    window.addEventListener('paste', handlePaste);
-    return () => window.removeEventListener('paste', handlePaste);
-  }, [isOpen, showToast]);
+  const montoCents = Math.round((parsearDecimal(montoTexto) ?? 0) * 100);
 
-  // Cerrar con Escape
-  useEffect(() => {
-    if (!isOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [isOpen, onClose]);
+  const montoEnUsd = useMemo(() => {
+    if (!venta) return 0;
+    return moneda === 'COR'
+      ? Math.round((montoCents * 100) / venta.tasa_cambio_cents)
+      : montoCents;
+  }, [montoCents, moneda, venta]);
 
-  if (!isOpen) return null;
+  if (!abierto || !venta) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const montoFloat = parseFloat(monto);
-    if (isNaN(montoFloat) || montoFloat <= 0) {
-      showToast({ message: 'Ingrese un monto válido mayor a 0', type: 'error' });
+  const saldoDespues = venta.saldo_usd_cents - montoEnUsd;
+  const esAnticipo =
+    venta.tipo === 'ENCARGO' && venta.pagado_usd_cents < venta.anticipo_esperado_usd_cents;
+  const anticipoQuedaCubierto =
+    esAnticipo && venta.pagado_usd_cents + montoEnUsd >= venta.anticipo_esperado_usd_cents;
+
+  const registrar = async () => {
+    if (montoCents <= 0) {
+      setError('Escribí cuánto pagó el cliente.');
       return;
     }
 
-    try {
-      setGuardando(true);
-      const montoCents = Math.round(montoFloat * 100);
+    setGuardando(true);
+    setError(null);
 
-      const res = await window.api.pagos.create({
-        pedido_id: pedido.id,
+    try {
+      const r = await window.api.pagos.registrar({
+        venta_id: venta.id,
+        fecha,
         monto_cents: montoCents,
-        moneda_pago: moneda,
-        metodo_pago: metodo,
+        moneda,
+        metodo,
         referencia: referencia.trim() || undefined,
-        verificado,
-        tipo_pago: tipoPago,
-        buffer_comprobante: comprobanteBuffer,
-        comprobante_nombre: `comprobante_${pedido.codigo}.png`,
+        notas: notas.trim() || undefined,
       });
 
-      if (res.success) {
-        showUndoToast(
-          `Pago de ${moneda === 'COR' ? 'C$' : '$'}${montoFloat.toFixed(2)} registrado (${
-            verificado ? 'Verificado' : 'Pendiente'
-          })`,
-          () => onPaymentSuccess(),
-          res.data.evento_grupo_id
-        );
-        onPaymentSuccess();
-        onClose();
-      } else {
-        showToast({ message: res.error.message, type: 'error' });
+      if (!r.success) {
+        setError(r.error);
+        return;
       }
-    } catch {
-      showToast({ message: 'Error al registrar el pago', type: 'error' });
+
+      const mensaje =
+        r.data.excedente_usd_cents > 0
+          ? `Abono registrado. El cliente pagó ${formatearMoneda(r.data.excedente_usd_cents, 'USD')} de más.`
+          : r.data.saldo_usd_cents <= 0
+            ? 'Abono registrado. La venta quedó saldada.'
+            : `Abono registrado. Queda ${formatearMoneda(r.data.saldo_usd_cents, 'USD')}.`;
+
+      showUndoToast(mensaje, onRegistrado, r.data.evento_grupo_id);
+      await onRegistrado();
+      onCerrar();
     } finally {
       setGuardando(false);
     }
   };
 
+  const anular = async (pagoId: number) => {
+    const r = await window.api.pagos.anular(pagoId);
+    if (!r.success) {
+      showToast({ message: r.error, type: 'error' });
+      return;
+    }
+    showUndoToast('Abono anulado', onRegistrado, r.data.evento_grupo_id);
+    await onRegistrado();
+  };
+
   return (
     <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-velo/50 p-4"
       role="dialog"
       aria-modal="true"
-      aria-labelledby="titulo-pago-modal"
-      className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
+      aria-labelledby="titulo-pago"
     >
-      <div className="bg-white w-full max-w-lg rounded-lg shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="p-5 bg-navy-900 text-white flex items-center justify-between">
+      <div className="bg-superficie rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+        <header className="flex items-center justify-between px-5 py-4 border-b border-borde shrink-0">
           <div>
-            <h3 id="titulo-pago-modal" className="text-title text-white">
-              Registrar Pago / Anticipo
+            <h3 id="titulo-pago" className="text-title text-texto">
+              Registrar abono
             </h3>
-            <span className="text-caption text-slate-400">
-              Pedido: {pedido.codigo} • Saldo: {formatearMoneda(pedido.saldo_pendiente_cor_cents, 'COR')}
-            </span>
+            <p className="text-caption text-texto-3">
+              {venta.codigo} · {venta.cliente_nombre ?? 'Mostrador'}
+            </p>
           </div>
-          <button
-            onClick={onClose}
-            aria-label="Cerrar modal de pago"
-            className="text-slate-400 hover:text-white p-1 rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-brand-500"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+          <Button variant="ghost" size="sm" onClick={onCerrar} aria-label="Cerrar">
+            <X className="w-4 h-4" />
+          </Button>
+        </header>
 
-        {/* Formulario */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
-          {/* Tipo de Pago y Moneda */}
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Concepto">
-              <Select
-                value={tipoPago}
-                onChange={(e) => setTipoPago(e.target.value as TipoPago)}
-              >
-                <option value="ANTICIPO">Anticipo</option>
-                <option value="SALDO">Saldo contraentrega</option>
-                <option value="COMPLETO">Pago completo (100%)</option>
-              </Select>
-            </Field>
-
-            <Field label="Moneda">
-              <Select
-                value={moneda}
-                onChange={(e) => handleCambioMoneda(e.target.value as 'COR' | 'USD')}
-              >
-                <option value="COR">C$ Córdobas</option>
-                <option value="USD">$ Dólares</option>
-              </Select>
-            </Field>
-          </div>
-
-          {/* Monto */}
-          <Field label="Monto recibido">
-            <div className="relative">
-              <span className="absolute left-3 top-2.5 text-body text-slate-400 font-medium">
-                {moneda === 'COR' ? 'C$' : '$'}
-              </span>
-              <Input
-                type="number"
-                step="0.01"
-                required
-                value={monto}
-                onChange={(e) => setMonto(e.target.value)}
-                className="pl-9 text-body font-medium"
-              />
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          {/* Estado de la cuenta */}
+          <div className="rounded-lg border border-borde bg-superficie-2 p-4">
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <div>
+                <span className="block text-caption text-texto-3">Total de la venta</span>
+                <Money usd_cents={venta.total_usd_cents} size="md" />
+              </div>
+              <div className="text-right">
+                <span className="block text-caption text-texto-3">Debe</span>
+                <Money usd_cents={venta.saldo_usd_cents} size="md" soloUsd />
+              </div>
             </div>
-          </Field>
+            <BarraProgreso
+              actual={venta.pagado_usd_cents}
+              total={venta.total_usd_cents}
+              tono={venta.saldo_usd_cents <= 0 ? 'success' : 'brand'}
+              etiqueta="Pagado de la venta"
+            />
+            <p className="mt-1.5 text-caption text-texto-3">
+              Ya pagó {formatearMoneda(venta.pagado_usd_cents, 'USD')} de{' '}
+              {formatearMoneda(venta.total_usd_cents, 'USD')}
+            </p>
+          </div>
 
-          {/* Método de pago y Referencia */}
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Método">
-              <Select
-                value={metodo}
-                onChange={(e) => setMetodo(e.target.value as MetodoPago)}
-              >
-                <option value="TRANSFERENCIA_BAC">Transferencia BAC</option>
-                <option value="TRANSFERENCIA_BANPRO">Transferencia Banpro</option>
-                <option value="TRANSFERENCIA_LAFISE">Transferencia Lafise</option>
-                <option value="EFECTIVO">Efectivo en mano</option>
-                <option value="OTRO">Otro método</option>
+          {esAnticipo && (
+            <div className="rounded-md border border-warning-200 bg-warning-50 p-3">
+              <p className="text-label text-warning-800">
+                Este encargo espera un anticipo de{' '}
+                {formatearMoneda(venta.anticipo_esperado_usd_cents, 'USD')}. Cuando se complete,
+                el encargo queda listo para comprar.
+              </p>
+            </div>
+          )}
+
+          {error && (
+            <div className="flex items-start gap-2 rounded-md border border-danger-200 bg-danger-50 p-3">
+              <AlertTriangle className="w-4 h-4 text-danger-600 shrink-0 mt-0.5" />
+              <p className="text-label text-danger-800">{error}</p>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <Field label="Cuánto pagó">
+              <Input
+                value={montoTexto}
+                onChange={(e) => setMontoTexto(e.target.value)}
+                placeholder="0.00"
+                className="text-right"
+                autoFocus
+              />
+            </Field>
+            <Field label="Moneda">
+              <Select value={moneda} onChange={(e) => setMoneda(e.target.value as MonedaPago)}>
+                <option value="USD">Dólares</option>
+                <option value="COR">Córdobas</option>
               </Select>
             </Field>
+            <Field label="Fecha">
+              <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+            </Field>
+          </div>
 
-            <Field label="No. Referencia (opcional)">
+          {moneda === 'COR' && montoCents > 0 && (
+            <p className="text-caption text-texto-3">
+              {formatearMoneda(montoCents, 'COR')} a la tasa de esta venta
+              ({formatearMoneda(venta.tasa_cambio_cents, 'COR')}) son{' '}
+              {formatearMoneda(montoEnUsd, 'USD')}.
+            </p>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Field label="Cómo pagó">
+              <Select value={metodo} onChange={(e) => setMetodo(e.target.value as MetodoPago)}>
+                {METODOS.map((m) => (
+                  <option key={m.valor} value={m.valor}>
+                    {m.etiqueta}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Referencia" hint="Número de transferencia, si aplica">
               <Input
-                type="text"
                 value={referencia}
                 onChange={(e) => setReferencia(e.target.value)}
-                placeholder="Ej: 104928"
+                placeholder="Opcional"
               />
             </Field>
           </div>
 
-          {/* Comprobante / Ctrl+V */}
-          <div>
-            <label className="block text-label text-slate-700 font-medium mb-1">
-              Comprobante de Pago
-            </label>
-            {previewUrl ? (
-              <div className="relative p-2 bg-slate-100 rounded-lg border border-slate-200 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <img
-                    src={previewUrl}
-                    alt="Comprobante"
-                    className="w-14 h-14 object-cover rounded-md border border-slate-300"
-                  />
-                  <div className="text-body">
-                    <span className="font-medium text-slate-800">Comprobante adjunto</span>
-                    <p className="text-caption text-slate-500">Pegado desde portapapeles</p>
-                  </div>
-                </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    setPreviewUrl(null);
-                    setComprobanteBuffer(undefined);
-                  }}
-                  className="text-danger-500 hover:text-danger-700"
-                >
-                  Quitar
-                </Button>
-              </div>
-            ) : (
-              <div className="p-4 border-2 border-dashed border-slate-300 rounded-lg text-center bg-slate-50">
-                <ImageIcon className="w-6 h-6 text-slate-400 mx-auto mb-1" />
-                <p className="text-body text-slate-600">
-                  Presiona <kbd className="px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded text-caption font-mono">Ctrl+V</kbd> para pegar la captura aquí
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Checkbox de Verificación */}
-          <div className="p-3.5 bg-emerald-50 rounded-lg border border-emerald-100 flex items-center gap-3">
-            <input
-              type="checkbox"
-              id="verificado_cb"
-              checked={verificado}
-              onChange={(e) => setVerificado(e.target.checked)}
-              className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500 border-slate-300"
+          <Field label="Notas">
+            <Textarea
+              rows={2}
+              value={notas}
+              onChange={(e) => setNotas(e.target.value)}
+              placeholder="Opcional"
             />
-            <label htmlFor="verificado_cb" className="text-body text-emerald-900 cursor-pointer">
-              <span className="font-medium">Ya confirmé este pago en mi cuenta bancaria</span>
-              <p className="text-caption text-emerald-700">
-                Solo marcá esto si viste el dinero en el banco. Un anticipo verificado desbloquea la compra del producto en USA.
-              </p>
-            </label>
-          </div>
+          </Field>
 
-          {/* Botones */}
-          <div className="pt-2 flex items-center justify-end gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={onClose}
+          {/* Cómo queda después */}
+          {montoCents > 0 && (
+            <div
+              className={cn(
+                'rounded-md border p-3 flex items-start gap-2',
+                saldoDespues <= 0
+                  ? 'border-success-200 bg-success-50'
+                  : 'border-acento bg-acento-suave'
+              )}
             >
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={guardando}
-            >
-              <Check className="w-4 h-4 mr-1.5" />
-              <span>{guardando ? 'Guardando...' : 'Registrar Pago'}</span>
-            </Button>
-          </div>
-        </form>
+              <CheckCircle2
+                className={cn(
+                  'w-4 h-4 shrink-0 mt-0.5',
+                  saldoDespues <= 0 ? 'text-success-600' : 'text-acento'
+                )}
+              />
+              <div className="text-label">
+                {saldoDespues < 0 ? (
+                  <p className="text-success-800">
+                    Queda saldada y el cliente paga {formatearMoneda(-saldoDespues, 'USD')} de
+                    más.
+                  </p>
+                ) : saldoDespues === 0 ? (
+                  <p className="text-success-800">Con esto la venta queda saldada.</p>
+                ) : (
+                  <p className="text-acento-fuerte">
+                    Después de este abono va a deber {formatearMoneda(saldoDespues, 'USD')} (
+                    {formatearMoneda(
+                      usdCentavosACorCentavos(saldoDespues, venta.tasa_cambio_cents),
+                      'COR'
+                    )}
+                    ).
+                  </p>
+                )}
+                {anticipoQuedaCubierto && (
+                  <p className="text-success-800 mt-0.5">
+                    El anticipo queda cubierto: ya podés comprar este encargo.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Cuotas */}
+          {venta.cuotas.length > 0 && (
+            <div className="rounded-lg border border-borde">
+              <div className="px-4 py-2.5 border-b border-borde text-label font-medium text-texto-2">
+                Plan de cuotas
+              </div>
+              <ul className="divide-y divide-borde">
+                {venta.cuotas.map((c) => {
+                  const saldada = c.pagado_usd_cents >= c.monto_usd_cents;
+                  return (
+                    <li key={c.id} className="px-4 py-2 flex items-center justify-between gap-2">
+                      <span className="text-label text-texto-2">
+                        Cuota {c.numero} · {relativoAHoy(c.fecha_vencimiento)}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-label tabular text-texto">
+                          {formatearMoneda(c.monto_usd_cents, 'USD')}
+                        </span>
+                        <Badge tone={saldada ? 'success' : c.vencida ? 'danger' : 'neutral'}>
+                          {saldada ? 'Pagada' : c.vencida ? 'Vencida' : 'Pendiente'}
+                        </Badge>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+
+          {/* Abonos anteriores */}
+          {venta.pagos.length > 0 && (
+            <div className="rounded-lg border border-borde">
+              <div className="px-4 py-2.5 border-b border-borde text-label font-medium text-texto-2">
+                Abonos registrados
+              </div>
+              <ul className="divide-y divide-borde">
+                {venta.pagos.map((p) => (
+                  <li key={p.id} className="px-4 py-2 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-label text-texto tabular">
+                        {formatearMoneda(p.monto_usd_cents, 'USD')}
+                        {p.moneda === 'COR' && (
+                          <span className="text-texto-3">
+                            {' '}
+                            ({formatearMoneda(p.monto_cor_cents, 'COR')})
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-caption text-texto-3">
+                        {formatearFecha(p.fecha)} · {p.metodo.toLowerCase()}
+                        {p.es_anticipo ? ' · anticipo' : ''}
+                        {p.referencia ? ` · ${p.referencia}` : ''}
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-texto-3 hover:text-danger-700"
+                      onClick={() => setAnulandoId(p.id)}
+                    >
+                      Anular
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        <Confirmar
+          abierto={anulandoId !== null}
+          peligroso
+          titulo="¿Anular este abono?"
+          consecuencias={[
+            'El saldo de la venta vuelve a subir por ese monto.',
+            'El abono desaparece del historial de la venta.',
+          ]}
+          textoConfirmar="Sí, anular el abono"
+          onConfirmar={() => anulandoId !== null && anular(anulandoId)}
+          onCerrar={() => setAnulandoId(null)}
+        />
+
+        <footer className="flex items-center justify-end gap-2 px-5 py-4 border-t border-borde shrink-0">
+          <Button variant="secondary" onClick={onCerrar} disabled={guardando}>
+            Cerrar
+          </Button>
+          <Button variant="primary" onClick={registrar} disabled={guardando || montoCents <= 0}>
+            {guardando ? 'Registrando...' : 'Registrar abono'}
+          </Button>
+        </footer>
       </div>
     </div>
   );

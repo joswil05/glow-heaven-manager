@@ -1,53 +1,73 @@
-export const IPC_CHANNELS = {
-  // Parámetros
+/**
+ * Canales IPC. El renderer nunca toca la base: todo pasa por acá.
+ */
+export const IPC = {
+  // Configuración
   PARAMETROS_GET: 'parametros:get',
   PARAMETROS_UPDATE: 'parametros:update',
-  PARAMETROS_UPDATE_MANY: 'parametros:update-many',
-  PARAMETROS_GUARDAR_INICIALES: 'parametros:guardar-iniciales',
+  PARAMETROS_RECALCULAR_PRECIOS: 'parametros:recalcularPrecios',
 
-  // Categorías y Tiendas
   CATEGORIAS_LIST: 'categorias:list',
-  CATEGORIAS_UPDATE: 'categorias:update',
-  TIENDAS_LIST: 'tiendas:list',
+  CATEGORIAS_GUARDAR: 'categorias:guardar',
+  CATEGORIAS_ARCHIVAR: 'categorias:archivar',
+
+  // Inventario
+  PRODUCTOS_LIST: 'productos:list',
+  PRODUCTOS_GET: 'productos:get',
+  PRODUCTOS_CREAR: 'productos:crear',
+  PRODUCTOS_ACTUALIZAR: 'productos:actualizar',
+  PRODUCTOS_AJUSTAR_STOCK: 'productos:ajustarStock',
+  PRODUCTOS_ARCHIVAR: 'productos:archivar',
+  PRODUCTOS_MOVIMIENTOS: 'productos:movimientos',
+  PRODUCTOS_SIMULAR_PRECIO: 'productos:simularPrecio',
+
+  // Paquetes recibidos
+  COMPRAS_LIST: 'compras:list',
+  COMPRAS_GET: 'compras:get',
+  COMPRAS_GUARDAR: 'compras:guardar',
+  COMPRAS_PREVISUALIZAR: 'compras:previsualizar',
+  COMPRAS_RECIBIR: 'compras:recibir',
+  COMPRAS_ARCHIVAR: 'compras:archivar',
+
+  // Ventas y encargos
+  VENTAS_LIST: 'ventas:list',
+  VENTAS_GET: 'ventas:get',
+  VENTAS_CREAR: 'ventas:crear',
+  VENTAS_CAMBIAR_ESTADO: 'ventas:cambiarEstado',
+
+  // Pagos
+  PAGOS_REGISTRAR: 'pagos:registrar',
+  PAGOS_ANULAR: 'pagos:anular',
+  PAGOS_RECIENTES: 'pagos:recientes',
 
   // Clientes
   CLIENTES_LIST: 'clientes:list',
-  CLIENTES_GET_BY_ID: 'clientes:get-by-id',
-  CLIENTES_CREATE: 'clientes:create',
-  CLIENTES_UPDATE: 'clientes:update',
+  CLIENTES_GET: 'clientes:get',
+  CLIENTES_GUARDAR: 'clientes:guardar',
+  CLIENTES_ARCHIVAR: 'clientes:archivar',
 
-  // Cotizaciones
-  COTIZACIONES_LIST: 'cotizaciones:list',
-  COTIZACIONES_GET_BY_ID: 'cotizaciones:get-by-id',
-  COTIZACIONES_CREATE: 'cotizaciones:create',
-  COTIZACIONES_MARCAR_ENVIADA: 'cotizaciones:marcar-enviada',
-  COTIZACIONES_ACEPTAR: 'cotizaciones:aceptar',
-  COTIZACIONES_RECHAZAR: 'cotizaciones:rechazar',
-  COTIZACIONES_CONVERTIR_A_PEDIDO: 'cotizaciones:convertir-a-pedido',
-
-  // Pedidos
-  PEDIDOS_LIST: 'pedidos:list',
-  PEDIDOS_GET_BY_ID: 'pedidos:get-by-id',
-  PEDIDOS_CAMBIAR_ESTADO_ITEM: 'pedidos:cambiar-estado-item',
-
-  // Pagos
-  PAGOS_CREATE: 'pagos:create',
-  PAGOS_VERIFICAR: 'pagos:verificar',
-  PAGOS_LIST_BY_PEDIDO: 'pagos:list-by-pedido',
-
-  // Vistas
-  VISTAS_GET_HOY: 'vistas:get-hoy',
-  VISTAS_GET_ALERTAS: 'vistas:get-alertas',
-  VISTAS_GET_CAPITAL_LIBRE: 'vistas:get-capital-libre',
-  VISTAS_GET_SEMAFORO: 'vistas:get-semaforo',
-  VISTAS_GET_LISTA_COMPRAS: 'vistas:get-lista-compras',
-  VISTAS_GET_PENDIENTES_LISTA: 'vistas:get-pendientes-lista',
-
-  // Adjuntos
-  ADJUNTOS_GUARDAR_BUFFER: 'adjuntos:guardar-buffer',
+  // Panel
+  PANEL_CARGAR: 'panel:cargar',
 
   // Sistema
-  SISTEMA_CREAR_BACKUP: 'sistema:crear-backup',
-  SISTEMA_DESHACER_ULTIMO_GRUPO: 'sistema:deshacer-ultimo-grupo',
-  SISTEMA_ABRIR_WHATSAPP: 'sistema:abrir-whatsapp',
+  SISTEMA_DESHACER: 'sistema:deshacer',
+  SISTEMA_INFO: 'sistema:info',
+
+  // Acceso
+  ACCESO_TIENE_PIN: 'acceso:tienePin',
+  ACCESO_ESTABLECER_PIN: 'acceso:establecerPin',
+  ACCESO_VERIFICAR_PIN: 'acceso:verificarPin',
+  ACCESO_CAMBIAR_PIN: 'acceso:cambiarPin',
+
+  // Conexión con Firebase
+  NUBE_ESTADO: 'nube:estado',
+  NUBE_CONFIGURAR: 'nube:configurar',
+  NUBE_RECONECTAR: 'nube:reconectar',
+
+  // Autenticación con Google
+  AUTH_GOOGLE_INICIAR: 'auth:google:iniciar',
+  AUTH_GET_USER: 'auth:getUser',
+  AUTH_LOGOUT: 'auth:logout',
 } as const;
+
+export type CanalIPC = (typeof IPC)[keyof typeof IPC];

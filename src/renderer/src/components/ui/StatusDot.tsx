@@ -3,11 +3,12 @@ import { cn } from '../../lib/cn';
 import type { Tone } from './Badge';
 
 const PUNTOS: Record<Tone, string> = {
-  neutral: 'bg-slate-400',
+  neutral: 'bg-texto-3',
   success: 'bg-success-500',
   warning: 'bg-warning-500',
   danger: 'bg-danger-500',
-  info: 'bg-brand-500',
+  info: 'bg-acento',
+  purple: 'bg-indigo-500',
 };
 
 const DESCRIPCION_POR_TONO: Record<Tone, string> = {
@@ -16,6 +17,7 @@ const DESCRIPCION_POR_TONO: Record<Tone, string> = {
   warning: 'Pendiente',
   danger: 'Bloqueado',
   info: 'Informativo',
+  purple: 'Especial',
 };
 
 export interface StatusDotProps {
@@ -31,6 +33,6 @@ export const StatusDot: React.FC<StatusDotProps> = ({ tone, label, className }) 
     aria-label={label ?? DESCRIPCION_POR_TONO[tone]}
   >
     <span className={cn('w-2 h-2 rounded-full shrink-0', PUNTOS[tone])} aria-hidden />
-    {label && <span className="text-label text-slate-700">{label}</span>}
+    {label && <span className="text-label text-texto-2">{label}</span>}
   </span>
 );

@@ -1,6 +1,6 @@
 {
   "name": "glow-heaven-manager",
-  "version": "1.0.0",
+  "version": "2.0.2",
   "type": "module",
   "description": "Herramienta de gestión interna para personal shopping e importación",
   "main": "dist-electron/main/index.js",
@@ -10,20 +10,26 @@
     "dev": "vite",
     "build": "tsc && vite build && electron-builder --dir",
     "build:exe": "tsc && vite build && electron-builder",
-    "rebuild": "electron-builder install-app-deps",
-    "test": "node ./scripts/run-test.js run",
-    "test:watch": "node ./scripts/run-test.js"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "emulador": "node scripts/emulador.mjs",
+    "test:emulador": "node scripts/test-emulador.mjs",
+    "dev:mobile": "vite --config mobile/vite.config.ts",
+    "build:mobile": "tsc -p mobile/tsconfig.json --noEmit && vite build --config mobile/vite.config.ts",
+    "preview:mobile": "vite preview --config mobile/vite.config.ts",
+    "deploy:mobile": "npm run build:mobile && firebase deploy --only hosting",
+    "release:windows": "tsc && vite build && electron-builder --publish always"
   },
   "dependencies": {
-    "better-sqlite3": "^11.8.1",
     "clsx": "^2.1.1",
+    "electron-updater": "^6.8.9",
+    "firebase": "^12.19.0",
     "lucide-react": "^1.16.0",
     "tailwind-merge": "^3.0.2",
     "zod": "^3.24.2"
   },
   "devDependencies": {
-    "@electron/rebuild": "^3.7.1",
-    "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.13.4",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
@@ -31,6 +37,7 @@
     "autoprefixer": "^10.4.20",
     "electron": "^34.2.0",
     "electron-builder": "^25.1.8",
+    "firebase-tools": "^15.30.0",
     "postcss": "^8.5.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -39,6 +46,7 @@
     "vite": "^6.1.0",
     "vite-plugin-electron": "^0.29.0",
     "vite-plugin-electron-renderer": "^0.14.6",
+    "vite-plugin-pwa": "^0.21.1",
     "vitest": "^3.0.5"
   }
 }

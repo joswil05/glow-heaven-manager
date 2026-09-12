@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "src/renderer/src/components/layout/Sidebar.tsx"
+        ],
+        "createdAt": "2026-08-27T22:37:42.330Z",
+        "reason": "Claude decidio: border-l-2 es el indicador de seleccion del item activo de navegacion, no un acento decorativo en tarjeta. Convencion establecida (VS Code, Slack, ajustes de GitHub, barras laterales de macOS). El borde persiste en transparente cuando esta inactivo, asi que no hay salto de layout. Quitarlo dejaria el item activo marcado solo por fondo, senal mas debil. Distinto del caso StatTile (border-l-4 codificando tono en tarjeta), que si se corrigio."
+      }
+    ]
+  }
+}

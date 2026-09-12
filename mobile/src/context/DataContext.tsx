@@ -1,0 +1,139 @@
+import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
+import type { ParametrosSistema, ProductoConStock } from '@shared/types';
+import { ParametrosRepoFirestore } from '@repos/parametros.repo';
+import { ProductosRepoFirestore } from '@repos/productos.repo';
+import { useAuth } from './AuthContext';
+
+interface DataState {
+  parametros: ParametrosSistema | null;
+  productos: ProductoConStock[];
+  cargandoProductos: boolean;
+  cargando: boolean;
+  error: string | null;
+  recargar: () => Promise<void>;
+  recargarProductos: (forzar?: boolean) => Promise<void>;
+  actualizarStockLocal: (lineas: { producto_id: number; variante_id?: number; cantidad: number }[]) => void;
+}
+
+const DEFAULT_PARAMS: ParametrosSistema = {
+  tasa_cambio_cents: 3662,
+  tax_bp: 700,
+  tarifa_envio_cents_lb: 700,
+  margen_defecto_bp: 4500,
+  paso_redondeo_usd_cents: 100,
+  anticipo_defecto_bp: 5000,
+  mostrar_cordobas: true,
+  stock_minimo_defecto: 2,
+  nombre_negocio: 'Glow Heaven',
+  telefono_negocio: '',
+  onboarding_completado: true,
+};
+
+const DataContext = createContext<DataState | null>(null);
+
+export function DataProvider({ children }: { children: ReactNode }) {
+  const { usuario } = useAuth();
+  const [parametros, setParametros] = useState<ParametrosSistema | null>(null);
+  const [productos, setProductos] = useState<ProductoConStock[]>([]);
+  const [cargandoProductos, setCargandoProductos] = useState(false);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const ultimaCargaRef = useRef<number>(0);
+
+  const recargarParametros = useCallback(async () => {
+    setCargando(true);
+    setError(null);
+    try {
+      const p = await ParametrosRepoFirestore.getParametros();
+      setParametros(p);
+    } catch (err) {
+      console.error('[DataContext] Error cargando parámetros:', err);
+      setError('No se pudieron cargar los parámetros del negocio. Usando valores por defecto.');
+      setParametros(DEFAULT_PARAMS);
+    } finally {
+      setCargando(false);
+    }
+  }, []);
+
+  const recargarProductos = useCallback(async (forzar = false) => {
+    const ahora = Date.now();
+    // Cache de 60 segundos si no se fuerza la recarga
+    if (!forzar && productos.length > 0 && ahora - ultimaCargaRef.current < 60000) {
+      return;
+    }
+
+    setCargandoProductos(productos.length === 0); // Solo muestra spinner si la lista está vacía
+    try {
+      const lista = await ProductosRepoFirestore.listar();
+      setProductos(lista);
+      ultimaCargaRef.current = Date.now();
+    } catch (err) {
+      console.error('[DataContext] Error cargando catálogo de productos:', err);
+    } finally {
+      setCargandoProductos(false);
+    }
+  }, [productos.length]);
+
+  // Actualización optimista de existencias en memoria tras confirmar una venta
+  const actualizarStockLocal = useCallback((lineasVendidas: { producto_id: number; variante_id?: number; cantidad: number }[]) => {
+    setProductos((prev) =>
+      prev.map((p) => {
+        const lineasDelProd = lineasVendidas.filter((l) => l.producto_id === p.id);
+        if (lineasDelProd.length === 0) return p;
+
+        const totalRestar = lineasDelProd.reduce((sum, l) => sum + l.cantidad, 0);
+        const nuevasExistencias = Math.max(0, p.existencias - totalRestar);
+
+        const nuevasVariantes = p.variantes.map((v) => {
+          const lv = lineasDelProd.find((l) => l.variante_id === v.id);
+          if (!lv) return v;
+          return {
+            ...v,
+            existencias: Math.max(0, v.existencias - lv.cantidad),
+          };
+        });
+
+        return {
+          ...p,
+          existencias: nuevasExistencias,
+          variantes: nuevasVariantes,
+        };
+      })
+    );
+  }, []);
+
+  useEffect(() => {
+    if (usuario) {
+      recargarParametros();
+      recargarProductos(false);
+    } else {
+      setParametros(null);
+      setProductos([]);
+      setCargando(true);
+    }
+  }, [usuario, recargarParametros, recargarProductos]);
+
+  return (
+    <DataContext.Provider
+      value={{
+        parametros,
+        productos,
+        cargandoProductos,
+        cargando,
+        error,
+        recargar: recargarParametros,
+        recargarProductos,
+        actualizarStockLocal,
+      }}
+    >
+      {children}
+    </DataContext.Provider>
+  );
+}
+
+export function useDatosNegocio(): DataState {
+  const ctx = useContext(DataContext);
+  if (!ctx) throw new Error('useDatosNegocio debe usarse dentro de <DataProvider>');
+  return ctx;
+}

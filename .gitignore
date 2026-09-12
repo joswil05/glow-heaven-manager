@@ -4,6 +4,7 @@ node_modules/
 # Build outputs
 dist/
 dist-electron/
+dist-mobile/
 release/
 
 # Base de datos local (datos sensibles)
@@ -33,3 +34,9 @@ electron-builder.env
 
 # Carpeta scratch (trabajo temporal del agente)
 scratch/
+
+# Emulador de Firebase
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+.firebase/

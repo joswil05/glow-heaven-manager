@@ -6,7 +6,10 @@ export const Card: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
   ...rest
 }) => (
   <div
-    className={cn('bg-white rounded-lg border border-slate-200', className)}
+    className={cn(
+      'bg-superficie rounded-2xl border border-borde/80 shadow-[0_1px_3px_rgba(0,0,0,0.03)] transition-all',
+      className
+    )}
     {...rest}
   />
 );
@@ -17,7 +20,7 @@ export const CardHeader: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
 }) => (
   <div
     className={cn(
-      'px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-3',
+      'px-5 py-3.5 border-b border-borde/60 flex items-center justify-between gap-3',
       className
     )}
     {...rest}
@@ -27,4 +30,5 @@ export const CardHeader: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
 export const CardContent: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
   className,
   ...rest
-}) => <div className={cn('p-4', className)} {...rest} />;
+}) => <div className={cn('p-5', className)} {...rest} />;
+

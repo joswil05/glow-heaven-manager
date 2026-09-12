@@ -2,9 +2,9 @@ import React, { useId } from 'react';
 import { cn } from '../../lib/cn';
 
 const CONTROL =
-  'w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-body text-slate-900 ' +
-  'placeholder:text-slate-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus:border-brand-500 ' +
-  'disabled:bg-slate-50 disabled:text-slate-500';
+  'w-full rounded-md border border-borde-fuerte bg-superficie px-3 py-2 text-body text-texto ' +
+  'placeholder:text-texto-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-acento focus:border-acento ' +
+  'disabled:bg-superficie-2 disabled:text-texto-3';
 
 export interface FieldProps {
   label: string;
@@ -29,7 +29,7 @@ export const Field: React.FC<FieldProps> = ({
 
   return (
     <div className={cn('block', className)}>
-      <label htmlFor={id} className="block text-label text-slate-700 mb-1">
+      <label htmlFor={id} className="block text-label text-texto-2 mb-1">
         {label}
       </label>
       {React.isValidElement(children)
@@ -40,7 +40,7 @@ export const Field: React.FC<FieldProps> = ({
           })
         : children}
       {hint && !error && (
-        <span id={hintId} className="mt-1 block text-caption text-slate-500">
+        <span id={hintId} className="mt-1 block text-caption text-texto-3">
           {hint}
         </span>
       )}
@@ -53,10 +53,13 @@ export const Field: React.FC<FieldProps> = ({
   );
 };
 
-export const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement>> = ({
-  className,
-  ...rest
-}) => <input className={cn(CONTROL, className)} {...rest} />;
+// `forwardRef` para poder enfocar o seleccionar el contenido desde afuera:
+// un cuadro de conteo tiene que abrir con el numero anterior ya seleccionado.
+export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
+  function Input({ className, ...rest }, ref) {
+    return <input ref={ref} className={cn(CONTROL, className)} {...rest} />;
+  }
+);
 
 export const Select: React.FC<React.SelectHTMLAttributes<HTMLSelectElement>> = ({
   className,

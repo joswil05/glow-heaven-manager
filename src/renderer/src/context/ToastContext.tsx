@@ -63,7 +63,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const handleUndo = async () => {
         removeToast(id);
         try {
-          const res = await window.api.sistema.deshacerUltimoGrupo(grupoId);
+          const res = await window.api.sistema.deshacer(grupoId);
           if (res.success && res.data.revertido) {
             showToast({
               message: `Deshecho: ${res.data.descripcion}`,
@@ -73,7 +73,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             if (onUndoSuccess) onUndoSuccess();
           } else {
             showToast({
-              message: res.success ? res.data.descripcion : 'No se pudo deshacer la acción.',
+              message: res.success ? res.data.descripcion : res.error,
               type: 'error',
             });
           }
@@ -144,12 +144,12 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className="pointer-events-auto bg-navy-900 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center justify-between gap-3 border border-navy-700 animate-fade-in"
+            className="pointer-events-auto bg-inverso text-inverso-texto px-4 py-3 rounded-xl shadow-2xl flex items-center justify-between gap-3 border border-inverso-2 animate-fade-in"
           >
             <div className="flex items-center gap-2.5 min-w-0">
               {toast.type === 'success' && <CheckCircle2 className="w-5 h-5 text-success-500 shrink-0" />}
               {toast.type === 'error' && <AlertCircle className="w-5 h-5 text-danger-500 shrink-0" />}
-              {toast.type === 'info' && <Info className="w-5 h-5 text-brand-400 shrink-0" />}
+              {toast.type === 'info' && <Info className="w-5 h-5 text-acento-suave shrink-0" />}
               <span className="text-body leading-snug truncate">{toast.message}</span>
             </div>
 
@@ -162,7 +162,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               )}
               <button
                 onClick={() => removeToast(toast.id)}
-                className="text-slate-400 hover:text-white p-1 rounded-md transition-colors"
+                className="text-inverso-texto-2 hover:text-inverso-texto p-1 rounded-md transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>

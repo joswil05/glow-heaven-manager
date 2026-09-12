@@ -5,7 +5,10 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    setupFiles: ['./tests/setup-firestore.ts'],
     include: ['tests/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
+    // El emulador tiene su propia configuración: usa el SDK real, no el falso.
+    exclude: ['tests/emulador.test.ts', '**/node_modules/**'],
   },
   resolve: {
     alias: {

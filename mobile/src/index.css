@@ -1,0 +1,131 @@
+/**
+ * Sistema de Diseño Móvil Nativo (Material 3 + Vivid Emerald)
+ * Optimizado para pantallas táctiles de Android y PWA móvil.
+ */
+:root {
+  --fondo: 244 246 249;
+  --superficie: 255 255 255;
+  --superficie-2: 238 242 248;
+  --borde: 222 229 238;
+  --borde-fuerte: 195 205 218;
+
+  --texto: 15 23 42;
+  --texto-2: 51 65 85;
+  --texto-3: 100 116 139;
+
+  --acento: 5 165 110;
+  --acento-fuerte: 4 120 80;
+  --acento-suave: 230 252 243;
+  --acento-texto: 255 255 255;
+
+  --exito: 5 165 110;
+  --exito-suave: 228 250 240;
+  --alerta: 234 130 0;
+  --alerta-suave: 255 242 215;
+  --peligro: 225 29 72;
+  --peligro-suave: 255 228 235;
+
+  --inverso: 15 23 42;
+  --inverso-2: 30 41 59;
+  --inverso-texto: 248 250 252;
+  --inverso-texto-2: 148 163 184;
+  --velo: 15 23 42;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: rgb(var(--fondo));
+  color: rgb(var(--texto));
+  font-family: 'Plus Jakarta Sans', Roboto, -apple-system, BlinkMacSystemFont, sans-serif;
+  overscroll-behavior-y: contain;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  user-select: none;
+}
+
+/* Permitir selección en inputs y números */
+input, textarea, [contenteditable="true"] {
+  user-select: text;
+}
+
+/* Mínimo táctil ergonómico de Android (48px recomendado por Google Material 3) */
+.tocable {
+  min-height: 48px;
+  min-width: 48px;
+}
+
+/* Efecto táctil nativo Android (haptic feedback visual) */
+.m3-press {
+  transition: transform 120ms cubic-bezier(0.2, 0, 0, 1), opacity 120ms ease-out, background-color 120ms ease-out;
+}
+.m3-press:active {
+  transform: scale(0.96);
+  opacity: 0.92;
+}
+
+/* Tarjeta tonal de Android M3 */
+.m3-card {
+  background-color: #ffffff;
+  border-radius: 1.5rem; /* 24px */
+  box-shadow: 0 2px 10px -2px rgba(15, 23, 42, 0.05), 0 1px 3px -1px rgba(15, 23, 42, 0.03);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+/* Tiras horizontales sin scrollbar visible pero con swipe suave */
+.sin-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+}
+.sin-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Animaciones nativas de Android Bottom Sheet y Scrim */
+@keyframes m3FadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes m3SlideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes m3SnackbarIn {
+  from { transform: translateY(100%) scale(0.92); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+@keyframes m3SlideDown {
+  from { transform: translateY(-120%) scale(0.92); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.animate-m3-fade {
+  animation: m3FadeIn 180ms cubic-bezier(0.2, 0, 0, 1) forwards;
+}
+
+.animate-m3-slide-up {
+  animation: m3SlideUp 260ms cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
+}
+
+.animate-m3-snackbar {
+  animation: m3SnackbarIn 220ms cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
+}
+
+.animate-m3-slide-down {
+  animation: m3SlideDown 240ms cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
+}

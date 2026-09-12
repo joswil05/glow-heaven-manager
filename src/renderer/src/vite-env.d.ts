@@ -1,9 +1,9 @@
 /// <reference types="vite/client" />
 
-import { ElectronApi } from '../../preload/api';
+import type { ApiPuente } from '../../shared/ipc-contracts';
 
 declare global {
   interface Window {
-    api: ElectronApi;
+    api: ApiPuente;
   }
 }

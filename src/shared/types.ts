@@ -1,240 +1,384 @@
-export type EstadoCotizacion = 'BORRADOR' | 'ENVIADA' | 'ACEPTADA' | 'RECHAZADA' | 'VENCIDA';
+// ============================================================================
+// Tipos compartidos entre el proceso main y el renderer.
+// Todo el dinero viaja en centavos USD enteros.
+// ============================================================================
 
-export type EstadoItem =
-  | 'COTIZADO'
-  | 'PENDIENTE_ANTICIPO'
-  | 'ANTICIPO_OK'
-  | 'EN_LISTA_USA'
-  | 'COMPRADO'
-  | 'EN_TRANSITO'
-  | 'EN_NICARAGUA'
-  | 'LISTO_ENTREGA'
-  | 'ENTREGADO'
-  | 'CERRADO'
-  | 'NO_DISPONIBLE'
-  | 'CAMBIO_PRECIO'
-  | 'SUSTITUTO_PROPUESTO'
-  | 'ABANDONADO'
-  | 'DEVUELTO'
-  | 'CANCELADO';
+export type ModoPrecio = 'MARGEN' | 'MULTIPLICADOR' | 'MANUAL';
 
-export type EstadoLote = 'ABIERTO' | 'COMPRADO' | 'EN_TRANSITO' | 'EN_NICARAGUA' | 'LIQUIDADO';
+export type EstadoCompra = 'BORRADOR' | 'EN_CAMINO' | 'RECIBIDA';
 
-export type BaseProrrateo = 'PESO' | 'VALOR' | 'UNIDAD';
+export type DestinoLinea = 'INVENTARIO' | 'ENCARGO';
 
-export type TipoCostoLote =
-  | 'FLETE'
-  | 'ARANCEL'
-  | 'IVA_ADUANA'
-  | 'CASILLERO'
-  | 'HANDLING'
-  | 'SEGURO'
-  | 'EMPAQUE'
-  | 'OTRO';
+export type TipoVenta = 'INVENTARIO' | 'ENCARGO';
 
-export type MetodoPago =
-  | 'TRANSFERENCIA_BAC'
-  | 'TRANSFERENCIA_BANPRO'
-  | 'TRANSFERENCIA_LAFISE'
-  | 'EFECTIVO'
-  | 'OTRO';
+export type EstadoVenta = 'COTIZADA' | 'PENDIENTE' | 'ENTREGADA' | 'CANCELADA';
 
-export type TipoPago = 'ANTICIPO' | 'SALDO' | 'COMPLETO';
+export type MetodoPago = 'EFECTIVO' | 'TRANSFERENCIA' | 'OTRO';
 
-export type ColorSemaforo = 'ROJO' | 'AMARILLO' | 'VERDE';
+export type MonedaPago = 'USD' | 'COR';
 
-export interface CuentaBancariaJSON {
-  id?: number;
-  banco: string;
-  numero: string;
-  titular: string;
-  moneda: 'COR' | 'USD';
-  tipo?: string;
-}
+export type TipoMovimiento = 'ENTRADA' | 'SALIDA' | 'AJUSTE';
+
+// ---------------------------------------------------------------------------
+// Configuración
+// ---------------------------------------------------------------------------
 
 export interface ParametrosSistema {
-  tasa_cambio_oficial_cents: number; // Centavos de C$ por 1 USD (ej: 3662 para C$36.6243)
-  tarifa_flete_cents_lb: number; // Centavos USD por lb (ej: 650 para $6.50)
-  flete_minimo_usd_cents: number; // Centavos USD (ej: 1500 para $15.00)
-  otros_costos_fijos_usd_cents: number; // Centavos USD de casillero/handling fijo (ej: 1000 para $10.00)
-  umbral_arancel_excedente_usd_cents: number; // Centavos USD (ej: 5000 para $50.00)
-  arancel_default_bp: number; // Basis points (ej: 3000 para 30%)
-  tax_usa_default_bp: number; // Basis points (ej: 700 para 7.00%)
-  comision_minima_cotizacion_cor_cents: number; // Centavos C$ (ej: 30000 para C$300)
-  anticipo_default_bp: number; // Basis points (5000 = 50%, 7000 = 70%)
-  saldo_inicial_bancos_cor_cents: number; // Centavos C$ capturados en onboarding
-  saldo_inicial_fecha?: string;
-  ruta_backup_configurada?: string;
-  cuentas_bancarias: CuentaBancariaJSON[];
-  telefono_usuario?: string;
+  /** Córdobas por dólar, en centavos. 3662 = C$36.62. Solo para mostrar. */
+  tasa_cambio_cents: number;
+  /** Tax de compra en USA. 700 = 7%. */
+  tax_bp: number;
+  /** Tarifa de envío por libra, en centavos USD. 700 = $7.00. */
+  tarifa_envio_cents_lb: number;
+  /** Ganancia por defecto sobre el costo. 4500 = 45%. */
+  margen_defecto_bp: number;
+  /** Escalón de redondeo del precio. 100 = $1, 500 = $5. */
+  paso_redondeo_usd_cents: number;
+  /** Anticipo por defecto en encargos. 5000 = 50%. */
+  anticipo_defecto_bp: number;
+  mostrar_cordobas: boolean;
+  stock_minimo_defecto: number;
+  nombre_negocio: string;
+  telefono_negocio: string;
+  onboarding_completado: boolean;
+  pin_seguridad?: string;
 }
 
 export interface Categoria {
   id: number;
   nombre: string;
-  comision_defecto_bp: number;
-  arancel_estimado_bp: number;
-  redondeo_cor_cents: number;
+  margen_defecto_bp: number;
   activa: boolean;
 }
 
-export interface Tienda {
-  id: number;
-  nombre: string;
-  url_base?: string;
-  tax_rate_bp: number;
-  activa: boolean;
-}
+// ---------------------------------------------------------------------------
+// Clientes
+// ---------------------------------------------------------------------------
 
 export interface Cliente {
   id: number;
   nombre: string;
   alias?: string;
-  telefono: string;
+  telefono?: string;
   direccion?: string;
-  ciudad: string;
-  cedula?: string;
+  ciudad?: string;
   notas?: string;
-  incumplio_anteriormente: boolean;
   activo: boolean;
   creado_en?: string;
 }
 
 export interface ClienteDetalle extends Cliente {
-  pedidos_activos_count: number;
-  saldo_total_pendiente_cor_cents: number;
-  total_compras_cor_cents: number;
-}
-
-export interface CotizacionItem {
-  id?: number;
-  cotizacion_id?: number;
-  tienda_id?: number;
-  categoria_id?: number;
-  descripcion: string;
-  url?: string;
-  precio_usa_usd_cents: number;
-  tax_usa_usd_cents: number;
-  peso_mlb: number;
-  comision_bp: number;
-  comision_cor_cents: number;
-  arancel_estimado_usd_cents: number;
-  flete_estimado_usd_cents: number;
-  costo_aterrizado_estimado_usd_cents: number;
-  precio_final_usd_cents: number;
-  precio_final_cor_cents: number;
-  anticipo_usd_cents: number;
-  anticipo_cor_cents: number;
-  saldo_usd_cents: number;
-  saldo_cor_cents: number;
-  orden: number;
-}
-
-export interface Cotizacion {
-  id: number;
-  codigo: string;
-  cliente_id: number;
-  fecha: string;
-  valida_hasta: string;
-  tasa_cambio_cents: number;
-  tarifa_flete_cents_lb: number;
-  estado: EstadoCotizacion;
-  subtotal_usa_usd_cents: number;
-  tax_usa_total_usd_cents: number;
-  flete_estimado_total_usd_cents: number;
-  arancel_estimado_total_usd_cents: number;
-  costo_aterrizado_total_usd_cents: number;
-  comision_total_cor_cents: number;
-  total_usd_cents: number;
-  total_cor_cents: number;
-  anticipo_bp: number;
-  anticipo_total_usd_cents: number;
-  anticipo_total_cor_cents: number;
-  saldo_total_usd_cents: number;
-  saldo_total_cor_cents: number;
-  notas?: string;
-  activo: boolean;
-  creado_en?: string;
-}
-
-export interface CotizacionCompleta extends Cotizacion {
-  cliente: Cliente;
-  items: CotizacionItem[];
-}
-
-export interface PedidoItem {
-  id: number;
-  pedido_id: number;
-  cotizacion_item_id?: number;
-  lote_id?: number;
-  tienda_id?: number;
-  categoria_id?: number;
-  descripcion: string;
-  url?: string;
-  precio_usa_usd_cents: number;
-  tax_usa_usd_cents: number;
-  peso_mlb: number;
-  estado: EstadoItem;
-  costo_aterrizado_estimado_cents: number;
-  costo_aterrizado_real_cents: number;
-  margen_real_cents: number;
-  prioridad: number;
-  notas_tolerancia?: string;
-  sustituto_de_item_id?: number;
-  activo: boolean;
-  creado_en?: string;
-  // Campos complementarios
-  tienda_nombre?: string;
-  categoria_nombre?: string;
-}
-
-export interface Pedido {
-  id: number;
-  codigo: string;
-  cotizacion_id?: number;
-  cliente_id: number;
-  fecha: string;
-  tasa_cambio_cents: number;
-  estado_derivado: EstadoItem;
-  requiere_atencion: boolean;
-  anticipo_verificado: boolean;
-  total_usd_cents: number;
-  total_cor_cents: number;
-  anticipo_esperado_cor_cents: number;
-  saldo_pendiente_cor_cents: number;
+  compras_count: number;
+  total_comprado_usd_cents: number;
   saldo_pendiente_usd_cents: number;
+  ultima_compra?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Inventario
+// ---------------------------------------------------------------------------
+
+export interface ProductoVariante {
+  id: number;
+  producto_id: number;
+  talla?: string;
+  color?: string;
+  existencias: number;
+  activo: boolean;
+}
+
+export interface Producto {
+  id: number;
+  codigo: string;
+  nombre: string;
+  categoria_id?: number;
+  tiene_variantes: boolean;
+
+  /** Valor total del inventario al costo. Fuente de verdad del promedio. */
+  valor_inventario_usd_cents: number;
+  /** Derivado de valor / existencias. */
+  costo_unitario_usd_cents: number;
+
+  modo_precio: ModoPrecio;
+  margen_bp?: number;
+  multiplicador_bp?: number;
+  precio_manual_usd_cents?: number;
+  precio_venta_usd_cents: number;
+
+  stock_minimo: number;
+  peso_unitario_mlb: number;
+  /** Si viene en paquete con varias unidades (ej. 5 boxers por pack). */
+  unidades_por_paquete?: number;
+  /** Paquete de courier del que provino (opcional). */
+  paquete_id?: number;
+  /**
+   * Miniatura del producto como data URL. Se guarda ya reducida (400px de
+   * lado, JPEG) para que quepa holgada en el documento de Firestore, que
+   * admite 1 MB.
+   */
+  foto?: string;
+  notas?: string;
+  activo: boolean;
+  creado_en?: string;
+  actualizado_en?: string;
+}
+
+export interface ProductoConStock extends Producto {
+  categoria_nombre?: string;
+  existencias: number;
+  ganancia_unitaria_usd_cents: number;
+  variantes: ProductoVariante[];
+  ultima_venta?: string;
+}
+
+export interface MovimientoInventario {
+  /** Identificador ordenable por tiempo. No se muestra nunca. */
+  id: string;
+  producto_id: number;
+  variante_id?: number;
+  tipo: TipoMovimiento;
+  cantidad: number;
+  costo_total_usd_cents: number;
+  existencias_despues: number;
+  referencia_tipo?: string;
+  referencia_id?: number;
+  detalle?: string;
+  fecha?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Compras (paquetes recibidos)
+// ---------------------------------------------------------------------------
+
+export interface CompraLinea {
+  id: number;
+  compra_id: number;
+  producto_id?: number;
+  variante_id?: number;
+  descripcion: string;
+  cantidad: number;
+
+  precio_linea_usd_cents: number;
+  tax_linea_usd_cents: number;
+  peso_linea_mlb: number;
+  envio_asignado_usd_cents: number;
+  otros_asignados_usd_cents: number;
+  costo_linea_usd_cents: number;
+  costo_unitario_usd_cents: number;
+
+  destino: DestinoLinea;
+  venta_id?: number;
+  orden: number;
+
+  // Complementarios para mostrar
+  producto_nombre?: string;
+  cliente_nombre?: string;
+
+  // Precio de venta manual elegido por el usuario para este producto
+  precio_venta_usd_cents?: number;
+  // Soporte de multipacks (ej. paquetes de boxers)
+  es_multipack?: boolean;
+  packs_comprados?: number;
+  unidades_por_pack?: number;
+  precio_por_pack_usd_cents?: number;
+}
+
+export interface Compra {
+  id: number;
+  codigo: string;
+  fecha: string;
+  estado: EstadoCompra;
+
+  envio_total_usd_cents: number;
+  otros_costos_usd_cents: number;
+  tax_total_override_usd_cents?: number;
+
+  subtotal_productos_usd_cents: number;
+  tax_total_usd_cents: number;
+  total_usd_cents: number;
+  peso_total_mlb: number;
+
+  tasa_cambio_cents: number;
   notas?: string;
   activo: boolean;
   creado_en?: string;
 }
 
-export interface PedidoCompleto extends Pedido {
-  cliente: Cliente;
-  items: PedidoItem[];
+export interface CompraCompleta extends Compra {
+  lineas: CompraLinea[];
+  unidades_totales: number;
+}
+
+// ---------------------------------------------------------------------------
+// Ventas y encargos
+// ---------------------------------------------------------------------------
+
+export interface VentaLinea {
+  id: number;
+  venta_id: number;
+  producto_id?: number;
+  variante_id?: number;
+  descripcion: string;
+  cantidad: number;
+
+  precio_unitario_usd_cents: number;
+  costo_unitario_usd_cents: number;
+  subtotal_usd_cents: number;
+  costo_total_usd_cents: number;
+
+  es_paquete: boolean;
+  orden: number;
+
+  producto_nombre?: string;
+  talla?: string;
+  color?: string;
+}
+
+export interface Venta {
+  id: number;
+  codigo: string;
+  cliente_id?: number;
+  fecha: string;
+  tipo: TipoVenta;
+  estado: EstadoVenta;
+
+  tasa_cambio_cents: number;
+
+  total_usd_cents: number;
+  costo_total_usd_cents: number;
+  ganancia_usd_cents: number;
+  pagado_usd_cents: number;
+  saldo_usd_cents: number;
+  anticipo_esperado_usd_cents: number;
+
+  notas?: string;
+  activo: boolean;
+  creado_en?: string;
+
+  cliente_nombre?: string;
+}
+
+export interface VentaCompleta extends Venta {
+  cliente?: Cliente;
+  lineas: VentaLinea[];
   pagos: Pago[];
-  color_semaforo: ColorSemaforo;
+  cuotas: Cuota[];
+}
+
+export interface Cuota {
+  id: number;
+  venta_id: number;
+  numero: number;
+  fecha_vencimiento: string;
+  monto_usd_cents: number;
+  pagado_usd_cents: number;
+  /** Derivado: no hay columna en la base. */
+  vencida?: boolean;
 }
 
 export interface Pago {
   id: number;
-  pedido_id: number;
-  cliente_id: number;
+  venta_id: number;
+  cliente_id?: number;
   fecha: string;
   monto_usd_cents: number;
   monto_cor_cents: number;
-  moneda_pago: 'COR' | 'USD';
+  moneda: MonedaPago;
   tasa_cambio_cents: number;
-  metodo_pago: MetodoPago;
+  metodo: MetodoPago;
   referencia?: string;
-  verificado: boolean;
-  tipo_pago: TipoPago;
-  comprobante_adjunto_id?: number;
+  es_anticipo: boolean;
+  cuota_id?: number;
+  notas?: string;
   activo: boolean;
   creado_en?: string;
 }
 
+// ---------------------------------------------------------------------------
+// Panel
+// ---------------------------------------------------------------------------
+
+export interface ResumenFinanciero {
+  inversion_inventario_usd_cents: number;
+  inversion_en_camino_usd_cents: number;
+  por_cobrar_usd_cents: number;
+  anticipos_por_entregar_usd_cents: number;
+  unidades_en_inventario: number;
+  productos_activos: number;
+}
+
+export interface GananciaMes {
+  mes: string;
+  ventas_count: number;
+  ingresos_usd_cents: number;
+  costos_usd_cents: number;
+  ganancia_usd_cents: number;
+}
+
+export interface FilaPorCobrar {
+  venta_id: number;
+  codigo: string;
+  fecha: string;
+  tipo: TipoVenta;
+  estado: EstadoVenta;
+  cliente_id?: number;
+  cliente_nombre: string;
+  cliente_telefono?: string;
+  total_usd_cents: number;
+  pagado_usd_cents: number;
+  saldo_usd_cents: number;
+  proxima_cuota?: string;
+  cuotas_vencidas: number;
+}
+
+export interface FilaBajoStock {
+  producto_id: number;
+  codigo: string;
+  nombre: string;
+  stock_minimo: number;
+  existencias: number;
+  costo_unitario_usd_cents: number;
+  precio_venta_usd_cents: number;
+}
+
+export interface FilaRotacion {
+  producto_id: number;
+  nombre: string;
+  unidades_vendidas_90d: number;
+  ganancia_90d_usd_cents: number;
+  existencias: number;
+}
+
+export type SeveridadAlerta = 'urgente' | 'atencion' | 'info';
+
+export interface Alerta {
+  id: string;
+  severidad: SeveridadAlerta;
+  titulo: string;
+  detalle: string;
+  /** A dónde lleva el clic. */
+  destino?: { vista: string; id?: number };
+}
+
+export interface PanelData {
+  resumen: ResumenFinanciero;
+  ganancia_mes_actual: GananciaMes | null;
+  ganancia_mes_anterior: GananciaMes | null;
+  historico: GananciaMes[];
+  por_cobrar: FilaPorCobrar[];
+  bajo_stock: FilaBajoStock[];
+  mas_vendidos: FilaRotacion[];
+  sin_rotacion: FilaRotacion[];
+  alertas: Alerta[];
+}
+
+// ---------------------------------------------------------------------------
+// Auditoría
+// ---------------------------------------------------------------------------
+
 export interface EventoAuditoria {
-  id: number;
+  /** Identificador ordenable por tiempo. No se muestra nunca. */
+  id: string;
   evento_grupo_id: string;
   entidad_tipo: string;
   entidad_id: number;
@@ -245,40 +389,4 @@ export interface EventoAuditoria {
   valor_nuevo?: string;
   detalle?: string;
   timestamp?: string;
-}
-
-export interface AlertaRow {
-  tipo_alerta: string;
-  severidad: string;
-  entidad_id: number;
-  entidad_tipo: string;
-  pedido_id: number;
-  cliente_nombre: string;
-  cliente_telefono: string;
-  mensaje: string;
-  detalle_estado: string;
-}
-
-export interface CapitalLibreData {
-  total_anticipos_recibidos_cor_cents: number;
-  total_saldos_cobrados_cor_cents: number;
-  total_por_cobrar_cor_cents: number;
-  saldo_inicial_bancos_cor_cents: number;
-}
-
-export interface ItemListaCompraRow {
-  item_id: number;
-  pedido_id: number;
-  pedido_codigo: string;
-  cliente_nombre: string;
-  tienda_nombre: string | null;
-  categoria_nombre: string | null;
-  descripcion: string;
-  url: string | null;
-  precio_usa_usd_cents: number;
-  tax_usa_usd_cents: number;
-  peso_mlb: number;
-  prioridad: number;
-  notas_tolerancia: string | null;
-  item_estado: EstadoItem;
 }

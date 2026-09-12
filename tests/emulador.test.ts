@@ -1,0 +1,442 @@
+/**
+ * Pruebas contra el emulador OFICIAL de Firestore.
+ *
+ * El Firestore falso de `firestore-fake.ts` replica la API, pero no el motor:
+ * no valida índices, no rechaza tipos, no aplica las reglas de seguridad y no
+ * tiene concurrencia real. Esta suite corre los mismos repositorios contra el
+ * emulador de Google, que sí hace todo eso.
+ *
+ * Necesita el emulador levantado:
+ *   npm run emulador
+ *
+ * Si no responde, la suite se salta con un aviso en vez de fallar: no todo el
+ * mundo tiene Java instalado.
+ */
+import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
+import { randomUUID } from 'node:crypto';
+
+const HOST = process.env.FIRESTORE_EMULATOR_HOST ?? '127.0.0.1:8080';
+const HOST_AUTH = process.env.FIREBASE_AUTH_EMULATOR_HOST ?? '127.0.0.1:9099';
+const PROYECTO = 'glow-heaven-db-app';
+const URL_BASE = `http://${HOST}/emulator/v1/projects/${PROYECTO}/databases/(default)/documents`;
+
+// Las reglas exigen sesión iniciada. Estas pruebas corren autenticadas, que
+// es exactamente como corre la aplicación en producción.
+const CORREO = 'pruebas@glowheaven.local';
+const CLAVE = 'prueba1234';
+
+const g = () => randomUUID();
+const HOY = new Date().toISOString().slice(0, 10);
+
+
+
+async function emuladorVivo(): Promise<boolean> {
+  try {
+    const r = await fetch(`http://${HOST}/`, { signal: AbortSignal.timeout(2500) });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
+// `skipIf` se evalúa cuando vitest recolecta los tests, antes de cualquier
+// hook. Por eso la comprobación va acá arriba y no en `beforeAll`.
+const disponible = await emuladorVivo();
+
+if (!disponible) {
+  // eslint-disable-next-line no-console
+  console.warn(
+    [
+      '',
+      `  Emulador de Firestore no disponible en ${HOST}.`,
+      '  Abrí otra terminal, corré `npm run emulador` y volvé a intentar.',
+      '',
+    ].join('\n')
+  );
+}
+
+async function limpiar(): Promise<void> {
+  await fetch(URL_BASE, { method: 'DELETE' });
+}
+
+/** Crea la cuenta de prueba en el emulador de Auth y abre sesión. */
+async function iniciarSesion(): Promise<void> {
+  const { initializeApp, getApps, getApp } = await import('firebase/app');
+  const {
+    getAuth,
+    connectAuthEmulator,
+    signInWithEmailAndPassword,
+    createUserWithEmailAndPassword,
+  } = await import('firebase/auth');
+  const { FIREBASE_CONFIG } = await import('../src/shared/firebase-config');
+
+  const app = getApps().length === 0 ? initializeApp(FIREBASE_CONFIG) : getApp();
+  const auth = getAuth(app);
+  connectAuthEmulator(auth, `http://${HOST_AUTH}`, { disableWarnings: true });
+
+  try {
+    await createUserWithEmailAndPassword(auth, CORREO, CLAVE);
+  } catch {
+    // La cuenta ya existía de una corrida anterior.
+  }
+  await signInWithEmailAndPassword(auth, CORREO, CLAVE);
+}
+
+beforeAll(async () => {
+  if (!disponible) return;
+  // Las reglas exigen sesión iniciada, así que las pruebas corren
+  // autenticadas: es exactamente como corre la aplicación en producción.
+  await iniciarSesion();
+}, 60_000);
+
+// Los repositorios se cargan dinámicamente para que el mock global de
+// `firebase/firestore` no aplique: acá queremos el SDK de verdad.
+async function repos() {
+  const [productos, ventas, compras, pagos, clientes, parametros, panel, eventos] =
+    await Promise.all([
+      import('../src/main/firebase/repositories/productos.repo'),
+      import('../src/main/firebase/repositories/ventas.repo'),
+      import('../src/main/firebase/repositories/compras.repo'),
+      import('../src/main/firebase/repositories/pagos.repo'),
+      import('../src/main/firebase/repositories/clientes.repo'),
+      import('../src/main/firebase/repositories/parametros.repo'),
+      import('../src/main/firebase/repositories/panel.repo'),
+      import('../src/main/firebase/repositories/eventos.repo'),
+    ]);
+
+  return {
+    Productos: productos.ProductosRepoFirestore,
+    Ventas: ventas.VentasRepoFirestore,
+    Compras: compras.ComprasRepoFirestore,
+    Pagos: pagos.PagosRepoFirestore,
+    Clientes: clientes.ClientesRepoFirestore,
+    Parametros: parametros.ParametrosRepoFirestore,
+    Panel: panel.PanelRepoFirestore,
+    Eventos: eventos.EventosRepoFirestore,
+  };
+}
+
+describe('contra el emulador oficial de Firestore', () => {
+  beforeEach(async () => {
+    if (!disponible) return;
+    await limpiar();
+    const { Parametros } = await repos();
+    Parametros.invalidarCache();
+    await Parametros.getParametros();
+    await Parametros.getCategorias();
+  });
+
+  it.skipIf(!disponible)(
+    'el paquete de $77 cuadra igual que en el motor falso',
+    async () => {
+      const { Compras, Productos, Ventas, Clientes } = await repos();
+
+      const maria = await Clientes.guardar({ nombre: 'María' }, g());
+      const encargo = await Ventas.crear(
+        {
+          cliente_id: maria,
+          fecha: HOY,
+          tipo: 'ENCARGO',
+          lineas: [{ descripcion: 'Bolso Tommy', cantidad: 1, precio_unitario_usd_cents: 9000 }],
+        },
+        g()
+      );
+
+      const compraId = await Compras.guardar(
+        {
+          fecha: HOY,
+          envio_total_usd_cents: 7700,
+          lineas: [
+            {
+              descripcion: 'Bolso Tommy',
+              cantidad: 1,
+              precio_linea_usd_cents: 4500,
+              peso_linea_mlb: 2000,
+              destino: 'ENCARGO',
+              venta_id: encargo,
+            },
+            {
+              descripcion: 'Boxers Calvin Klein',
+              cantidad: 6,
+              precio_linea_usd_cents: 3000,
+              peso_linea_mlb: 1500,
+              destino: 'INVENTARIO',
+            },
+            {
+              descripcion: 'Camisas Polo',
+              cantidad: 3,
+              precio_linea_usd_cents: 5400,
+              peso_linea_mlb: 3000,
+              destino: 'INVENTARIO',
+            },
+            {
+              descripcion: 'Sandalias',
+              cantidad: 2,
+              precio_linea_usd_cents: 2200,
+              peso_linea_mlb: 3000,
+              destino: 'INVENTARIO',
+            },
+            {
+              descripcion: 'Termo Owala',
+              cantidad: 1,
+              precio_linea_usd_cents: 2800,
+              peso_linea_mlb: 1500,
+              destino: 'INVENTARIO',
+            },
+          ],
+        },
+        g()
+      );
+
+      const compra = (await Compras.getById(compraId))!;
+      expect(compra.peso_total_mlb).toBe(11000);
+      expect(compra.lineas.reduce((a, l) => a + l.envio_asignado_usd_cents, 0)).toBe(7700);
+
+      await Compras.recibir(compraId, g());
+
+      const boxers = (await Productos.listar()).find(
+        (p) => p.nombre === 'Boxers Calvin Klein'
+      )!;
+      expect(boxers.existencias).toBe(6);
+      expect(boxers.costo_unitario_usd_cents).toBe(710);
+
+      // El encargo congela su costo real: $45 + $3.15 tax + $14 envío.
+      const v = (await Ventas.getById(encargo))!;
+      expect(v.costo_total_usd_cents).toBe(6215);
+    },
+    30000
+  );
+
+  it.skipIf(!disponible)(
+    'una venta que no alcanza no deja el inventario tocado',
+    async () => {
+      const { Productos, Ventas } = await repos();
+
+      const a = await Productos.crear(
+        { nombre: 'Gorra', stock_inicial: { cantidad: 4, costo_unitario_usd_cents: 500 } },
+        g()
+      );
+      const b = await Productos.crear(
+        { nombre: 'Boxers', stock_inicial: { cantidad: 6, costo_unitario_usd_cents: 710 } },
+        g()
+      );
+
+      await expect(
+        Ventas.crear(
+          {
+            fecha: HOY,
+            tipo: 'INVENTARIO',
+            lineas: [
+              { producto_id: a, cantidad: 2 },
+              { producto_id: b, cantidad: 99 },
+            ],
+          },
+          g()
+        )
+      ).rejects.toThrow(/No hay suficientes unidades/i);
+
+      expect((await Productos.getById(a))!.existencias).toBe(4);
+      expect((await Productos.getById(b))!.existencias).toBe(6);
+      expect(await Ventas.listar()).toHaveLength(0);
+    },
+    30000
+  );
+
+  it.skipIf(!disponible)(
+    'las consultas ordenadas funcionan con los índices declarados',
+    async () => {
+      const { Productos, Pagos, Ventas } = await repos();
+
+      // orderBy + where: si faltara un índice compuesto, el SDK real lanza
+      // "The query requires an index". El motor falso nunca lo detectaría.
+      const p = await Productos.crear(
+        { nombre: 'Movido', stock_inicial: { cantidad: 1, costo_unitario_usd_cents: 100 } },
+        g()
+      );
+      for (let i = 0; i < 12; i++) {
+        await Productos.entrada({ producto_id: p, cantidad: 1, costo_total_usd_cents: 100 });
+      }
+
+      const movimientos = await Productos.movimientos(p, 5);
+      expect(movimientos).toHaveLength(5);
+      // Ordenados del más nuevo al más viejo.
+      for (let i = 1; i < movimientos.length; i++) {
+        expect(movimientos[i - 1].id >= movimientos[i].id).toBe(true);
+      }
+
+      const venta = await Ventas.crear(
+        {
+          fecha: HOY,
+          tipo: 'INVENTARIO',
+          lineas: [{ descripcion: 'Suelto', cantidad: 1, precio_unitario_usd_cents: 5000 }],
+        },
+        g()
+      );
+      await Pagos.registrar(
+        { venta_id: venta, fecha: HOY, monto_cents: 1000, moneda: 'USD', metodo: 'EFECTIVO' },
+        g()
+      );
+
+      const recientes = await Pagos.recientes(5);
+      expect(recientes.length).toBeGreaterThan(0);
+    },
+    60000
+  );
+
+  it.skipIf(!disponible)(
+    'Firestore acepta los documentos que escriben los repositorios',
+    async () => {
+      const { Productos, Ventas, Clientes, Pagos } = await repos();
+
+      // El SDK real lanza ante `undefined` en cualquier campo. Este camino
+      // recorre entradas con muchos opcionales sin llenar.
+      const cliente = await Clientes.guardar({ nombre: 'Sin datos extra' }, g());
+      const producto = await Productos.crear(
+        {
+          nombre: 'Con variantes',
+          tiene_variantes: true,
+          variantes: [{ talla: 'M' }, { color: 'Negro' }, {}],
+        },
+        g()
+      );
+
+      await Productos.entrada({
+        producto_id: producto,
+        cantidad: 5,
+        costo_total_usd_cents: 2500,
+      });
+
+      const venta = await Ventas.crear(
+        {
+          cliente_id: cliente,
+          fecha: HOY,
+          tipo: 'INVENTARIO',
+          lineas: [{ producto_id: producto, cantidad: 1 }],
+          plan_cuotas: { cantidad: 3, cada_dias: 15 },
+        },
+        g()
+      );
+
+      await Pagos.registrar(
+        { venta_id: venta, fecha: HOY, monto_cents: 500, moneda: 'COR', metodo: 'TRANSFERENCIA' },
+        g()
+      );
+
+      const v = (await Ventas.getById(venta))!;
+      expect(v.cuotas).toHaveLength(3);
+      expect(v.pagado_usd_cents).toBeGreaterThan(0);
+
+      // Los totales del cliente se refrescan solos.
+      const c = (await Clientes.getById(cliente))!;
+      expect(c.compras_count).toBe(1);
+    },
+    30000
+  );
+
+  it.skipIf(!disponible)(
+    'la foto del producto entra y sale intacta',
+    async () => {
+      const { Productos } = await repos();
+
+      // Una miniatura real: data URL de JPEG. Va DENTRO del documento del
+      // producto, así que este test es el que avisa si algun día crece de
+      // mas o si las reglas empiezan a rechazar el campo.
+      const foto = `data:image/jpeg;base64,${'/9j/4AAQSkZJRg'.repeat(600)}`;
+
+      const id = await Productos.crear({ nombre: 'Con foto', foto }, g());
+      const guardado = (await Productos.getById(id))!;
+      expect(guardado.foto).toBe(foto);
+
+      // Cadena vacía = la persona le quitó la foto.
+      await Productos.actualizar({ id, foto: '' }, g());
+      const sinFoto = (await Productos.getById(id))!;
+      expect(sinFoto.foto ?? null).toBeNull();
+    },
+    30000
+  );
+
+  it.skipIf(!disponible)(
+    'deshacer revierte de verdad contra el motor real',
+    async () => {
+      const { Productos, Eventos } = await repos();
+
+      const grupo = g();
+      const id = await Productos.crear({ nombre: 'Temporal' }, grupo);
+      expect(await Productos.getById(id)).not.toBeNull();
+
+      const r = await Eventos.deshacerGrupo(grupo);
+      expect(r.revertido).toBe(true);
+      expect(await Productos.getById(id)).toBeNull();
+    },
+    30000
+  );
+
+  it.skipIf(!disponible)(
+    'dos entradas simultáneas no se pisan',
+    async () => {
+      const { Productos } = await repos();
+
+      const p = await Productos.crear(
+        { nombre: 'Concurrente', stock_inicial: { cantidad: 0, costo_unitario_usd_cents: 0 } },
+        g()
+      );
+
+      // Sin transacción, leer-modificar-escribir en paralelo pierde una de
+      // las dos entradas. Con `runTransaction`, Firestore reintenta.
+      await Promise.all([
+        Productos.entrada({ producto_id: p, cantidad: 5, costo_total_usd_cents: 500 }),
+        Productos.entrada({ producto_id: p, cantidad: 3, costo_total_usd_cents: 300 }),
+        Productos.entrada({ producto_id: p, cantidad: 2, costo_total_usd_cents: 200 }),
+      ]);
+
+      const final = (await Productos.getById(p))!;
+      expect(final.existencias).toBe(10);
+      expect(final.valor_inventario_usd_cents).toBe(1000);
+    },
+    60000
+  );
+
+  it.skipIf(!disponible)(
+    'el panel lee una vez cada colección, también contra el motor real',
+    async () => {
+      const { Productos, Ventas, Clientes, Panel } = await repos();
+
+      const cli = await Clientes.guardar({ nombre: 'Cliente' }, g());
+      for (let i = 0; i < 8; i++) {
+        const p = await Productos.crear(
+          {
+            nombre: `P${i}`,
+            modo_precio: 'MANUAL',
+            precio_manual_usd_cents: 2000,
+            stock_inicial: { cantidad: 5, costo_unitario_usd_cents: 800 },
+          },
+          g()
+        );
+        await Ventas.crear(
+          {
+            cliente_id: cli,
+            fecha: HOY,
+            tipo: 'INVENTARIO',
+            lineas: [{ producto_id: p, cantidad: 1 }],
+          },
+          g()
+        );
+      }
+
+      const inicio = Date.now();
+      const panel = await Panel.cargar();
+      const ms = Date.now() - inicio;
+
+      expect(panel.resumen.productos_activos).toBe(8);
+      expect(panel.resumen.unidades_en_inventario).toBe(8 * 4);
+      expect(panel.ganancia_mes_actual!.ventas_count).toBe(8);
+
+      // Una pasada por colección son cuatro consultas en paralelo. Si alguien
+      // reintroduce lecturas repetidas, esto se dispara.
+      // eslint-disable-next-line no-console
+      console.log(`   panel contra el emulador: ${ms} ms`);
+      expect(ms).toBeLessThan(5000);
+    },
+    120000
+  );
+});
