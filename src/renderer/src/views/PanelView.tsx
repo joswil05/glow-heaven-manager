@@ -106,54 +106,48 @@ export const PanelView: React.FC<PanelViewProps> = ({
 
   return (
     <div className="flex-1 overflow-y-auto animate-fade-in bg-fondo/50">
-      <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
-        {/* Barra superior de bienvenida y accesos directos */}
-        <div className="flex items-center justify-between gap-4 flex-wrap pb-2 border-b border-borde/50">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <h2 className="text-xl font-bold tracking-tight text-texto">
-                Resumen de tu Negocio
-              </h2>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                En tiempo real
-              </span>
-            </div>
-            <p className="text-caption text-texto-3 mt-0.5">
-              Métricas financieras, inventario físico y cuentas por cobrar consolidadas
-            </p>
+      <div className="p-4 space-y-3.5 max-w-[1600px] mx-auto">
+        {/* Barra superior de bienvenida y accesos directos compacta */}
+        <div className="flex items-center justify-between gap-3 pb-1 border-b border-borde/40 text-caption text-texto-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-texto text-body">Resumen Financiero y Operativo</span>
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              En tiempo real
+            </span>
           </div>
-
+          <span className="hidden md:inline-block text-[11px] text-texto-3">
+            Métricas sincronizadas con Firestore
+          </span>
         </div>
 
         {sinDatos ? (
-          <div className="rounded-2xl border border-dashed border-borde-fuerte bg-superficie p-10 text-center shadow-sm">
-            <div className="w-14 h-14 rounded-2xl bg-acento-suave/80 text-acento flex items-center justify-center mx-auto mb-4 border border-acento/20">
-              <Package className="w-7 h-7 text-acento" />
+          <div className="rounded-2xl border border-dashed border-borde-fuerte bg-superficie p-8 text-center shadow-sm">
+            <div className="w-12 h-12 rounded-xl bg-acento-suave/80 text-acento flex items-center justify-center mx-auto mb-3 border border-acento/20">
+              <Package className="w-6 h-6 text-acento" />
             </div>
             <h3 className="text-title font-bold text-texto">Empezá por tu primer paquete</h3>
-            <p className="mt-1 text-body text-texto-2 max-w-md mx-auto">
+            <p className="mt-1 text-caption text-texto-2 max-w-md mx-auto">
               Registrá lo que venía adentro, cuánto pesó y qué pagaste de envío. El sistema
               reparte el costo, arma tu inventario y te propone los precios de venta.
             </p>
-            <div className="mt-5 flex items-center justify-center gap-3">
-              <Button variant="primary" onClick={onNuevoPaquete} className="rounded-xl">
+            <div className="mt-4 flex items-center justify-center gap-3">
+              <Button variant="primary" size="sm" onClick={onNuevoPaquete} className="rounded-xl">
                 <Package className="w-4 h-4" />
                 <span>Registrar un paquete</span>
               </Button>
-              <Button variant="secondary" onClick={() => onNavegar('inventario')} className="rounded-xl">
+              <Button variant="secondary" size="sm" onClick={() => onNavegar('inventario')} className="rounded-xl">
                 Cargar productos a mano
               </Button>
             </div>
           </div>
         ) : (
           /* Nivel 1: Cuatro tarjetas de métricas de alta jerarquía */
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 stagger-children">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 stagger-children">
             {/* 1. GANANCIA DE ESTE MES (Métrica estrella) */}
             <StatTile
               label="Ganancia de este mes"
               usd_cents={gananciaActual}
-              size="lg"
               tone={gananciaActual > 0 ? 'success' : 'neutral'}
               icon={TrendingUp}
               delta={
@@ -166,26 +160,22 @@ export const PanelView: React.FC<PanelViewProps> = ({
               }
               hint={`${ganancia_mes_actual?.ventas_count ?? 0} venta(s) entregada(s)`}
               onClick={() => onNavegar('ventas')}
-              className="shadow-sm"
             />
 
             {/* 2. INVERTIDO EN MERCADERÍA */}
             <StatTile
               label="Invertido en bodega"
               usd_cents={inversionTotal}
-              size="lg"
               tone="purple"
               icon={Boxes}
               hint={`${resumen.unidades_en_inventario} unidad(es) disponibles`}
               onClick={() => onNavegar('inventario')}
-              className="shadow-sm"
             />
 
             {/* 3. TE DEBEN (CUENTAS POR COBRAR) */}
             <StatTile
               label="Te deben en la calle"
               usd_cents={resumen.por_cobrar_usd_cents}
-              size="lg"
               tone={
                 resumen.por_cobrar_usd_cents === 0
                   ? 'neutral'
@@ -200,14 +190,12 @@ export const PanelView: React.FC<PanelViewProps> = ({
                   : `${data.por_cobrar.length} venta(s) con saldo`
               }
               onClick={() => onNavegar('ventas')}
-              className="shadow-sm"
             />
 
             {/* 4. POR ACABARSE (STOCK CRÍTICO) */}
             <StatTile
               label="Stock crítico"
               value={data.bajo_stock.length}
-              size="lg"
               tone={data.bajo_stock.length > 0 ? 'danger' : 'success'}
               icon={PackageX}
               hint={
@@ -216,27 +204,26 @@ export const PanelView: React.FC<PanelViewProps> = ({
                   : 'Existencias óptimas en catálogo'
               }
               onClick={() => onNavegar('inventario')}
-              className="shadow-sm"
             />
           </div>
         )}
 
         {/* Nivel 2: Centro de alertas urgentes */}
         {urgentes.length > 0 && (
-          <div className="rounded-2xl border border-rose-300/80 bg-gradient-to-r from-rose-50 to-amber-50/60 p-5 shadow-sm animate-slide-up">
-            <div className="flex items-start gap-3.5">
-              <div className="w-9 h-9 rounded-xl bg-rose-500/15 text-rose-700 flex items-center justify-center shrink-0 border border-rose-300">
-                <AlertTriangle className="w-5 h-5" />
+          <div className="rounded-xl border border-rose-300/80 bg-gradient-to-r from-rose-50 to-amber-50/60 p-3.5 shadow-2xs animate-slide-up">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg bg-rose-500/15 text-rose-700 flex items-center justify-center shrink-0 border border-rose-300">
+                <AlertTriangle className="w-4 h-4" />
               </div>
-              <div className="flex-1 min-w-0 space-y-2.5">
+              <div className="flex-1 min-w-0 space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-rose-800">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-rose-800">
                     Atención inmediata requerida ({urgentes.length})
                   </span>
                 </div>
-                <div className="space-y-2 divide-y divide-rose-200/50">
+                <div className="space-y-1.5 divide-y divide-rose-200/50">
                   {urgentes.map((a) => (
-                    <div key={a.id} className="pt-2 first:pt-0">
+                    <div key={a.id} className="pt-1.5 first:pt-0">
                       <FilaAlerta alerta={a} onNavegar={onNavegar} compacta />
                     </div>
                   ))}
@@ -247,70 +234,60 @@ export const PanelView: React.FC<PanelViewProps> = ({
         )}
 
         {/* Nivel 3: Gráfica interactiva animada + Dónde está la plata */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
           {/* Gráfica principal con selector y animaciones */}
-          <Card className="xl:col-span-2 shadow-sm">
-            <CardHeader>
+          <Card className="xl:col-span-2 shadow-2xs">
+            <CardHeader className="px-3.5 py-2">
               <SectionHeader
                 icon={TrendingUp}
-                title="Evolución de Ganancias e Ingresos"
-                description="Comportamiento mensual de rentabilidad neta vs. facturación bruta"
+                title="Evolución de Rentabilidad"
+                description="Ganancia neta vs facturación bruta mensual"
               />
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-3">
               {serie.some((s) => s.valor > 0 || (s.valorSecundario ?? 0) > 0) ? (
-                <LineaCreciente datos={serie} alto={230} />
+                <LineaCreciente datos={serie} alto={125} />
               ) : (
-                <div className="relative h-[230px] rounded-xl overflow-hidden flex flex-col items-center justify-center text-center p-6 bg-gradient-to-b from-superficie to-superficie-2/40 border border-dashed border-borde/80">
-                  {/* Gráfica fantasma de fondo (watermark ilustrativo) */}
-                  <svg className="absolute inset-0 w-full h-full opacity-10 pointer-events-none" viewBox="0 0 600 200" preserveAspectRatio="none">
-                    <path d="M0,170 Q150,150 250,100 T450,80 T600,30 L600,200 L0,200 Z" fill="url(#ghost-grad)" />
-                    <path d="M0,170 Q150,150 250,100 T450,80 T600,30" fill="none" stroke="#059669" strokeWidth="3" strokeDasharray="5 5" />
-                    <defs>
-                      <linearGradient id="ghost-grad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#059669" stopOpacity="0.5" />
-                        <stop offset="100%" stopColor="#059669" stopOpacity="0" />
-                      </linearGradient>
-                    </defs>
-                  </svg>
-
-                  <div className="relative z-10 flex flex-col items-center gap-2 max-w-sm">
-                    <div className="w-11 h-11 rounded-2xl bg-acento-suave text-acento flex items-center justify-center shadow-xs border border-acento/20 mb-1">
-                      <TrendingUp className="w-5 h-5" />
+                <div className="relative h-[125px] rounded-xl overflow-hidden flex items-center justify-between p-4 bg-gradient-to-r from-superficie to-superficie-2/40 border border-dashed border-borde/80">
+                  <div className="relative z-10 flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-acento-suave text-acento flex items-center justify-center border border-acento/20 shrink-0">
+                      <TrendingUp className="w-4 h-4" />
                     </div>
-                    <p className="text-body font-bold text-texto">
-                      Tu curva de rentabilidad aparecerá aquí
-                    </p>
-                    <p className="text-caption text-texto-3 leading-relaxed">
-                      Las ganancias se calculan en base al costo asignado a cada producto al entregarse.
-                    </p>
-                    <Button
-                      size="sm"
-                      variant="primary"
-                      onClick={onNuevaVenta}
-                      className="mt-1.5 rounded-xl shadow-sm shadow-acento/20 gap-1.5"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Registrar primera venta</span>
-                    </Button>
+                    <div>
+                      <p className="text-caption font-bold text-texto">
+                        Tu curva de rentabilidad aparecerá aquí
+                      </p>
+                      <p className="text-[11px] text-texto-3">
+                        Se calculará automáticamente con las ventas entregadas y costos reales.
+                      </p>
+                    </div>
                   </div>
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={onNuevaVenta}
+                    className="rounded-xl shadow-xs gap-1.5 text-xs shrink-0"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Nueva venta</span>
+                  </Button>
                 </div>
               )}
             </CardContent>
           </Card>
 
           {/* Dónde está la plata (Distribución de capital) */}
-          <Card className="shadow-sm">
-            <CardHeader>
+          <Card className="shadow-2xs">
+            <CardHeader className="px-3.5 py-2">
               <SectionHeader
                 icon={Wallet}
                 title="Dónde está tu plata"
-                description="Capital activo en inventario y por cobrar"
+                description="Capital en inventario y calle"
               />
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-3">
               {inversionTotal > 0 || resumen.por_cobrar_usd_cents > 0 ? (
-                <div className="space-y-4">
+                <div className="space-y-2">
                   <Anillo
                     segmentos={[
                       {
@@ -327,38 +304,33 @@ export const PanelView: React.FC<PanelViewProps> = ({
                     centro={
                       <Money
                         usd_cents={inversionTotal + resumen.por_cobrar_usd_cents}
-                        size="lg"
+                        size="md"
                         soloUsd
                       />
                     }
                     subtitulo="Capital Activo"
-                    tamano={160}
+                    tamano={115}
                   />
 
                   {resumen.anticipos_por_entregar_usd_cents > 0 && (
-                    <div className="pt-3 border-t border-borde/60 bg-amber-50/50 -mx-5 -mb-5 px-5 py-3 rounded-b-2xl border-t border-amber-200/50">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-label font-medium text-amber-900">
-                          Anticipos recibidos:
-                        </span>
-                        <Money
-                          usd_cents={resumen.anticipos_por_entregar_usd_cents}
-                          size="sm"
-                          className="font-bold text-amber-950"
-                        />
-                      </div>
-                      <p className="text-[11px] text-amber-700/80 mt-0.5">
-                        Compromiso pendiente: se saldará al entregar la mercadería.
-                      </p>
+                    <div className="px-2.5 py-1.5 rounded-lg border border-amber-200/50 bg-amber-50/60 flex items-center justify-between text-xs">
+                      <span className="text-[11px] font-medium text-amber-900">
+                        Anticipos por entregar:
+                      </span>
+                      <Money
+                        usd_cents={resumen.anticipos_por_entregar_usd_cents}
+                        size="sm"
+                        className="font-bold text-amber-950"
+                      />
                     </div>
                   )}
                 </div>
               ) : (
-                <div className="py-12 flex flex-col items-center justify-center text-center gap-2 text-texto-3">
-                  <Wallet className="w-8 h-8 text-borde-fuerte" />
-                  <p className="text-body font-medium text-texto-2">Sin capital registrado aún.</p>
-                  <p className="text-caption text-texto-3 max-w-xs">
-                    Cuando registres tu primer paquete vas a ver acá el desglose de tu inversión.
+                <div className="py-6 flex flex-col items-center justify-center text-center gap-1.5 text-texto-3">
+                  <Wallet className="w-6 h-6 text-borde-fuerte" />
+                  <p className="text-caption font-semibold text-texto-2">Sin capital registrado aún</p>
+                  <p className="text-[11px] text-texto-3 max-w-xs">
+                    Cuando registres tu primer paquete verás el desglose de tu inversión.
                   </p>
                 </div>
               )}
@@ -367,10 +339,10 @@ export const PanelView: React.FC<PanelViewProps> = ({
         </div>
 
         {/* Nivel 4: Listas de trabajo */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 stagger-children">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-3 stagger-children">
           {/* 1. QUIÉN TE DEBE */}
-          <Card className="shadow-sm flex flex-col">
-            <CardHeader>
+          <Card className="shadow-2xs flex flex-col">
+            <CardHeader className="px-3.5 py-2">
               <SectionHeader
                 icon={Users}
                 title="Quién te debe"
@@ -383,29 +355,29 @@ export const PanelView: React.FC<PanelViewProps> = ({
                 }
               />
             </CardHeader>
-            <CardContent className="p-0 flex-1 min-h-[200px] flex flex-col justify-center">
+            <CardContent className="p-0 flex-1 flex flex-col">
               {data.por_cobrar.length > 0 ? (
-                <ul className="divide-y divide-borde/60">
-                  {data.por_cobrar.slice(0, 6).map((p) => (
+                <ul className="divide-y divide-borde/50">
+                  {data.por_cobrar.slice(0, 4).map((p) => (
                     <li key={p.venta_id}>
                       <button
                         onClick={() => onNavegar('ventas', p.venta_id)}
-                        className="w-full text-left px-5 py-3 hover:bg-superficie-2 transition-all focus-visible:outline-none focus-visible:bg-superficie-2 group"
+                        className="w-full text-left px-3.5 py-2 hover:bg-superficie-2 transition-all focus-visible:outline-none focus-visible:bg-superficie-2 group"
                       >
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="w-7 h-7 rounded-lg bg-superficie-2 text-texto font-bold text-xs flex items-center justify-center border border-borde shrink-0 group-hover:border-acento">
+                        <div className="flex items-center justify-between gap-2.5">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-6 h-6 rounded-md bg-superficie-2 text-texto font-bold text-[11px] flex items-center justify-center border border-borde shrink-0 group-hover:border-acento">
                               {p.cliente_nombre.charAt(0).toUpperCase()}
                             </div>
-                            <span className="text-body font-semibold text-texto truncate group-hover:text-acento transition-colors">
+                            <span className="text-caption font-semibold text-texto truncate group-hover:text-acento transition-colors">
                               {p.cliente_nombre}
                             </span>
                           </div>
                           <Money usd_cents={p.saldo_usd_cents} size="sm" soloUsd className="font-bold text-amber-700" />
                         </div>
 
-                        <div className="flex items-center justify-between gap-2 mt-1 pl-9">
-                          <span className="text-caption text-texto-3 font-medium">
+                        <div className="flex items-center justify-between gap-2 mt-0.5 pl-8">
+                          <span className="text-[11px] text-texto-3 font-medium">
                             {p.codigo}
                             {p.cuotas_vencidas > 0 && (
                               <span className="text-rose-600 font-bold ml-1.5 inline-flex items-center gap-1">
@@ -415,7 +387,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
                           </span>
                         </div>
 
-                        <div className="pl-9 mt-1.5">
+                        <div className="pl-8 mt-1">
                           <BarraProgreso
                             actual={p.pagado_usd_cents}
                             total={p.total_usd_cents}
@@ -438,8 +410,8 @@ export const PanelView: React.FC<PanelViewProps> = ({
           </Card>
 
           {/* 2. SE ESTÁ ACABANDO */}
-          <Card className="shadow-sm flex flex-col">
-            <CardHeader>
+          <Card className="shadow-2xs flex flex-col">
+            <CardHeader className="px-3.5 py-2">
               <SectionHeader
                 icon={PackageX}
                 title="Stock por agotarse"
@@ -450,16 +422,16 @@ export const PanelView: React.FC<PanelViewProps> = ({
                 }
               />
             </CardHeader>
-            <CardContent className="p-0 flex-1 min-h-[200px] flex flex-col justify-center">
+            <CardContent className="p-0 flex-1 flex flex-col">
               {data.bajo_stock.length > 0 ? (
-                <ul className="divide-y divide-borde/60">
-                  {data.bajo_stock.slice(0, 6).map((p) => (
+                <ul className="divide-y divide-borde/50">
+                  {data.bajo_stock.slice(0, 5).map((p) => (
                     <li key={p.producto_id}>
                       <button
                         onClick={() => onNavegar('inventario', p.producto_id)}
-                        className="w-full text-left px-5 py-3 hover:bg-superficie-2 transition-all focus-visible:outline-none focus-visible:bg-superficie-2 flex items-center justify-between gap-3 group"
+                        className="w-full text-left px-3.5 py-2 hover:bg-superficie-2 transition-all focus-visible:outline-none focus-visible:bg-superficie-2 flex items-center justify-between gap-3 group"
                       >
-                        <span className="text-body font-medium text-texto truncate group-hover:text-acento transition-colors">
+                        <span className="text-caption font-medium text-texto truncate group-hover:text-acento transition-colors">
                           {p.nombre}
                         </span>
                         <Badge tone={p.existencias === 0 ? 'danger' : 'warning'}>
@@ -472,35 +444,35 @@ export const PanelView: React.FC<PanelViewProps> = ({
               ) : (
                 <VacioOk
                   mensaje="Existencias óptimas en catálogo."
-                  subtitulo="No hay productos en nivel mínimo ni agotados."
+                  subtitulo="No hay productos en nivel crítico ni agotados."
                 />
               )}
             </CardContent>
           </Card>
 
           {/* 3. LO QUE MÁS SE VENDE CON PODIO */}
-          <Card className="shadow-sm flex flex-col">
-            <CardHeader>
+          <Card className="shadow-2xs flex flex-col">
+            <CardHeader className="px-3.5 py-2">
               <SectionHeader
                 icon={Flame}
                 title="Más vendidos"
-                description="Top productos (Últimos 90 días)"
+                description="Top rotación (90 días)"
               />
             </CardHeader>
-            <CardContent className="p-0 flex-1 min-h-[200px] flex flex-col justify-between">
+            <CardContent className="p-0 flex-1 flex flex-col justify-between">
               {data.mas_vendidos.length > 0 ? (
-                <ul className="divide-y divide-borde/60">
-                  {data.mas_vendidos.map((p, idx) => {
+                <ul className="divide-y divide-borde/50">
+                  {data.mas_vendidos.slice(0, 3).map((p, idx) => {
                     const medallas = ['🥇', '🥈', '🥉'];
                     const medalla = medallas[idx];
 
                     return (
                       <li
                         key={p.producto_id}
-                        className="px-5 py-3 flex items-center justify-between gap-3 hover:bg-superficie-2/40 transition-colors"
+                        className="px-3.5 py-1.5 flex items-center justify-between gap-2.5 hover:bg-superficie-2/40 transition-colors"
                       >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <span className="text-base shrink-0 w-6 text-center">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="text-sm shrink-0 w-5 text-center">
                             {medalla ?? (
                               <span className="text-xs font-bold text-texto-3">
                                 #{idx + 1}
@@ -508,18 +480,18 @@ export const PanelView: React.FC<PanelViewProps> = ({
                             )}
                           </span>
                           <div className="min-w-0">
-                            <div className="text-body font-semibold text-texto truncate">
+                            <div className="text-caption font-semibold text-texto truncate">
                               {p.nombre}
                             </div>
-                            <div className="text-caption text-texto-3">
-                              {p.unidades_vendidas_90d} unidad(es) vendida(s)
+                            <div className="text-[11px] text-texto-3">
+                              {p.unidades_vendidas_90d} unidad(es)
                             </div>
                           </div>
                         </div>
 
                         <div className="text-right shrink-0">
                           <Money usd_cents={p.ganancia_90d_usd_cents} size="sm" soloUsd className="font-bold text-emerald-700" />
-                          <div className="text-[10px] text-texto-3">de ganancia</div>
+                          <div className="text-[9px] text-texto-3">ganancia</div>
                         </div>
                       </li>
                     );
@@ -533,12 +505,12 @@ export const PanelView: React.FC<PanelViewProps> = ({
               )}
 
               {data.sin_rotacion.length > 0 && (
-                <div className="px-5 py-3 border-t border-borde/70 bg-amber-50/50 rounded-b-2xl">
-                  <div className="text-caption font-semibold text-amber-900 mb-1 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                <div className="px-3.5 py-2 border-t border-borde/60 bg-amber-50/40 rounded-b-xl">
+                  <div className="text-[11px] font-semibold text-amber-900 mb-0.5 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-amber-600" />
                     <span>Sin rotación en 90 días:</span>
                   </div>
-                  <div className="text-caption text-amber-800/90 truncate">
+                  <div className="text-[11px] text-amber-800/90 truncate">
                     {data.sin_rotacion
                       .slice(0, 3)
                       .map((p) => `${p.nombre} (${p.existencias})`)
@@ -552,14 +524,14 @@ export const PanelView: React.FC<PanelViewProps> = ({
 
         {/* Avisos secundarios que no son urgentes ni duplicados de stock */}
         {avisosOperativos.length > 0 && (
-          <Card className="shadow-sm">
-            <CardHeader>
+          <Card className="shadow-2xs">
+            <CardHeader className="px-3.5 py-2">
               <SectionHeader icon={AlertTriangle} title="Avisos Operativos del Sistema" />
             </CardHeader>
             <CardContent className="p-0">
-              <ul className="divide-y divide-borde/60">
+              <ul className="divide-y divide-borde/50">
                 {avisosOperativos.map((a) => (
-                  <li key={a.id} className="px-5 py-3 hover:bg-superficie-2/40 transition-colors">
+                  <li key={a.id} className="px-3.5 py-2 hover:bg-superficie-2/40 transition-colors">
                     <FilaAlerta alerta={a} onNavegar={onNavegar} />
                   </li>
                 ))}
@@ -575,22 +547,26 @@ export const PanelView: React.FC<PanelViewProps> = ({
 // ---------------------------------------------------------------------------
 
 const VacioOk: React.FC<{ mensaje: string; subtitulo?: string }> = ({ mensaje, subtitulo }) => (
-  <div className="px-4 py-8 flex flex-col items-center justify-center gap-2 text-center h-full min-h-[160px]">
-    <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200/60 shadow-xs">
-      <CheckCircle2 className="w-5 h-5" />
+  <div className="px-4 py-4 flex items-center justify-center gap-2.5 text-left">
+    <div className="w-7 h-7 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200/60 shrink-0">
+      <CheckCircle2 className="w-4 h-4" />
     </div>
-    <p className="text-body font-semibold text-texto-2">{mensaje}</p>
-    {subtitulo && <p className="text-caption text-texto-3 max-w-xs">{subtitulo}</p>}
+    <div className="min-w-0">
+      <p className="text-caption font-semibold text-emerald-900 leading-tight">{mensaje}</p>
+      {subtitulo && <p className="text-[11px] text-texto-3 mt-0.5 leading-tight">{subtitulo}</p>}
+    </div>
   </div>
 );
 
 const VacioInfo: React.FC<{ mensaje: string; subtitulo?: string }> = ({ mensaje, subtitulo }) => (
-  <div className="px-4 py-8 flex flex-col items-center justify-center gap-2 text-center h-full min-h-[160px]">
-    <div className="w-10 h-10 rounded-2xl bg-superficie-2 text-texto-3 flex items-center justify-center border border-borde/70 shadow-xs">
-      <ShoppingBag className="w-5 h-5 text-texto-3" />
+  <div className="px-4 py-4 flex items-center justify-center gap-2.5 text-left">
+    <div className="w-7 h-7 rounded-lg bg-superficie-2 text-texto-3 flex items-center justify-center border border-borde/70 shrink-0">
+      <ShoppingBag className="w-3.5 h-3.5 text-texto-3" />
     </div>
-    <p className="text-body font-semibold text-texto-2">{mensaje}</p>
-    {subtitulo && <p className="text-caption text-texto-3 max-w-xs">{subtitulo}</p>}
+    <div className="min-w-0">
+      <p className="text-caption font-semibold text-texto-2 leading-tight">{mensaje}</p>
+      {subtitulo && <p className="text-[11px] text-texto-3 mt-0.5 leading-tight">{subtitulo}</p>}
+    </div>
   </div>
 );
 

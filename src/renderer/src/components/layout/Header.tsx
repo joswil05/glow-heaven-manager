@@ -2,6 +2,7 @@ import React from 'react';
 import { Plus, PackagePlus, LogOut, RefreshCw } from 'lucide-react';
 import { formatearMoneda } from '@core/moneda';
 import { Button } from '../ui';
+import { cn } from '../../lib/cn';
 import type { UsuarioGoogle } from '../../../../shared/ipc-contracts';
 
 interface HeaderProps {
@@ -9,6 +10,7 @@ interface HeaderProps {
   titulo: string;
   tasaCambioCents: number;
   usuario?: UsuarioGoogle | null;
+  cargando?: boolean;
   onNuevaVenta: () => void;
   onNuevoPaquete: () => void;
   onCerrarSesion: () => void;
@@ -19,6 +21,7 @@ export const Header: React.FC<HeaderProps> = ({
   titulo,
   tasaCambioCents,
   usuario,
+  cargando = false,
   onNuevaVenta,
   onNuevoPaquete,
   onCerrarSesion,
@@ -31,7 +34,7 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="flex items-center gap-3 min-w-0">
         <h1 className="text-title font-bold text-texto truncate tracking-tight">{titulo}</h1>
         
-        {/* Badge estilizado para la tasa de cambio */}
+        {/* Badge estilizado para la tasa de cambio con botón de recarga interactivo */}
         <div className="hidden sm:inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-superficie-2/80 border border-borde/80 text-caption font-medium text-texto-2 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
           <span className="tabular font-semibold text-texto">
@@ -41,11 +44,20 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               type="button"
               onClick={onRefrescar}
-              title="Actualizar datos ahora"
-              aria-label="Actualizar datos"
-              className="p-0.5 rounded text-texto-3 hover:text-texto hover:bg-superficie transition-all cursor-pointer group"
+              disabled={cargando}
+              title={cargando ? 'Actualizando datos del sistema...' : 'Actualizar datos ahora'}
+              aria-label="Actualizar datos del sistema"
+              className={cn(
+                'p-0.5 rounded text-texto-3 hover:text-texto hover:bg-superficie transition-all cursor-pointer group',
+                cargando && 'cursor-not-allowed opacity-70'
+              )}
             >
-              <RefreshCw className="w-3 h-3 group-hover:rotate-180 transition-transform duration-500" />
+              <RefreshCw
+                className={cn(
+                  'w-3 h-3 transition-transform duration-500',
+                  cargando ? 'animate-spin text-acento' : 'group-hover:rotate-180'
+                )}
+              />
             </button>
           )}
         </div>

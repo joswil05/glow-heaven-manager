@@ -80,79 +80,73 @@ export const StatTile: React.FC<StatTileProps> = ({
   const contenido = (
     <div className="flex flex-col h-full justify-between">
       {/* Fila superior: Icono + Label + Indicador click */}
-      <div className="flex items-center justify-between gap-2.5">
-        <div className="flex items-center gap-2.5 min-w-0">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           {Icon && (
             <div
               className={cn(
-                'w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border transition-all duration-200 group-hover:scale-105',
+                'w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border transition-all duration-200 group-hover:scale-105',
                 estilo.iconBox
               )}
             >
-              <Icon className="w-4 h-4" />
+              <Icon className="w-3.5 h-3.5" />
             </div>
           )}
-          <span className="text-label font-medium text-texto-2 truncate">{label}</span>
+          <span className="text-caption font-semibold text-texto-2 truncate">{label}</span>
         </div>
 
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-1 shrink-0">
+          {delta && (
+            <span
+              className={cn(
+                'inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold tabular border shrink-0 shadow-2xs',
+                delta.positivo
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200/70'
+                  : 'bg-rose-50 text-rose-700 border-rose-200/70'
+              )}
+            >
+              {delta.positivo ? (
+                <TrendingUp className="w-2.5 h-2.5 text-emerald-600" />
+              ) : (
+                <TrendingDown className="w-2.5 h-2.5 text-rose-600" />
+              )}
+              {delta.texto}
+            </span>
+          )}
           {onClick && (
-            <div className="w-6 h-6 rounded-lg bg-superficie-2/70 flex items-center justify-center text-texto-3 group-hover:text-acento group-hover:bg-acento-suave/50 transition-colors">
-              <ArrowUpRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+            <div className="w-5 h-5 rounded-md bg-superficie-2/70 flex items-center justify-center text-texto-3 group-hover:text-acento group-hover:bg-acento-suave/50 transition-colors">
+              <ArrowUpRight className="w-3 h-3 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
             </div>
           )}
           {tone !== 'neutral' && !Icon && <StatusDot tone={tone as Tone} />}
         </div>
       </div>
 
-      {/* Fila central: Métrica principal en layout apilado y badge de variación */}
-      <div className="mt-3.5 flex items-start justify-between gap-3">
+      {/* Fila central: Métrica principal en layout apilado */}
+      <div className="mt-2 flex items-baseline justify-between gap-2">
         <div className="flex flex-col min-w-0">
           {usd_cents !== undefined ? (
             <Money
               usd_cents={usd_cents}
-              size={size === 'lg' ? 'xl' : 'lg'}
+              size={size === 'lg' ? 'lg' : 'md'}
               layout="stacked"
               className="font-bold tracking-tight text-texto"
             />
           ) : (
-            <span
-              className={cn(
-                'text-texto tabular font-bold tracking-tight leading-none',
-                size === 'lg' ? 'text-metric' : 'text-metric-sm'
-              )}
-            >
+            <span className="text-texto tabular font-bold text-xl tracking-tight leading-none">
               {value}
             </span>
           )}
         </div>
-
-        {delta && (
-          <span
-            className={cn(
-              'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold tabular border shrink-0 mt-0.5 shadow-sm',
-              delta.positivo
-                ? 'bg-emerald-50 text-emerald-700 border-emerald-200/70'
-                : 'bg-rose-50 text-rose-700 border-rose-200/70'
-            )}
-          >
-            {delta.positivo ? (
-              <TrendingUp className="w-3 h-3 text-emerald-600" />
-            ) : (
-              <TrendingDown className="w-3 h-3 text-rose-600" />
-            )}
-            {delta.texto}
-          </span>
-        )}
       </div>
 
       {/* Fila inferior: Contexto / Pista */}
       {hint && (
-        <div className="mt-3 pt-2.5 border-t border-borde/50 flex items-center justify-between text-caption text-texto-3">
+        <div className="mt-2 pt-1.5 border-t border-borde/40 flex items-center justify-between text-[11px] text-texto-3 leading-tight">
           <span className="truncate">{hint}</span>
           {onClick && (
-            <span className="text-[11px] font-medium text-acento inline-flex items-center gap-1 group-hover:underline ml-2 shrink-0">
-              Ver detalles
+            <span className="text-[10px] font-medium text-acento inline-flex items-center gap-0.5 group-hover:underline ml-1.5 shrink-0">
+              Ver
               <span className="transition-transform duration-200 group-hover:translate-x-0.5">&rarr;</span>
             </span>
           )}
@@ -162,11 +156,11 @@ export const StatTile: React.FC<StatTileProps> = ({
   );
 
   const clases = cn(
-    'group relative bg-gradient-to-b from-superficie via-superficie to-superficie-2/20 rounded-2xl border p-4 text-left w-full shadow-sm transition-all duration-200',
+    'group relative bg-gradient-to-b from-superficie via-superficie to-superficie-2/20 rounded-xl border px-3.5 py-2.5 text-left w-full shadow-2xs transition-all duration-200',
     estilo.borde,
     estilo.glowBg,
     onClick &&
-      'cursor-pointer hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento',
+      'cursor-pointer hover:-translate-y-0.5 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento',
     className
   );
 

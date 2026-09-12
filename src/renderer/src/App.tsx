@@ -242,7 +242,8 @@ export const App: React.FC = () => {
           titulo={tab === 'panel' ? 'Tu negocio hoy' : TITULOS[tab]}
           tasaCambioCents={monedaConfig.tasa_cambio_cents}
           usuario={usuario}
-          onRefrescar={tab === 'panel' ? cargar : undefined}
+          cargando={cargando}
+          onRefrescar={cargar}
           onNuevaVenta={() => irA('ventas', undefined, true)}
           onNuevoPaquete={() => irA('paquetes', undefined, true)}
           onCerrarSesion={cerrarSesion}

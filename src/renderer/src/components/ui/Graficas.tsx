@@ -134,7 +134,7 @@ export type ModoGrafica = 'ambas' | 'ganancias' | 'ingresos';
 export const LineaCreciente: React.FC<LineaCrecienteProps> = ({
   datos,
   formato = (v) => formatearMoneda(v, 'USD'),
-  alto = 230,
+  alto = 125,
   etiquetaSerie = 'Ganancia Neta',
   etiquetaSerieSecundaria = 'Ingresos Totales',
   className,
@@ -175,10 +175,10 @@ export const LineaCreciente: React.FC<LineaCrecienteProps> = ({
 
   const W = 680;
   const H = alto;
-  const padLeft = 60; // Espacio para etiquetas del eje Y
-  const padRight = 24;
-  const padTop = 22;
-  const padBottom = 34;
+  const padLeft = 54; // Espacio para etiquetas del eje Y
+  const padRight = 16;
+  const padTop = 14;
+  const padBottom = 22;
   const usableW = W - padLeft - padRight;
   const usableH = H - padTop - padBottom;
 
@@ -621,14 +621,14 @@ export const Anillo: React.FC<AnilloProps> = ({
   segmentos,
   centro,
   subtitulo,
-  tamano = 160,
+  tamano = 115,
   className,
 }) => {
   const id = useId();
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
   const total = segmentos.reduce((a, s) => a + Math.max(0, s.valor), 0);
-  const grosorBase = 13;
+  const grosorBase = tamano < 130 ? 10 : 13;
   const radio = tamano / 2 - grosorBase;
   const circunferencia = 2 * Math.PI * radio;
 
