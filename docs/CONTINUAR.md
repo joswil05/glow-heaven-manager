@@ -8,7 +8,7 @@
 > **Actualizaciones sobre este documento histórico:**
 > 1. **`npm run typecheck`**: Cero errores (la migración a Google Auth concluyó exitosamente).
 > 2. **`npm test`**: 133/133 pruebas pasando en verde.
-> 3. **El ítem P0 (Paquetes)**: **RESUELTO mediante rediseño arquitectónico**. `PaqueteEditor.guardar()` ya no llama a `compras.recibir`. Ahora guarda el paquete atómicamente con peso y costos, y la vinculación de productos se realiza desde Inventario (`ProductoModal.tsx` / `productos.repo.ts`) mediante `paquete_id`, con sus propios movimientos y `evento_grupo_id`.
+> 3. **El ítem P0 (Paquetes)**: **RESUELTO mediante rediseño arquitectónico**. `PaqueteEditor.guardar()` ya no llama a `compras.recibir`. Ahora guarda el paquete atómicamente con peso y costos, y la vinculación de productos se realiza desde Inventario (`ProductoModal.tsx` / `productos.repo.ts`) mediante `paquete_id`, con sus propios movimientos y `evento_grupo_id`. Un paquete `RECIBIDA` ya no queda huérfano sin acciones (se puede consultar, copiar o eliminar), pero por diseño contable deliberado **no se puede editar in situ** (bloqueado en UI y en `compras.repo.ts:156-159`) para proteger la consistencia de existencias.
 
 ---
 
@@ -127,7 +127,7 @@ Verde en las pruebas no quiere decir que el árbol compile.
 > **ESTADO ACTUAL:** Este problema ya fue resuelto. El flujo fue rediseñado de raíz:
 > - `PaqueteEditor.guardar()` ya **no** llama a `compras.recibir`. Ahora guarda el paquete atómicamente con su peso y costos bajo un único `evento_grupo_id`.
 > - La asignación de productos al paquete se realiza desde Inventario (`ProductoModal.tsx`), asociando `paquete_id` y generando su propio movimiento de inventario atómico en `productos.repo.ts`.
-> - Además, `PaquetesView.tsx` ahora sí permite editar y gestionar paquetes en estado `RECIBIDA`.
+> - Un paquete en `RECIBIDA` ya no queda huérfano sin acciones: se puede consultar, copiar y eliminar/archivar si hubo un error. Sin embargo, **no se permite editar in situ** (bloqueado deliberadamente en UI `PaquetesView.tsx:222-253` y backend `compras.repo.ts:156-159`) para proteger la integridad contable y de stock de las unidades ya ingresadas o vendidas.
 
 *(Texto original histórico guardado abajo como referencia):*
 
@@ -205,8 +205,8 @@ Google prospera, el método a habilitar es Google, no correo y contraseña.**
 ## Cómo verificar
 
 ```bash
-npm run typecheck     # HOY FALLA: 7 errores de la migración a Google
-npm test              # ~113 pruebas, 2 s, sin red
+npm run typecheck     # 0 errores con TypeScript estricto
+npm test              # 133 pruebas unitarias e integrales en verde, ~2 s, sin red
 npm run build         # compila y empaqueta
 
 npm run emulador      # en otra terminal

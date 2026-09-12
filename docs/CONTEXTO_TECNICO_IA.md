@@ -326,6 +326,10 @@ Firestore factura por **documento leído y escrito**. Por ello, el código sigue
   - Botón de **Guardar PDF** nativo (cuadro de diálogo de Windows) y botón de **Imprimir** nativo.
 - **`VentasView.tsx`**:
   - Registro de ventas y encargos, planes de cuotas, cobro por WhatsApp e historial de abonos por venta en el drawer lateral.
+- **`PaquetesView.tsx`**:
+  - Registro y auditoría de paquetes courier de USA.
+  - Los paquetes se registran con peso total, flete y costos adicionales bajo un único `evento_grupo_id` y pasan directamente a estado `RECIBIDA`.
+  - **Restricción contable deliberada**: Los paquetes en estado `RECIBIDA` **no se pueden editar in situ** (bloqueado en UI `PaquetesView.tsx:222-253` y backend `compras.repo.ts:156-159`), ya que su mercadería ya fue incorporada al inventario y pudo haberse vendido. Las acciones permitidas son consultar detalle, copiar datos o eliminar/archivar si hubo un error. Los productos se vinculan al paquete desde el modal de inventario (`ProductoModal.tsx`) mediante `paquete_id`.
 
 ### En Móvil (PWA - `mobile/src/views/`)
 - **`DashboardView.tsx`**: Vista ejecutiva móvil con métricas rápidas y tarjetas de capital.
