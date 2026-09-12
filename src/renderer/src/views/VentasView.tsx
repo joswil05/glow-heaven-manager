@@ -258,22 +258,35 @@ export const VentasView: React.FC<VentasViewProps> = ({
 
   return (
     <div className="flex-1 flex overflow-hidden">
-      <div className="flex-1 overflow-y-auto p-6 space-y-5 animate-fade-in">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <p className="text-label text-texto-2">
-              {esEncargo
-                ? 'Pedidos especiales de clientes, con anticipo y saldo al entregar.'
-                : 'Lo que vendés de tu inventario, de contado o en cuotas.'}
-            </p>
+      <div className="flex-1 overflow-y-auto p-4 md:p-5 space-y-4 animate-fade-in">
+        {/* Barra superior estilizada idéntica a la del inicio */}
+        <div className="flex items-center justify-between gap-3 pb-1 border-b border-borde/40 text-caption text-texto-3 shrink-0 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-texto text-body">
+              {esEncargo ? 'Gestión de Encargos Especiales' : 'Registro de Ventas'}
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              {ventas.filter((v) => v.estado !== 'CANCELADA').length} activas
+            </span>
           </div>
-          <Button variant="primary" onClick={() => setEditorAbierto(true)}>
-            <Plus className="w-4 h-4" />
-            <span>{esEncargo ? 'Nuevo encargo' : 'Nueva venta'}</span>
-          </Button>
+          <div className="flex items-center gap-3">
+            <span className="hidden md:inline-block text-[11px] text-texto-3">
+              {esEncargo ? 'Anticipos y seguimiento' : 'Contado y cuotas'}
+            </span>
+            <Button
+              variant="primary"
+              size="sm"
+              className="rounded-xl shadow-xs"
+              onClick={() => setEditorAbierto(true)}
+            >
+              <Plus className="w-4 h-4" />
+              <span>{esEncargo ? 'Nuevo encargo' : 'Nueva venta'}</span>
+            </Button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
           <StatTile
             label={esEncargo ? 'Total cotizado' : 'Total facturado'}
             usd_cents={totales.vendido}

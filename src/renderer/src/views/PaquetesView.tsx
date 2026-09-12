@@ -250,27 +250,37 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
 
   return (
     <div className="flex-1 flex overflow-hidden">
-      <div className="flex-1 overflow-y-auto p-6 space-y-5 animate-fade-in">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <p className="text-label text-texto-2">
-              Facturas y envíos de courier traídos de USA con su peso en libras y costo de flete.
-            </p>
+      <div className="flex-1 overflow-y-auto p-4 md:p-5 space-y-4 animate-fade-in">
+        {/* Barra superior estilizada idéntica a la del inicio */}
+        <div className="flex items-center justify-between gap-3 pb-1 border-b border-borde/40 text-caption text-texto-3 shrink-0 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-texto text-body">Envíos y Paquetes USA</span>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-500/10 text-indigo-700 border border-indigo-500/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+              {compras.length} paquete{compras.length === 1 ? '' : 's'}
+            </span>
           </div>
-          <Button
-            variant="primary"
-            onClick={() => {
-              setCompraEditando(null);
-              setEditorAbierto(true);
-            }}
-          >
-            <Plus className="w-4 h-4" />
-            <span>Registrar paquete</span>
-          </Button>
+          <div className="flex items-center gap-3">
+            <span className="hidden md:inline-block text-[11px] text-texto-3">
+              Prorrateo de flete, peso y taxes
+            </span>
+            <Button
+              variant="primary"
+              size="sm"
+              className="rounded-xl shadow-xs"
+              onClick={() => {
+                setCompraEditando(null);
+                setEditorAbierto(true);
+              }}
+            >
+              <Plus className="w-4 h-4" />
+              <span>Registrar paquete</span>
+            </Button>
+          </div>
         </div>
 
         {compras.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
             <StatTile
               label="Gastado en paquetes"
               usd_cents={gastadoTotal}
@@ -284,7 +294,7 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
                 usd_cents={invertidoEnCamino}
                 tone="warning"
                 icon={Truck}
-                hint={`${enCamino.length} paquete${enCamino.length === 1 ? '' : 's'} sin ingresar al inventario`}
+                hint={`${enCamino.length} paquete${enCamino.length === 1 ? '' : 's'} en camino`}
               />
             ) : (
               <StatTile
@@ -292,7 +302,7 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
                 value={formatearPeso(recibidos.reduce((a, c) => a + c.peso_total_mlb, 0))}
                 tone="info"
                 icon={Scale}
-                hint="Total consolidado de todos los paquetes"
+                hint="Total consolidado de paquetes"
               />
             )}
             <StatTile

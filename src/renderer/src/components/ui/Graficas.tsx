@@ -134,7 +134,7 @@ export type ModoGrafica = 'ambas' | 'ganancias' | 'ingresos';
 export const LineaCreciente: React.FC<LineaCrecienteProps> = ({
   datos,
   formato = (v) => formatearMoneda(v, 'USD'),
-  alto = 165,
+  alto = 145,
   etiquetaSerie = 'Ganancia Neta',
   etiquetaSerieSecundaria = 'Ingresos Totales',
   className,

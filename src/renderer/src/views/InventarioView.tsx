@@ -315,32 +315,43 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
 
   return (
     <div className="flex-1 flex overflow-hidden">
-      <div className="flex-1 overflow-y-auto p-6 space-y-5 animate-fade-in">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <p className="text-label text-texto-2">
-              Lo que tenés para vender, cuánto te costó y a cuánto lo vendés.
-            </p>
+      <div className="flex-1 overflow-y-auto p-4 md:p-5 space-y-4 animate-fade-in">
+        {/* Barra superior estilizada idéntica a la del inicio */}
+        <div className="flex items-center justify-between gap-3 pb-1 border-b border-borde/40 text-caption text-texto-3 shrink-0 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-texto text-body">Catálogo e Inventario</span>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              {productos.length} producto{productos.length === 1 ? '' : 's'}
+            </span>
           </div>
-          <Button
-            variant="primary"
-            onClick={() => {
-              setProductoEditando(null);
-              setModalAbierto(true);
-            }}
-          >
-            <Plus className="w-4 h-4" />
-            <span>Agregar producto</span>
-          </Button>
+          <div className="flex items-center gap-3">
+            <span className="hidden md:inline-block text-[11px] text-texto-3">
+              Costo unitario real y márgenes
+            </span>
+            <Button
+              variant="primary"
+              size="sm"
+              className="rounded-xl shadow-xs"
+              onClick={() => {
+                setProductoEditando(null);
+                setModalAbierto(true);
+              }}
+            >
+              <Plus className="w-4 h-4" />
+              <span>Agregar producto</span>
+            </Button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        {/* Métricas ejecutivas unificadas con el inicio */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
           <StatTile
             label="Invertido en bodega"
             usd_cents={totales.valor}
             tone="purple"
             icon={Boxes}
-            hint={`${totales.unidades} unidad(es) en ${productos.length} producto(s)`}
+            hint={`${totales.unidades} unidad(es) en existencias`}
             onClick={() => {
               setFiltro('TODOS');
               setCategoriaFiltro(undefined);
@@ -352,7 +363,10 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
             usd_cents={totales.gananciaPotencial}
             tone="success"
             icon={TrendingUp}
-            hint="Calculado a los precios de venta actuales"
+            hint="Calculado a precios de venta actuales"
+            onClick={() => {
+              setFiltro('TODOS');
+            }}
           />
           <StatTile
             label="Stock por agotarse"
@@ -367,8 +381,10 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
             icon={AlertTriangle}
             hint={
               filtro === 'BAJO_STOCK'
-                ? 'Mostrando solo productos con bajo stock'
-                : 'Clic para filtrar productos por reponer'
+                ? 'Mostrando solo bajo stock'
+                : productos.some((p) => p.stock_minimo > 0 && p.existencias <= p.stock_minimo)
+                  ? 'Clic para filtrar artículos críticos'
+                  : 'Catálogo con existencias saludables'
             }
             onClick={() => setFiltro(filtro === 'BAJO_STOCK' ? 'TODOS' : 'BAJO_STOCK')}
             className={filtro === 'BAJO_STOCK' ? 'ring-2 ring-danger-500/50' : undefined}

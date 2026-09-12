@@ -71,7 +71,7 @@ export const StatTile: React.FC<StatTileProps> = ({
   tone = 'neutral',
   icon: Icon,
   delta,
-  size = 'md',
+  size = 'lg',
   onClick,
   className,
 }) => {
@@ -114,7 +114,7 @@ export const StatTile: React.FC<StatTileProps> = ({
             </span>
           )}
           {onClick && (
-            <div className="w-5.5 h-5.5 rounded-md bg-superficie-2/70 flex items-center justify-center text-texto-3 group-hover:text-acento group-hover:bg-acento-suave/50 transition-colors">
+            <div className="w-5 h-5 rounded-md bg-superficie-2/70 flex items-center justify-center text-texto-3 group-hover:text-acento group-hover:bg-acento-suave/50 transition-colors">
               <ArrowUpRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
             </div>
           )}
@@ -123,7 +123,7 @@ export const StatTile: React.FC<StatTileProps> = ({
       </div>
 
       {/* Fila central: Métrica principal en layout apilado */}
-      <div className="mt-2.5 flex items-baseline justify-between gap-2">
+      <div className="mt-2 flex items-baseline justify-between gap-2">
         <div className="flex flex-col min-w-0">
           {usd_cents !== undefined ? (
             <Money
@@ -142,7 +142,7 @@ export const StatTile: React.FC<StatTileProps> = ({
 
       {/* Fila inferior: Contexto / Pista */}
       {hint && (
-        <div className="mt-2.5 pt-2 border-t border-borde/40 flex items-center justify-between text-caption text-texto-3 leading-tight">
+        <div className="mt-2 pt-1.5 border-t border-borde/40 flex items-center justify-between text-caption text-texto-3 leading-tight">
           <span className="truncate">{hint}</span>
           {onClick && (
             <span className="text-[11px] font-medium text-acento inline-flex items-center gap-0.5 group-hover:underline ml-1.5 shrink-0">
@@ -156,7 +156,7 @@ export const StatTile: React.FC<StatTileProps> = ({
   );
 
   const clases = cn(
-    'group relative bg-gradient-to-b from-superficie via-superficie to-superficie-2/20 rounded-xl border p-4 text-left w-full shadow-2xs transition-all duration-200',
+    'group relative bg-gradient-to-b from-superficie via-superficie to-superficie-2/20 rounded-xl border p-3.5 text-left w-full shadow-2xs transition-all duration-200',
     estilo.borde,
     estilo.glowBg,
     onClick &&
