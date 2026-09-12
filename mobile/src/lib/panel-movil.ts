@@ -1,6 +1,7 @@
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { getFirestoreDb } from '@firebase-client';
-import type { Venta } from '@shared/types';
+import type { Venta, PanelData } from '@shared/types';
+import { PanelRepoFirestore } from '@repos/panel.repo';
 import { hoyISO } from './util';
 
 export interface DiaVentas {
@@ -110,3 +111,42 @@ export async function cargarEncargosPendientes(): Promise<EncargoPendiente[]> {
     })
     .sort((a, b) => a.fecha.localeCompare(b.fecha));
 }
+
+export interface CacheDashboardData {
+  panel: PanelData | null;
+  serie: DiaVentas[];
+  hoy: ResumenHoy;
+  encargos: EncargoPendiente[];
+  tiempo: number;
+}
+
+export const cacheDashboardGlobal: CacheDashboardData = {
+  panel: null,
+  serie: [],
+  hoy: { total_usd_cents: 0, ganancia_usd_cents: 0, ventas_count: 0 },
+  encargos: [],
+  tiempo: 0,
+};
+
+export async function obtenerDatosDashboard(forzar = false): Promise<CacheDashboardData> {
+  const ahora = Date.now();
+  if (!forzar && cacheDashboardGlobal.panel && ahora - cacheDashboardGlobal.tiempo < 45000) {
+    return cacheDashboardGlobal;
+  }
+  const [panelData, tendencia, encargosPendientes] = await Promise.all([
+    PanelRepoFirestore.cargar(),
+    cargarTendenciaDiaria(7),
+    cargarEncargosPendientes(),
+  ]);
+  cacheDashboardGlobal.panel = panelData;
+  cacheDashboardGlobal.serie = tendencia.serie;
+  cacheDashboardGlobal.hoy = tendencia.hoy;
+  cacheDashboardGlobal.encargos = encargosPendientes;
+  cacheDashboardGlobal.tiempo = Date.now();
+  return cacheDashboardGlobal;
+}
+
+export function invalidarCacheDashboard() {
+  cacheDashboardGlobal.tiempo = 0;
+}
+

@@ -1,4 +1,4 @@
-import { LayoutDashboard, ShoppingBag, Search } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, Search, HandCoins } from 'lucide-react';
 import type { Vista } from '../App';
 import { haptics } from '../lib/haptics';
 import { useTheme } from '../context/ThemeContext';
@@ -7,15 +7,17 @@ interface BottomNavProps {
   actual: Vista;
   onCambiar: (v: Vista) => void;
   badgeCarrito?: number;
+  badgeCobranza?: number;
 }
 
 const ITEMS: { vista: Vista; etiqueta: string; Icono: typeof LayoutDashboard }[] = [
-  { vista: 'panel', etiqueta: 'Panel', Icono: LayoutDashboard },
+  { vista: 'panel', etiqueta: 'Inicio', Icono: LayoutDashboard },
   { vista: 'vender', etiqueta: 'Vender', Icono: ShoppingBag },
+  { vista: 'cobranza', etiqueta: 'Cobros', Icono: HandCoins },
   { vista: 'inventario', etiqueta: 'Catálogo', Icono: Search },
 ];
 
-export function BottomNav({ actual, onCambiar, badgeCarrito = 0 }: BottomNavProps) {
+export function BottomNav({ actual, onCambiar, badgeCarrito = 0, badgeCobranza = 0 }: BottomNavProps) {
   const { effectiveTheme } = useTheme();
   const isDark = effectiveTheme === 'dark';
 
@@ -95,6 +97,31 @@ export function BottomNav({ actual, onCambiar, badgeCarrito = 0 }: BottomNavProp
                     }}
                   >
                     {badgeCarrito}
+                  </span>
+                )}
+
+                {/* Badge de cobranza (cuotas pendientes/vencidas) */}
+                {vista === 'cobranza' && badgeCobranza > 0 && (
+                  <span
+                    style={{
+                      position: 'absolute',
+                      top: '-4px',
+                      right: '-4px',
+                      display: 'flex',
+                      height: '18px',
+                      minWidth: '18px',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: '9999px',
+                      backgroundColor: '#dc2626',
+                      padding: '0 4px',
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      color: '#ffffff',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+                    }}
+                  >
+                    {badgeCobranza}
                   </span>
                 )}
               </div>

@@ -325,8 +325,9 @@ export const VentasView: React.FC<VentasViewProps> = ({
 
   return (
     <div className="flex-1 flex overflow-hidden">
-      <div className="flex-1 overflow-y-auto p-4 md:p-5 space-y-4 animate-fade-in">
-        {/* Barra superior estilizada idéntica a la del inicio */}
+      <div className="flex-1 overflow-y-auto p-4 md:px-6 md:py-4 scroll-smooth">
+        <div className="max-w-[1500px] w-full mx-auto space-y-4">
+          {/* Barra superior estilizada idéntica a la del inicio */}
         <div className="flex items-center justify-between gap-3 pb-1 border-b border-borde/40 text-caption text-texto-3 shrink-0 flex-wrap">
           <div className="flex items-center gap-2">
             <span className="font-bold text-texto text-body">
@@ -480,6 +481,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
             }}
           />
         )}
+        </div>
       </div>
 
       {ventaDetalle && (

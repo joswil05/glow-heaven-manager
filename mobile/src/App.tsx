@@ -6,11 +6,12 @@ import { ThemeProvider } from './context/ThemeContext';
 import { LoginView } from './views/LoginView';
 import { DashboardView } from './views/DashboardView';
 import { QuickSaleView } from './views/QuickSaleView';
+import { CobranzaView } from './views/CobranzaView';
 import { InventoryQuickView } from './views/InventoryQuickView';
 import { BottomNav } from './components/BottomNav';
 import { SnackbarProvider } from './components/Snackbar';
 
-export type Vista = 'panel' | 'vender' | 'inventario';
+export type Vista = 'panel' | 'vender' | 'cobranza' | 'inventario';
 
 function AppContenido() {
   const { usuario, cargando } = useAuth();
@@ -39,10 +40,16 @@ function AppContenido() {
         <div className="flex flex-col h-[100dvh] overflow-hidden bg-fondo dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors duration-200">
           <div className="flex-1 min-h-0 relative">
             <div className={`h-full w-full overflow-hidden ${vista === 'panel' ? 'block' : 'hidden'}`}>
-              <DashboardView onIrAVenta={() => setVista('vender')} />
+              <DashboardView
+                onIrAVenta={() => setVista('vender')}
+                onIrACobranza={() => setVista('cobranza')}
+              />
             </div>
             <div className={`h-full w-full overflow-hidden ${vista === 'vender' ? 'block' : 'hidden'}`}>
               <QuickSaleView />
+            </div>
+            <div className={`h-full w-full overflow-hidden ${vista === 'cobranza' ? 'block' : 'hidden'}`}>
+              <CobranzaView />
             </div>
             <div className={`h-full w-full overflow-hidden ${vista === 'inventario' ? 'block' : 'hidden'}`}>
               <InventoryQuickView />

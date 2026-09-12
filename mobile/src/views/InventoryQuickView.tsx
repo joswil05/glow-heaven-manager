@@ -7,6 +7,7 @@ import { useSnackbar } from '../components/Snackbar';
 import { formatearMoneda } from '@core/moneda';
 import { useDatosNegocio } from '../context/DataContext';
 import { haptics } from '../lib/haptics';
+import { useScrollReveal } from '../lib/useScrollReveal';
 
 const CATEGORIAS_RAPIDAS = [
   'Todos',
@@ -67,6 +68,8 @@ export function InventoryQuickView() {
 
     return res;
   }, [productos, busqueda, categoriaActiva]);
+
+  const scrollRevealRef = useScrollReveal<HTMLElement>({ deps: [filtrados] });
 
   // Generar ficha para WhatsApp
   function compartirPorWhatsApp(p: ProductoConStock) {
@@ -172,7 +175,7 @@ export function InventoryQuickView() {
 
       {/* Lista de productos con Pull-to-Refresh */}
       <PullToRefresh onRefresh={refrescar}>
-        <main className="flex flex-col gap-2.5 px-3.5 pt-2.5 pb-40">
+        <main ref={scrollRevealRef} className="flex flex-col gap-2.5 px-3.5 pt-2.5 pb-40 scroll-smooth">
 
           {cargando && (
             <div className="flex flex-col items-center justify-center py-16 gap-3 text-slate-400 dark:text-slate-500">
@@ -190,7 +193,7 @@ export function InventoryQuickView() {
               return (
                 <div
                   key={p.id}
-                  className="rounded-2xl bg-white dark:bg-[#161f30] border border-slate-200/80 dark:border-slate-800 p-3 shadow-xs hover:border-slate-300 dark:hover:border-slate-700 transition-all flex flex-col gap-2"
+                  className="scroll-reveal rounded-2xl bg-white dark:bg-[#161f30] border border-slate-200/80 dark:border-slate-800 p-3 shadow-xs hover:border-slate-300 dark:hover:border-slate-700 transition-all flex flex-col gap-2"
                 >
                   <div className="flex gap-3 items-start">
                     {/* Foto o Placeholder Estético */}

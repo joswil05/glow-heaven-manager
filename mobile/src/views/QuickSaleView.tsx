@@ -34,6 +34,7 @@ import { useDatosNegocio } from '../context/DataContext';
 import { BottomSheet } from '../components/BottomSheet';
 import { useSnackbar } from '../components/Snackbar';
 import { haptics } from '../lib/haptics';
+import { useScrollReveal } from '../lib/useScrollReveal';
 
 export interface LineaCarrito {
   clave: string;
@@ -103,6 +104,8 @@ export function QuickSaleView() {
 
     return res;
   }, [productos, busqueda, categoriaActiva]);
+
+  const scrollRevealRef = useScrollReveal<HTMLElement>({ deps: [productosFiltrados] });
 
   // --- Carrito -------------------------------------------------------------
   const [carrito, setCarrito] = useState<LineaCarrito[]>([]);
@@ -473,7 +476,7 @@ export function QuickSaleView() {
       </header>
 
       {/* Catálogo de Productos para Venta Rápida */}
-      <main className="flex-1 min-h-0 overflow-y-auto px-3.5 pt-2.5 pb-40">
+      <main ref={scrollRevealRef} className="flex-1 min-h-0 overflow-y-auto px-3.5 pt-2.5 pb-40 scroll-smooth">
         {cargandoProductos && (
           <div className="flex flex-col items-center justify-center py-16 gap-3 text-slate-400">
             <div className="h-8 w-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
@@ -493,7 +496,7 @@ export function QuickSaleView() {
               return (
                 <div
                   key={p.id}
-                  className="rounded-2xl bg-white dark:bg-[#161f30] border border-slate-200/80 dark:border-slate-800 p-3 shadow-xs hover:border-slate-300 dark:hover:border-slate-700 transition-all flex items-center gap-3"
+                  className="scroll-reveal rounded-2xl bg-white dark:bg-[#161f30] border border-slate-200/80 dark:border-slate-800 p-3 shadow-xs hover:border-slate-300 dark:hover:border-slate-700 transition-all flex items-center gap-3"
                 >
                   {/* Miniatura */}
                   <div

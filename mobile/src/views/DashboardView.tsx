@@ -1,41 +1,34 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   RefreshCw,
-  MessageCircle,
   AlertTriangle,
   PackageX,
   Clock3,
   LogOut,
   TrendingUp,
-  DollarSign,
   PlusCircle,
   ChevronRight,
   HandCoins,
-  CheckCircle2,
   Sun,
   Moon,
   Monitor,
 } from 'lucide-react';
-import { PanelRepoFirestore } from '@repos/panel.repo';
 import type { PanelData } from '@shared/types';
 import { formatearMoneda } from '@core/moneda';
 import {
-  cargarTendenciaDiaria,
-  cargarEncargosPendientes,
+  obtenerDatosDashboard,
+  cacheDashboardGlobal,
   type DiaVentas,
   type ResumenHoy,
   type EncargoPendiente,
 } from '../lib/panel-movil';
-import { linkWhatsapp } from '../lib/util';
 import { MoneyDual } from '../components/MoneyDual';
 import { useAuth } from '../context/AuthContext';
 import { useDatosNegocio } from '../context/DataContext';
 import { useTheme } from '../context/ThemeContext';
 import { PullToRefresh } from '../components/PullToRefresh';
-import { AbonoModalSheet, type VentaCobroItem } from '../components/AbonoModalSheet';
-import { AbonoSelectorSheet } from '../components/AbonoSelectorSheet';
-import { KardexClienteSheet, type ClienteKardexInfo } from '../components/KardexClienteSheet';
 import { haptics } from '../lib/haptics';
+import { useScrollReveal } from '../lib/useScrollReveal';
 
 const DIAS_CORTOS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
 
@@ -44,75 +37,44 @@ function nombreDia(iso: string): string {
   return DIAS_CORTOS[d.getDay()];
 }
 
-// Caché en memoria para carga instantánea (<50ms) al alternar pestañas
-let cacheDashboard: {
-  panel: PanelData | null;
-  serie: DiaVentas[];
-  hoy: ResumenHoy;
-  encargos: EncargoPendiente[];
-  tiempo: number;
-} = {
-  panel: null,
-  serie: [],
-  hoy: { total_usd_cents: 0, ganancia_usd_cents: 0, ventas_count: 0 },
-  encargos: [],
-  tiempo: 0,
-};
-
-export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
+export function DashboardView({
+  onIrAVenta,
+  onIrACobranza,
+}: {
+  onIrAVenta?: () => void;
+  onIrACobranza?: () => void;
+}) {
   const { usuario, salir } = useAuth();
   const { parametros } = useDatosNegocio();
   const { theme, effectiveTheme, toggleTheme } = useTheme();
   const isDark = effectiveTheme === 'dark';
   const tasa = parametros?.tasa_cambio_cents ?? 3662;
 
-  const [panel, setPanel] = useState<PanelData | null>(cacheDashboard.panel);
-  const [serie, setSerie] = useState<DiaVentas[]>(cacheDashboard.serie);
-  const [hoy, setHoy] = useState<ResumenHoy>(cacheDashboard.hoy);
-  const [encargos, setEncargos] = useState<EncargoPendiente[]>(cacheDashboard.encargos);
-  const [cargando, setCargando] = useState(!cacheDashboard.panel);
+  const [panel, setPanel] = useState<PanelData | null>(cacheDashboardGlobal.panel);
+  const [serie, setSerie] = useState<DiaVentas[]>(cacheDashboardGlobal.serie);
+  const [hoy, setHoy] = useState<ResumenHoy>(cacheDashboardGlobal.hoy);
+  const [encargos, setEncargos] = useState<EncargoPendiente[]>(cacheDashboardGlobal.encargos);
+  const [cargando, setCargando] = useState(!cacheDashboardGlobal.panel);
   const [error, setError] = useState<string | null>(null);
 
   // Día seleccionado en el gráfico para ver el detalle
   const [diaSeleccionado, setDiaSeleccionado] = useState<DiaVentas | null>(null);
-
-  // Estados para Abonos y Cobros
-  const [sheetAbonoSelectorAbierto, setSheetAbonoSelectorAbierto] = useState(false);
-  const [ventaParaCobrar, setVentaParaCobrar] = useState<VentaCobroItem | null>(null);
-  const [clienteParaKardex, setClienteParaKardex] = useState<ClienteKardexInfo | null>(null);
-  const [filtroCobro, setFiltroCobro] = useState<'todas' | 'vencidas'>('todas');
+  const scrollRevealRef = useScrollReveal<HTMLElement>({ threshold: 0.05, staggerMs: 30 });
 
   const cargar = useCallback(async (forzar = false) => {
-    const ahora = Date.now();
-    // Usar datos en caché si existen y tienen menos de 45 segundos, salvo que se fuerce
-    if (!forzar && cacheDashboard.panel && ahora - cacheDashboard.tiempo < 45000) {
-      return;
-    }
-
-    if (!cacheDashboard.panel) {
+    if (!cacheDashboardGlobal.panel) {
       setCargando(true);
     }
     setError(null);
     try {
-      const [panelData, tendencia, encargosPendientes] = await Promise.all([
-        PanelRepoFirestore.cargar(),
-        cargarTendenciaDiaria(7),
-        cargarEncargosPendientes(),
-      ]);
-      cacheDashboard = {
-        panel: panelData,
-        serie: tendencia.serie,
-        hoy: tendencia.hoy,
-        encargos: encargosPendientes,
-        tiempo: Date.now(),
-      };
-      setPanel(panelData);
-      setSerie(tendencia.serie);
-      setHoy(tendencia.hoy);
-      setEncargos(encargosPendientes);
+      const data = await obtenerDatosDashboard(forzar);
+      setPanel(data.panel);
+      setSerie(data.serie);
+      setHoy(data.hoy);
+      setEncargos(data.encargos);
     } catch (err) {
       console.error('[DashboardView] Error cargando el panel:', err);
-      if (!cacheDashboard.panel) {
+      if (!cacheDashboardGlobal.panel) {
         setError('No se pudo sincronizar el panel.');
       }
     } finally {
@@ -126,7 +88,6 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
 
   const cuentasPorCobrar = panel?.por_cobrar ?? [];
   const cuotasVencidas = cuentasPorCobrar.filter((f) => f.cuotas_vencidas > 0);
-  const cuentasAMostrar = filtroCobro === 'vencidas' ? cuotasVencidas : cuentasPorCobrar;
   const totalPorCobrarUsd = cuentasPorCobrar.reduce((acc, c) => acc + (c.saldo_usd_cents || 0), 0);
   const totalPorCobrarCor = Math.round((totalPorCobrarUsd * tasa) / 100);
   const maxSerie = Math.max(1, ...serie.map((d) => d.total_usd_cents));
@@ -213,7 +174,7 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
 
       {/* Contenido con Pull-to-Refresh nativo */}
       <PullToRefresh onRefresh={() => cargar(true)}>
-        <main className="flex flex-col gap-3 px-3.5 pt-2.5 pb-40">
+        <main ref={scrollRevealRef} className="flex flex-col gap-3 px-3.5 pt-2.5 pb-40 scroll-smooth">
           {error && (
             <div className="rounded-2xl bg-rose-50 border border-rose-200 px-4 py-3 text-xs font-semibold text-rose-700 flex items-center justify-between">
               <span>{error}</span>
@@ -223,7 +184,7 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
 
           {/* Tarjeta Hero: Ventas de Hoy (Diseño Prominente y Claro) */}
           <section
-            className="relative overflow-hidden rounded-[24px] p-4 shadow-md shadow-emerald-900/10"
+            className="scroll-reveal relative overflow-hidden rounded-[24px] p-4 shadow-md shadow-emerald-900/10"
             style={{
               background: 'linear-gradient(135deg, #059669 0%, #047857 55%, #0f766e 100%)',
               color: '#ffffff',
@@ -284,23 +245,23 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
                   type="button"
                   onClick={() => {
                     haptics.impact('medium');
-                    setSheetAbonoSelectorAbierto(true);
+                    onIrACobranza?.();
                   }}
                   className="m3-press flex items-center justify-center gap-1.5 rounded-xl bg-emerald-800/80 hover:bg-emerald-800 border border-white/20 h-10 px-3 text-xs font-bold text-white shadow-md active:scale-95 transition-transform cursor-pointer backdrop-blur-sm"
                 >
                   <HandCoins size={15} className="text-emerald-300" />
-                  <span>Registrar Abono</span>
+                  <span>Cobros y Abonos</span>
                 </button>
               </div>
             </div>
           </section>
 
           {/* Tarjetas métricas de Por Cobrar e Inventario */}
-          <section className="grid grid-cols-2 gap-2.5">
+          <section className="scroll-reveal grid grid-cols-2 gap-2.5">
             <div
               onClick={() => {
                 haptics.impact('light');
-                setSheetAbonoSelectorAbierto(true);
+                onIrACobranza?.();
               }}
               className="m3-card p-3.5 flex flex-col justify-between cursor-pointer hover:border-amber-300 dark:hover:border-amber-500/50 transition-colors active:scale-[0.99]"
             >
@@ -311,12 +272,15 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
                     <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Por cobrar</p>
                   </div>
                   <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded-md">
-                    Abonar
+                    Ver
                   </span>
                 </div>
                 <MoneyDual usdCents={panel?.resumen.por_cobrar_usd_cents ?? 0} size="sm" />
               </div>
-              <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-1.5 font-medium">Toca para abonar</span>
+              <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-1.5 font-medium flex items-center justify-between">
+                <span>Gestionar cobros</span>
+                <ChevronRight size={12} />
+              </span>
             </div>
 
             <div className="m3-card p-3.5 flex flex-col justify-between">
@@ -332,7 +296,7 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
           </section>
 
           {/* Gráfico 7 días interactivo */}
-          <section className="m3-card p-4">
+          <section className="scroll-reveal m3-card p-4">
             <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-100">
                 <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400">
@@ -413,262 +377,62 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
             </div>
           </section>
 
-          {/* Cuentas por Cobrar / Abonos de Clientes */}
+          {/* Resumen de Cobranzas y Créditos */}
           {cuentasPorCobrar.length > 0 && (
-            <section className="flex flex-col gap-3">
-              {/* Encabezado con balance total y título sin colisión horizontal */}
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-400 shrink-0">
-                      <HandCoins size={14} />
-                    </span>
-                    <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 truncate">
-                      Cuentas por Cobrar
-                    </h2>
-                  </div>
-
-                  {/* Total general acumulado por cobrar */}
-                  <div className="text-right shrink-0">
-                    <span className="text-xs font-black text-slate-900 dark:text-white tabular-nums">
-                      {formatearMoneda(totalPorCobrarUsd, 'USD')}
-                    </span>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium ml-1">
-                      (≈ {formatearMoneda(totalPorCobrarCor, 'COR')})
-                    </span>
-                  </div>
+            <section className="scroll-reveal m3-card p-4 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-200/50 dark:border-amber-800/60">
+                    <HandCoins size={15} />
+                  </span>
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                    Gestión de Cobranzas
+                  </h2>
                 </div>
 
-                {/* Filtro Segmentado: Todas / Vencidas con ancho completo y objetivos táctiles cómodos */}
-                <div className="grid grid-cols-2 p-1 rounded-xl bg-slate-100/90 dark:bg-slate-900/90 border border-slate-200/70 dark:border-slate-800 text-xs font-bold gap-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      haptics.selection();
-                      setFiltroCobro('todas');
-                    }}
-                    className={`flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg transition-all cursor-pointer ${
-                      filtroCobro === 'todas'
-                        ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs font-extrabold'
-                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 font-semibold'
-                    }`}
-                  >
-                    <span>Todas</span>
-                    <span
-                      className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
-                        filtroCobro === 'todas'
-                          ? 'bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200'
-                          : 'bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                      }`}
-                    >
-                      {cuentasPorCobrar.length}
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      haptics.selection();
-                      setFiltroCobro('vencidas');
-                    }}
-                    className={`flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg transition-all cursor-pointer ${
-                      filtroCobro === 'vencidas'
-                        ? 'bg-white dark:bg-slate-800 text-rose-700 dark:text-rose-400 shadow-xs font-extrabold'
-                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 font-semibold'
-                    }`}
-                  >
-                    <span>Vencidas</span>
-                    <span
-                      className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
-                        filtroCobro === 'vencidas'
-                          ? 'bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-400'
-                          : cuotasVencidas.length > 0
-                            ? 'bg-rose-500 text-white'
-                            : 'bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                      }`}
-                    >
-                      {cuotasVencidas.length}
-                    </span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Lista de deudores */}
-              <div className="flex flex-col gap-2.5">
-                {cuentasAMostrar.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-6 px-4 bg-white dark:bg-[#161f30] rounded-2xl border border-slate-200/80 dark:border-slate-800 text-center shadow-xs">
-                    <div className="w-10 h-10 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-2">
-                      <CheckCircle2 size={20} />
-                    </div>
-                    <p className="text-xs font-bold text-slate-800 dark:text-slate-100">¡Al día! No hay cuentas vencidas</p>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                      Todas tus cuentas al crédito están dentro de su plazo acordado.
-                    </p>
-                  </div>
+                {cuotasVencidas.length > 0 ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 dark:bg-rose-950/80 px-2.5 py-0.5 text-[10px] font-extrabold text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
+                    <AlertTriangle size={10} />
+                    {cuotasVencidas.length} {cuotasVencidas.length === 1 ? 'vencida' : 'vencidas'}
+                  </span>
                 ) : (
-                  cuentasAMostrar.map((f) => {
-                    const vencida = f.cuotas_vencidas > 0;
-                    const saldoCor = Math.round((f.saldo_usd_cents * tasa) / 100);
-                    const inicial = (f.cliente_nombre || 'C').charAt(0).toUpperCase();
-
-                    return (
-                      <div
-                        key={f.venta_id}
-                        className={`touch-card flex flex-col gap-2.5 rounded-2xl border p-3.5 shadow-xs transition-all ${
-                          vencida
-                            ? 'border-rose-300/80 bg-rose-50/40 dark:border-rose-900/60 dark:bg-rose-950/20'
-                            : 'border-slate-200/90 bg-white dark:border-slate-800 dark:bg-[#161f30] hover:border-slate-300 dark:hover:border-slate-700'
-                        }`}
-                      >
-                        {/* Fila 1: Avatar + Nombre + Referencia + Badge de estado */}
-                        <div className="flex items-center justify-between gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              haptics.selection();
-                              setClienteParaKardex({
-                                cliente_id: f.cliente_id,
-                                cliente_nombre: f.cliente_nombre,
-                                cliente_telefono: f.cliente_telefono,
-                                saldo_usd_cents: f.saldo_usd_cents,
-                                venta_id: f.venta_id,
-                                codigo: f.codigo,
-                              });
-                            }}
-                            className="flex items-center gap-2.5 min-w-0 flex-1 text-left cursor-pointer group"
-                            title="Ver historial de abonos (Kardex)"
-                          >
-                            <div
-                              className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-black shrink-0 border ${
-                                vencida
-                                  ? 'bg-rose-100 text-rose-800 border-rose-200 dark:bg-rose-950/80 dark:text-rose-300 dark:border-rose-800'
-                                  : 'bg-emerald-100/90 text-emerald-800 border-emerald-200/70 dark:bg-emerald-950/70 dark:text-emerald-300 dark:border-emerald-800'
-                              }`}
-                            >
-                              {inicial}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate leading-tight group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                                {f.cliente_nombre}
-                              </h3>
-                              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate mt-0.5 flex items-center gap-1">
-                                <span>{f.codigo} · {f.fecha}</span>
-                                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold underline">· Ver abonos</span>
-                              </p>
-                            </div>
-                          </button>
-
-                          {/* Badge de vencimiento o al día */}
-                          {vencida ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 dark:bg-rose-950/80 px-2.5 py-0.5 text-[10px] font-extrabold text-rose-700 dark:text-rose-400 shrink-0 border border-rose-200 dark:border-rose-800">
-                              <AlertTriangle size={11} />
-                              {f.cuotas_vencidas} {f.cuotas_vencidas === 1 ? 'vencida' : 'vencidas'}
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 shrink-0 border border-emerald-200/60 dark:border-emerald-800/80">
-                              Al día
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Fila 2: Saldo pendiente destacado */}
-                        <div className="flex items-baseline justify-between px-3 py-2 rounded-xl bg-slate-50/90 border border-slate-100/90 dark:bg-slate-900/60 dark:border-slate-800/80">
-                          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                            Saldo pendiente
-                          </span>
-                          <div className="text-right">
-                            <span className="text-base font-black text-slate-900 dark:text-white tabular-nums">
-                              {formatearMoneda(f.saldo_usd_cents, 'USD')}
-                            </span>
-                            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 ml-1.5">
-                              (≈ {formatearMoneda(saldoCor, 'COR')})
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Fila 3: Botones de acción cómodos */}
-                        <div className="flex items-center gap-2 pt-0.5">
-                          {/* Botón WhatsApp */}
-                          <a
-                            href={
-                              linkWhatsapp(
-                                f.cliente_telefono,
-                                `Hola ${f.cliente_nombre}, te escribo de Glow Heaven por tu saldo pendiente de ${formatearMoneda(
-                                  f.saldo_usd_cents,
-                                  'USD'
-                                )} (≈ ${formatearMoneda(
-                                  saldoCor,
-                                  'COR'
-                                )}) de la venta ${f.codigo}. ¿Cuándo podés completar el pago? Muchas gracias.`
-                              ) ?? undefined
-                            }
-                            onClick={() => haptics.impact('light')}
-                            target="_blank"
-                            rel="noreferrer"
-                            aria-label={`Escribir a ${f.cliente_nombre} por WhatsApp`}
-                            className={`m3-press flex items-center justify-center gap-1.5 h-10 px-3 rounded-xl border text-xs font-bold transition-all shrink-0 ${
-                              f.cliente_telefono
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/80 hover:bg-emerald-100 dark:hover:bg-emerald-950/60 active:scale-95'
-                                : 'bg-slate-50 text-slate-400 border-slate-200 dark:bg-slate-900/40 dark:text-slate-600 dark:border-slate-800 pointer-events-none'
-                            }`}
-                          >
-                            <MessageCircle size={15} className="shrink-0" />
-                            <span>WhatsApp</span>
-                          </a>
-
-                          {/* Botón Kardex / Historial */}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              haptics.impact('light');
-                              setClienteParaKardex({
-                                cliente_id: f.cliente_id,
-                                cliente_nombre: f.cliente_nombre,
-                                cliente_telefono: f.cliente_telefono,
-                                saldo_usd_cents: f.saldo_usd_cents,
-                                venta_id: f.venta_id,
-                                codigo: f.codigo,
-                              });
-                            }}
-                            className="m3-press flex items-center justify-center gap-1 h-10 px-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 transition-all cursor-pointer shrink-0"
-                            title="Ver historial de abonos"
-                          >
-                            <Clock3 size={14} className="shrink-0" />
-                            <span>Kardex</span>
-                          </button>
-
-                          {/* Botón Abonar */}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              haptics.impact('medium');
-                              setVentaParaCobrar({
-                                venta_id: f.venta_id,
-                                codigo: f.codigo,
-                                cliente_nombre: f.cliente_nombre,
-                                cliente_telefono: f.cliente_telefono,
-                                saldo_usd_cents: f.saldo_usd_cents,
-                              });
-                            }}
-                            className="m3-press flex-1 flex items-center justify-center gap-1.5 h-10 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold shadow-sm active:scale-95 transition-all cursor-pointer min-w-0"
-                            aria-label={`Registrar abono de ${f.cliente_nombre}`}
-                          >
-                            <DollarSign size={15} className="shrink-0" />
-                            <span className="truncate">Abonar</span>
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/80">
+                    {cuentasPorCobrar.length} al día
+                  </span>
                 )}
               </div>
+
+              <div className="flex items-baseline justify-between rounded-xl bg-slate-50 dark:bg-slate-900/50 px-3.5 py-2.5 border border-slate-100 dark:border-slate-800">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total en la calle</span>
+                <div className="text-right">
+                  <span className="text-base font-black text-slate-900 dark:text-white tabular-nums">
+                    {formatearMoneda(totalPorCobrarUsd, 'USD')}
+                  </span>
+                  <span className="text-xs font-semibold text-slate-400 dark:text-slate-500 ml-1.5">
+                    (≈ {formatearMoneda(totalPorCobrarCor, 'COR')})
+                  </span>
+                </div>
+              </div>
+
+              {onIrACobranza && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    haptics.selection();
+                    onIrACobranza();
+                  }}
+                  className="m3-press w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-slate-100/90 dark:bg-slate-800/90 hover:bg-slate-200/80 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all cursor-pointer border border-slate-200/50 dark:border-slate-700/50"
+                >
+                  <span>Ver listado y registrar abonos ({cuentasPorCobrar.length})</span>
+                  <ChevronRight size={15} className="text-slate-400" />
+                </button>
+              )}
             </section>
           )}
 
-
           {/* Stock crítico */}
           {(panel?.bajo_stock.length ?? 0) > 0 && (
-            <section className="flex flex-col gap-1.5">
+            <section className="scroll-reveal flex flex-col gap-1.5">
               <h2 className="flex items-center gap-1 text-[11px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide">
                 <PackageX size={13} />
                 Stock crítico ({panel!.bajo_stock.length})
@@ -688,7 +452,7 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
 
           {/* Encargos pendientes */}
           {encargos.length > 0 && (
-            <section className="flex flex-col gap-1.5">
+            <section className="scroll-reveal flex flex-col gap-1.5">
               <h2 className="flex items-center gap-1 text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide">
                 <Clock3 size={13} />
                 Encargos pendientes ({encargos.length})
@@ -710,41 +474,6 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
           )}
         </main>
       </PullToRefresh>
-
-      {/* Selector de Abono (buscar clienta o venta) */}
-      <AbonoSelectorSheet
-        abierto={sheetAbonoSelectorAbierto}
-        onCerrar={() => setSheetAbonoSelectorAbierto(false)}
-        cuentasPorCobrar={cuentasPorCobrar}
-        onSeleccionarVenta={(v) => {
-          setVentaParaCobrar(v);
-        }}
-      />
-
-      {/* Modal Bottom Sheet de Abono / Cobro */}
-      <AbonoModalSheet
-        venta={ventaParaCobrar}
-        onCerrar={() => setVentaParaCobrar(null)}
-        onAbonoRegistrado={() => {
-          // Optimistic local update
-          if (ventaParaCobrar && cacheDashboard.panel) {
-            cacheDashboard.panel.por_cobrar = cacheDashboard.panel.por_cobrar.filter(
-              (c) => c.venta_id !== ventaParaCobrar.venta_id
-            );
-          }
-          cargar(true);
-        }}
-      />
-
-      {/* Modal Bottom Sheet de Kardex de Abonos del Cliente */}
-      <KardexClienteSheet
-        cliente={clienteParaKardex}
-        abierto={Boolean(clienteParaKardex)}
-        onCerrar={() => setClienteParaKardex(null)}
-        onAbonar={(v) => {
-          setVentaParaCobrar(v);
-        }}
-      />
     </div>
   );
 }

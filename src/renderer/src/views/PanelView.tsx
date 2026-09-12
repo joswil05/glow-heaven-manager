@@ -7,11 +7,9 @@ import {
   Wallet,
   Users,
   PackageX,
-  ShoppingBag,
   CheckCircle2,
   Boxes,
   Flame,
-  Sparkles,
   Plus,
   Eye,
   DollarSign,
@@ -29,11 +27,11 @@ import {
   SectionHeader,
   Money,
   LineaCreciente,
-  BarraProgreso,
   ContextMenu,
 } from '../components/ui';
 import { useToast } from '../context/ToastContext';
 import { cn } from '../lib/cn';
+import { useScrollReveal } from '../lib/useScrollReveal';
 
 export type DestinoPanel = 'inventario' | 'paquetes' | 'ventas' | 'clientes';
 
@@ -82,6 +80,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
   const { resumen, ganancia_mes_actual, ganancia_mes_anterior, historico, alertas } = data;
 
   const { showToast } = useToast();
+  const scrollRevealRef = useScrollReveal<HTMLDivElement>({ threshold: 0.05, staggerMs: 30 });
   const [menuContextual, setMenuContextual] = useState<{
     x: number;
     y: number;
@@ -130,11 +129,14 @@ export const PanelView: React.FC<PanelViewProps> = ({
         e.preventDefault();
         setMenuContextual({ x: e.clientX, y: e.clientY, tipo: 'fondo' });
       }}
-      className="flex-1 overflow-y-auto animate-fade-in bg-fondo/50 flex flex-col"
+      className="flex-1 overflow-y-auto animate-fade-in bg-fondo/50 flex flex-col scroll-smooth"
     >
-      <div className="p-3 md:p-3.5 max-w-[1600px] w-full mx-auto flex-1 flex flex-col justify-start gap-2.5">
-        {/* Barra superior de bienvenida y accesos directos compacta */}
-        <div className="flex items-center justify-between gap-3 pb-0.5 border-b border-borde/40 text-caption text-texto-3 shrink-0 flex-wrap">
+      <div
+        ref={scrollRevealRef}
+        className="px-4 md:px-6 py-3.5 md:py-4 max-w-[1500px] w-full mx-auto flex-1 flex flex-col justify-start gap-3.5"
+      >
+        {/* Barra superior de bienvenida y accesos directos compacta y centrada */}
+        <div className="flex items-center justify-between gap-3 pb-1 border-b border-borde/40 text-caption text-texto-3 shrink-0 flex-wrap">
           <div className="flex items-center gap-2">
             <span className="font-bold text-texto text-body">Resumen Financiero y Operativo</span>
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
@@ -418,99 +420,118 @@ export const PanelView: React.FC<PanelViewProps> = ({
           })()}
         </div>
 
-        {/* Nivel 4: Listas de trabajo operativas compactas con altura controlada */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-2.5 shrink-0 stagger-children">
+        {/* Nivel 4: Widgets Operativos Bento Pulse (Equilibrados, sin scrollbars y con micro-interacciones) */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-3 shrink-0 stagger-children">
           {/* 1. QUIÉN TE DEBE */}
-          <Card className="shadow-2xs flex flex-col h-[175px]">
-            <CardHeader className="px-3.5 py-1.5 shrink-0">
-              <SectionHeader
-                icon={Users}
-                title="Quién te debe"
-                action={
-                  data.por_cobrar.length > 0 ? (
-                    <Badge tone={data.por_cobrar.some((p) => p.cuotas_vencidas > 0) ? 'danger' : 'warning'}>
-                      {data.por_cobrar.length} pendientes
-                    </Badge>
-                  ) : undefined
-                }
-              />
-            </CardHeader>
-            <CardContent className="p-0 flex-1 flex flex-col justify-center overflow-y-auto">
-              {data.por_cobrar.length > 0 ? (
-                <ul className="divide-y divide-borde/50">
-                  {data.por_cobrar.slice(0, 2).map((p) => (
-                    <li key={p.venta_id}>
-                      <button
-                        onClick={() => onNavegar('ventas', p.venta_id)}
-                        onContextMenu={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setMenuContextual({ x: e.clientX, y: e.clientY, tipo: 'deudor', item: p });
-                        }}
-                        className="w-full text-left px-3.5 py-1 hover:bg-superficie-2 transition-all focus-visible:outline-none focus-visible:bg-superficie-2 group"
-                      >
-                        <div className="flex items-center justify-between gap-2.5">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <div className="w-5 h-5 rounded-md bg-superficie-2 text-texto font-bold text-[11px] flex items-center justify-center border border-borde shrink-0 group-hover:border-acento">
+          <Card className="shadow-xs card-hover-lift flex flex-col justify-between rounded-2xl border border-borde/70 bg-superficie overflow-hidden">
+            <div>
+              <CardHeader className="px-4 py-2.5 border-b border-borde/40 shrink-0">
+                <SectionHeader
+                  icon={Users}
+                  title="Quién te debe"
+                  action={
+                    data.por_cobrar.length > 0 ? (
+                      <Badge tone={data.por_cobrar.some((p) => p.cuotas_vencidas > 0) ? 'danger' : 'warning'}>
+                        {data.por_cobrar.length} pendiente{data.por_cobrar.length === 1 ? '' : 's'}
+                      </Badge>
+                    ) : undefined
+                  }
+                />
+              </CardHeader>
+              <CardContent className="p-0">
+                {data.por_cobrar.length > 0 ? (
+                  <ul className="divide-y divide-borde/40">
+                    {data.por_cobrar.slice(0, 3).map((p) => (
+                      <li key={p.venta_id}>
+                        <div
+                          onClick={() => onNavegar('ventas', p.venta_id)}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setMenuContextual({ x: e.clientX, y: e.clientY, tipo: 'deudor', item: p });
+                          }}
+                          className="w-full px-4 py-2.5 hover:bg-superficie-2/70 transition-colors flex items-center justify-between gap-3 group cursor-pointer"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            <div className="w-7 h-7 rounded-full bg-amber-500/10 text-amber-700 dark:bg-amber-400/15 dark:text-amber-300 font-extrabold text-xs flex items-center justify-center border border-amber-500/20 shrink-0 group-hover:scale-105 transition-transform">
                               {p.cliente_nombre.charAt(0).toUpperCase()}
                             </div>
-                            <span className="text-body font-semibold text-texto truncate group-hover:text-acento transition-colors">
-                              {p.cliente_nombre}
-                            </span>
-                          </div>
-                          <Money usd_cents={p.saldo_usd_cents} size="sm" soloUsd className="font-bold text-amber-700" />
-                        </div>
-
-                        <div className="flex items-center justify-between gap-2 mt-0.5 pl-7">
-                          <span className="text-caption text-texto-3 font-medium">
-                            {p.codigo}
-                            {p.cuotas_vencidas > 0 && (
-                              <span className="text-rose-600 font-bold ml-1.5 inline-flex items-center gap-1">
-                                · {p.cuotas_vencidas} cuota{p.cuotas_vencidas > 1 ? 's' : ''} vencida{p.cuotas_vencidas > 1 ? 's' : ''}
+                            <div className="min-w-0 flex-1">
+                              <div className="text-body font-semibold text-texto truncate group-hover:text-acento transition-colors flex items-center gap-1.5">
+                                <span className="truncate">{p.cliente_nombre}</span>
+                                {p.cuotas_vencidas > 0 && (
+                                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-rose-100 text-rose-700 dark:bg-rose-950/80 dark:text-rose-400 border border-rose-200 dark:border-rose-900 shrink-0">
+                                    {p.cuotas_vencidas} vencida{p.cuotas_vencidas > 1 ? 's' : ''}
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-caption text-texto-3 font-medium">
+                                Ref: {p.codigo}
                               </span>
-                            )}
-                          </span>
-                        </div>
+                            </div>
+                          </div>
 
-                        <div className="pl-7 mt-0.5">
-                          <BarraProgreso
-                            actual={p.pagado_usd_cents}
-                            total={p.total_usd_cents}
-                            tono={p.cuotas_vencidas > 0 ? 'danger' : 'brand'}
-                            etiqueta={`Pagado de ${p.codigo}`}
-                            mostrarPorcentaje
-                          />
+                          <div className="text-right shrink-0 flex items-center gap-2">
+                            <div>
+                              <Money usd_cents={p.saldo_usd_cents} size="sm" soloUsd className="font-extrabold text-amber-700 dark:text-amber-400 tabular" />
+                              <div className="text-[10px] text-texto-3 font-medium">saldo</div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                enviarCobroWhatsApp(p);
+                              }}
+                              title="Cobrar por WhatsApp"
+                              className="w-7 h-7 rounded-lg flex items-center justify-center text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 hover:text-emerald-700 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                            >
+                              <MessageCircle className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <VacioOk
-                  mensaje="¡Excelente! Nadie te debe nada."
-                  subtitulo="Todas las cuentas y cuotas pactadas están al día."
-                />
-              )}
-            </CardContent>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="py-6 px-4 flex flex-col items-center justify-center text-center gap-1">
+                    <div className="w-8 h-8 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center mb-1">
+                      <CheckCircle2 className="w-4 h-4" />
+                    </div>
+                    <span className="text-body font-bold text-texto">¡Cuentas al día!</span>
+                    <span className="text-caption text-texto-3">No hay clientes con saldo pendiente de pago.</span>
+                  </div>
+                )}
+              </CardContent>
+            </div>
+
+            <div
+              className="px-4 py-2 border-t border-borde/40 bg-superficie-2/20 flex items-center justify-between text-[11px] font-semibold text-texto-3 hover:text-acento transition-colors cursor-pointer group"
+              onClick={() => onNavegar('clientes')}
+            >
+              <span>Ver cartera de clientes ({data.por_cobrar.length})</span>
+              <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
+            </div>
           </Card>
 
-          {/* 2. SE ESTÁ ACABANDO */}
-          <Card className="shadow-2xs flex flex-col h-[175px]">
-            <CardHeader className="px-3.5 py-1.5 shrink-0">
-              <SectionHeader
-                icon={PackageX}
-                title="Stock por agotarse"
-                action={
-                  data.bajo_stock.length > 0 ? (
-                    <Badge tone="danger">{data.bajo_stock.length} críticos</Badge>
-                  ) : undefined
-                }
-              />
-            </CardHeader>
-            <CardContent className="p-0 flex-1 flex flex-col justify-center overflow-y-auto">
-              {data.bajo_stock.length > 0 ? (
-                <>
-                  <ul className="divide-y divide-borde/50 flex-1">
+          {/* 2. STOCK POR AGOTARSE */}
+          <Card className="shadow-xs card-hover-lift flex flex-col justify-between rounded-2xl border border-borde/70 bg-superficie overflow-hidden">
+            <div>
+              <CardHeader className="px-4 py-2.5 border-b border-borde/40 shrink-0">
+                <SectionHeader
+                  icon={PackageX}
+                  title="Stock por agotarse"
+                  action={
+                    data.bajo_stock.length > 0 ? (
+                      <Badge tone="danger">{data.bajo_stock.length} crítico{data.bajo_stock.length === 1 ? '' : 's'}</Badge>
+                    ) : (
+                      <Badge tone="success">Óptimo</Badge>
+                    )
+                  }
+                />
+              </CardHeader>
+              <CardContent className="p-0">
+                {data.bajo_stock.length > 0 ? (
+                  <ul className="divide-y divide-borde/40">
                     {data.bajo_stock.slice(0, 3).map((p) => (
                       <li key={p.producto_id}>
                         <button
@@ -520,107 +541,120 @@ export const PanelView: React.FC<PanelViewProps> = ({
                             e.stopPropagation();
                             setMenuContextual({ x: e.clientX, y: e.clientY, tipo: 'stock', item: p });
                           }}
-                          className="w-full text-left px-3.5 py-1 hover:bg-superficie-2 transition-all focus-visible:outline-none focus-visible:bg-superficie-2 flex items-center justify-between gap-3 group"
+                          className="w-full text-left px-4 py-2.5 hover:bg-superficie-2/70 transition-colors flex items-center justify-between gap-3 group"
                         >
-                          <span className="text-body font-medium text-texto truncate group-hover:text-acento transition-colors">
-                            {p.nombre}
+                          <div className="min-w-0 flex-1">
+                            <span className="text-body font-semibold text-texto truncate block group-hover:text-acento transition-colors">
+                              {p.nombre}
+                            </span>
+                            <span className="text-caption text-texto-3">
+                              Mínimo: {p.stock_minimo} unid.
+                            </span>
+                          </div>
+                          <span
+                            className={cn(
+                              'text-[11px] font-bold px-2 py-0.5 rounded-md border shrink-0',
+                              p.existencias === 0
+                                ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-400 dark:border-rose-900'
+                                : 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/60 dark:text-amber-400 dark:border-amber-900'
+                            )}
+                          >
+                            {p.existencias === 0 ? 'Agotado (0)' : `${p.existencias} en stock`}
                           </span>
-                          <Badge tone={p.existencias === 0 ? 'danger' : 'warning'}>
-                            {p.existencias === 0 ? 'Agotado' : `${p.existencias} en stock`}
-                          </Badge>
                         </button>
                       </li>
                     ))}
                   </ul>
-                  <div className="mt-auto px-3.5 py-1 border-t border-borde/40 bg-superficie-2/20 text-caption text-texto-3 flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    <span>Resto del catálogo con existencias saludables</span>
+                ) : (
+                  <div className="py-6 px-4 flex flex-col items-center justify-center text-center gap-1">
+                    <div className="w-8 h-8 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center mb-1">
+                      <CheckCircle2 className="w-4 h-4" />
+                    </div>
+                    <span className="text-body font-bold text-texto">Existencias saludables</span>
+                    <span className="text-caption text-texto-3">Todos los productos tienen existencias suficientes.</span>
                   </div>
-                </>
-              ) : (
-                <VacioOk
-                  mensaje="Existencias óptimas en catálogo."
-                  subtitulo="No hay productos en nivel crítico ni agotados."
-                />
-              )}
-            </CardContent>
+                )}
+              </CardContent>
+            </div>
+
+            <div
+              className="px-4 py-2 border-t border-borde/40 bg-superficie-2/20 flex items-center justify-between text-[11px] font-semibold text-texto-3 hover:text-acento transition-colors cursor-pointer group"
+              onClick={() => onNavegar('inventario')}
+            >
+              <span>Gestionar catálogo e inventario</span>
+              <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
+            </div>
           </Card>
 
-          {/* 3. LO QUE MÁS SE VENDE CON PODIO */}
-          <Card className="shadow-2xs flex flex-col h-[175px]">
-            <CardHeader className="px-3.5 py-1.5 shrink-0">
-              <SectionHeader
-                icon={Flame}
-                title="Más vendidos"
-                description="Top rotación (90 días)"
-              />
-            </CardHeader>
-            <CardContent className="p-0 flex-1 flex flex-col justify-center overflow-y-auto">
-              {data.mas_vendidos.length > 0 ? (
-                <ul className="divide-y divide-borde/50 flex-1">
-                  {data.mas_vendidos.slice(0, 3).map((p, idx) => {
-                    const medallas = ['🥇', '🥈', '🥉'];
-                    const medalla = medallas[idx];
+          {/* 3. LO QUE MÁS SE VENDE (TOP ROTACIÓN) */}
+          <Card className="shadow-xs card-hover-lift flex flex-col justify-between rounded-2xl border border-borde/70 bg-superficie overflow-hidden">
+            <div>
+              <CardHeader className="px-4 py-2.5 border-b border-borde/40 shrink-0">
+                <SectionHeader
+                  icon={Flame}
+                  title="Más vendidos"
+                  description="Top rotación comercial"
+                />
+              </CardHeader>
+              <CardContent className="p-0">
+                {data.mas_vendidos.length > 0 ? (
+                  <ul className="divide-y divide-borde/40">
+                    {data.mas_vendidos.slice(0, 3).map((p, idx) => {
+                      const podioEstilos = [
+                        'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-700',
+                        'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
+                        'bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-700',
+                      ];
 
-                    return (
-                      <li
-                        key={p.producto_id}
-                        onClick={() => onNavegar('inventario', p.producto_id)}
-                        onContextMenu={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setMenuContextual({ x: e.clientX, y: e.clientY, tipo: 'vendido', item: p });
-                        }}
-                        className="px-3.5 py-1 flex items-center justify-between gap-2.5 hover:bg-superficie-2/40 transition-colors cursor-pointer group"
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <span className="text-sm shrink-0 w-5 text-center">
-                            {medalla ?? (
-                              <span className="text-xs font-bold text-texto-3">
-                                #{idx + 1}
-                              </span>
-                            )}
-                          </span>
-                          <div className="min-w-0">
-                            <div className="text-body font-semibold text-texto truncate group-hover:text-acento transition-colors">
-                              {p.nombre}
-                            </div>
-                            <div className="text-caption text-texto-3">
-                              {p.unidades_vendidas_90d} unidad(es)
+                      return (
+                        <li
+                          key={p.producto_id}
+                          onClick={() => onNavegar('inventario', p.producto_id)}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setMenuContextual({ x: e.clientX, y: e.clientY, tipo: 'vendido', item: p });
+                          }}
+                          className="px-4 py-2.5 flex items-center justify-between gap-3 hover:bg-superficie-2/70 transition-colors cursor-pointer group"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            <span className={cn('w-5 h-5 rounded-full text-[11px] font-extrabold flex items-center justify-center border shrink-0', podioEstilos[idx] ?? 'bg-superficie-2 text-texto-3 border-borde')}>
+                              {idx + 1}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-body font-semibold text-texto truncate group-hover:text-acento transition-colors">
+                                {p.nombre}
+                              </div>
+                              <div className="text-caption text-texto-3">
+                                {p.unidades_vendidas_90d} unidad{p.unidades_vendidas_90d === 1 ? '' : 'es'} vendida{p.unidades_vendidas_90d === 1 ? '' : 's'}
+                              </div>
                             </div>
                           </div>
-                        </div>
 
-                        <div className="text-right shrink-0">
-                          <Money usd_cents={p.ganancia_90d_usd_cents} size="sm" soloUsd className="font-bold text-emerald-700" />
-                          <div className="text-[10px] text-texto-3">ganancia</div>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : (
-                <VacioInfo
-                  mensaje="Todavía no hay historial suficiente."
-                  subtitulo="Los productos con mayor rotación se destacarán aquí."
-                />
-              )}
+                          <div className="text-right shrink-0">
+                            <Money usd_cents={p.ganancia_90d_usd_cents} size="sm" soloUsd className="font-extrabold text-emerald-700 dark:text-emerald-400 tabular" />
+                            <div className="text-[10px] text-texto-3 font-medium">ganancia</div>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <div className="py-6 px-4 flex flex-col items-center justify-center text-center gap-1">
+                    <span className="text-body font-bold text-texto">Sin ventas registradas</span>
+                    <span className="text-caption text-texto-3">Los productos destacados aparecerán con tus ventas.</span>
+                  </div>
+                )}
+              </CardContent>
+            </div>
 
-              {data.sin_rotacion.length > 0 && (
-                <div className="mt-auto px-3.5 py-1 border-t border-borde/60 bg-amber-50/40 rounded-b-xl">
-                  <div className="text-[11px] font-semibold text-amber-900 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                    <span>Sin rotación en 90 días:</span>
-                  </div>
-                  <div className="text-[10px] text-amber-800/90 truncate">
-                    {data.sin_rotacion
-                      .slice(0, 3)
-                      .map((p) => `${p.nombre} (${p.existencias})`)
-                      .join(', ')}
-                  </div>
-                </div>
-              )}
-            </CardContent>
+            <div
+              className="px-4 py-2 border-t border-borde/40 bg-superficie-2/20 flex items-center justify-between text-[11px] font-semibold text-texto-3 hover:text-acento transition-colors cursor-pointer group"
+              onClick={() => onNavegar('ventas')}
+            >
+              <span>Ver historial de ventas</span>
+              <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
+            </div>
           </Card>
         </div>
 
@@ -773,30 +807,6 @@ export const PanelView: React.FC<PanelViewProps> = ({
 };
 
 // ---------------------------------------------------------------------------
-
-const VacioOk: React.FC<{ mensaje: string; subtitulo?: string }> = ({ mensaje, subtitulo }) => (
-  <div className="flex-1 flex flex-col items-center justify-center p-2 text-center gap-1">
-    <div className="w-6 h-6 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200/60 shadow-2xs">
-      <CheckCircle2 className="w-3.5 h-3.5" />
-    </div>
-    <div>
-      <p className="text-caption font-semibold text-texto-2 leading-tight">{mensaje}</p>
-      {subtitulo && <p className="text-[11px] text-texto-3 max-w-xs mt-0.5 leading-tight">{subtitulo}</p>}
-    </div>
-  </div>
-);
-
-const VacioInfo: React.FC<{ mensaje: string; subtitulo?: string }> = ({ mensaje, subtitulo }) => (
-  <div className="flex-1 flex flex-col items-center justify-center p-2 text-center gap-1">
-    <div className="w-6 h-6 rounded-xl bg-superficie-2 text-texto-3 flex items-center justify-center border border-borde/70 shadow-2xs">
-      <ShoppingBag className="w-3.5 h-3.5 text-texto-3" />
-    </div>
-    <div>
-      <p className="text-caption font-semibold text-texto-2 leading-tight">{mensaje}</p>
-      {subtitulo && <p className="text-[11px] text-texto-3 max-w-xs mt-0.5 leading-tight">{subtitulo}</p>}
-    </div>
-  </div>
-);
 
 const FilaAlerta: React.FC<{
   alerta: Alerta;
