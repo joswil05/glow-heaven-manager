@@ -11,6 +11,7 @@ import {
   PlusCircle,
   ChevronRight,
   HandCoins,
+  CheckCircle2,
 } from 'lucide-react';
 import { PanelRepoFirestore } from '@repos/panel.repo';
 import type { PanelData } from '@shared/types';
@@ -380,137 +381,215 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
 
           {/* Cuentas por Cobrar / Abonos de Clientes */}
           {cuentasPorCobrar.length > 0 && (
-            <section className="flex flex-col gap-2.5">
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <h2 className="flex items-center gap-1.5 text-xs font-bold text-slate-800 uppercase tracking-wide truncate">
-                    <HandCoins size={15} className="text-emerald-700 shrink-0" />
-                    <span>Cuentas por Cobrar</span>
-                    <span className="rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-1.5 py-0.2 leading-tight">
-                      {cuentasAMostrar.length}
+            <section className="flex flex-col gap-3">
+              {/* Encabezado con balance total y título sin colisión horizontal */}
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 shrink-0">
+                      <HandCoins size={14} />
                     </span>
-                  </h2>
-                  <p className="text-[11px] text-slate-500 font-semibold truncate mt-0.5">
-                    Saldo total: <strong className="text-slate-800">{formatearMoneda(totalPorCobrarUsd, 'USD')}</strong>
-                    <span className="text-slate-400 font-normal"> · {formatearMoneda(totalPorCobrarCor, 'COR')}</span>
-                  </p>
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700 truncate">
+                      Cuentas por Cobrar
+                    </h2>
+                  </div>
+
+                  {/* Total general acumulado por cobrar */}
+                  <div className="text-right shrink-0">
+                    <span className="text-xs font-black text-slate-900 tabular-nums">
+                      {formatearMoneda(totalPorCobrarUsd, 'USD')}
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-medium ml-1">
+                      (≈ {formatearMoneda(totalPorCobrarCor, 'COR')})
+                    </span>
+                  </div>
                 </div>
 
-                {/* Filtros compactos: Todas / Vencidas que NO se rompen en 2 lineas */}
-                <div className="flex rounded-xl bg-slate-100 p-1 text-[11px] font-bold shrink-0 border border-slate-200/60">
+                {/* Filtro Segmentado: Todas / Vencidas con ancho completo y objetivos táctiles cómodos */}
+                <div className="grid grid-cols-2 p-1 rounded-xl bg-slate-100/90 border border-slate-200/70 text-xs font-bold gap-1">
                   <button
                     type="button"
                     onClick={() => {
                       haptics.selection();
                       setFiltroCobro('todas');
                     }}
-                    className={`px-2.5 py-1 rounded-lg whitespace-nowrap transition-all cursor-pointer ${
+                    className={`flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg transition-all cursor-pointer ${
                       filtroCobro === 'todas'
-                        ? 'bg-white text-slate-900 shadow-sm font-extrabold'
-                        : 'text-slate-500 hover:text-slate-700'
+                        ? 'bg-white text-slate-900 shadow-xs font-extrabold'
+                        : 'text-slate-500 hover:text-slate-700 font-semibold'
                     }`}
                   >
-                    Todas ({cuentasPorCobrar.length})
+                    <span>Todas</span>
+                    <span
+                      className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                        filtroCobro === 'todas'
+                          ? 'bg-slate-100 text-slate-800'
+                          : 'bg-slate-200/80 text-slate-600'
+                      }`}
+                    >
+                      {cuentasPorCobrar.length}
+                    </span>
                   </button>
+
                   <button
                     type="button"
                     onClick={() => {
                       haptics.selection();
                       setFiltroCobro('vencidas');
                     }}
-                    className={`px-2.5 py-1 rounded-lg whitespace-nowrap transition-all cursor-pointer ${
+                    className={`flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg transition-all cursor-pointer ${
                       filtroCobro === 'vencidas'
-                        ? 'bg-white text-rose-700 shadow-sm font-extrabold'
-                        : 'text-slate-500 hover:text-slate-700'
+                        ? 'bg-white text-rose-700 shadow-xs font-extrabold'
+                        : 'text-slate-500 hover:text-slate-700 font-semibold'
                     }`}
                   >
-                    Vencidas ({cuotasVencidas.length})
+                    <span>Vencidas</span>
+                    <span
+                      className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                        filtroCobro === 'vencidas'
+                          ? 'bg-rose-100 text-rose-700'
+                          : cuotasVencidas.length > 0
+                            ? 'bg-rose-500 text-white'
+                            : 'bg-slate-200/80 text-slate-600'
+                      }`}
+                    >
+                      {cuotasVencidas.length}
+                    </span>
                   </button>
                 </div>
               </div>
 
-              <div className="flex flex-col gap-2">
-                {cuentasAMostrar.map((f) => {
-                  const vencida = f.cuotas_vencidas > 0;
-                  const saldoCor = Math.round((f.saldo_usd_cents * tasa) / 100);
+              {/* Lista de deudores */}
+              <div className="flex flex-col gap-2.5">
+                {cuentasAMostrar.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-6 px-4 bg-white rounded-2xl border border-slate-200/80 text-center shadow-xs">
+                    <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mb-2">
+                      <CheckCircle2 size={20} />
+                    </div>
+                    <p className="text-xs font-bold text-slate-800">¡Al día! No hay cuentas vencidas</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Todas tus cuentas al crédito están dentro de su plazo acordado.
+                    </p>
+                  </div>
+                ) : (
+                  cuentasAMostrar.map((f) => {
+                    const vencida = f.cuotas_vencidas > 0;
+                    const saldoCor = Math.round((f.saldo_usd_cents * tasa) / 100);
+                    const inicial = (f.cliente_nombre || 'C').charAt(0).toUpperCase();
 
-                  return (
-                    <div
-                      key={f.venta_id}
-                      className={`flex items-center justify-between gap-3 rounded-2xl border p-3.5 shadow-sm transition-colors ${
-                        vencida
-                          ? 'border-rose-200/90 bg-rose-50/70'
-                          : 'border-slate-200/80 bg-white hover:bg-slate-50/80'
-                      }`}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5">
-                          <p className="truncate text-xs font-bold text-slate-900">{f.cliente_nombre}</p>
-                          {vencida && (
-                            <span className="inline-flex items-center gap-0.5 rounded-md bg-rose-100 px-1.5 py-0.2 text-[10px] font-bold text-rose-700 shrink-0">
-                              <AlertTriangle size={10} />
-                              {f.cuotas_vencidas} cuota{f.cuotas_vencidas > 1 ? 's' : ''}
+                    return (
+                      <div
+                        key={f.venta_id}
+                        className={`flex flex-col gap-2.5 rounded-2xl border p-3.5 shadow-xs transition-all ${
+                          vencida
+                            ? 'border-rose-300/80 bg-rose-50/40'
+                            : 'border-slate-200/90 bg-white hover:border-slate-300'
+                        }`}
+                      >
+                        {/* Fila 1: Avatar + Nombre + Referencia + Badge de estado */}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            <div
+                              className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-black shrink-0 border ${
+                                vencida
+                                  ? 'bg-rose-100 text-rose-800 border-rose-200'
+                                  : 'bg-emerald-100/90 text-emerald-800 border-emerald-200/70'
+                              }`}
+                            >
+                              {inicial}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <h3 className="text-sm font-bold text-slate-900 truncate leading-tight">
+                                {f.cliente_nombre}
+                              </h3>
+                              <p className="text-[11px] text-slate-500 font-medium truncate mt-0.5">
+                                {f.codigo} · {f.fecha}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Badge de vencimiento o al día */}
+                          {vencida ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-0.5 text-[10px] font-extrabold text-rose-700 shrink-0 border border-rose-200">
+                              <AlertTriangle size={11} />
+                              {f.cuotas_vencidas} {f.cuotas_vencidas === 1 ? 'vencida' : 'vencidas'}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700 shrink-0 border border-emerald-200/60">
+                              Al día
                             </span>
                           )}
                         </div>
-                        <p className="text-[11px] text-slate-500 font-medium truncate mt-0.5">
-                          {f.codigo} · {f.fecha}
-                        </p>
-                        <p className="text-xs font-black text-emerald-800 mt-0.5 tabular-nums">
-                          {formatearMoneda(f.saldo_usd_cents, 'USD')}{' '}
-                          <span className="text-[10px] font-semibold text-slate-500">
-                            (≈ {formatearMoneda(saldoCor, 'COR')})
+
+                        {/* Fila 2: Saldo pendiente destacado */}
+                        <div className="flex items-baseline justify-between px-3 py-2 rounded-xl bg-slate-50/90 border border-slate-100/90">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                            Saldo pendiente
                           </span>
-                        </p>
-                      </div>
+                          <div className="text-right">
+                            <span className="text-base font-black text-slate-900 tabular-nums">
+                              {formatearMoneda(f.saldo_usd_cents, 'USD')}
+                            </span>
+                            <span className="text-xs font-semibold text-slate-500 ml-1.5">
+                              (≈ {formatearMoneda(saldoCor, 'COR')})
+                            </span>
+                          </div>
+                        </div>
 
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {/* Botón Abonar */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            haptics.impact('medium');
-                            setVentaParaCobrar({
-                              venta_id: f.venta_id,
-                              codigo: f.codigo,
-                              cliente_nombre: f.cliente_nombre,
-                              cliente_telefono: f.cliente_telefono,
-                              saldo_usd_cents: f.saldo_usd_cents,
-                            });
-                          }}
-                          className="m3-press flex items-center gap-1 h-9 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm active:scale-95 transition-transform cursor-pointer"
-                          aria-label={`Registrar abono de ${f.cliente_nombre}`}
-                        >
-                          <DollarSign size={14} />
-                          Abonar
-                        </button>
+                        {/* Fila 3: Botones de acción cómodos */}
+                        <div className="flex items-center gap-2 pt-0.5">
+                          {/* Botón WhatsApp */}
+                          <a
+                            href={
+                              linkWhatsapp(
+                                f.cliente_telefono,
+                                `Hola ${f.cliente_nombre}, te escribo de Glow Heaven por tu saldo pendiente de ${formatearMoneda(
+                                  f.saldo_usd_cents,
+                                  'USD'
+                                )} (≈ ${formatearMoneda(
+                                  saldoCor,
+                                  'COR'
+                                )}) de la venta ${f.codigo}. ¿Cuándo podés completar el pago? Muchas gracias.`
+                              ) ?? undefined
+                            }
+                            onClick={() => haptics.impact('light')}
+                            target="_blank"
+                            rel="noreferrer"
+                            aria-label={`Escribir a ${f.cliente_nombre} por WhatsApp`}
+                            className={`m3-press flex items-center justify-center gap-1.5 h-10 px-3.5 rounded-xl border text-xs font-bold transition-all ${
+                              f.cliente_telefono
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 active:scale-98'
+                                : 'bg-slate-50 text-slate-400 border-slate-200 pointer-events-none'
+                            }`}
+                          >
+                            <MessageCircle size={15} />
+                            <span>WhatsApp</span>
+                          </a>
 
-                        {/* Botón WhatsApp */}
-                        <a
-                          href={
-                            linkWhatsapp(
-                              f.cliente_telefono,
-                              `Hola ${f.cliente_nombre}, te escribo de Glow Heaven por tu saldo pendiente de ${formatearMoneda(
-                                f.saldo_usd_cents,
-                                'USD'
-                              )} (≈ ${formatearMoneda(
-                                saldoCor,
-                                'COR'
-                              )}) de la venta ${f.codigo}. ¿Cuándo podés completar el pago? Muchas gracias.`
-                            ) ?? undefined
-                          }
-                          onClick={() => haptics.impact('light')}
-                          target="_blank"
-                          rel="noreferrer"
-                          aria-label={`Escribir a ${f.cliente_nombre} por WhatsApp`}
-                          className="m3-press flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200/60 active:bg-emerald-100 transition-colors"
-                        >
-                          <MessageCircle size={16} />
-                        </a>
+                          {/* Botón Abonar */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              haptics.impact('medium');
+                              setVentaParaCobrar({
+                                venta_id: f.venta_id,
+                                codigo: f.codigo,
+                                cliente_nombre: f.cliente_nombre,
+                                cliente_telefono: f.cliente_telefono,
+                                saldo_usd_cents: f.saldo_usd_cents,
+                              });
+                            }}
+                            className="m3-press flex-1 flex items-center justify-center gap-1.5 h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold shadow-sm active:scale-98 transition-all cursor-pointer"
+                            aria-label={`Registrar abono de ${f.cliente_nombre}`}
+                          >
+                            <DollarSign size={15} />
+                            <span>Abonar</span>
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                )}
               </div>
             </section>
           )}
