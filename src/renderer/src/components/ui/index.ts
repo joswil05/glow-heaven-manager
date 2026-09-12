@@ -14,3 +14,5 @@ export { Barras, LineaCreciente, Anillo, BarraProgreso } from './Graficas';
 export type { PuntoSerie, LineaCrecienteProps } from './Graficas';
 export { Confirmar } from './Confirmar';
 export type { ConfirmarProps } from './Confirmar';
+export { ContextMenu } from './ContextMenu';
+export type { ContextMenuProps, ContextMenuItem } from './ContextMenu';

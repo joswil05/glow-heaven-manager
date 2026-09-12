@@ -444,6 +444,10 @@ const api: ApiPuente = {
       db.productos = db.productos.map((p) => (p.id === id ? { ...p, activo: true } : p));
       return ok(grupo());
     },
+    eliminarDefinitivo: (id) => {
+      db.productos = db.productos.filter((p) => p.id !== id);
+      return ok(grupo());
+    },
     movimientos: () => ok([]),
     simularPrecio: (input) =>
       ok(

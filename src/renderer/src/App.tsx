@@ -130,19 +130,65 @@ export const App: React.FC = () => {
     }
   }, [tab, usuario]);
 
-  // Atajos de teclado
+  // Atajos de teclado globales para navegación ultra fluida
   useEffect(() => {
     if (!usuario) return;
 
     const alPresionar = (e: KeyboardEvent) => {
+      // F5 para sincronizar con la nube
+      if (e.key === 'F5') {
+        e.preventDefault();
+        cargar();
+        return;
+      }
+
       const conModificador = e.ctrlKey || e.metaKey;
       if (!conModificador) return;
 
       switch (e.key.toLowerCase()) {
+        case '1':
+          e.preventDefault();
+          irA('panel');
+          break;
+        case '2':
+          e.preventDefault();
+          irA('inventario');
+          break;
+        case '3':
+          e.preventDefault();
+          irA('ventas');
+          break;
+        case '4':
+          e.preventDefault();
+          irA('paquetes');
+          break;
+        case '5':
+          e.preventDefault();
+          irA('clientes');
+          break;
+        case '6':
+          e.preventDefault();
+          irA('config');
+          break;
         case 'n':
           e.preventDefault();
           irA('ventas', undefined, true);
           break;
+        case 'r':
+          e.preventDefault();
+          cargar();
+          break;
+        case 'f': {
+          const input = document.querySelector(
+            'input[type="text"]:not([disabled]), input[type="search"]:not([disabled])'
+          ) as HTMLInputElement | null;
+          if (input) {
+            e.preventDefault();
+            input.focus();
+            input.select();
+          }
+          break;
+        }
         case 'l':
           e.preventDefault();
           cerrarSesion();
@@ -154,7 +200,7 @@ export const App: React.FC = () => {
 
     window.addEventListener('keydown', alPresionar);
     return () => window.removeEventListener('keydown', alPresionar);
-  }, [usuario, cerrarSesion]);
+  }, [usuario, cerrarSesion, cargar]);
 
   const irA = (destino: NavTab, id?: number, abrirNuevo = false) => {
     setProductoSeleccionado(destino === 'inventario' ? id : undefined);

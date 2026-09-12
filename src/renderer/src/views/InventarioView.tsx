@@ -1,5 +1,20 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Package, Plus, Search, SlidersHorizontal, Trash2, History, Boxes, TrendingUp, AlertTriangle, X, RotateCcw } from 'lucide-react';
+import {
+  Package,
+  Plus,
+  Search,
+  SlidersHorizontal,
+  Trash2,
+  History,
+  Boxes,
+  TrendingUp,
+  AlertTriangle,
+  X,
+  RotateCcw,
+  Copy,
+  FileEdit,
+  Archive,
+} from 'lucide-react';
 import type {
   ProductoConStock,
   Categoria,
@@ -18,6 +33,7 @@ import {
   StatTile,
   DataTable,
   Confirmar,
+  ContextMenu,
   type Column,
 } from '../components/ui';
 import { EmptyState } from '../components/shared/EmptyState';
@@ -53,6 +69,12 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
   const [modalAbierto, setModalAbierto] = useState(false);
   const [productoEditando, setProductoEditando] = useState<ProductoConStock | null>(null);
   const [archivando, setArchivando] = useState<ProductoConStock | null>(null);
+  const [eliminandoDefinitivo, setEliminandoDefinitivo] = useState<ProductoConStock | null>(null);
+  const [menuContextual, setMenuContextual] = useState<{
+    x: number;
+    y: number;
+    producto: ProductoConStock;
+  } | null>(null);
   const [ajustando, setAjustando] = useState<AjusteStock | null>(null);
   const [detalleId, setDetalleId] = useState<number | undefined>(productoInicialId);
   const [movimientos, setMovimientos] = useState<MovimientoInventario[]>([]);
@@ -232,6 +254,20 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
     onCambio();
   };
 
+  const eliminarDefinitivo = async (p: ProductoConStock) => {
+    const r = await window.api.productos.eliminarDefinitivo(p.id);
+    if (!r.success) {
+      showToast({ message: r.error, type: 'error' });
+      return;
+    }
+    showToast({
+      message: `'${p.nombre}' eliminado por completo de la base de datos`,
+      type: 'success',
+    });
+    await Promise.all([cargar(), cargarTotalesGenerales()]);
+    onCambio();
+  };
+
   const columnas: Column<ProductoConStock>[] = [
     {
       key: 'nombre',
@@ -335,18 +371,33 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
       render: (p) => (
         <div className="flex items-center justify-end gap-1">
           {!p.activo ? (
-            <Button
-              size="sm"
-              variant="outline"
-              className="text-emerald-700 bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/20 hover:text-emerald-800 transition-all font-medium rounded-lg shadow-2xs"
-              onClick={(e) => {
-                e.stopPropagation();
-                reactivar(p);
-              }}
-            >
-              <RotateCcw className="w-3.5 h-3.5 mr-1" />
-              <span>Reactivar</span>
-            </Button>
+            <div className="flex items-center justify-end gap-1">
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-emerald-700 bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/20 hover:text-emerald-800 transition-all font-medium rounded-lg shadow-2xs"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  reactivar(p);
+                }}
+              >
+                <RotateCcw className="w-3.5 h-3.5 mr-1" />
+                <span>Reactivar</span>
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                title="Eliminar definitivamente de la base de datos"
+                aria-label={`Eliminar definitivamente ${p.nombre}`}
+                className="text-texto-3 hover:text-danger hover:bg-danger/10 rounded-lg p-1.5"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEliminandoDefinitivo(p);
+                }}
+              >
+                <Trash2 className="w-3.5 h-3.5 text-danger" />
+              </Button>
+            </div>
           ) : (
             <>
               <Button
@@ -583,6 +634,9 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
             rowKey={(p) => p.id}
             selectedKey={detalleId}
             onRowClick={(p) => setDetalleId(p.id === detalleId ? undefined : p.id)}
+            onRowContextMenu={(p, e) => {
+              setMenuContextual({ x: e.clientX, y: e.clientY, producto: p });
+            }}
           />
         )}
       </div>
@@ -759,6 +813,109 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
         onConfirmar={() => archivando && archivar(archivando)}
         onCerrar={() => setArchivando(null)}
       />
+
+      <Confirmar
+        abierto={eliminandoDefinitivo !== null}
+        peligroso
+        titulo={`¿Eliminar definitivamente "${eliminandoDefinitivo?.nombre ?? ''}"?`}
+        consecuencias={[
+          'Esta acción es IRREVERSIBLE. El producto se eliminará por completo de la base de datos Firestore.',
+          'Ideal para productos creados por error, duplicados o pruebas.',
+          'Si este producto tiene ventas históricas registradas, se recomienda "Descatalogar" en su lugar para mantener los reportes financieros 100% exactos.',
+        ]}
+        textoConfirmar="Sí, eliminar definitivamente"
+        onConfirmar={() => eliminandoDefinitivo && eliminarDefinitivo(eliminandoDefinitivo)}
+        onCerrar={() => setEliminandoDefinitivo(null)}
+      />
+
+      {menuContextual && (
+        <ContextMenu
+          x={menuContextual.x}
+          y={menuContextual.y}
+          onClose={() => setMenuContextual(null)}
+          items={[
+            {
+              id: 'editar',
+              label: 'Editar producto',
+              icon: <FileEdit className="w-4 h-4" />,
+              shortcut: 'Enter',
+              onClick: () => {
+                setProductoEditando(menuContextual.producto);
+                setModalAbierto(true);
+              },
+            },
+            {
+              id: 'ajustar',
+              label: 'Ajustar existencias',
+              icon: <SlidersHorizontal className="w-4 h-4" />,
+              shortcut: 'A',
+              onClick: () => {
+                const p = menuContextual.producto;
+                if (p.variantes.length === 1) {
+                  setAjustando({
+                    variante_id: p.variantes[0].id,
+                    producto_id: p.id,
+                    nombre: p.nombre,
+                    actual: p.variantes[0].existencias,
+                  });
+                } else {
+                  setDetalleId(p.id);
+                }
+              },
+            },
+            {
+              id: 'detalle',
+              label: 'Ver detalle y movimientos',
+              icon: <History className="w-4 h-4" />,
+              shortcut: 'Espacio',
+              onClick: () => setDetalleId(menuContextual.producto.id),
+            },
+            'separator',
+            {
+              id: 'copiar-codigo',
+              label: `Copiar código (${menuContextual.producto.codigo})`,
+              icon: <Copy className="w-4 h-4" />,
+              onClick: () => {
+                navigator.clipboard.writeText(menuContextual.producto.codigo);
+                showToast({ message: 'Código copiado al portapapeles', type: 'info' });
+              },
+            },
+            {
+              id: 'copiar-nombre',
+              label: 'Copiar nombre',
+              icon: <Copy className="w-4 h-4" />,
+              onClick: () => {
+                navigator.clipboard.writeText(menuContextual.producto.nombre);
+                showToast({ message: 'Nombre copiado al portapapeles', type: 'info' });
+              },
+            },
+            'separator',
+            menuContextual.producto.activo
+              ? {
+                  id: 'descatalogar',
+                  label: 'Descatalogar producto',
+                  icon: <Archive className="w-4 h-4" />,
+                  shortcut: 'D',
+                  onClick: () => setArchivando(menuContextual.producto),
+                }
+              : {
+                  id: 'reactivar',
+                  label: 'Reactivar en inventario',
+                  icon: <RotateCcw className="w-4 h-4" />,
+                  tone: 'success',
+                  onClick: () => reactivar(menuContextual.producto),
+                },
+            {
+              id: 'eliminar-definitivo',
+              label: 'Eliminar por completo...',
+              icon: <Trash2 className="w-4 h-4" />,
+              tone: 'danger',
+              shortcut: 'Supr',
+              onClick: () => setEliminandoDefinitivo(menuContextual.producto),
+            },
+          ]}
+        />
+      )}
 
       <AjustarStockModal
         ajuste={ajustando}

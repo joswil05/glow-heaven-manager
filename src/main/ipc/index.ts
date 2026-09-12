@@ -113,6 +113,12 @@ export function registrarHandlers(): void {
     return { evento_grupo_id };
   });
 
+  manejar(IPC.PRODUCTOS_ELIMINAR_DEFINITIVO, async (id: number) => {
+    const evento_grupo_id = nuevoGrupo();
+    await ProductosRepo.eliminarDefinitivo(id, evento_grupo_id);
+    return { evento_grupo_id };
+  });
+
   manejar(IPC.PRODUCTOS_MOVIMIENTOS, (producto_id: number) =>
     ProductosRepo.movimientos(producto_id)
   );

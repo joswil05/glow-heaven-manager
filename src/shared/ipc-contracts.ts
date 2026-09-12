@@ -292,6 +292,7 @@ export interface ApiPuente {
     ): Promise<Resultado<ConGrupo>>;
     archivar(id: number): Promise<Resultado<ConGrupo>>;
     reactivar(id: number): Promise<Resultado<ConGrupo>>;
+    eliminarDefinitivo(id: number): Promise<Resultado<ConGrupo>>;
     movimientos(producto_id: number): Promise<Resultado<MovimientoInventario[]>>;
     simularPrecio(input: SimularPrecioInput): Promise<Resultado<SimularPrecioOutput>>;
   };

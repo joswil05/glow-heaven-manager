@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Package, Plus, CheckCircle2, FileEdit, Trash2, Boxes, Truck, Scale, Clock, X } from 'lucide-react';
+import { Package, Plus, CheckCircle2, FileEdit, Trash2, Boxes, Truck, Scale, Clock, X, Copy, Eye } from 'lucide-react';
 import { cn } from '../lib/cn';
 import type { Compra, CompraCompleta, Venta, ParametrosSistema } from '../../../shared/types';
 import {
@@ -11,6 +11,7 @@ import {
   StatTile,
   DataTable,
   Confirmar,
+  ContextMenu,
   type Column,
   type Tone,
 } from '../components/ui';
@@ -53,6 +54,11 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
   const [porConfirmar, setPorConfirmar] = useState<
     { tipo: 'recibir' | 'archivar'; compra: Compra } | null
   >(null);
+  const [menuContextual, setMenuContextual] = useState<{
+    x: number;
+    y: number;
+    compra: Compra;
+  } | null>(null);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -387,6 +393,9 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
               rowKey={(c) => c.id}
               selectedKey={detalle?.id}
               onRowClick={(c) => verDetalle(c.id)}
+              onRowContextMenu={(c, e) => {
+                setMenuContextual({ x: e.clientX, y: e.clientY, compra: c });
+              }}
             />
           </div>
         )}
@@ -575,6 +584,73 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
           onCambio();
         }}
       />
+
+      {menuContextual && (
+        <ContextMenu
+          x={menuContextual.x}
+          y={menuContextual.y}
+          onClose={() => setMenuContextual(null)}
+          items={[
+            ...(menuContextual.compra.estado !== 'RECIBIDA'
+              ? [
+                  {
+                    id: 'recibir',
+                    label: 'Marcar como recibido',
+                    icon: <CheckCircle2 className="w-4 h-4" />,
+                    tone: 'success' as const,
+                    onClick: () => setPorConfirmar({ tipo: 'recibir', compra: menuContextual.compra }),
+                  },
+                  {
+                    id: 'editar',
+                    label: 'Editar paquete',
+                    icon: <FileEdit className="w-4 h-4" />,
+                    shortcut: 'Enter',
+                    onClick: () => abrirParaEditar(menuContextual.compra.id),
+                  },
+                ]
+              : []),
+            {
+              id: 'ver-detalle',
+              label: 'Ver detalle y artículos',
+              icon: <Eye className="w-4 h-4" />,
+              shortcut: 'Espacio',
+              onClick: () => verDetalle(menuContextual.compra.id),
+            },
+            'separator' as const,
+            {
+              id: 'copiar-codigo',
+              label: `Copiar código (${menuContextual.compra.codigo})`,
+              icon: <Copy className="w-4 h-4" />,
+              onClick: () => {
+                navigator.clipboard.writeText(menuContextual.compra.codigo);
+                showToast({ message: 'Código de paquete copiado al portapapeles', type: 'info' });
+              },
+            },
+            ...(menuContextual.compra.notas
+              ? [
+                  {
+                    id: 'copiar-notas',
+                    label: 'Copiar notas del paquete',
+                    icon: <Copy className="w-4 h-4" />,
+                    onClick: () => {
+                      navigator.clipboard.writeText(menuContextual.compra.notas ?? '');
+                      showToast({ message: 'Notas copiadas al portapapeles', type: 'info' });
+                    },
+                  },
+                ]
+              : []),
+            'separator' as const,
+            {
+              id: 'archivar',
+              label: 'Eliminar paquete...',
+              icon: <Trash2 className="w-4 h-4" />,
+              tone: 'danger' as const,
+              shortcut: 'Supr',
+              onClick: () => setPorConfirmar({ tipo: 'archivar', compra: menuContextual.compra }),
+            },
+          ]}
+        />
+      )}
     </div>
   );
 };

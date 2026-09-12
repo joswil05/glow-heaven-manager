@@ -1194,6 +1194,29 @@ describe('flujo Opción 1: paquete de courier rápido y multipack de boxers', ()
     const paquetesActivos = await ComprasRepo.listar();
     expect(paquetesActivos.some((p) => p.id === paqueteId)).toBe(false);
   });
+
+  it('eliminarDefinitivo purga el producto por completo de la base de datos', async () => {
+    const pId = await ProductosRepo.crear(
+      {
+        nombre: 'Producto de prueba a borrar',
+        precio_venta_usd_cents: 1500,
+        costo_unitario_usd_cents: 800,
+        variantes: [{ existencias: 3 }],
+      },
+      g()
+    );
+
+    let prod = await ProductosRepo.getById(pId);
+    expect(prod).not.toBeNull();
+
+    await ProductosRepo.eliminarDefinitivo(pId, g());
+
+    prod = await ProductosRepo.getById(pId);
+    expect(prod).toBeNull();
+
+    const lista = await ProductosRepo.listar({ incluirInactivos: true });
+    expect(lista.some((p) => p.id === pId)).toBe(false);
+  });
 });
 
 

@@ -11,6 +11,8 @@ import {
   X,
   MessageCircle,
   Calendar,
+  Copy,
+  Eye,
 } from 'lucide-react';
 import type {
   Venta,
@@ -29,6 +31,7 @@ import {
   DataTable,
   BarraProgreso,
   Confirmar,
+  ContextMenu,
   type Column,
   type Tone,
 } from '../components/ui';
@@ -85,7 +88,12 @@ export const VentasView: React.FC<VentasViewProps> = ({
   const [editorAbierto, setEditorAbierto] = useState(abrirEditorAlEntrar);
   const [ventaDetalle, setVentaDetalle] = useState<VentaCompleta | null>(null);
   const [pagoAbierto, setPagoAbierto] = useState(false);
-  const [anulando, setAnulando] = useState<VentaCompleta | null>(null);
+  const [anulando, setAnulando] = useState<Venta | VentaCompleta | null>(null);
+  const [menuContextual, setMenuContextual] = useState<{
+    x: number;
+    y: number;
+    venta: Venta;
+  } | null>(null);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -154,7 +162,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
     };
   }, [ventasPeriodo]);
 
-  const enviarCobroWhatsApp = (v: VentaCompleta) => {
+  const enviarCobroWhatsApp = (v: Venta | VentaCompleta) => {
     const cliente = clientes.find((c) => c.id === v.cliente_id);
     const telefonoRaw = cliente?.telefono ?? '';
     const telefono = telefonoRaw.replace(/\D/g, '');
@@ -461,6 +469,9 @@ export const VentasView: React.FC<VentasViewProps> = ({
             onRowClick={(v) =>
               ventaDetalle?.id === v.id ? setVentaDetalle(null) : abrirDetalle(v.id)
             }
+            onRowContextMenu={(v, e) => {
+              setMenuContextual({ x: e.clientX, y: e.clientY, venta: v });
+            }}
           />
         )}
       </div>
@@ -688,6 +699,86 @@ export const VentasView: React.FC<VentasViewProps> = ({
           onCambio();
         }}
       />
+
+      {menuContextual && (
+        <ContextMenu
+          x={menuContextual.x}
+          y={menuContextual.y}
+          onClose={() => setMenuContextual(null)}
+          items={[
+            {
+              id: 'ver-detalle',
+              label: 'Ver detalle y artículos',
+              icon: <Eye className="w-4 h-4" />,
+              shortcut: 'Espacio',
+              onClick: () => abrirDetalle(menuContextual.venta.id),
+            },
+            ...(menuContextual.venta.saldo_usd_cents > 0 &&
+            menuContextual.venta.estado !== 'CANCELADA'
+              ? [
+                  {
+                    id: 'abono',
+                    label: 'Registrar abono / pago',
+                    icon: <DollarSign className="w-4 h-4" />,
+                    tone: 'success' as const,
+                    onClick: async () => {
+                      await abrirDetalle(menuContextual.venta.id);
+                      setPagoAbierto(true);
+                    },
+                  },
+                  {
+                    id: 'cobro-whatsapp',
+                    label: 'Cobrar por WhatsApp',
+                    icon: <MessageCircle className="w-4 h-4" />,
+                    onClick: () => enviarCobroWhatsApp(menuContextual.venta),
+                  },
+                ]
+              : []),
+            'separator' as const,
+            {
+              id: 'copiar-codigo',
+              label: `Copiar código (${menuContextual.venta.codigo})`,
+              icon: <Copy className="w-4 h-4" />,
+              onClick: () => {
+                navigator.clipboard.writeText(menuContextual.venta.codigo);
+                showToast({ message: 'Código de venta copiado al portapapeles', type: 'info' });
+              },
+            },
+            {
+              id: 'copiar-cliente',
+              label: `Copiar cliente (${menuContextual.venta.cliente_nombre ?? 'Mostrador'})`,
+              icon: <Copy className="w-4 h-4" />,
+              onClick: () => {
+                navigator.clipboard.writeText(menuContextual.venta.cliente_nombre ?? 'Mostrador');
+                showToast({ message: 'Cliente copiado al portapapeles', type: 'info' });
+              },
+            },
+            'separator' as const,
+            ...(menuContextual.venta.estado === 'PENDIENTE'
+              ? [
+                  {
+                    id: 'entregar',
+                    label: 'Marcar como entregada',
+                    icon: <PackageCheck className="w-4 h-4" />,
+                    tone: 'success' as const,
+                    onClick: () => cambiarEstado(menuContextual.venta, 'ENTREGADA'),
+                  },
+                ]
+              : []),
+            ...(menuContextual.venta.estado !== 'CANCELADA'
+              ? [
+                  {
+                    id: 'cancelar',
+                    label: esEncargo ? 'Anular encargo...' : 'Anular venta...',
+                    icon: <XCircle className="w-4 h-4" />,
+                    tone: 'danger' as const,
+                    onClick: () => setAnulando(menuContextual.venta),
+                  },
+                ]
+              : []),
+          ]}
+        />
+      )}
     </div>
   );
 };

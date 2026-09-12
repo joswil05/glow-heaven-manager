@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Users, Plus, Search, Trash2, X, MessageCircle, MapPin, Wallet, ShoppingBag } from 'lucide-react';
+import { Users, Plus, Search, Trash2, X, MessageCircle, MapPin, Wallet, ShoppingBag, Copy, FileEdit, Eye } from 'lucide-react';
 import type { ClienteDetalle, Venta, ParametrosSistema } from '../../../shared/types';
 import {
   Button,
@@ -11,6 +11,7 @@ import {
   StatTile,
   DataTable,
   Confirmar,
+  ContextMenu,
   type Column,
 } from '../components/ui';
 import { EmptyState } from '../components/shared/EmptyState';
@@ -38,6 +39,11 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
   const [modalAbierto, setModalAbierto] = useState(false);
   const [editando, setEditando] = useState<ClienteDetalle | null>(null);
   const [archivando, setArchivando] = useState<ClienteDetalle | null>(null);
+  const [menuContextual, setMenuContextual] = useState<{
+    x: number;
+    y: number;
+    cliente: ClienteDetalle;
+  } | null>(null);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -295,6 +301,9 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
             rowKey={(c) => c.id}
             selectedKey={detalle?.id}
             onRowClick={(c) => setDetalle(detalle?.id === c.id ? null : c)}
+            onRowContextMenu={(c, e) => {
+              setMenuContextual({ x: e.clientX, y: e.clientY, cliente: c });
+            }}
           />
         )}
       </div>
@@ -493,6 +502,84 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
           onCambio();
         }}
       />
+
+      {menuContextual && (
+        <ContextMenu
+          x={menuContextual.x}
+          y={menuContextual.y}
+          onClose={() => setMenuContextual(null)}
+          items={[
+            {
+              id: 'ver-ficha',
+              label: 'Ver ficha 360° y compras',
+              icon: <Eye className="w-4 h-4" />,
+              shortcut: 'Espacio',
+              onClick: () => setDetalle(menuContextual.cliente),
+            },
+            ...(menuContextual.cliente.telefono
+              ? [
+                  {
+                    id: 'whatsapp',
+                    label: 'Enviar WhatsApp',
+                    icon: <MessageCircle className="w-4 h-4" />,
+                    tone: 'success' as const,
+                    onClick: () => {
+                      const tel = (menuContextual.cliente.telefono || '').replace(/\D/g, '');
+                      if (tel) {
+                        const url = tel.startsWith('505')
+                          ? `https://wa.me/${tel}`
+                          : `https://wa.me/505${tel}`;
+                        window.open(url, '_blank');
+                      }
+                    },
+                  },
+                ]
+              : []),
+            {
+              id: 'editar',
+              label: 'Editar información',
+              icon: <FileEdit className="w-4 h-4" />,
+              shortcut: 'Enter',
+              onClick: () => {
+                setEditando(menuContextual.cliente);
+                setModalAbierto(true);
+              },
+            },
+            'separator' as const,
+            {
+              id: 'copiar-nombre',
+              label: `Copiar nombre (${menuContextual.cliente.nombre})`,
+              icon: <Copy className="w-4 h-4" />,
+              onClick: () => {
+                navigator.clipboard.writeText(menuContextual.cliente.nombre);
+                showToast({ message: 'Nombre copiado al portapapeles', type: 'info' });
+              },
+            },
+            ...(menuContextual.cliente.telefono
+              ? [
+                  {
+                    id: 'copiar-tel',
+                    label: `Copiar teléfono (${menuContextual.cliente.telefono})`,
+                    icon: <Copy className="w-4 h-4" />,
+                    onClick: () => {
+                      navigator.clipboard.writeText(menuContextual.cliente.telefono ?? '');
+                      showToast({ message: 'Teléfono copiado al portapapeles', type: 'info' });
+                    },
+                  },
+                ]
+              : []),
+            'separator' as const,
+            {
+              id: 'archivar',
+              label: 'Archivar cliente...',
+              icon: <Trash2 className="w-4 h-4" />,
+              tone: 'danger' as const,
+              shortcut: 'Supr',
+              onClick: () => setArchivando(menuContextual.cliente),
+            },
+          ]}
+        />
+      )}
     </div>
   );
 };

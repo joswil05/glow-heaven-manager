@@ -15,6 +15,7 @@ export interface DataTableProps<T> {
   rowKey: (row: T) => string | number;
   selectedKey?: string | number;
   onRowClick?: (row: T) => void;
+  onRowContextMenu?: (row: T, e: React.MouseEvent) => void;
   emptyMessage?: string;
 }
 
@@ -24,6 +25,7 @@ export function DataTable<T>({
   rowKey,
   selectedKey,
   onRowClick,
+  onRowContextMenu,
   emptyMessage = 'No hay nada que mostrar.',
 }: DataTableProps<T>) {
   if (rows.length === 0) {
@@ -62,6 +64,14 @@ export function DataTable<T>({
                 <tr
                   key={key}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  onContextMenu={
+                    onRowContextMenu
+                      ? (e) => {
+                          e.preventDefault();
+                          onRowContextMenu(row, e);
+                        }
+                      : undefined
+                  }
                   className={cn(
                     'transition-colors duration-150',
                     onRowClick && 'cursor-pointer',

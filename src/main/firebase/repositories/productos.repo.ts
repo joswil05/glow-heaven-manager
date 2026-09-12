@@ -854,6 +854,28 @@ export class ProductosRepoFirestore {
     });
   }
 
+  static async eliminarDefinitivo(id: number, evento_grupo_id: string): Promise<void> {
+    const anterior = await EventosRepoFirestore.snapshot('productos', id);
+    if (!anterior) throw new Error(`El producto #${id} no existe.`);
+
+    await aplicarLote([
+      {
+        coleccion: 'productos',
+        id,
+        borrar: true,
+      },
+    ]);
+
+    await EventosRepoFirestore.registrarEvento({
+      evento_grupo_id,
+      entidad_tipo: 'productos',
+      entidad_id: id,
+      tipo_evento: 'ELIMINACION',
+      valor_anterior: anterior,
+      detalle: `Producto '${anterior.nombre}' eliminado definitivamente de la base de datos`,
+    });
+  }
+
   static async existenciasTotales(producto_id: number): Promise<number> {
     const p = await leerDoc<ProductoDoc>('productos', producto_id);
     return p ? existenciasDe(p) : 0;
