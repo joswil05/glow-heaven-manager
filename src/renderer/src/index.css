@@ -272,31 +272,49 @@
   }
 }
 .animate-drawer {
-  animation: drawerSlideIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: drawerSlideIn 0.28s var(--ease-drawer, cubic-bezier(0.32, 0.72, 0, 1)) forwards;
 }
 
-/* Pop-in orgánico para modales y diálogos de confirmación */
+/* Pop-in orgánico para modales y diálogos de confirmación con máscara blur */
 @keyframes modalPopIn {
   from {
-    transform: scale(0.96) translateY(6px);
+    transform: scale(0.96) translateY(5px);
     opacity: 0;
+    filter: blur(2px);
   }
   to {
     transform: scale(1) translateY(0);
     opacity: 1;
+    filter: blur(0px);
   }
 }
 .animate-modal-pop {
-  animation: modalPopIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: modalPopIn 0.22s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)) forwards;
 }
 
-/* Elevación física sutil en tarjetas interactivas */
+/* Elevación física sutil y micro-interacción en tarjetas interactivas */
 .card-hover {
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+  transition: transform 0.2s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)),
+              box-shadow 0.2s ease,
+              border-color 0.2s ease;
 }
 .card-hover:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.08);
+}
+.card-hover:active {
+  transform: translateY(0) scale(0.995);
+}
+
+/* Micro-interacción táctil universal para botones y controles de escritorio */
+.btn-press {
+  transition: transform 0.14s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)),
+              background-color 0.15s ease,
+              box-shadow 0.15s ease,
+              border-color 0.15s ease;
+}
+.btn-press:active {
+  transform: scale(0.97);
 }
 
 /* Pulso para badges de alerta urgente */

@@ -172,14 +172,14 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
               }}
               aria-label="Cambiar tema de apariencia"
               title={`Tema: ${theme === 'system' ? 'Automático' : theme === 'dark' ? 'Oscuro' : 'Claro'}`}
-              className="m3-press flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100/90 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-90 transition-all border border-slate-200/50 dark:border-slate-700/60 cursor-pointer"
+              className="m3-press group flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100/90 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-90 transition-all border border-slate-200/50 dark:border-slate-700/60 cursor-pointer"
             >
               {theme === 'system' ? (
-                <Monitor size={16} className="text-slate-500 dark:text-slate-400" />
+                <Monitor size={16} className="text-slate-500 dark:text-slate-400 transition-transform duration-200 group-hover:scale-110" />
               ) : effectiveTheme === 'dark' ? (
-                <Moon size={16} className="text-emerald-400" />
+                <Moon size={16} className="text-emerald-400 transition-transform duration-300 group-hover:-rotate-12 group-hover:scale-110" />
               ) : (
-                <Sun size={16} className="text-amber-500" />
+                <Sun size={16} className="text-amber-500 transition-transform duration-300 group-hover:rotate-45 group-hover:scale-110" />
               )}
             </button>
 
@@ -190,9 +190,9 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
                 cargar(true);
               }}
               aria-label="Actualizar datos"
-              className="m3-press flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100/90 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-90 transition-all border border-slate-200/50 dark:border-slate-700/60 cursor-pointer"
+              className="m3-press group flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100/90 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-90 transition-all border border-slate-200/50 dark:border-slate-700/60 cursor-pointer"
             >
-              <RefreshCw size={16} className={cargando ? 'animate-spin text-emerald-600 dark:text-emerald-400' : ''} />
+              <RefreshCw size={16} className={cargando ? 'animate-spin text-emerald-600 dark:text-emerald-400' : 'transition-transform duration-500 group-hover:rotate-180'} />
             </button>
             <button
               type="button"
@@ -201,9 +201,9 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
                 salir();
               }}
               aria-label="Cerrar sesión"
-              className="m3-press flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100/90 dark:bg-slate-800/90 text-slate-400 dark:text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 active:scale-90 transition-all border border-slate-200/50 dark:border-slate-700/60 cursor-pointer"
+              className="m3-press group flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100/90 dark:bg-slate-800/90 text-slate-400 dark:text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 active:scale-90 transition-all border border-slate-200/50 dark:border-slate-700/60 cursor-pointer"
             >
-              <LogOut size={16} />
+              <LogOut size={16} className="transition-transform duration-150 group-hover:translate-x-0.5" />
             </button>
           </div>
         </div>
@@ -512,7 +512,7 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
                     return (
                       <div
                         key={f.venta_id}
-                        className={`flex flex-col gap-2.5 rounded-2xl border p-3.5 shadow-xs transition-all ${
+                        className={`touch-card flex flex-col gap-2.5 rounded-2xl border p-3.5 shadow-xs transition-all ${
                           vencida
                             ? 'border-rose-300/80 bg-rose-50/40 dark:border-rose-900/60 dark:bg-rose-950/20'
                             : 'border-slate-200/90 bg-white dark:border-slate-800 dark:bg-[#161f30] hover:border-slate-300 dark:hover:border-slate-700'
@@ -590,7 +590,7 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
                             aria-label={`Escribir a ${f.cliente_nombre} por WhatsApp`}
                             className={`m3-press flex items-center justify-center gap-1.5 h-10 px-3.5 rounded-xl border text-xs font-bold transition-all ${
                               f.cliente_telefono
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/80 hover:bg-emerald-100 dark:hover:bg-emerald-950/60 active:scale-98'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/80 hover:bg-emerald-100 dark:hover:bg-emerald-950/60 active:scale-95'
                                 : 'bg-slate-50 text-slate-400 border-slate-200 dark:bg-slate-900/40 dark:text-slate-600 dark:border-slate-800 pointer-events-none'
                             }`}
                           >
@@ -611,7 +611,7 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
                                 saldo_usd_cents: f.saldo_usd_cents,
                               });
                             }}
-                            className="m3-press flex-1 flex items-center justify-center gap-1.5 h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold shadow-sm active:scale-98 transition-all cursor-pointer"
+                            className="m3-press flex-1 flex items-center justify-center gap-1.5 h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold shadow-sm active:scale-95 transition-all cursor-pointer"
                             aria-label={`Registrar abono de ${f.cliente_nombre}`}
                           >
                             <DollarSign size={15} />

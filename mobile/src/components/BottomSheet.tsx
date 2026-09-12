@@ -88,11 +88,11 @@ export function BottomSheet({
         style={{
           maxHeight: alturaMaximaEfectiva,
         }}
-        className="relative z-10 w-full flex flex-col rounded-t-[28px] shadow-2xl animate-m3-slide-up overflow-hidden border-t border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#161f30] text-slate-900 dark:text-slate-100 transition-all duration-150"
+        className="relative z-10 w-full flex flex-col rounded-t-[28px] shadow-2xl animate-m3-slide-up overflow-hidden border-t border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#161f30] text-slate-900 dark:text-slate-100 transition-[background-color,border-color] duration-200"
       >
         {/* Barra de arrastre (Drag Handle) nativa de Android */}
-        <div className="w-full pt-2.5 pb-1 flex justify-center cursor-pointer shrink-0" onClick={onCerrar}>
-          <div className="h-1.5 w-10 rounded-full bg-slate-300 dark:bg-slate-600 hover:bg-slate-400 dark:hover:bg-slate-500 transition-colors" />
+        <div className="w-full pt-3 pb-1 flex justify-center cursor-pointer shrink-0 group active:scale-95 transition-transform" onClick={onCerrar}>
+          <div className="h-1.5 w-12 rounded-full bg-slate-300 dark:bg-slate-600 group-hover:bg-slate-400 dark:group-hover:bg-slate-500 group-hover:w-14 transition-all duration-150" />
         </div>
 
         {/* Cabecera compacta */}

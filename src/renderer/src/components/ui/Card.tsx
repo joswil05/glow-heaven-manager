@@ -7,7 +7,7 @@ export const Card: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
 }) => (
   <div
     className={cn(
-      'bg-superficie rounded-2xl border border-borde/80 shadow-[0_1px_3px_rgba(0,0,0,0.03)] transition-all',
+      'bg-superficie rounded-2xl border border-borde/80 shadow-[0_1px_3px_rgba(0,0,0,0.03)] transition-[background-color,border-color,box-shadow,transform] duration-200 ease-out',
       className
     )}
     {...rest}

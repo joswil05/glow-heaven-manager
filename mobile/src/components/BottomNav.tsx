@@ -40,7 +40,7 @@ export function BottomNav({ actual, onCambiar, badgeCarrito = 0 }: BottomNavProp
                 if (actual !== vista) haptics.selection();
                 onCambiar(vista);
               }}
-              className="flex flex-1 flex-col items-center justify-center py-1 px-1 tocable outline-none transition-transform duration-100 active:scale-95 cursor-pointer"
+              className="flex flex-1 flex-col items-center justify-center py-1 px-1 tocable outline-none transition-transform duration-140 active:scale-[0.93] cursor-pointer"
               aria-current={activo ? 'page' : undefined}
             >
               {/* Contenedor Pill de Material 3 */}
@@ -48,6 +48,7 @@ export function BottomNav({ actual, onCambiar, badgeCarrito = 0 }: BottomNavProp
                 <div
                   className="flex items-center justify-center w-15 h-8 rounded-full transition-all duration-200"
                   style={{
+                    transform: activo ? 'scale(1.04)' : 'scale(1)',
                     backgroundColor: activo
                       ? isDark
                         ? 'rgba(16, 185, 129, 0.22)'
@@ -57,7 +58,9 @@ export function BottomNav({ actual, onCambiar, badgeCarrito = 0 }: BottomNavProp
                 >
                   <Icono
                     size={20}
+                    className="transition-transform duration-200"
                     style={{
+                      transform: activo ? 'scale(1.06)' : 'scale(1)',
                       strokeWidth: activo ? 2.5 : 1.8,
                       color: activo
                         ? isDark

@@ -96,13 +96,33 @@ input, textarea, [contenteditable="true"] {
   min-width: 48px;
 }
 
-/* Efecto táctil nativo Android (haptic feedback visual) */
+/* Curvas de animación física y táctil */
+:root {
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Efecto táctil nativo Android / iOS (haptic feedback visual) */
 .m3-press {
-  transition: transform 120ms cubic-bezier(0.2, 0, 0, 1), opacity 120ms ease-out, background-color 120ms ease-out;
+  transition: transform 140ms cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 140ms ease-out,
+              background-color 140ms ease-out;
+  transform-origin: center;
 }
 .m3-press:active {
   transform: scale(0.96);
-  opacity: 0.92;
+  opacity: 0.90;
+}
+
+/* Micro-interacción táctil suave para tarjetas y listas */
+.touch-card {
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 180ms ease-out,
+              border-color 180ms ease-out;
+}
+.touch-card:active {
+  transform: scale(0.985);
 }
 
 /* Tarjeta tonal de Android M3 */
@@ -111,6 +131,9 @@ input, textarea, [contenteditable="true"] {
   border-radius: 1.5rem; /* 24px */
   box-shadow: 0 2px 10px -2px rgba(15, 23, 42, 0.05), 0 1px 3px -1px rgba(15, 23, 42, 0.03);
   border: 1px solid rgba(226, 232, 240, 0.8);
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 180ms ease-out,
+              border-color 180ms ease-out;
 }
 
 .dark .m3-card {
@@ -136,8 +159,14 @@ input, textarea, [contenteditable="true"] {
 }
 
 @keyframes m3SlideUp {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
+  from {
+    transform: translateY(100%);
+    opacity: 0.9;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 @keyframes m3SnackbarIn {
@@ -150,18 +179,33 @@ input, textarea, [contenteditable="true"] {
   to { transform: translateY(0) scale(1); opacity: 1; }
 }
 
+@keyframes m3CardEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .animate-m3-fade {
-  animation: m3FadeIn 180ms cubic-bezier(0.2, 0, 0, 1) forwards;
+  animation: m3FadeIn 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-m3-slide-up {
-  animation: m3SlideUp 260ms cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
+  animation: m3SlideUp 280ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
 }
 
 .animate-m3-snackbar {
-  animation: m3SnackbarIn 220ms cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
+  animation: m3SnackbarIn 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-m3-slide-down {
-  animation: m3SlideDown 240ms cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
+  animation: m3SlideDown 240ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-card-enter {
+  animation: m3CardEnter 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }

@@ -50,13 +50,13 @@ export const Header: React.FC<HeaderProps> = ({
               title={cargando ? 'Actualizando datos del sistema...' : 'Actualizar datos ahora'}
               aria-label="Actualizar datos del sistema"
               className={cn(
-                'p-0.5 rounded text-texto-3 hover:text-texto hover:bg-superficie transition-all active:scale-90 cursor-pointer group',
+                'p-1 rounded-md text-texto-3 hover:text-acento hover:bg-superficie transition-all active:scale-90 cursor-pointer group',
                 cargando && 'cursor-not-allowed opacity-70'
               )}
             >
               <RefreshCw
                 className={cn(
-                  'w-3 h-3 transition-transform duration-500',
+                  'w-3 h-3 transition-transform duration-500 ease-out',
                   cargando ? 'animate-spin text-acento' : 'group-hover:rotate-180'
                 )}
               />
@@ -66,13 +66,13 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       <div className="flex items-center gap-2.5">
-        <Button variant="secondary" size="sm" onClick={onNuevoPaquete} className="rounded-xl">
-          <PackagePlus className="w-3.5 h-3.5 text-texto-2" />
+        <Button variant="secondary" size="sm" onClick={onNuevoPaquete} className="rounded-xl shadow-2xs hover:shadow-xs">
+          <PackagePlus className="w-3.5 h-3.5 text-texto-2 transition-transform duration-150 group-hover:scale-105" />
           <span className="hidden sm:inline font-medium">Paquete</span>
         </Button>
 
         <Button variant="primary" size="sm" onClick={onNuevaVenta} className="rounded-xl shadow-sm shadow-acento/20 font-semibold">
-          <Plus className="w-3.5 h-3.5" />
+          <Plus className="w-3.5 h-3.5 transition-transform duration-150 group-hover:rotate-90" />
           <span>Nueva venta</span>
           <kbd className="hidden lg:inline-flex ml-1 px-1.5 py-0.5 rounded bg-white/20 text-[10px] font-mono font-medium text-white leading-none">
             Ctrl+N
@@ -88,14 +88,14 @@ export const Header: React.FC<HeaderProps> = ({
           onClick={toggleTheme}
           title={`Tema actual: ${theme === 'system' ? 'Sistema (' + (effectiveTheme === 'dark' ? 'Oscuro' : 'Claro') + ')' : theme === 'dark' ? 'Oscuro' : 'Claro'}. Clic para cambiar.`}
           aria-label="Cambiar tema de apariencia"
-          className="text-texto-2 hover:text-acento hover:bg-superficie-2/80 rounded-xl px-2 transition-transform active:scale-90"
+          className="text-texto-2 hover:text-acento hover:bg-superficie-2/80 rounded-xl px-2 transition-transform active:scale-90 group cursor-pointer"
         >
           {theme === 'system' ? (
-            <Monitor className="w-4 h-4 text-texto-2" />
+            <Monitor className="w-4 h-4 text-texto-2 transition-transform duration-200 group-hover:scale-110" />
           ) : effectiveTheme === 'dark' ? (
-            <Moon className="w-4 h-4 text-emerald-400" />
+            <Moon className="w-4 h-4 text-emerald-400 transition-transform duration-300 group-hover:-rotate-12 group-hover:scale-110" />
           ) : (
-            <Sun className="w-4 h-4 text-amber-500" />
+            <Sun className="w-4 h-4 text-amber-500 transition-transform duration-300 group-hover:rotate-45 group-hover:scale-110" />
           )}
         </Button>
 

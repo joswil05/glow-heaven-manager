@@ -105,7 +105,8 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose }
               item.onClick?.();
             }}
             className={cn(
-              'w-full flex items-center justify-between gap-3 px-3 py-1.5 text-body rounded-xl text-left transition-colors font-medium',
+              'group w-full flex items-center justify-between gap-3 px-3 py-1.5 text-body rounded-xl text-left font-medium select-none',
+              'transition-[background-color,color,transform] duration-100 ease-out active:scale-[0.98]',
               'hover:bg-superficie-2 focus:bg-superficie-2 focus:outline-none cursor-pointer',
               isDanger &&
                 'text-danger hover:bg-danger/10 hover:text-danger-600 focus:bg-danger/10 focus:text-danger-600',
@@ -119,7 +120,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose }
               {item.icon && (
                 <span
                   className={cn(
-                    'w-4 h-4 shrink-0 flex items-center justify-center',
+                    'w-4 h-4 shrink-0 flex items-center justify-center transition-transform duration-100 group-hover:scale-110',
                     isDanger ? 'text-danger' : isSuccess ? 'text-emerald-600' : 'text-texto-3'
                   )}
                 >

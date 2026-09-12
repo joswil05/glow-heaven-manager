@@ -156,12 +156,13 @@ export const StatTile: React.FC<StatTileProps> = ({
   );
 
   const clases = cn(
-    'group relative bg-gradient-to-b from-superficie via-superficie to-superficie-2/20 rounded-xl border text-left w-full shadow-2xs transition-all duration-200',
+    'group relative bg-gradient-to-b from-superficie via-superficie to-superficie-2/20 rounded-xl border text-left w-full shadow-2xs',
+    'transition-[transform,box-shadow,border-color] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md',
     size === 'lg' ? 'p-3.5' : 'p-2.5',
     estilo.borde,
     estilo.glowBg,
     onClick &&
-      'cursor-pointer hover:-translate-y-0.5 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento',
+      'cursor-pointer active:scale-[0.985] active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento',
     className
   );
 

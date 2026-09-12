@@ -101,16 +101,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onClick={() => onSelectTab(item.id)}
               aria-current={activo ? 'page' : undefined}
               className={cn(
-                'w-full flex items-center justify-between px-3 py-2 rounded-md text-body transition-colors text-left border-l-2',
+                'group w-full flex items-center justify-between px-3 py-2 rounded-lg text-body text-left border-l-2 cursor-pointer',
+                'transition-[background-color,border-color,color,transform,box-shadow] duration-150 ease-out active:scale-[0.98]',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento focus-visible:ring-inset',
                 activo
-                  ? 'bg-superficie text-texto border-l-acento font-medium shadow-sm'
-                  : 'border-l-transparent text-barra-texto hover:bg-barra-2'
+                  ? 'bg-superficie text-texto border-l-acento font-medium shadow-xs'
+                  : 'border-l-transparent text-barra-texto hover:bg-barra-2 hover:text-texto'
               )}
             >
               <span className="flex items-center gap-3">
-                <Icon className={cn('w-4 h-4', activo ? 'text-acento' : 'text-barra-texto-2')} />
-                <span>{TITULOS[item.id]}</span>
+                <Icon
+                  className={cn(
+                    'w-4 h-4 transition-transform duration-150 group-hover:translate-x-0.5',
+                    activo ? 'text-acento' : 'text-barra-texto-2'
+                  )}
+                />
+                <span className="transition-transform duration-150 group-hover:translate-x-0.5">{TITULOS[item.id]}</span>
               </span>
               {item.badge !== undefined && item.badge > 0 && (
                 <Badge tone={item.tono ?? 'danger'}>{item.badge}</Badge>
