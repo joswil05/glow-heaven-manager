@@ -124,58 +124,66 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
 
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#f8fafc] text-slate-800">
-      {/* Android Top App Bar Moderno y Limpio */}
-      <header className="shrink-0 z-20 flex items-center justify-between bg-white/95 px-4 pt-safe-t py-2.5 backdrop-blur-md border-b border-slate-200/60 shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
-        <div className="flex items-center gap-2.5">
-          <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-emerald-600 to-teal-500 text-white font-bold text-sm shadow-sm ring-2 ring-emerald-500/20">
-            {usuario?.photoURL ? (
-              <img src={usuario.photoURL} alt="" className="h-full w-full rounded-full object-cover" />
-            ) : (
-              (usuario?.displayName?.[0] ?? 'G').toUpperCase()
-            )}
-            <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
+      {/* Top App Bar de Material 3 fija */}
+      <header className="shrink-0 z-20 bg-white/95 backdrop-blur-md border-b border-slate-200/60 pt-safe-t px-3.5 pb-2 shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
+        <div className="flex items-center justify-between py-1">
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              {usuario?.photoURL ? (
+                <img
+                  src={usuario.photoURL}
+                  alt={usuario.displayName || 'Usuario'}
+                  className="h-8.5 w-8.5 rounded-full object-cover border border-emerald-500/30 shadow-xs"
+                />
+              ) : (
+                <div className="flex h-8.5 w-8.5 items-center justify-center rounded-full bg-emerald-100 text-emerald-800 font-black text-xs border border-emerald-300">
+                  {(usuario?.displayName || usuario?.email || 'U').charAt(0).toUpperCase()}
+                </div>
+              )}
+              <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-white" />
+            </div>
+            <div>
+              <span className="text-[9px] font-bold tracking-widest uppercase text-emerald-700 block leading-none mb-0.5">
+                Glow Heaven
+              </span>
+              <h1 className="text-sm font-extrabold text-slate-900 leading-tight">
+                {usuario?.displayName?.split(' ')[0] || 'Mi Negocio'}
+              </h1>
+            </div>
           </div>
-          <div>
-            <span className="text-[10px] font-bold tracking-widest uppercase text-emerald-700 block leading-none mb-0.5">
-              Glow Heaven
-            </span>
-            <h1 className="text-sm font-extrabold text-slate-900 leading-tight">
-              {usuario?.displayName?.split(' ')[0] ?? 'Joswill'}
-            </h1>
-          </div>
-        </div>
 
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => {
-              haptics.selection();
-              cargar(true);
-            }}
-            aria-label="Actualizar datos"
-            className="m3-press flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100/90 text-slate-600 hover:bg-slate-200 active:scale-90 transition-all border border-slate-200/50 cursor-pointer"
-          >
-            <RefreshCw size={17} className={cargando ? 'animate-spin text-emerald-600' : ''} />
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              haptics.impact('light');
-              salir();
-            }}
-            aria-label="Cerrar sesión"
-            className="m3-press flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100/90 text-slate-400 hover:text-rose-600 hover:bg-rose-50 active:scale-90 transition-all border border-slate-200/50 cursor-pointer"
-          >
-            <LogOut size={17} />
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => {
+                haptics.selection();
+                cargar(true);
+              }}
+              aria-label="Actualizar datos"
+              className="m3-press flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100/90 text-slate-600 hover:bg-slate-200 active:scale-90 transition-all border border-slate-200/50 cursor-pointer"
+            >
+              <RefreshCw size={15} className={cargando ? 'animate-spin text-emerald-600' : ''} />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                haptics.impact('light');
+                salir();
+              }}
+              aria-label="Cerrar sesión"
+              className="m3-press flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100/90 text-slate-400 hover:text-rose-600 hover:bg-rose-50 active:scale-90 transition-all border border-slate-200/50 cursor-pointer"
+            >
+              <LogOut size={15} />
+            </button>
+          </div>
         </div>
       </header>
 
       {/* Contenido con Pull-to-Refresh nativo */}
       <PullToRefresh onRefresh={() => cargar(true)}>
-        <main className="flex flex-col gap-3 px-3.5 pt-2.5 pb-40">
+        <main className="flex flex-col gap-2.5 px-3 pt-2 pb-36">
           {error && (
-            <div className="rounded-2xl bg-rose-50 border border-rose-200 px-4 py-3 text-xs font-semibold text-rose-700 flex items-center justify-between">
+            <div className="rounded-xl bg-rose-50 border border-rose-200 px-3.5 py-2.5 text-xs font-semibold text-rose-700 flex items-center justify-between">
               <span>{error}</span>
               <button onClick={() => cargar(true)} className="underline text-rose-800">Reintentar</button>
             </div>
@@ -183,50 +191,50 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
 
           {/* Tarjeta Hero: Ventas de Hoy (Optimización de Espacio & Fintech Look) */}
           <section
-            className="relative overflow-hidden rounded-[24px] p-4 shadow-md shadow-emerald-900/10"
+            className="relative overflow-hidden rounded-2xl p-3 shadow-md shadow-emerald-900/10"
             style={{
               background: 'linear-gradient(135deg, #059669 0%, #047857 55%, #0f766e 100%)',
               color: '#ffffff',
             }}
           >
             {/* Esferas de luz sutil */}
-            <div className="absolute -right-8 -bottom-8 h-36 w-36 rounded-full bg-white/10 blur-xl pointer-events-none" />
-            <div className="absolute left-1/3 -top-10 h-24 w-24 rounded-full bg-emerald-400/20 blur-lg pointer-events-none" />
+            <div className="absolute -right-8 -bottom-8 h-32 w-32 rounded-full bg-white/10 blur-xl pointer-events-none" />
+            <div className="absolute left-1/3 -top-10 h-20 w-20 rounded-full bg-emerald-400/20 blur-lg pointer-events-none" />
 
             <div className="relative z-10">
               <div className="flex items-center justify-between">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-2.5 py-0.5 text-[10px] font-bold tracking-wide uppercase text-white backdrop-blur-md">
+                <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[9px] font-bold tracking-wide uppercase text-white backdrop-blur-md">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 animate-pulse" />
                   Ventas de hoy
                 </span>
-                <span className="text-[11px] text-white/90 font-semibold bg-black/15 px-2 py-0.5 rounded-full">
+                <span className="text-[10px] text-white/90 font-semibold bg-black/15 px-2 py-0.5 rounded-full">
                   {hoy.ventas_count} {hoy.ventas_count === 1 ? 'venta' : 'ventas'}
                 </span>
               </div>
 
-              <div className="mt-2.5 flex items-baseline justify-between gap-2">
+              <div className="mt-2 flex items-baseline justify-between gap-2">
                 <div>
-                  <span className="text-[10px] font-medium text-emerald-100 uppercase tracking-wider block">Total generado</span>
-                  <div className="flex items-baseline gap-2">
-                    <p className="text-2xl sm:text-3xl font-black tracking-tight tabular-nums text-white leading-none">
+                  <span className="text-[9px] font-medium text-emerald-100 uppercase tracking-wider block">Total generado</span>
+                  <div className="flex items-baseline gap-1.5">
+                    <p className="text-xl sm:text-2xl font-black tracking-tight tabular-nums text-white leading-none">
                       {formatearMoneda(hoy.total_usd_cents, 'USD')}
                     </p>
-                    <span className="text-xs font-semibold text-emerald-100 tabular-nums">
+                    <span className="text-[11px] font-semibold text-emerald-100 tabular-nums">
                       ≈ {formatearMoneda(Math.round((hoy.total_usd_cents * tasa) / 100), 'COR')}
                     </span>
                   </div>
                 </div>
 
                 <div className="text-right">
-                  <span className="text-[10px] text-emerald-100 block">Ganancia</span>
-                  <span className="text-xs font-bold text-white tabular-nums bg-white/20 px-2 py-0.5 rounded-lg inline-block">
+                  <span className="text-[9px] text-emerald-100 block">Ganancia</span>
+                  <span className="text-[11px] font-bold text-white tabular-nums bg-white/20 px-2 py-0.5 rounded-md inline-block">
                     +{formatearMoneda(hoy.ganancia_usd_cents, 'USD')}
                   </span>
                 </div>
               </div>
 
               {/* Botones de acción rápida: Venta Rápida y Registrar Abono */}
-              <div className="mt-3.5 grid grid-cols-2 gap-2">
+              <div className="mt-2.5 grid grid-cols-2 gap-2">
                 {onIrAVenta && (
                   <button
                     type="button"
@@ -234,9 +242,9 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
                       haptics.impact('medium');
                       onIrAVenta();
                     }}
-                    className="m3-press flex items-center justify-center gap-1.5 rounded-xl bg-white h-10 px-3 text-xs font-bold text-emerald-900 shadow-md active:scale-95 transition-transform cursor-pointer"
+                    className="m3-press flex items-center justify-center gap-1.5 rounded-xl bg-white h-8.5 px-2.5 text-xs font-bold text-emerald-900 shadow-sm active:scale-95 transition-transform cursor-pointer"
                   >
-                    <PlusCircle size={15} className="text-emerald-600" />
+                    <PlusCircle size={14} className="text-emerald-600" />
                     <span>Venta Rápida</span>
                   </button>
                 )}
@@ -246,9 +254,9 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
                     haptics.impact('medium');
                     setSheetAbonoSelectorAbierto(true);
                   }}
-                  className="m3-press flex items-center justify-center gap-1.5 rounded-xl bg-emerald-800/80 hover:bg-emerald-800 border border-white/20 h-10 px-3 text-xs font-bold text-white shadow-md active:scale-95 transition-transform cursor-pointer backdrop-blur-sm"
+                  className="m3-press flex items-center justify-center gap-1.5 rounded-xl bg-emerald-800/80 hover:bg-emerald-800 border border-white/20 h-8.5 px-2.5 text-xs font-bold text-white shadow-sm active:scale-95 transition-transform cursor-pointer backdrop-blur-sm"
                 >
-                  <HandCoins size={15} className="text-emerald-300" />
+                  <HandCoins size={14} className="text-emerald-300" />
                   <span>Registrar Abono</span>
                 </button>
               </div>
@@ -256,56 +264,67 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
           </section>
 
           {/* Tarjetas métricas de Por Cobrar e Inventario */}
-          <section className="grid grid-cols-2 gap-2.5">
+          <section className="grid grid-cols-2 gap-2">
             <div
               onClick={() => {
                 haptics.impact('light');
                 setSheetAbonoSelectorAbierto(true);
               }}
-              className="m3-card p-3.5 flex flex-col justify-between cursor-pointer hover:border-amber-300 transition-colors active:scale-[0.99]"
+              className="m3-card p-2.5 rounded-xl flex flex-col justify-between cursor-pointer hover:border-amber-300 transition-colors active:scale-[0.99]"
             >
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-amber-500" />
-                    <p className="text-xs font-semibold text-slate-500">Por cobrar</p>
-                  </div>
-                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-md">
-                    Abonar
-                  </span>
+              <div className="flex items-center justify-between mb-0.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                  <p className="text-[11px] font-bold text-slate-600">Por cobrar</p>
                 </div>
-                <MoneyDual usdCents={panel?.resumen.por_cobrar_usd_cents ?? 0} size="sm" />
+                <span className="text-[9px] font-extrabold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded">
+                  Abonar
+                </span>
               </div>
-              <span className="text-[10px] text-slate-400 mt-1.5 font-medium">Toca para abonar</span>
+              <div className="mt-0.5">
+                <p className="text-sm sm:text-base font-black text-slate-900 tabular-nums leading-tight">
+                  {formatearMoneda(panel?.resumen.por_cobrar_usd_cents ?? 0, 'USD')}
+                </p>
+                <p className="text-[10px] font-semibold text-slate-400 tabular-nums">
+                  ≈ {formatearMoneda(Math.round(((panel?.resumen.por_cobrar_usd_cents ?? 0) * tasa) / 100), 'COR')}
+                </p>
+              </div>
             </div>
 
-            <div className="m3-card p-3.5 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="h-2 w-2 rounded-full bg-blue-500" />
-                  <p className="text-xs font-semibold text-slate-500">Inventario</p>
+            <div className="m3-card p-2.5 rounded-xl flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-0.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                  <p className="text-[11px] font-bold text-slate-600">En bodega</p>
                 </div>
-                <MoneyDual usdCents={panel?.resumen.inversion_inventario_usd_cents ?? 0} size="sm" />
+                <span className="text-[9px] font-medium text-slate-400">Costo</span>
               </div>
-              <span className="text-[10px] text-slate-400 mt-1.5 font-medium">Costo invertido</span>
+              <div className="mt-0.5">
+                <p className="text-sm sm:text-base font-black text-slate-900 tabular-nums leading-tight">
+                  {formatearMoneda(panel?.resumen.inversion_inventario_usd_cents ?? 0, 'USD')}
+                </p>
+                <p className="text-[10px] font-semibold text-slate-400 tabular-nums">
+                  ≈ {formatearMoneda(Math.round(((panel?.resumen.inversion_inventario_usd_cents ?? 0) * tasa) / 100), 'COR')}
+                </p>
+              </div>
             </div>
           </section>
 
           {/* Gráfico 7 días interactivo */}
-          <section className="m3-card p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
-                <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
-                  <TrendingUp size={15} />
+          <section className="m3-card p-3 rounded-xl">
+            <div className="mb-1.5 flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                <div className="flex h-5 w-5 items-center justify-center rounded bg-emerald-50 text-emerald-700">
+                  <TrendingUp size={13} />
                 </div>
                 <span>Ventas últimos 7 días</span>
               </div>
-              <span className="text-[11px] font-semibold text-slate-400">USD</span>
+              <span className="text-[10px] font-semibold text-slate-400">USD</span>
             </div>
 
             {/* Detalle flotante si se toca una barra */}
             {diaSeleccionado && (
-              <div className="mb-3 flex items-center justify-between rounded-xl bg-slate-50 border border-slate-200/70 px-3 py-1.5 text-xs animate-m3-fade">
+              <div className="mb-2 flex items-center justify-between rounded-lg bg-slate-50 border border-slate-200/70 px-2.5 py-1 text-[11px] animate-m3-fade">
                 <span className="font-semibold text-slate-700 capitalize">
                   {nombreDia(diaSeleccionado.fecha)} {diaSeleccionado.fecha.slice(5)}:
                 </span>
@@ -315,7 +334,7 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
               </div>
             )}
 
-            <div className="flex h-32 items-end justify-between gap-2 pt-2">
+            <div className="flex h-20 items-end justify-between gap-1.5 pt-1">
               {serie.map((d) => {
                 const porcentaje = maxSerie > 0 ? (d.total_usd_cents / maxSerie) * 100 : 0;
                 const tieneVenta = d.total_usd_cents > 0;
@@ -328,14 +347,14 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
                       haptics.selection();
                       setDiaSeleccionado(estaSeleccionado ? null : d);
                     }}
-                    className="group flex flex-1 flex-col items-center gap-2 h-full justify-end cursor-pointer"
+                    className="group flex flex-1 flex-col items-center gap-1 h-full justify-end cursor-pointer"
                   >
                     <div
-                      className={`relative w-full max-w-[28px] rounded-lg flex flex-col justify-end overflow-hidden p-0.5 transition-all ${
+                      className={`relative w-full max-w-[24px] rounded-md flex flex-col justify-end overflow-hidden p-0.5 transition-all ${
                         estaSeleccionado ? 'ring-2 ring-emerald-500' : ''
                       }`}
                       style={{
-                        height: '76px',
+                        height: '46px',
                         backgroundColor: estaSeleccionado ? '#ecfdf5' : '#f1f5f9',
                         border: '1px solid #e2e8f0',
                       }}
@@ -343,8 +362,8 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
                       <div
                         style={{
                           width: '100%',
-                          borderRadius: '6px',
-                          height: tieneVenta ? `${Math.max(14, porcentaje)}%` : '4px',
+                          borderRadius: '4px',
+                          height: tieneVenta ? `${Math.max(16, porcentaje)}%` : '3px',
                           background: tieneVenta
                             ? 'linear-gradient(180deg, #10b981 0%, #059669 100%)'
                             : '#cbd5e1',
@@ -353,7 +372,7 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
                       />
                     </div>
                     <span
-                      className="text-[11px] uppercase tracking-tight transition-colors"
+                      className="text-[10px] uppercase tracking-tight transition-colors leading-none"
                       style={{
                         fontWeight: estaSeleccionado || tieneVenta ? 700 : 500,
                         color: estaSeleccionado ? '#047857' : tieneVenta ? '#0f172a' : '#94a3b8',
@@ -369,32 +388,33 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
 
           {/* Cuentas por Cobrar / Abonos de Clientes */}
           {cuentasPorCobrar.length > 0 && (
-            <section className="flex flex-col gap-2.5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="flex items-center gap-1.5 text-xs font-bold text-slate-800 uppercase tracking-wide">
-                    <HandCoins size={16} className="text-emerald-700" />
-                    Cuentas por Cobrar ({cuentasAMostrar.length})
-                  </h2>
-                  <p className="text-[11px] text-slate-500 font-semibold mt-0.5">
-                    Saldo total: {formatearMoneda(totalPorCobrarUsd, 'USD')}{' '}
-                    <span className="text-slate-400 font-normal">
-                      (≈ {formatearMoneda(totalPorCobrarCor, 'COR')})
+            <section className="flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <h2 className="flex items-center gap-1.5 text-xs font-bold text-slate-800 truncate">
+                    <HandCoins size={14} className="text-emerald-700 shrink-0" />
+                    <span>Cuentas por cobrar</span>
+                    <span className="rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-1.5 py-0.2 leading-tight">
+                      {cuentasAMostrar.length}
                     </span>
+                  </h2>
+                  <p className="text-[10px] text-slate-500 font-medium truncate mt-0.5">
+                    Saldo total: <strong className="text-slate-800">{formatearMoneda(totalPorCobrarUsd, 'USD')}</strong>
+                    <span className="text-slate-400 font-normal"> · {formatearMoneda(totalPorCobrarCor, 'COR')}</span>
                   </p>
                 </div>
 
-                {/* Filtros de Cobro */}
-                <div className="flex rounded-xl bg-slate-100 p-1 text-[11px] font-bold">
+                {/* Filtros compactos: Todas / Vencidas */}
+                <div className="flex rounded-lg bg-slate-100 p-0.5 text-[10px] font-bold shrink-0 border border-slate-200/60">
                   <button
                     type="button"
                     onClick={() => {
                       haptics.selection();
                       setFiltroCobro('todas');
                     }}
-                    className={`px-2.5 py-1 rounded-lg transition-all ${
+                    className={`px-2 py-0.5 rounded-md whitespace-nowrap transition-all cursor-pointer ${
                       filtroCobro === 'todas'
-                        ? 'bg-white text-slate-900 shadow-sm'
+                        ? 'bg-white text-slate-900 shadow-xs font-extrabold'
                         : 'text-slate-500 hover:text-slate-700'
                     }`}
                   >
@@ -406,9 +426,9 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
                       haptics.selection();
                       setFiltroCobro('vencidas');
                     }}
-                    className={`px-2.5 py-1 rounded-lg transition-all ${
+                    className={`px-2 py-0.5 rounded-md whitespace-nowrap transition-all cursor-pointer ${
                       filtroCobro === 'vencidas'
-                        ? 'bg-white text-rose-700 shadow-sm'
+                        ? 'bg-white text-rose-700 shadow-xs font-extrabold'
                         : 'text-slate-500 hover:text-slate-700'
                     }`}
                   >
@@ -417,7 +437,7 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-1.5">
                 {cuentasAMostrar.map((f) => {
                   const vencida = f.cuotas_vencidas > 0;
                   const saldoCor = Math.round((f.saldo_usd_cents * tasa) / 100);
@@ -425,34 +445,34 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
                   return (
                     <div
                       key={f.venta_id}
-                      className={`flex items-center justify-between gap-3 rounded-2xl border p-3.5 shadow-sm transition-colors ${
+                      className={`flex items-center justify-between gap-2.5 rounded-xl border p-2.5 shadow-xs transition-colors ${
                         vencida
-                          ? 'border-rose-200/80 bg-rose-50/70'
+                          ? 'border-rose-200/90 bg-rose-50/70'
                           : 'border-slate-200/80 bg-white hover:bg-slate-50/80'
                       }`}
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
-                          <p className="truncate text-xs font-bold text-slate-900">{f.cliente_nombre}</p>
+                          <p className="truncate text-xs font-bold text-slate-900 leading-tight">{f.cliente_nombre}</p>
                           {vencida && (
-                            <span className="inline-flex items-center gap-0.5 rounded-md bg-rose-100 px-1.5 py-0.2 text-[10px] font-bold text-rose-700">
-                              <AlertTriangle size={10} />
-                              {f.cuotas_vencidas} cuota{f.cuotas_vencidas > 1 ? 's' : ''}
+                            <span className="inline-flex items-center gap-0.5 rounded bg-rose-100 px-1 py-0.2 text-[9px] font-bold text-rose-700 shrink-0">
+                              <AlertTriangle size={9} />
+                              {f.cuotas_vencidas} vencida{f.cuotas_vencidas > 1 ? 's' : ''}
                             </span>
                           )}
                         </div>
-                        <p className="text-[11px] text-slate-500 font-medium">
+                        <p className="text-[10px] text-slate-400 font-medium truncate mt-0.5">
                           {f.codigo} · {f.fecha}
                         </p>
-                        <p className="text-xs font-black text-emerald-800 mt-0.5 tabular-nums">
+                        <p className="text-xs font-black text-emerald-800 mt-0.5 tabular-nums leading-tight">
                           {formatearMoneda(f.saldo_usd_cents, 'USD')}{' '}
-                          <span className="text-[10px] font-semibold text-slate-500">
+                          <span className="text-[10px] font-semibold text-slate-400">
                             (≈ {formatearMoneda(saldoCor, 'COR')})
                           </span>
                         </p>
                       </div>
 
-                      <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="flex items-center gap-1 shrink-0">
                         {/* Botón Abonar / Cobrar */}
                         <button
                           type="button"
@@ -466,10 +486,10 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
                               saldo_usd_cents: f.saldo_usd_cents,
                             });
                           }}
-                          className="m3-press flex items-center gap-1 h-10 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm active:scale-95 transition-transform"
+                          className="m3-press flex items-center gap-1 h-8 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-xs active:scale-95 transition-transform cursor-pointer"
                           aria-label={`Registrar abono de ${f.cliente_nombre}`}
                         >
-                          <DollarSign size={15} />
+                          <DollarSign size={13} />
                           Abonar
                         </button>
 
@@ -491,9 +511,9 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
                           target="_blank"
                           rel="noreferrer"
                           aria-label={`Escribir a ${f.cliente_nombre} por WhatsApp`}
-                          className="m3-press flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200/60 active:bg-emerald-100 transition-colors"
+                          className="m3-press flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200/60 active:bg-emerald-100 transition-colors"
                         >
-                          <MessageCircle size={18} />
+                          <MessageCircle size={15} />
                         </a>
                       </div>
                     </div>
@@ -505,16 +525,16 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
 
           {/* Stock crítico */}
           {(panel?.bajo_stock.length ?? 0) > 0 && (
-            <section className="flex flex-col gap-2">
-              <h2 className="flex items-center gap-1.5 text-xs font-bold text-amber-700 uppercase tracking-wide">
-                <PackageX size={15} />
+            <section className="flex flex-col gap-1.5">
+              <h2 className="flex items-center gap-1 text-[11px] font-bold text-amber-700 uppercase tracking-wide">
+                <PackageX size={13} />
                 Stock crítico ({panel!.bajo_stock.length})
               </h2>
-              <div className="m3-card overflow-hidden divide-y divide-slate-100">
+              <div className="m3-card overflow-hidden divide-y divide-slate-100 rounded-xl">
                 {panel!.bajo_stock.slice(0, 6).map((p) => (
-                  <div key={p.producto_id} className="flex items-center justify-between px-4 py-3">
+                  <div key={p.producto_id} className="flex items-center justify-between px-3 py-2 text-xs">
                     <p className="truncate text-xs font-semibold text-slate-800">{p.nombre}</p>
-                    <span className="shrink-0 rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-[11px] font-bold text-amber-700">
+                    <span className="shrink-0 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.2 text-[10px] font-bold text-amber-700 ml-2">
                       {p.existencias} und.
                     </span>
                   </div>
@@ -525,17 +545,17 @@ export function DashboardView({ onIrAVenta }: { onIrAVenta?: () => void }) {
 
           {/* Encargos pendientes */}
           {encargos.length > 0 && (
-            <section className="flex flex-col gap-2">
-              <h2 className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase tracking-wide">
-                <Clock3 size={15} />
+            <section className="flex flex-col gap-1.5">
+              <h2 className="flex items-center gap-1 text-[11px] font-bold text-slate-700 uppercase tracking-wide">
+                <Clock3 size={13} />
                 Encargos pendientes ({encargos.length})
               </h2>
-              <div className="m3-card overflow-hidden divide-y divide-slate-100">
+              <div className="m3-card overflow-hidden divide-y divide-slate-100 rounded-xl">
                 {encargos.slice(0, 6).map((e) => (
-                  <div key={e.id} className="flex items-center justify-between px-4 py-3">
+                  <div key={e.id} className="flex items-center justify-between px-3 py-2 text-xs">
                     <div className="min-w-0">
                       <p className="truncate text-xs font-bold text-slate-800">{e.cliente_nombre}</p>
-                      <p className="text-[11px] text-slate-500 font-medium">{e.codigo}</p>
+                      <p className="text-[10px] text-slate-400 font-medium">{e.codigo}</p>
                     </div>
                     <span className="text-xs font-bold text-slate-800 tabular-nums">
                       {formatearMoneda(e.saldo_usd_cents, 'USD')}

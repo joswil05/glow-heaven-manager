@@ -341,13 +341,13 @@ export function QuickSaleView() {
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#f8fafc] text-slate-800">
       {/* Top App Bar de Venta Rápida */}
-      <header className="shrink-0 z-20 bg-white/95 backdrop-blur-md border-b border-slate-200/60 pt-safe-t px-4 pb-2.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
-        <div className="flex items-center justify-between py-1.5">
+      <header className="shrink-0 z-20 bg-white/95 backdrop-blur-md border-b border-slate-200/60 pt-safe-t px-3.5 pb-2 shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
+        <div className="flex items-center justify-between py-1">
           <div>
-            <span className="text-[10px] font-bold tracking-widest uppercase text-emerald-700 block leading-none mb-0.5">
+            <span className="text-[9px] font-bold tracking-widest uppercase text-emerald-700 block leading-none mb-0.5">
               Glow Heaven
             </span>
-            <h1 className="text-base font-extrabold text-slate-900 leading-tight">Venta Rápida</h1>
+            <h1 className="text-sm font-extrabold text-slate-900 leading-tight">Venta Rápida</h1>
           </div>
           {clienteSeleccionado ? (
             <button
@@ -356,11 +356,11 @@ export function QuickSaleView() {
                 haptics.impact('light');
                 setSheetClienteAbierto(true);
               }}
-              className="m3-press flex items-center gap-1.5 rounded-xl bg-emerald-50 border border-emerald-200/80 px-3 py-1.5 text-xs font-bold text-emerald-800 active:scale-95 transition-transform cursor-pointer"
+              className="m3-press flex items-center gap-1 rounded-lg bg-emerald-50 border border-emerald-200/80 px-2.5 py-1 text-[11px] font-bold text-emerald-800 active:scale-95 transition-transform cursor-pointer"
             >
-              <User size={13} className="text-emerald-600" />
-              <span className="max-w-[110px] truncate">{clienteSeleccionado.nombre}</span>
-              <ChevronRight size={12} className="text-emerald-500" />
+              <User size={12} className="text-emerald-600" />
+              <span className="max-w-[100px] truncate">{clienteSeleccionado.nombre}</span>
+              <ChevronRight size={11} className="text-emerald-500" />
             </button>
           ) : (
             <button
@@ -369,38 +369,38 @@ export function QuickSaleView() {
                 haptics.impact('light');
                 setSheetClienteAbierto(true);
               }}
-              className="m3-press flex items-center gap-1.5 rounded-xl bg-slate-100 hover:bg-slate-200/80 px-3 py-1.5 text-xs font-bold text-slate-700 border border-slate-200/60 active:scale-95 transition-transform cursor-pointer"
+              className="m3-press flex items-center gap-1 rounded-lg bg-slate-100 hover:bg-slate-200/80 px-2.5 py-1 text-[11px] font-bold text-slate-700 border border-slate-200/60 active:scale-95 transition-transform cursor-pointer"
             >
-              <User size={13} className="text-slate-500" />
+              <User size={12} className="text-slate-500" />
               <span>Mostrador</span>
-              <ChevronRight size={12} className="text-slate-400" />
+              <ChevronRight size={11} className="text-slate-400" />
             </button>
           )}
         </div>
 
-        {/* Barra de búsqueda moderna */}
-        <div className="relative flex items-center mt-1">
+        {/* Barra de búsqueda compacta */}
+        <div className="relative flex items-center mt-0.5">
           <div
             style={{
               position: 'absolute',
-              left: '12px',
+              left: '10px',
               display: 'flex',
               alignItems: 'center',
               pointerEvents: 'none',
               color: '#64748b',
             }}
           >
-            <Search size={17} />
+            <Search size={15} />
           </div>
           <input
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar por producto o código…"
-            className="w-full rounded-xl bg-slate-100 text-xs font-medium text-slate-900 placeholder:text-slate-400 outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500/25 transition-all border border-slate-200/40"
+            className="w-full rounded-lg bg-slate-100 text-xs font-medium text-slate-900 placeholder:text-slate-400 outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500/25 transition-all border border-slate-200/40"
             style={{
-              paddingLeft: '38px',
-              paddingRight: '36px',
-              height: '40px',
+              paddingLeft: '32px',
+              paddingRight: '32px',
+              height: '34px',
             }}
             autoComplete="off"
             enterKeyHint="search"
@@ -412,16 +412,16 @@ export function QuickSaleView() {
                 haptics.impact('light');
                 setBusqueda('');
               }}
-              className="absolute right-2.5 p-1 text-slate-400 hover:text-slate-600 rounded-full cursor-pointer"
+              className="absolute right-2 p-1 text-slate-400 hover:text-slate-600 rounded-full cursor-pointer"
               aria-label="Limpiar búsqueda"
             >
-              <X size={15} />
+              <X size={13} />
             </button>
           )}
         </div>
 
         {/* Chips de Categorías Horizontales */}
-        <div className="flex items-center gap-1.5 mt-2 overflow-x-auto sin-scrollbar py-0.5">
+        <div className="flex items-center gap-1 mt-1.5 overflow-x-auto sin-scrollbar py-0.5">
           {CATEGORIAS_VENTA.map((cat) => {
             const activa = categoriaActiva === cat;
             return (
@@ -432,9 +432,9 @@ export function QuickSaleView() {
                   haptics.selection();
                   setCategoriaActiva(cat);
                 }}
-                className={`m3-press shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                className={`m3-press shrink-0 px-2.5 py-0.5 rounded-full text-[11px] font-bold transition-all cursor-pointer ${
                   activa
-                    ? 'bg-emerald-700 text-white shadow-sm ring-1 ring-emerald-800'
+                    ? 'bg-emerald-700 text-white shadow-xs ring-1 ring-emerald-800'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70 border border-slate-200/60'
                 }`}
               >
@@ -446,16 +446,16 @@ export function QuickSaleView() {
       </header>
 
       {/* Catálogo de Productos para Venta Rápida */}
-      <main className="flex-1 min-h-0 overflow-y-auto px-3.5 pt-2.5 pb-40">
+      <main className="flex-1 min-h-0 overflow-y-auto px-3 pt-2 pb-36">
         {cargandoProductos && (
-          <div className="flex flex-col items-center justify-center py-16 gap-3 text-slate-400">
-            <div className="h-8 w-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
+          <div className="flex flex-col items-center justify-center py-12 gap-2.5 text-slate-400">
+            <div className="h-7 w-7 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
             <p className="text-xs font-medium">Cargando catálogo disponible…</p>
           </div>
         )}
 
         {!cargandoProductos && (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1.5">
             {productosFiltrados.map((p) => {
               const precioCordobas = Math.round((p.precio_venta_usd_cents * tasa) / 100);
               const tieneVariantes = p.tiene_variantes && p.variantes.length > 1;
@@ -466,16 +466,16 @@ export function QuickSaleView() {
               return (
                 <div
                   key={p.id}
-                  className="rounded-2xl bg-white border border-slate-200/80 p-3 shadow-xs hover:border-slate-300 transition-all flex items-center gap-3"
+                  className="rounded-xl bg-white border border-slate-200/80 p-2.5 shadow-xs hover:border-slate-300 transition-all flex items-center gap-2.5"
                 >
                   {/* Miniatura */}
                   <div
-                    className="shrink-0 overflow-hidden rounded-xl bg-slate-100 border border-slate-200/70 relative flex items-center justify-center"
+                    className="shrink-0 overflow-hidden rounded-lg bg-slate-100 border border-slate-200/70 relative flex items-center justify-center"
                     style={{
-                      width: '56px',
-                      height: '56px',
-                      minWidth: '56px',
-                      minHeight: '56px',
+                      width: '46px',
+                      height: '46px',
+                      minWidth: '46px',
+                      minHeight: '46px',
                     }}
                   >
                     {p.foto ? (
@@ -493,14 +493,14 @@ export function QuickSaleView() {
 
                   {/* Datos del Producto */}
                   <div className="min-w-0 flex-1">
-                    <h2 className="text-xs font-extrabold text-slate-900 leading-snug line-clamp-1">
+                    <h2 className="text-xs font-bold text-slate-900 leading-tight line-clamp-1">
                       {p.nombre}
                     </h2>
                     <div className="flex items-baseline gap-1 mt-0.5">
                       <span className="text-xs font-black text-emerald-800 tabular-nums">
                         {formatearMoneda(p.precio_venta_usd_cents, 'USD')}
                       </span>
-                      <span className="text-[11px] font-semibold text-slate-400 tabular-nums">
+                      <span className="text-[10px] font-semibold text-slate-400 tabular-nums">
                         · {formatearMoneda(precioCordobas, 'COR')}
                       </span>
                     </div>

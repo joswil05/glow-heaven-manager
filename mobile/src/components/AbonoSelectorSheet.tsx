@@ -52,32 +52,30 @@ export function AbonoSelectorSheet({
       titulo="Registrar Abono"
       subtitulo="Selecciona una clienta para abonar o liquidar su saldo"
     >
-      <div className="flex flex-col gap-3 pb-2">
-        {/* Barra de búsqueda estilo Android M3 */}
+      <div className="flex flex-col gap-2.5 pb-2">
+        {/* Barra de búsqueda compacta */}
         <div className="relative flex items-center shrink-0">
           <div
             style={{
               position: 'absolute',
-              left: '14px',
+              left: '12px',
               display: 'flex',
               alignItems: 'center',
               pointerEvents: 'none',
               color: '#64748b',
             }}
           >
-            <Search size={18} />
+            <Search size={15} />
           </div>
           <input
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar por clienta o código de venta…"
-            className="w-full h-11 rounded-full bg-slate-100 text-xs font-semibold text-slate-900 placeholder:text-slate-400 outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500/30 transition-all"
+            className="w-full h-9 rounded-lg bg-slate-100 text-xs font-medium text-slate-900 placeholder:text-slate-400 outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500/30 transition-all border border-slate-200/60"
             style={{
-              paddingLeft: '44px',
-              paddingRight: '40px',
-              height: '42px',
-              backgroundColor: '#f1f5f9',
-              borderRadius: '9999px',
+              paddingLeft: '34px',
+              paddingRight: '34px',
+              height: '36px',
             }}
           />
           {busqueda && (
@@ -87,48 +85,47 @@ export function AbonoSelectorSheet({
                 haptics.impact('light');
                 setBusqueda('');
               }}
-              className="absolute right-3 p-1 text-slate-400 hover:text-slate-600 rounded-full"
-              style={{ position: 'absolute', right: '12px' }}
+              className="absolute right-2.5 p-1 text-slate-400 hover:text-slate-600 rounded-full cursor-pointer"
             >
-              <X size={16} />
+              <X size={14} />
             </button>
           )}
         </div>
 
         {/* Resumen Total Pendiente */}
         {cuentasPorCobrar.length > 0 && (
-          <div className="flex items-center justify-between rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-200/70 p-3 shadow-sm shrink-0">
+          <div className="flex items-center justify-between rounded-xl bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-200/70 p-2.5 shadow-xs shrink-0">
             <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
-                Total por cobrar en el negocio
+              <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-800 block leading-tight">
+                Total por cobrar
               </span>
-              <p className="text-sm font-black text-emerald-900">
+              <p className="text-xs font-black text-emerald-900 leading-tight mt-0.5">
                 {formatearMoneda(totalPendienteUsd, 'USD')}{' '}
-                <span className="text-xs font-semibold text-emerald-700">
+                <span className="text-[10px] font-semibold text-emerald-700">
                   (≈ {formatearMoneda(totalPendienteCor, 'COR')})
                 </span>
               </p>
             </div>
-            <span className="rounded-full bg-emerald-100/90 text-emerald-800 text-xs font-extrabold px-2.5 py-1">
+            <span className="rounded-full bg-emerald-100/90 text-emerald-800 text-[11px] font-extrabold px-2 py-0.5">
               {cuentasPorCobrar.length} cuenta{cuentasPorCobrar.length > 1 ? 's' : ''}
             </span>
           </div>
         )}
 
-        {/* Lista de Cuentas (Scroll fluido en un único contenedor sin trampas de scroll) */}
-        <div className="flex flex-col gap-2">
+        {/* Lista de Cuentas */}
+        <div className="flex flex-col gap-1.5">
           {filtradas.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-8 text-center gap-2">
-              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 text-slate-400">
-                <User size={20} />
+            <div className="flex flex-col items-center justify-center py-6 text-center gap-1.5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+                <User size={18} />
               </div>
               <p className="text-xs font-bold text-slate-700">
-                {busqueda ? 'No se encontraron cuentas con esa búsqueda' : '¡Excelente! No hay cuentas pendientes por cobrar'}
+                {busqueda ? 'No se encontraron cuentas' : '¡Excelente! Sin cuentas pendientes'}
               </p>
-              <p className="text-[11px] text-slate-400 max-w-xs">
+              <p className="text-[10px] text-slate-400 max-w-xs">
                 {busqueda
                   ? 'Verifica el nombre o número de comprobante.'
-                  : 'Todas las ventas están al día y pagadas en su totalidad.'}
+                  : 'Todas las ventas están al día.'}
               </p>
             </div>
           ) : (
@@ -139,7 +136,7 @@ export function AbonoSelectorSheet({
               return (
                 <div
                   key={c.venta_id}
-                  className={`flex items-center justify-between gap-3 rounded-2xl border p-3 transition-transform active:scale-[0.99] ${
+                  className={`flex items-center justify-between gap-2.5 rounded-xl border p-2.5 transition-colors ${
                     vencida
                       ? 'border-rose-200/80 bg-rose-50/50'
                       : 'border-slate-200/80 bg-white hover:bg-slate-50'
@@ -147,20 +144,20 @@ export function AbonoSelectorSheet({
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
-                      <p className="truncate text-xs font-bold text-slate-900">{c.cliente_nombre}</p>
+                      <p className="truncate text-xs font-bold text-slate-900 leading-tight">{c.cliente_nombre}</p>
                       {vencida && (
-                        <span className="inline-flex items-center gap-0.5 rounded-md bg-rose-100 px-1.5 py-0.2 text-[10px] font-bold text-rose-700">
-                          <AlertTriangle size={10} />
+                        <span className="inline-flex items-center gap-0.5 rounded bg-rose-100 px-1 py-0.2 text-[9px] font-bold text-rose-700 shrink-0">
+                          <AlertTriangle size={9} />
                           Vencida
                         </span>
                       )}
                     </div>
-                    <p className="text-[11px] text-slate-500 font-medium">
+                    <p className="text-[10px] text-slate-400 font-medium truncate mt-0.5">
                       {c.codigo} · {c.fecha}
                     </p>
-                    <p className="text-xs font-black text-emerald-800 mt-0.5 tabular-nums">
+                    <p className="text-xs font-black text-emerald-800 mt-0.5 tabular-nums leading-tight">
                       {formatearMoneda(c.saldo_usd_cents, 'USD')}{' '}
-                      <span className="text-[11px] font-semibold text-slate-500">
+                      <span className="text-[10px] font-semibold text-slate-400">
                         (≈ {formatearMoneda(saldoCor, 'COR')})
                       </span>
                     </p>
@@ -179,10 +176,9 @@ export function AbonoSelectorSheet({
                       });
                       onCerrar();
                     }}
-                    className="m3-press flex items-center gap-1 h-9 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/20 shrink-0 cursor-pointer"
+                    className="m3-press flex items-center gap-1 h-8 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-xs active:scale-95 transition-transform shrink-0 cursor-pointer"
                   >
-                    <DollarSign size={14} />
-                    Abonar
+                    <span>Seleccionar</span>
                   </button>
                 </div>
               );

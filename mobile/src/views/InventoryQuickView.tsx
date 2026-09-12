@@ -90,42 +90,42 @@ export function InventoryQuickView() {
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#f8fafc] text-slate-800">
       {/* Top App Bar fija */}
-      <header className="shrink-0 z-20 bg-white/95 backdrop-blur-md border-b border-slate-200/60 pt-safe-t px-4 pb-2.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
-        <div className="flex items-center justify-between py-1.5">
+      <header className="shrink-0 z-20 bg-white/95 backdrop-blur-md border-b border-slate-200/60 pt-safe-t px-3.5 pb-2 shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
+        <div className="flex items-center justify-between py-1">
           <div>
-            <span className="text-[10px] font-bold tracking-widest uppercase text-emerald-700 block leading-none mb-0.5">
+            <span className="text-[9px] font-bold tracking-widest uppercase text-emerald-700 block leading-none mb-0.5">
               Glow Heaven
             </span>
-            <h1 className="text-base font-extrabold text-slate-900 leading-tight">Catálogo de Productos</h1>
+            <h1 className="text-sm font-extrabold text-slate-900 leading-tight">Catálogo de Productos</h1>
           </div>
-          <span className="rounded-full bg-slate-100 text-slate-700 text-xs font-bold px-2.5 py-1 border border-slate-200/60">
+          <span className="rounded-full bg-slate-100 text-slate-700 text-[11px] font-bold px-2 py-0.5 border border-slate-200/60">
             {productos.length} {productos.length === 1 ? 'producto' : 'productos'}
           </span>
         </div>
 
-        {/* Barra de búsqueda moderna */}
-        <div className="relative flex items-center mt-1">
+        {/* Barra de búsqueda compacta */}
+        <div className="relative flex items-center mt-0.5">
           <div
             style={{
               position: 'absolute',
-              left: '12px',
+              left: '10px',
               display: 'flex',
               alignItems: 'center',
               pointerEvents: 'none',
               color: '#64748b',
             }}
           >
-            <Search size={17} />
+            <Search size={15} />
           </div>
           <input
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar por nombre, código o tono…"
-            className="w-full rounded-xl bg-slate-100 text-xs font-medium text-slate-900 placeholder:text-slate-400 outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500/25 transition-all border border-slate-200/40"
+            className="w-full rounded-lg bg-slate-100 text-xs font-medium text-slate-900 placeholder:text-slate-400 outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500/25 transition-all border border-slate-200/40"
             style={{
-              paddingLeft: '38px',
-              paddingRight: '36px',
-              height: '40px',
+              paddingLeft: '32px',
+              paddingRight: '32px',
+              height: '34px',
             }}
             autoComplete="off"
             enterKeyHint="search"
@@ -137,16 +137,16 @@ export function InventoryQuickView() {
                 haptics.impact('light');
                 setBusqueda('');
               }}
-              className="absolute right-2.5 p-1 text-slate-400 hover:text-slate-600 rounded-full cursor-pointer"
+              className="absolute right-2 p-1 text-slate-400 hover:text-slate-600 rounded-full cursor-pointer"
               aria-label="Limpiar búsqueda"
             >
-              <X size={15} />
+              <X size={13} />
             </button>
           )}
         </div>
 
         {/* Chips de Categorías Horizontales con estética refinada */}
-        <div className="flex items-center gap-1.5 mt-2 overflow-x-auto sin-scrollbar py-0.5">
+        <div className="flex items-center gap-1 mt-1.5 overflow-x-auto sin-scrollbar py-0.5">
           {CATEGORIAS_RAPIDAS.map((cat) => {
             const activa = categoriaActiva === cat;
             return (
@@ -157,9 +157,9 @@ export function InventoryQuickView() {
                   haptics.selection();
                   setCategoriaActiva(cat);
                 }}
-                className={`m3-press shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                className={`m3-press shrink-0 px-2.5 py-0.5 rounded-full text-[11px] font-bold transition-all cursor-pointer ${
                   activa
-                    ? 'bg-emerald-700 text-white shadow-sm ring-1 ring-emerald-800'
+                    ? 'bg-emerald-700 text-white shadow-xs ring-1 ring-emerald-800'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70 border border-slate-200/60'
                 }`}
               >
@@ -172,11 +172,11 @@ export function InventoryQuickView() {
 
       {/* Lista de productos con Pull-to-Refresh */}
       <PullToRefresh onRefresh={refrescar}>
-        <main className="flex flex-col gap-2.5 px-3.5 pt-2.5 pb-40">
+        <main className="flex flex-col gap-2 px-3 pt-2 pb-36">
 
           {cargando && (
-            <div className="flex flex-col items-center justify-center py-16 gap-3 text-slate-400">
-              <div className="h-8 w-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
+            <div className="flex flex-col items-center justify-center py-12 gap-2.5 text-slate-400">
+              <div className="h-7 w-7 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
               <p className="text-xs font-medium">Sincronizando catálogo…</p>
             </div>
           )}
@@ -190,17 +190,17 @@ export function InventoryQuickView() {
               return (
                 <div
                   key={p.id}
-                  className="rounded-2xl bg-white border border-slate-200/80 p-3 shadow-xs hover:border-slate-300 transition-all flex flex-col gap-2"
+                  className="rounded-xl bg-white border border-slate-200/80 p-2.5 shadow-xs hover:border-slate-300 transition-all flex flex-col gap-2"
                 >
-                  <div className="flex gap-3 items-start">
+                  <div className="flex gap-2.5 items-start">
                     {/* Foto o Placeholder Estético */}
                     <div
-                      className="shrink-0 overflow-hidden rounded-xl bg-slate-100 border border-slate-200/70 relative flex items-center justify-center"
+                      className="shrink-0 overflow-hidden rounded-lg bg-slate-100 border border-slate-200/70 relative flex items-center justify-center"
                       style={{
-                        width: '60px',
-                        height: '60px',
-                        minWidth: '60px',
-                        minHeight: '60px',
+                        width: '48px',
+                        height: '48px',
+                        minWidth: '48px',
+                        minHeight: '48px',
                       }}
                     >
                       {p.foto ? (
@@ -210,7 +210,7 @@ export function InventoryQuickView() {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-emerald-50 via-slate-50 to-slate-100 flex items-center justify-center text-slate-400 font-extrabold text-sm uppercase">
+                        <div className="w-full h-full bg-gradient-to-br from-emerald-50 via-slate-50 to-slate-100 flex items-center justify-center text-slate-400 font-bold text-xs uppercase">
                           {p.nombre.slice(0, 2)}
                         </div>
                       )}
@@ -219,12 +219,12 @@ export function InventoryQuickView() {
                     {/* Información del Producto */}
                     <div className="flex min-w-0 flex-1 flex-col">
                       <div className="flex items-start justify-between gap-1.5">
-                        <h2 className="text-xs font-extrabold text-slate-900 leading-snug line-clamp-1">
+                        <h2 className="text-xs font-bold text-slate-900 leading-tight line-clamp-1">
                           {p.nombre}
                         </h2>
                         {/* Badge de Stock */}
                         <span
-                          className={`shrink-0 rounded-full px-2 py-0.2 text-[10px] font-bold ${
+                          className={`shrink-0 rounded-full px-1.5 py-0.2 text-[9px] font-bold ${
                             !hayStock
                               ? 'bg-rose-50 text-rose-700 border border-rose-200'
                               : stockBajo
@@ -236,7 +236,7 @@ export function InventoryQuickView() {
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-semibold mt-0.5">
+                      <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-medium mt-0.5">
                         <span>#{p.codigo}</span>
                         {p.categoria_nombre && (
                           <>
@@ -247,12 +247,12 @@ export function InventoryQuickView() {
                       </div>
 
                       {/* Precios duales */}
-                      <div className="mt-1 flex items-baseline gap-1.5">
-                        <span className="text-sm font-black text-emerald-800 tabular-nums">
+                      <div className="mt-0.5 flex items-baseline gap-1">
+                        <span className="text-xs font-black text-emerald-800 tabular-nums">
                           {formatearMoneda(p.precio_venta_usd_cents, 'USD')}
                         </span>
-                        <span className="text-[11px] font-semibold text-slate-500 tabular-nums">
-                          ≈ {formatearMoneda(precioCordobas, 'COR')}
+                        <span className="text-[10px] font-semibold text-slate-400 tabular-nums">
+                          · {formatearMoneda(precioCordobas, 'COR')}
                         </span>
                       </div>
                     </div>
@@ -260,11 +260,11 @@ export function InventoryQuickView() {
 
                   {/* Tonos / Variantes disponibles */}
                   {p.tiene_variantes && p.variantes.length > 0 && (
-                    <div className="flex flex-wrap gap-1 pt-1.5 border-t border-slate-100">
+                    <div className="flex flex-wrap gap-1 pt-1 border-t border-slate-100">
                       {p.variantes.map((v) => (
                         <span
                           key={v.id}
-                          className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium border ${
+                          className={`rounded px-1.5 py-0.2 text-[9px] font-medium border ${
                             v.existencias > 0
                               ? 'bg-slate-50 text-slate-700 border-slate-200'
                               : 'bg-slate-100/50 text-slate-400 border-dashed border-slate-200 line-through'
@@ -281,9 +281,9 @@ export function InventoryQuickView() {
                     <button
                       type="button"
                       onClick={() => compartirPorWhatsApp(p)}
-                      className="m3-press flex items-center gap-1.5 h-8 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/80 text-xs font-bold transition-colors cursor-pointer"
+                      className="m3-press flex items-center gap-1 h-7.5 px-2.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/80 text-[11px] font-bold transition-colors cursor-pointer"
                     >
-                      <MessageCircle size={14} className="text-emerald-600" />
+                      <MessageCircle size={13} className="text-emerald-600" />
                       <span>Compartir por WhatsApp</span>
                     </button>
                   </div>
