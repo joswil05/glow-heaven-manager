@@ -134,7 +134,7 @@ export type ModoGrafica = 'ambas' | 'ganancias' | 'ingresos';
 export const LineaCreciente: React.FC<LineaCrecienteProps> = ({
   datos,
   formato = (v) => formatearMoneda(v, 'USD'),
-  alto = 125,
+  alto = 165,
   etiquetaSerie = 'Ganancia Neta',
   etiquetaSerieSecundaria = 'Ingresos Totales',
   className,
@@ -621,7 +621,7 @@ export const Anillo: React.FC<AnilloProps> = ({
   segmentos,
   centro,
   subtitulo,
-  tamano = 115,
+  tamano = 130,
   className,
 }) => {
   const id = useId();
