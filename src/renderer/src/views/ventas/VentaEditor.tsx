@@ -232,7 +232,8 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
 
   const resultadosBusqueda = useMemo(() => {
     const q = busquedaProducto.trim().toLowerCase();
-    const base = esEncargo ? productos : productos.filter((p) => p.existencias > 0);
+    const activos = productos.filter((p) => p.activo !== false);
+    const base = esEncargo ? activos : activos.filter((p) => p.existencias > 0);
     if (!q) return base.slice(0, 8);
     return base
       .filter((p) => p.nombre.toLowerCase().includes(q) || p.codigo.toLowerCase().includes(q))
@@ -456,7 +457,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
     >
       <div
         onKeyDown={alPresionarEnter}
-        className="bg-superficie rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden border border-borde/80 animate-scale-in"
+        className="bg-superficie rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden border border-borde/80 animate-modal-pop"
       >
         {/* Cabecera */}
         <header className="flex items-center justify-between px-6 py-4 border-b border-borde shrink-0 bg-superficie">

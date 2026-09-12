@@ -155,7 +155,7 @@ export const PagoModal: React.FC<PagoModalProps> = ({
       aria-modal="true"
       aria-labelledby="titulo-pago"
     >
-      <div className="bg-superficie rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col border border-borde/80 animate-scale-in overflow-hidden">
+      <div className="bg-superficie rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col border border-borde/80 animate-modal-pop overflow-hidden">
         <header className="flex items-center justify-between px-5 py-4 border-b border-borde shrink-0">
           <div>
             <h3 id="titulo-pago" className="text-title text-texto">

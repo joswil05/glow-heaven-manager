@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Package, Plus, CheckCircle2, FileEdit, Trash2, Boxes, Truck, Scale, Clock, X } from 'lucide-react';
 import { cn } from '../lib/cn';
 import type { Compra, CompraCompleta, Venta, ParametrosSistema } from '../../../shared/types';
@@ -129,6 +129,18 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
   const invertidoEnCamino = enCamino.reduce((a, c) => a + c.total_usd_cents, 0);
   const recibidos = compras.filter((c) => c.estado === 'RECIBIDA');
   const gastadoTotal = recibidos.reduce((a, c) => a + c.total_usd_cents, 0);
+
+  const historicoCourier = useMemo(() => {
+    const totalLibrasMlb = compras.reduce((a, c) => a + c.peso_total_mlb, 0);
+    const totalEnvioUsdCents = compras.reduce((a, c) => a + c.envio_total_usd_cents, 0);
+    const totalLbs = totalLibrasMlb / 1000;
+    const costoPromedioPorLb = totalLbs > 0 ? Math.round(totalEnvioUsdCents / totalLbs) : 0;
+    return {
+      totalLibrasMlb,
+      totalEnvioUsdCents,
+      costoPromedioPorLb,
+    };
+  }, [compras]);
 
   const columnas: Column<Compra>[] = [
     {
@@ -340,18 +352,48 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
             }
           />
         ) : (
-          <DataTable
-            columns={columnas}
-            rows={compras}
-            rowKey={(c) => c.id}
-            selectedKey={detalle?.id}
-            onRowClick={(c) => verDetalle(c.id)}
-          />
+          <div className="space-y-3.5">
+            <div className="p-3.5 rounded-xl border border-borde/80 bg-gradient-to-r from-superficie via-superficie to-indigo-500/5 shadow-2xs flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-700 flex items-center justify-center shrink-0">
+                  <Truck className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="font-semibold text-texto text-label block">Historial y Costos de Courier</span>
+                  <span className="text-caption text-texto-3">Acumulado consolidado de fletes importados</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 text-caption">
+                <div>
+                  <span className="text-texto-3 block text-[11px]">Total importado</span>
+                  <span className="font-bold text-texto font-mono">{formatearPeso(historicoCourier.totalLibrasMlb)}</span>
+                </div>
+                <div className="h-6 w-px bg-borde/70" />
+                <div>
+                  <span className="text-texto-3 block text-[11px]">Flete total pagado</span>
+                  <span className="font-bold text-texto font-mono">{formatearMoneda(historicoCourier.totalEnvioUsdCents, 'USD')}</span>
+                </div>
+                <div className="h-6 w-px bg-borde/70" />
+                <div>
+                  <span className="text-texto-3 block text-[11px]">Promedio por libra</span>
+                  <span className="font-bold text-indigo-700 font-mono">{formatearMoneda(historicoCourier.costoPromedioPorLb, 'USD')}/lb</span>
+                </div>
+              </div>
+            </div>
+
+            <DataTable
+              columns={columnas}
+              rows={compras}
+              rowKey={(c) => c.id}
+              selectedKey={detalle?.id}
+              onRowClick={(c) => verDetalle(c.id)}
+            />
+          </div>
         )}
       </div>
 
       {detalle && (
-        <aside className="w-[420px] border-l border-borde bg-superficie flex flex-col shrink-0 animate-fade-in shadow-xl z-10">
+        <aside className="w-[420px] border-l border-borde bg-superficie flex flex-col shrink-0 animate-drawer shadow-xl z-10">
           {/* Cabecera pegajosa con botón de cerrar */}
           <div className="p-5 border-b border-borde bg-superficie-2/40 flex items-start justify-between gap-3 shrink-0">
             <div className="flex items-start gap-3 min-w-0">

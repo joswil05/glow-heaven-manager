@@ -37,6 +37,7 @@ export const api: ApiPuente = {
         producto_id
       ),
     archivar: (id) => ipcRenderer.invoke(IPC.PRODUCTOS_ARCHIVAR, id),
+    reactivar: (id) => ipcRenderer.invoke(IPC.PRODUCTOS_REACTIVAR, id),
     movimientos: (producto_id) => ipcRenderer.invoke(IPC.PRODUCTOS_MOVIMIENTOS, producto_id),
     simularPrecio: (input) => ipcRenderer.invoke(IPC.PRODUCTOS_SIMULAR_PRECIO, input),
   },

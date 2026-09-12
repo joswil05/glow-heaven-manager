@@ -1,6 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Database, RefreshCw, Plus, Archive, Tag, ShieldCheck, Lock } from 'lucide-react';
-import type { ParametrosSistema, Categoria } from '../../../shared/types';
+import {
+  Save,
+  Database,
+  RefreshCw,
+  Plus,
+  Archive,
+  Tag,
+  ShieldCheck,
+  Lock,
+  MessageSquare,
+  Building2,
+  Download,
+  Trash2,
+  Clock,
+  Check,
+} from 'lucide-react';
+import { cn } from '../lib/cn';
+import type { ParametrosSistema, Categoria, CuentaBancaria } from '../../../shared/types';
 import type { InfoSistema } from '../../../shared/ipc-contracts';
 import {
   Card,
@@ -51,7 +67,21 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
   const [telefono, setTelefono] = useState('');
   const [pinSeguridad, setPinSeguridad] = useState('');
   const [confirmarPin, setConfirmarPin] = useState('');
+  const [plantillaCobro, setPlantillaCobro] = useState('');
+  const [cuentasBancarias, setCuentasBancarias] = useState<CuentaBancaria[]>([]);
+  const [diasMora, setDiasMora] = useState(15);
+  const [diasEncargos, setDiasEncargos] = useState(10);
+  const [monedaDefectoVenta, setMonedaDefectoVenta] = useState<'USD' | 'NIO'>('USD');
+  const [nuevaCuenta, setNuevaCuenta] = useState<CuentaBancaria>({
+    banco: 'BAC Credomatic',
+    moneda: 'USD',
+    numero: '',
+    titular: '',
+    tipo: 'Ahorros',
+  });
+  const [exportando, setExportando] = useState(false);
   const [guardando, setGuardando] = useState(false);
+  const [guardadoExitoso, setGuardadoExitoso] = useState(false);
   const [info, setInfo] = useState<InfoSistema | null>(null);
 
   useEffect(() => {
@@ -68,6 +98,14 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
     setTelefono(parametros.telefono_negocio);
     setPinSeguridad(parametros.pin_seguridad ?? '');
     setConfirmarPin(parametros.pin_seguridad ?? '');
+    setPlantillaCobro(
+      parametros.plantilla_cobro_whatsapp ??
+        'Hola {cliente}, te saludamos de Glow Heaven ✨ Te recordamos que tienes un saldo pendiente de {saldo_usd} ({saldo_cs}). Si ya realizaste tu abono, por favor compártenos el comprobante. ¡Muchas gracias!'
+    );
+    setCuentasBancarias(parametros.cuentas_bancarias ?? []);
+    setDiasMora(parametros.dias_alerta_mora ?? 15);
+    setDiasEncargos(parametros.dias_alerta_encargos ?? 10);
+    setMonedaDefectoVenta(parametros.moneda_defecto_venta ?? 'USD');
   }, [parametros]);
 
   useEffect(() => {
@@ -84,6 +122,79 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
     margen_bp: Math.round(num(margen) * 100),
     paso_redondeo_usd_cents: paso,
   });
+
+  const exportarCatalogo = async () => {
+    setExportando(true);
+    try {
+      const r = await window.api.productos.list({ incluirInactivos: true });
+      if (!r.success) {
+        showToast({ message: r.error, type: 'error' });
+        return;
+      }
+      const prods = r.data;
+      const encabezados = [
+        'Código',
+        'Nombre del Producto',
+        'Categoría',
+        'Estado',
+        'Existencias',
+        'Costo Unitario (USD)',
+        'Precio Venta (USD)',
+        'Ganancia Unitaria (USD)',
+        'Valor Total en Inventario (USD)',
+      ];
+      const filas = prods.map((p) => [
+        `"${p.codigo}"`,
+        `"${p.nombre.replace(/"/g, '""')}"`,
+        `"${(p.categoria_nombre ?? 'Sin categoría').replace(/"/g, '""')}"`,
+        `"${p.activo ? (p.existencias > 0 ? 'Con stock' : 'Agotado') : 'Descatalogado'}"`,
+        p.existencias,
+        (p.costo_unitario_usd_cents / 100).toFixed(2),
+        (p.precio_venta_usd_cents / 100).toFixed(2),
+        (p.ganancia_unitaria_usd_cents / 100).toFixed(2),
+        (p.valor_inventario_usd_cents / 100).toFixed(2),
+      ]);
+      const csv = '\uFEFF' + [encabezados.join(';'), ...filas.map((f) => f.join(';'))].join('\r\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Glow_Heaven_Inventario_${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast({ message: 'Catálogo exportado exitosamente para Excel (.csv)', type: 'success' });
+    } catch (err) {
+      showToast({ message: 'Error al exportar inventario: ' + String(err), type: 'error' });
+    } finally {
+      setExportando(false);
+    }
+  };
+
+  const agregarCuenta = () => {
+    if (!nuevaCuenta.numero.trim()) {
+      showToast({ message: 'Escribí el número de cuenta bancaria', type: 'error' });
+      return;
+    }
+    setCuentasBancarias((prev) => [...prev, { ...nuevaCuenta }]);
+    setNuevaCuenta({
+      banco: 'BAC Credomatic',
+      moneda: 'USD',
+      numero: '',
+      titular: '',
+      tipo: 'Ahorros',
+    });
+    showToast({ message: 'Cuenta agregada a la lista (guardá para confirmar)', type: 'info' });
+  };
+
+  const eliminarCuenta = (idx: number) => {
+    setCuentasBancarias((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const insertarEtiquetaWhatsApp = (etiqueta: string) => {
+    setPlantillaCobro((prev) => (prev ? `${prev} ${etiqueta}` : etiqueta));
+  };
 
   const guardar = async () => {
     if (pinSeguridad.trim()) {
@@ -117,6 +228,11 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
         nombre_negocio: nombreNegocio.trim(),
         telefono_negocio: telefono.trim(),
         pin_seguridad: pinSeguridad.trim(),
+        plantilla_cobro_whatsapp: plantillaCobro.trim(),
+        cuentas_bancarias: cuentasBancarias,
+        dias_alerta_mora: diasMora,
+        dias_alerta_encargos: diasEncargos,
+        moneda_defecto_venta: monedaDefectoVenta,
       });
 
       if (!r.success) {
@@ -125,6 +241,8 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
       }
 
       showToast({ message: 'Configuración guardada con éxito', type: 'success' });
+      setGuardadoExitoso(true);
+      setTimeout(() => setGuardadoExitoso(false), 2200);
       onCambio();
     } finally {
       setGuardando(false);
@@ -325,6 +443,267 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
           </CardContent>
         </Card>
 
+        {/* Cobranza Rápida por WhatsApp */}
+        <Card>
+          <CardHeader>
+            <SectionHeader
+              icon={MessageSquare}
+              title="Cobranza Rápida por WhatsApp"
+              description="Personalizá el mensaje automático para recordar saldos pendientes con 1 clic"
+            />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Field
+              label="Plantilla de Mensaje"
+              hint="Podés hacer clic en las etiquetas para agregarlas al texto"
+            >
+              <textarea
+                value={plantillaCobro}
+                onChange={(e) => setPlantillaCobro(e.target.value)}
+                rows={3}
+                className="w-full rounded-xl border border-borde bg-superficie px-3.5 py-2.5 text-body text-texto placeholder:text-texto-3 focus:outline-none focus:ring-2 focus:ring-acento transition-all font-sans leading-relaxed"
+                placeholder="Hola {cliente}, te recordamos que tenés un saldo de..."
+              />
+            </Field>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-caption text-texto-3 font-medium">Insertar variable:</span>
+              <button
+                type="button"
+                onClick={() => insertarEtiquetaWhatsApp('{cliente}')}
+                className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie-3 border border-borde text-texto-2 hover:text-texto pill-interactive active:scale-95 cursor-pointer"
+              >
+                + &#123;cliente&#125;
+              </button>
+              <button
+                type="button"
+                onClick={() => insertarEtiquetaWhatsApp('{saldo_usd}')}
+                className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie-3 border border-borde text-texto-2 hover:text-texto pill-interactive active:scale-95 cursor-pointer"
+              >
+                + &#123;saldo_usd&#125;
+              </button>
+              <button
+                type="button"
+                onClick={() => insertarEtiquetaWhatsApp('{saldo_cs}')}
+                className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie-3 border border-borde text-texto-2 hover:text-texto pill-interactive active:scale-95 cursor-pointer"
+              >
+                + &#123;saldo_cs&#125;
+              </button>
+              <button
+                type="button"
+                onClick={() => insertarEtiquetaWhatsApp('{cuentas_bancarias}')}
+                className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie-3 border border-borde text-texto-2 hover:text-texto pill-interactive active:scale-95 cursor-pointer"
+              >
+                + &#123;cuentas_bancarias&#125;
+              </button>
+            </div>
+
+            {/* Vista previa en vivo del mensaje */}
+            <div className="p-3.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-body text-texto-2">
+              <div className="flex items-center gap-2 text-caption font-semibold text-emerald-700 mb-1">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                Vista previa del mensaje generado:
+              </div>
+              <p className="text-caption text-texto-2 italic whitespace-pre-wrap">
+                {plantillaCobro
+                  .replace(/\{cliente\}/g, 'María López')
+                  .replace(/\{saldo_usd\}/g, '$45.00')
+                  .replace(/\{saldo_cs\}/g, 'C$1,647.90')
+                  .replace(
+                    /\{cuentas_bancarias\}/g,
+                    cuentasBancarias.length > 0
+                      ? cuentasBancarias.map((c) => `${c.banco} (${c.moneda}): ${c.numero}`).join(' | ')
+                      : 'BAC (USD): 360-123456-7'
+                  )}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Cuentas Bancarias */}
+        <Card>
+          <CardHeader>
+            <SectionHeader
+              icon={Building2}
+              title="Cuentas Bancarias para Comprobantes"
+              description="Información que compartís a tus clientas para recibir transferencias"
+            />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {cuentasBancarias.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {cuentasBancarias.map((c, idx) => (
+                  <div
+                    key={idx}
+                    className="p-3.5 rounded-xl border border-borde bg-superficie-2/50 flex items-start justify-between gap-3 shadow-2xs"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-texto text-body truncate">{c.banco}</span>
+                        <Badge tone={c.moneda === 'USD' ? 'info' : 'success'}>
+                          {c.moneda}
+                        </Badge>
+                      </div>
+                      <div className="font-mono text-label text-texto font-medium mt-0.5 select-all">
+                        {c.numero}
+                      </div>
+                      {(c.titular || c.tipo) && (
+                        <div className="text-caption text-texto-3 mt-0.5 truncate">
+                          {[c.tipo, c.titular].filter(Boolean).join(' · ')}
+                        </div>
+                      )}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => eliminarCuenta(idx)}
+                      className="text-texto-3 hover:text-danger-600 shrink-0 -mr-1 -mt-1"
+                      title="Eliminar cuenta"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-4 text-center text-caption text-texto-3 bg-superficie-2/30 rounded-xl border border-dashed border-borde">
+                No has agregado cuentas bancarias todavía.
+              </div>
+            )}
+
+            {/* Formulario para agregar cuenta */}
+            <div className="p-4 rounded-xl border border-borde/80 bg-superficie space-y-3">
+              <div className="text-label font-semibold text-texto">Agregar nueva cuenta bancaria</div>
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <Field label="Banco">
+                  <Input
+                    placeholder="Ej. BAC, LAFISE, Banpro"
+                    value={nuevaCuenta.banco}
+                    onChange={(e) => setNuevaCuenta((p) => ({ ...p, banco: e.target.value }))}
+                  />
+                </Field>
+                <Field label="Moneda">
+                  <Select
+                    value={nuevaCuenta.moneda}
+                    onChange={(e) =>
+                      setNuevaCuenta((p) => ({ ...p, moneda: e.target.value as 'USD' | 'NIO' }))
+                    }
+                  >
+                    <option value="USD">Dólares ($)</option>
+                    <option value="NIO">Córdobas (C$)</option>
+                  </Select>
+                </Field>
+                <Field label="Número de cuenta">
+                  <Input
+                    placeholder="000-000000-0"
+                    value={nuevaCuenta.numero}
+                    onChange={(e) => setNuevaCuenta((p) => ({ ...p, numero: e.target.value }))}
+                  />
+                </Field>
+                <Field label="Titular / Nombre">
+                  <Input
+                    placeholder="Ej. Glow Heaven"
+                    value={nuevaCuenta.titular ?? ''}
+                    onChange={(e) => setNuevaCuenta((p) => ({ ...p, titular: e.target.value }))}
+                  />
+                </Field>
+              </div>
+              <div className="flex justify-end pt-1">
+                <Button variant="outline" size="sm" onClick={agregarCuenta}>
+                  <Plus className="w-3.5 h-3.5 mr-1" />
+                  <span>Agregar cuenta</span>
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Alertas Operativas y Preferencias */}
+        <Card>
+          <CardHeader>
+            <SectionHeader
+              icon={Clock}
+              title="Alertas Operativas y Preferencias"
+              description="Umbrales para detectar clientes con retraso y paquetes retenidos"
+            />
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Field
+                label="Alerta de mora en cobros"
+                hint="Días sin abono para marcar saldo urgente"
+              >
+                <Select
+                  value={diasMora}
+                  onChange={(e) => setDiasMora(Number(e.target.value))}
+                >
+                  <option value={7}>7 días sin abonos</option>
+                  <option value={15}>15 días sin abonos</option>
+                  <option value={30}>30 días sin abonos</option>
+                </Select>
+              </Field>
+
+              <Field
+                label="Encargos estancados en USA"
+                hint="Días en bodega Miami sin meter a un paquete"
+              >
+                <Select
+                  value={diasEncargos}
+                  onChange={(e) => setDiasEncargos(Number(e.target.value))}
+                >
+                  <option value={5}>5 días en espera</option>
+                  <option value={10}>10 días en espera</option>
+                  <option value={15}>15 días en espera</option>
+                </Select>
+              </Field>
+
+              <Field
+                label="Moneda preferida en ventas"
+                hint="Moneda por defecto al facturar"
+              >
+                <Select
+                  value={monedaDefectoVenta}
+                  onChange={(e) => setMonedaDefectoVenta(e.target.value as 'USD' | 'NIO')}
+                >
+                  <option value="USD">Dólares ($ USD)</option>
+                  <option value="NIO">Córdobas (C$ NIO)</option>
+                </Select>
+              </Field>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Exportación y Herramientas */}
+        <Card>
+          <CardHeader>
+            <SectionHeader
+              icon={Download}
+              title="Herramientas y Exportación"
+              description="Descargá tu inventario y catálogo para Excel o copias de seguridad"
+            />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-borde bg-superficie-2/40 flex-wrap">
+              <div>
+                <div className="font-semibold text-body text-texto">Descargar catálogo completo en Excel</div>
+                <div className="text-caption text-texto-3">
+                  Incluye productos activos, existencias, costos en USD, precios de venta y márgenes.
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={exportarCatalogo}
+                disabled={exportando}
+                className="shadow-2xs font-medium"
+              >
+                <Download className="w-4 h-4 mr-1.5" />
+                <span>{exportando ? 'Generando archivo...' : 'Exportar a Excel (.csv)'}</span>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Negocio */}
         <Card>
           <CardHeader>
@@ -408,9 +787,26 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
         </Card>
 
         <div className="flex justify-end sticky bottom-0 py-4 bg-gradient-to-t from-fondo via-fondo">
-          <Button variant="primary" onClick={guardar} disabled={guardando}>
-            <Save className="w-4 h-4" />
-            <span>{guardando ? 'Guardando...' : 'Guardar configuración'}</span>
+          <Button
+            variant="primary"
+            onClick={guardar}
+            disabled={guardando}
+            className={cn(
+              'transition-all duration-200 min-w-[190px]',
+              guardadoExitoso && 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20'
+            )}
+          >
+            {guardadoExitoso ? (
+              <>
+                <Check className="w-4 h-4 animate-check-pop text-white" />
+                <span>¡Guardado con éxito!</span>
+              </>
+            ) : (
+              <>
+                <Save className={cn('w-4 h-4', guardando && 'animate-spin')} />
+                <span>{guardando ? 'Guardando...' : 'Guardar configuración'}</span>
+              </>
+            )}
           </Button>
         </div>
       </div>

@@ -447,7 +447,7 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
     >
       <div
         onKeyDown={alPresionarEnter}
-        className="bg-superficie rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden border border-borde/80 animate-scale-in"
+        className="bg-superficie rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden border border-borde/80 animate-modal-pop"
       >
         {/* Cabecera principal */}
         <header className="flex items-center justify-between px-5 py-4 border-b border-borde shrink-0">

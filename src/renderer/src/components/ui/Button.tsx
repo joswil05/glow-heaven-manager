@@ -1,14 +1,15 @@
 import React from 'react';
 import { cn } from '../../lib/cn';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'outline';
 export type ButtonSize = 'sm' | 'md';
 
 const VARIANTES: Record<ButtonVariant, string> = {
-  primary: 'bg-acento text-acento-texto border-transparent hover:bg-acento-fuerte',
-  secondary: 'bg-superficie text-texto-2 border-borde-fuerte hover:bg-superficie-2',
+  primary: 'bg-acento text-acento-texto border-transparent hover:bg-acento-fuerte shadow-xs',
+  secondary: 'bg-superficie text-texto-2 border-borde-fuerte hover:bg-superficie-2 shadow-2xs',
   ghost: 'bg-transparent text-texto-2 border-transparent hover:bg-superficie-2',
-  danger: 'bg-danger-600 text-white border-transparent hover:bg-danger-700',
+  danger: 'bg-danger-600 text-white border-transparent hover:bg-danger-700 shadow-xs',
+  outline: 'bg-transparent text-texto border-borde hover:bg-superficie-2',
 };
 
 const TAMANOS: Record<ButtonSize, string> = {
@@ -29,17 +30,17 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
   ref
 ) {
   return (
-  <button
-    ref={ref}
-    className={cn(
-      'inline-flex items-center justify-center rounded-md border transition-colors',
-      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento focus-visible:ring-offset-1',
-      'disabled:opacity-50 disabled:pointer-events-none',
-      VARIANTES[variant],
-      TAMANOS[size],
-      className
-    )}
-    {...rest}
-  />
+    <button
+      ref={ref}
+      className={cn(
+        'inline-flex items-center justify-center rounded-md border transition-all duration-150 active:scale-[0.98] select-none cursor-pointer',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento focus-visible:ring-offset-1',
+        'disabled:opacity-50 disabled:pointer-events-none disabled:transform-none',
+        VARIANTES[variant],
+        TAMANOS[size],
+        className
+      )}
+      {...rest}
+    />
   );
 });

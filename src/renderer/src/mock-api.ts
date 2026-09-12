@@ -51,6 +51,15 @@ function almacenInicial(): Almacen {
     nombre_negocio: 'Glow Heaven',
     telefono_negocio: '8888-8888',
     onboarding_completado: true,
+    plantilla_cobro_whatsapp:
+      'Hola {cliente}, te saludamos de Glow Heaven ✨ Te recordamos que tienes un saldo pendiente de {saldo_usd} ({saldo_cs}). Si ya realizaste tu abono, por favor compártenos el comprobante. ¡Muchas gracias!',
+    cuentas_bancarias: [
+      { banco: 'BAC Credomatic', moneda: 'USD', numero: '360-123456-7', titular: 'Glow Heaven' },
+      { banco: 'LAFISE Bancentro', moneda: 'NIO', numero: '102-987654-3', titular: 'Glow Heaven' },
+    ],
+    dias_alerta_mora: 15,
+    dias_alerta_encargos: 10,
+    moneda_defecto_venta: 'USD',
   };
 
   const categorias: Categoria[] = [
@@ -335,7 +344,11 @@ const api: ApiPuente = {
   },
   productos: {
     list: (filtros) => {
-      let r = db.productos.filter((p) => p.activo);
+      let r = filtros?.soloInactivos
+        ? db.productos.filter((p) => !p.activo)
+        : filtros?.incluirInactivos
+          ? db.productos
+          : db.productos.filter((p) => p.activo);
       if (filtros?.busqueda) {
         const q = filtros.busqueda.toLowerCase();
         r = r.filter(
@@ -414,7 +427,11 @@ const api: ApiPuente = {
       return ok(grupo());
     },
     archivar: (id) => {
-      db.productos = db.productos.filter((p) => p.id !== id);
+      db.productos = db.productos.map((p) => (p.id === id ? { ...p, activo: false } : p));
+      return ok(grupo());
+    },
+    reactivar: (id) => {
+      db.productos = db.productos.map((p) => (p.id === id ? { ...p, activo: true } : p));
       return ok(grupo());
     },
     movimientos: () => ok([]),

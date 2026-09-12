@@ -65,6 +65,8 @@ export interface FiltrosProducto {
   categoria_id?: number;
   soloConStock?: boolean;
   soloBajoStock?: boolean;
+  soloInactivos?: boolean;
+  incluirInactivos?: boolean;
 }
 
 export interface ProductoDoc {
@@ -124,8 +126,18 @@ function margenEfectivo(
 export class ProductosRepoFirestore {
   static async listar(filtros: FiltrosProducto = {}): Promise<ProductoConStock[]> {
     const db = getFirestoreDb();
+    const filtroActivo = filtros.soloInactivos
+      ? where('activo', '==', false)
+      : filtros.incluirInactivos
+        ? undefined
+        : where('activo', '==', true);
+
     const [snap, categorias] = await Promise.all([
-      getDocs(query(collection(db, 'productos'), where('activo', '==', true))),
+      getDocs(
+        filtroActivo
+          ? query(collection(db, 'productos'), filtroActivo)
+          : query(collection(db, 'productos'))
+      ),
       ParametrosRepoFirestore.getCategorias(),
     ]);
 
@@ -767,7 +779,30 @@ export class ProductosRepoFirestore {
       entidad_id: id,
       tipo_evento: 'ACTUALIZACION',
       valor_anterior: anterior,
-      detalle: `Producto '${anterior.nombre}' archivado`,
+      detalle: `Producto '${anterior.nombre}' descatalogado/archivado`,
+    });
+  }
+
+  static async reactivar(id: number, evento_grupo_id: string): Promise<void> {
+    const anterior = await EventosRepoFirestore.snapshot('productos', id);
+    if (!anterior) throw new Error(`El producto #${id} no existe.`);
+
+    await aplicarLote([
+      {
+        coleccion: 'productos',
+        id,
+        datos: { activo: true, actualizado_en: new Date().toISOString() },
+        merge: true,
+      },
+    ]);
+
+    await EventosRepoFirestore.registrarEvento({
+      evento_grupo_id,
+      entidad_tipo: 'productos',
+      entidad_id: id,
+      tipo_evento: 'ACTUALIZACION',
+      valor_anterior: anterior,
+      detalle: `Producto '${anterior.nombre}' reactivado en catálogo activo`,
     });
   }
 

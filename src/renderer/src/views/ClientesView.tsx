@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Users, Plus, Search, Trash2, X, MessageCircle, MapPin, Wallet, ShoppingBag } from 'lucide-react';
-import type { ClienteDetalle, Venta } from '../../../shared/types';
+import type { ClienteDetalle, Venta, ParametrosSistema } from '../../../shared/types';
 import {
   Button,
   Badge,
@@ -18,11 +18,16 @@ import { useToast } from '../context/ToastContext';
 import { formatearMoneda, formatearFecha } from '@core/moneda';
 
 interface ClientesViewProps {
+  parametros?: ParametrosSistema | null;
   onCambio: () => void;
   onVerVenta: (ventaId: number, tipo: 'INVENTARIO' | 'ENCARGO') => void;
 }
 
-export const ClientesView: React.FC<ClientesViewProps> = ({ onCambio, onVerVenta }) => {
+export const ClientesView: React.FC<ClientesViewProps> = ({
+  parametros,
+  onCambio,
+  onVerVenta,
+}) => {
   const { showToast, showUndoToast } = useToast();
 
   const [clientes, setClientes] = useState<ClienteDetalle[]>([]);
@@ -295,7 +300,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({ onCambio, onVerVenta
       </div>
 
       {detalle && (
-        <aside className="w-[410px] border-l border-borde bg-superficie flex flex-col shrink-0 animate-fade-in shadow-xl z-10">
+        <aside className="w-[410px] border-l border-borde bg-superficie flex flex-col shrink-0 animate-drawer shadow-xl z-10">
           {/* Cabecera pegajosa con avatar y botón de cerrar */}
           <div className="p-5 border-b border-borde bg-superficie-2/40 flex items-start justify-between gap-3 shrink-0">
             <div className="flex items-start gap-3 min-w-0">
@@ -320,7 +325,8 @@ export const ClientesView: React.FC<ClientesViewProps> = ({ onCambio, onVerVenta
                     href={enlaceWhatsApp(
                       detalle.telefono,
                       detalle.nombre,
-                      detalle.saldo_pendiente_usd_cents
+                      detalle.saldo_pendiente_usd_cents,
+                      parametros
                     )}
                     target="_blank"
                     rel="noreferrer"
@@ -379,6 +385,25 @@ export const ClientesView: React.FC<ClientesViewProps> = ({ onCambio, onVerVenta
                 )}
               </div>
             </div>
+
+            {detalle.saldo_pendiente_usd_cents > 0 && detalle.telefono && (
+              <div className="pt-1">
+                <a
+                  href={enlaceWhatsApp(
+                    detalle.telefono,
+                    detalle.nombre,
+                    detalle.saldo_pendiente_usd_cents,
+                    parametros
+                  )}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-medium text-caption text-emerald-800 bg-emerald-500/15 border border-emerald-500/30 hover:bg-emerald-500/25 transition-all shadow-2xs active:scale-[0.98]"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  <span>Cobrar saldo pendiente por WhatsApp</span>
+                </a>
+              </div>
+            )}
 
             {detalle.notas && (
               <div className="rounded-xl border border-borde/70 bg-superficie-2/20 p-3.5 shadow-xs">
@@ -580,7 +605,7 @@ const ClienteModal: React.FC<{
     >
       <div
         onKeyDown={alPresionarEnter}
-        className="bg-superficie rounded-2xl shadow-2xl w-full max-w-lg animate-scale-in border border-borde/80 overflow-hidden"
+        className="bg-superficie rounded-2xl shadow-2xl w-full max-w-lg animate-modal-pop border border-borde/80 overflow-hidden"
       >
         <header className="flex items-center justify-between px-5 py-4 border-b border-borde">
           <h3 id="titulo-cliente" className="text-title text-texto">
@@ -645,16 +670,39 @@ const ClienteModal: React.FC<{
  * El teléfono estaba como texto muerto: para cobrar un saldo había que
  * copiarlo, abrir WhatsApp y redactar el mensaje a mano cada vez.
  */
-function enlaceWhatsApp(telefono: string, nombre: string, saldoUsdCents: number): string {
+function enlaceWhatsApp(
+  telefono: string,
+  nombre: string,
+  saldoUsdCents: number,
+  parametros?: ParametrosSistema | null
+): string {
   const soloDigitos = telefono.replace(/\D/g, '');
-  // Ocho dígitos es un número nicaragüense sin código de país.
   const numero = soloDigitos.length === 8 ? `505${soloDigitos}` : soloDigitos;
 
-  const saludo = `Hola ${nombre.split(' ')[0]}`;
-  const texto =
-    saldoUsdCents > 0
-      ? `${saludo}, te escribo por el saldo pendiente de ${formatearMoneda(saldoUsdCents, 'USD')}.`
-      : `${saludo}!`;
+  if (saldoUsdCents <= 0) {
+    return `https://wa.me/${numero}?text=${encodeURIComponent(`Hola ${nombre.split(' ')[0]}!`)}`;
+  }
 
-  return `https://wa.me/${numero}?text=${encodeURIComponent(texto)}`;
+  const saldoUsd = formatearMoneda(saldoUsdCents, 'USD');
+  const tasa = (parametros?.tasa_cambio_cents ?? 3662) / 100;
+  const saldoCs = formatearMoneda(Math.round(saldoUsdCents * tasa), 'COR');
+
+  const cuentasTxt =
+    (parametros?.cuentas_bancarias ?? []).length > 0
+      ? (parametros?.cuentas_bancarias ?? [])
+          .map((cta) => `${cta.banco} (${cta.moneda}): ${cta.numero}${cta.titular ? ' - ' + cta.titular : ''}`)
+          .join('\n')
+      : '';
+
+  let plantilla =
+    parametros?.plantilla_cobro_whatsapp ||
+    'Hola {cliente}, te saludamos de Glow Heaven ✨ Te recordamos que tienes un saldo pendiente de {saldo_usd} ({saldo_cs}). Si ya realizaste tu abono, por favor compártenos el comprobante. ¡Muchas gracias!';
+
+  let mensaje = plantilla
+    .replace(/\{cliente\}/g, nombre)
+    .replace(/\{saldo_usd\}/g, saldoUsd)
+    .replace(/\{saldo_cs\}/g, saldoCs)
+    .replace(/\{cuentas_bancarias\}/g, cuentasTxt ? `\nCuentas bancarias:\n${cuentasTxt}` : '');
+
+  return `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`;
 }

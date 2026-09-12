@@ -71,6 +71,8 @@ export interface FiltrosProducto {
   categoria_id?: number;
   soloConStock?: boolean;
   soloBajoStock?: boolean;
+  soloInactivos?: boolean;
+  incluirInactivos?: boolean;
 }
 
 export interface SimularPrecioInput {
@@ -265,7 +267,7 @@ export interface ApiPuente {
   parametros: {
     get(): Promise<Resultado<ParametrosSistema>>;
     update(
-      valores: Record<string, string | number | boolean>
+      valores: Record<string, unknown>
     ): Promise<Resultado<ConGrupo>>;
     recalcularPrecios(): Promise<Resultado<{ productos: number }>>;
   };
@@ -286,6 +288,7 @@ export interface ApiPuente {
       producto_id?: number
     ): Promise<Resultado<ConGrupo>>;
     archivar(id: number): Promise<Resultado<ConGrupo>>;
+    reactivar(id: number): Promise<Resultado<ConGrupo>>;
     movimientos(producto_id: number): Promise<Resultado<MovimientoInventario[]>>;
     simularPrecio(input: SimularPrecioInput): Promise<Resultado<SimularPrecioOutput>>;
   };

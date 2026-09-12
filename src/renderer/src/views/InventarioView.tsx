@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Package, Plus, Search, SlidersHorizontal, Trash2, History, Boxes, TrendingUp, AlertTriangle, X } from 'lucide-react';
+import { Package, Plus, Search, SlidersHorizontal, Trash2, History, Boxes, TrendingUp, AlertTriangle, X, RotateCcw } from 'lucide-react';
 import type {
   ProductoConStock,
   Categoria,
@@ -34,7 +34,7 @@ interface InventarioViewProps {
   onCambio: () => void;
 }
 
-type Filtro = 'TODOS' | 'CON_STOCK' | 'BAJO_STOCK';
+type Filtro = 'TODOS' | 'CON_STOCK' | 'BAJO_STOCK' | 'AGOTADOS' | 'DESCATALOGADOS';
 
 export const InventarioView: React.FC<InventarioViewProps> = ({
   categorias,
@@ -65,9 +65,17 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
         categoria_id: categoriaFiltro,
         soloConStock: filtro === 'CON_STOCK',
         soloBajoStock: filtro === 'BAJO_STOCK',
+        soloInactivos: filtro === 'DESCATALOGADOS',
       });
-      if (r.success) setProductos(r.data);
-      else showToast({ message: r.error, type: 'error' });
+      if (r.success) {
+        let items = r.data;
+        if (filtro === 'AGOTADOS') {
+          items = items.filter((p) => p.existencias === 0);
+        }
+        setProductos(items);
+      } else {
+        showToast({ message: r.error, type: 'error' });
+      }
     } finally {
       setCargando(false);
     }
@@ -151,7 +159,25 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
       return;
     }
     showUndoToast(
-      `'${p.nombre}' eliminado del inventario`,
+      `'${p.nombre}' descatalogado del catálogo activo`,
+      () => {
+        cargar();
+        onCambio();
+      },
+      r.data.evento_grupo_id
+    );
+    await cargar();
+    onCambio();
+  };
+
+  const reactivar = async (p: ProductoConStock) => {
+    const r = await window.api.productos.reactivar(p.id);
+    if (!r.success) {
+      showToast({ message: r.error, type: 'error' });
+      return;
+    }
+    showUndoToast(
+      `'${p.nombre}' reactivado en el inventario activo`,
       () => {
         cargar();
         onCambio();
@@ -203,14 +229,16 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
       render: (p) => (
         <Badge
           tone={
-            p.existencias === 0
-              ? 'danger'
-              : p.stock_minimo > 0 && p.existencias <= p.stock_minimo
-                ? 'warning'
-                : 'neutral'
+            !p.activo
+              ? 'neutral'
+              : p.existencias === 0
+                ? 'danger'
+                : p.stock_minimo > 0 && p.existencias <= p.stock_minimo
+                  ? 'warning'
+                  : 'neutral'
           }
         >
-          {p.existencias === 0 ? 'Agotado' : `${p.existencias} unid.`}
+          {!p.activo ? 'Descatalogado' : p.existencias === 0 ? 'Agotado' : `${p.existencias} unid.`}
         </Badge>
       ),
     },
@@ -262,50 +290,67 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
       width: '210px',
       render: (p) => (
         <div className="flex items-center justify-end gap-1">
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (p.variantes.length === 1) {
-                setAjustando({
-                  variante_id: p.variantes[0].id,
-                  producto_id: p.id,
-                  nombre: p.nombre,
-                  actual: p.variantes[0].existencias,
-                });
-              } else {
-                setDetalleId(p.id);
-              }
-            }}
-          >
-            <SlidersHorizontal className="w-3.5 h-3.5" />
-            <span>Ajustar</span>
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={(e) => {
-              e.stopPropagation();
-              setProductoEditando(p);
-              setModalAbierto(true);
-            }}
-          >
-            Editar
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            aria-label={`Eliminar ${p.nombre}`}
-            title="Eliminar del inventario"
-            className="text-texto-3 hover:text-danger-600"
-            onClick={(e) => {
-              e.stopPropagation();
-              setArchivando(p);
-            }}
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </Button>
+          {!p.activo ? (
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-emerald-700 bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/20 hover:text-emerald-800 transition-all font-medium rounded-lg shadow-2xs"
+              onClick={(e) => {
+                e.stopPropagation();
+                reactivar(p);
+              }}
+            >
+              <RotateCcw className="w-3.5 h-3.5 mr-1" />
+              <span>Reactivar</span>
+            </Button>
+          ) : (
+            <>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (p.variantes.length === 1) {
+                    setAjustando({
+                      variante_id: p.variantes[0].id,
+                      producto_id: p.id,
+                      nombre: p.nombre,
+                      actual: p.variantes[0].existencias,
+                    });
+                  } else {
+                    setDetalleId(p.id);
+                  }
+                }}
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                <span>Ajustar</span>
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setProductoEditando(p);
+                  setModalAbierto(true);
+                }}
+              >
+                Editar
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                aria-label={`Descatalogar ${p.nombre}`}
+                title="Descatalogar del inventario"
+                className="text-texto-3 hover:text-danger-600"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setArchivando(p);
+                }}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </Button>
+            </>
+          )}
         </div>
       ),
     },
@@ -436,6 +481,8 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
                 { id: 'TODOS', etiqueta: 'Todos' },
                 { id: 'CON_STOCK', etiqueta: 'Con existencias' },
                 { id: 'BAJO_STOCK', etiqueta: 'Por acabarse' },
+                { id: 'AGOTADOS', etiqueta: 'Agotados' },
+                { id: 'DESCATALOGADOS', etiqueta: 'Descatalogados' },
               ] as { id: Filtro; etiqueta: string }[]
             ).map((f) => (
               <button
@@ -443,7 +490,7 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
                 onClick={() => setFiltro(f.id)}
                 aria-pressed={filtro === f.id}
                 className={cn(
-                  'px-3 py-1.5 rounded-lg transition-all text-label focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento',
+                  'px-3 py-1.5 rounded-lg transition-all text-label pill-interactive active:scale-95 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento',
                   filtro === f.id
                     ? 'bg-superficie text-texto font-semibold shadow-xs border border-borde/50'
                     : 'text-texto-3 hover:text-texto hover:bg-superficie/50'
@@ -494,7 +541,7 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
 
       {/* Panel lateral con variantes e historial */}
       {detalle && (
-        <aside className="w-[390px] border-l border-borde bg-superficie flex flex-col shrink-0 animate-fade-in shadow-xl z-10">
+        <aside className="w-[390px] border-l border-borde bg-superficie flex flex-col shrink-0 animate-drawer shadow-xl z-10">
           {/* Cabecera pegajosa con botón de cerrar */}
           <div className="p-5 border-b border-borde bg-superficie-2/40 flex items-start justify-between gap-3 shrink-0">
             <div className="flex items-start gap-3 min-w-0">
@@ -534,6 +581,26 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
               <X className="w-4 h-4" />
             </Button>
           </div>
+
+          {!detalle.activo && (
+            <div className="mx-5 mt-4 p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center justify-between gap-3 shrink-0">
+              <div className="text-caption text-amber-900 min-w-0">
+                <span className="font-semibold block truncate">Producto descatalogado</span>
+                <span className="text-[11px] text-amber-800/90 leading-tight block">
+                  Oculto del inventario activo y protegido en historiales.
+                </span>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-emerald-700 bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/20 hover:text-emerald-800 font-medium shrink-0 rounded-lg"
+                onClick={() => reactivar(detalle)}
+              >
+                <RotateCcw className="w-3.5 h-3.5 mr-1" />
+                <span>Reactivar</span>
+              </Button>
+            </div>
+          )}
 
           <div className="flex-1 overflow-y-auto p-5 space-y-5">
             {detalle.tiene_variantes && (
@@ -629,16 +696,18 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
       <Confirmar
         abierto={archivando !== null}
         peligroso
-        titulo={`¿Eliminar "${archivando?.nombre ?? ''}" del inventario?`}
+        titulo={`¿Descatalogar "${archivando?.nombre ?? ''}"?`}
         consecuencias={[
-          'El producto se eliminará de la lista activa y no estará disponible para ventas.',
+          'El producto se ocultará de la lista activa y no estará disponible para ventas inmediatas.',
+          'Todo el historial de ventas pasadas, ganancias y métricas se mantendrá 100% intacto.',
+          'Podrás reactivarlo en cualquier momento desde la pestaña "Descatalogados" con 1 solo clic.',
           ...(archivando && archivando.existencias > 0
             ? [
-                `Tenés ${archivando.existencias} unidad${archivando.existencias === 1 ? '' : 'es'} en existencia; dejarán de contar como inversión en el inventario.`,
+                `Tenés ${archivando.existencias} unidad${archivando.existencias === 1 ? '' : 'es'} en existencia; dejarán de contar como inversión activa en bodega.`,
               ]
             : []),
         ]}
-        textoConfirmar="Sí, eliminar"
+        textoConfirmar="Sí, descatalogar"
         onConfirmar={() => archivando && archivar(archivando)}
         onCerrar={() => setArchivando(null)}
       />

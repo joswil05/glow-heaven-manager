@@ -161,7 +161,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
     >
       <div
         onKeyDown={alPresionarEnter}
-        className="bg-superficie rounded-2xl shadow-2xl w-full max-w-lg flex flex-col border border-borde/80 overflow-hidden animate-scale-in"
+        className="bg-superficie rounded-2xl shadow-2xl w-full max-w-lg flex flex-col border border-borde/80 overflow-hidden animate-modal-pop"
       >
         {/* Encabezado */}
         <header className="flex items-center justify-between px-6 py-4 border-b border-borde shrink-0 bg-superficie">

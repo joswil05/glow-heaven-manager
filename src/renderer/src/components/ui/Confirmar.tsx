@@ -53,12 +53,12 @@ export const Confirmar: React.FC<ConfirmarProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-velo/50 p-4"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-velo/50 backdrop-blur-xs p-4 animate-fade-in"
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="titulo-confirmar"
     >
-      <div className="bg-superficie rounded-xl shadow-2xl w-full max-w-md">
+      <div className="bg-superficie rounded-xl shadow-2xl w-full max-w-md animate-modal-pop border border-borde">
         <div className="p-5">
           <div className="flex items-start gap-3">
             <div

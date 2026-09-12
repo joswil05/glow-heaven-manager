@@ -18,6 +18,7 @@ export const IPC = {
   PRODUCTOS_ACTUALIZAR: 'productos:actualizar',
   PRODUCTOS_AJUSTAR_STOCK: 'productos:ajustarStock',
   PRODUCTOS_ARCHIVAR: 'productos:archivar',
+  PRODUCTOS_REACTIVAR: 'productos:reactivar',
   PRODUCTOS_MOVIMIENTOS: 'productos:movimientos',
   PRODUCTOS_SIMULAR_PRECIO: 'productos:simularPrecio',
 

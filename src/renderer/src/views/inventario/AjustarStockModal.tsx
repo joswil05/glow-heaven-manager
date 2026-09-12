@@ -62,7 +62,7 @@ export const AjustarStockModal: React.FC<Props> = ({ ajuste, onCerrar, onConfirm
       aria-modal="true"
       aria-labelledby="titulo-ajuste"
     >
-      <form onSubmit={enviar} className="bg-superficie rounded-2xl shadow-2xl w-full max-w-sm border border-borde animate-scale-in overflow-hidden">
+      <form onSubmit={enviar} className="bg-superficie rounded-2xl shadow-2xl w-full max-w-sm border border-borde animate-modal-pop overflow-hidden">
         <div className="p-6 space-y-4">
           <div>
             <h3 id="titulo-ajuste" className="text-title font-bold text-texto tracking-tight">

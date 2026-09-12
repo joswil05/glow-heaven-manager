@@ -1,6 +1,6 @@
 {
   "name": "glow-heaven-manager",
-  "version": "2.0.7",
+  "version": "2.0.8",
   "type": "module",
   "description": "Herramienta de gestión interna para personal shopping e importación",
   "main": "dist-electron/main/index.js",

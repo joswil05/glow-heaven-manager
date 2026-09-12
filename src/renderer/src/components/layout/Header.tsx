@@ -48,7 +48,7 @@ export const Header: React.FC<HeaderProps> = ({
               title={cargando ? 'Actualizando datos del sistema...' : 'Actualizar datos ahora'}
               aria-label="Actualizar datos del sistema"
               className={cn(
-                'p-0.5 rounded text-texto-3 hover:text-texto hover:bg-superficie transition-all cursor-pointer group',
+                'p-0.5 rounded text-texto-3 hover:text-texto hover:bg-superficie transition-all active:scale-90 cursor-pointer group',
                 cargando && 'cursor-not-allowed opacity-70'
               )}
             >

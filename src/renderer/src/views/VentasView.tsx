@@ -9,6 +9,8 @@ import {
   TrendingUp,
   Wallet,
   X,
+  MessageCircle,
+  Calendar,
 } from 'lucide-react';
 import type {
   Venta,
@@ -62,6 +64,7 @@ const ESTADO_TEXTO: Record<EstadoVenta, string> = {
 };
 
 type Filtro = 'TODAS' | 'CON_SALDO' | 'PENDIENTES' | 'ENTREGADAS';
+type Periodo = 'TODOS' | 'ESTE_MES' | 'MES_ANTERIOR' | 'ESTE_ANO';
 
 export const VentasView: React.FC<VentasViewProps> = ({
   tipo,
@@ -78,6 +81,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
   const [ventas, setVentas] = useState<Venta[]>([]);
   const [cargando, setCargando] = useState(true);
   const [filtro, setFiltro] = useState<Filtro>('TODAS');
+  const [periodo, setPeriodo] = useState<Periodo>('TODOS');
   const [editorAbierto, setEditorAbierto] = useState(abrirEditorAlEntrar);
   const [ventaDetalle, setVentaDetalle] = useState<VentaCompleta | null>(null);
   const [pagoAbierto, setPagoAbierto] = useState(false);
@@ -122,8 +126,25 @@ export const VentasView: React.FC<VentasViewProps> = ({
     if (ventaInicialId) abrirDetalle(ventaInicialId);
   }, [ventaInicialId, abrirDetalle]);
 
+  const ventasPeriodo = useMemo(() => {
+    if (periodo === 'TODOS') return ventas;
+    const now = new Date();
+    const esteMes = now.toISOString().slice(0, 7);
+    const mesPasadoDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const mesPasado = `${mesPasadoDate.getFullYear()}-${String(mesPasadoDate.getMonth() + 1).padStart(2, '0')}`;
+    const esteAno = String(now.getFullYear());
+
+    return ventas.filter((v) => {
+      const fecha = (v.fecha || '').slice(0, 10);
+      if (periodo === 'ESTE_MES') return fecha.startsWith(esteMes);
+      if (periodo === 'MES_ANTERIOR') return fecha.startsWith(mesPasado);
+      if (periodo === 'ESTE_ANO') return fecha.startsWith(esteAno);
+      return true;
+    });
+  }, [ventas, periodo]);
+
   const totales = useMemo(() => {
-    const activas = ventas.filter((v) => v.estado !== 'CANCELADA');
+    const activas = ventasPeriodo.filter((v) => v.estado !== 'CANCELADA');
     return {
       vendido: activas.reduce((a, v) => a + v.total_usd_cents, 0),
       ganancia: activas
@@ -131,7 +152,39 @@ export const VentasView: React.FC<VentasViewProps> = ({
         .reduce((a, v) => a + v.ganancia_usd_cents, 0),
       porCobrar: activas.reduce((a, v) => a + Math.max(0, v.saldo_usd_cents), 0),
     };
-  }, [ventas]);
+  }, [ventasPeriodo]);
+
+  const enviarCobroWhatsApp = (v: VentaCompleta) => {
+    const cliente = clientes.find((c) => c.id === v.cliente_id);
+    const telefonoRaw = cliente?.telefono ?? '';
+    const telefono = telefonoRaw.replace(/\D/g, '');
+    const saldoUsd = formatearMoneda(v.saldo_usd_cents, 'USD');
+    const tasa = (parametros?.tasa_cambio_cents ?? 3662) / 100;
+    const saldoCs = formatearMoneda(Math.round(v.saldo_usd_cents * tasa), 'COR');
+
+    const cuentasTxt =
+      (parametros?.cuentas_bancarias ?? []).length > 0
+        ? (parametros?.cuentas_bancarias ?? [])
+            .map((c) => `${c.banco} (${c.moneda}): ${c.numero}${c.titular ? ' - ' + c.titular : ''}`)
+            .join('\n')
+        : '';
+
+    let plantilla =
+      parametros?.plantilla_cobro_whatsapp ||
+      'Hola {cliente}, te saludamos de Glow Heaven ✨ Te recordamos que tienes un saldo pendiente de {saldo_usd} ({saldo_cs}). Si ya realizaste tu abono, por favor compártenos el comprobante. ¡Muchas gracias!';
+
+    let mensaje = plantilla
+      .replace(/\{cliente\}/g, v.cliente_nombre ?? 'Estimada clienta')
+      .replace(/\{saldo_usd\}/g, saldoUsd)
+      .replace(/\{saldo_cs\}/g, saldoCs)
+      .replace(/\{cuentas_bancarias\}/g, cuentasTxt ? `\nCuentas bancarias:\n${cuentasTxt}` : '');
+
+    const url = telefono
+      ? `https://wa.me/505${telefono.startsWith('505') ? telefono.slice(3) : telefono}?text=${encodeURIComponent(mensaje)}`
+      : `https://wa.me/?text=${encodeURIComponent(mensaje)}`;
+
+    window.open(url, '_blank');
+  };
 
   const cambiarEstado = async (v: Venta, estado: EstadoVenta) => {
     const r = await window.api.ventas.cambiarEstado(v.id, estado);
@@ -320,45 +373,78 @@ export const VentasView: React.FC<VentasViewProps> = ({
           />
         </div>
 
-        <div className="inline-flex items-center p-1 bg-superficie-2/80 rounded-xl border border-borde/70 text-caption font-medium w-fit">
-          {filtros.map((f) => (
-            <button
-              key={f.id}
-              onClick={() => setFiltro(f.id)}
-              aria-pressed={filtro === f.id}
-              className={cn(
-                'px-3.5 py-1.5 rounded-lg transition-all text-label focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento',
-                filtro === f.id
-                  ? 'bg-superficie text-texto font-semibold shadow-xs border border-borde/50'
-                  : 'text-texto-3 hover:text-texto hover:bg-superficie/50'
-              )}
-            >
-              {f.etiqueta}
-            </button>
-          ))}
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          {/* Filtro por estado operativo */}
+          <div className="inline-flex items-center p-1 bg-superficie-2/80 rounded-xl border border-borde/70 text-caption font-medium w-fit">
+            {filtros.map((f) => (
+              <button
+                key={f.id}
+                onClick={() => setFiltro(f.id)}
+                aria-pressed={filtro === f.id}
+                className={cn(
+                  'px-3.5 py-1.5 rounded-lg transition-all text-label pill-interactive active:scale-95 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento',
+                  filtro === f.id
+                    ? 'bg-superficie text-texto font-semibold shadow-xs border border-borde/50'
+                    : 'text-texto-3 hover:text-texto hover:bg-superficie/50'
+                )}
+              >
+                {f.etiqueta}
+              </button>
+            ))}
+          </div>
+
+          {/* Selector Histórico de Período */}
+          <div className="inline-flex items-center gap-1.5 p-1 bg-superficie-2/80 rounded-xl border border-borde/70 text-caption font-medium">
+            <span className="text-[11px] text-texto-3 pl-2 pr-1 font-semibold flex items-center gap-1">
+              <Calendar className="w-3.5 h-3.5" />
+              Período:
+            </span>
+            {(
+              [
+                { id: 'TODOS', etiqueta: 'Todo' },
+                { id: 'ESTE_MES', etiqueta: 'Este mes' },
+                { id: 'MES_ANTERIOR', etiqueta: 'Mes anterior' },
+                { id: 'ESTE_ANO', etiqueta: 'Año actual' },
+              ] as { id: Periodo; etiqueta: string }[]
+            ).map((p) => (
+              <button
+                key={p.id}
+                onClick={() => setPeriodo(p.id)}
+                aria-pressed={periodo === p.id}
+                className={cn(
+                  'px-2.5 py-1 rounded-lg transition-all text-label pill-interactive active:scale-95 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento text-xs',
+                  periodo === p.id
+                    ? 'bg-superficie text-texto font-semibold shadow-xs border border-borde/50'
+                    : 'text-texto-3 hover:text-texto hover:bg-superficie/50'
+                )}
+              >
+                {p.etiqueta}
+              </button>
+            ))}
+          </div>
         </div>
 
         {cargando ? (
           <div className="p-12 text-center text-body text-texto-3">Cargando...</div>
-        ) : ventas.length === 0 ? (
+        ) : ventasPeriodo.length === 0 ? (
           <EmptyState
             icon={esEncargo ? ClipboardList : ShoppingBag}
             title={
-              filtro !== 'TODAS'
-                ? 'Nada con ese filtro'
+              filtro !== 'TODAS' || periodo !== 'TODOS'
+                ? 'Nada con esos filtros'
                 : esEncargo
                   ? 'Todavía no hay encargos'
                   : 'Todavía no hay ventas'
             }
             description={
-              filtro !== 'TODAS'
-                ? 'Probá con otro filtro.'
+              filtro !== 'TODAS' || periodo !== 'TODOS'
+                ? 'Probá cambiando el período o quitando los filtros.'
                 : esEncargo
                   ? 'Un encargo es un pedido especial: cotizás, cobrás anticipo, comprás y entregás.'
                   : 'Registrá tu primera venta del inventario. Las existencias se descuentan solas.'
             }
             action={
-              filtro === 'TODAS' ? (
+              filtro === 'TODAS' && periodo === 'TODOS' ? (
                 <Button variant="primary" onClick={() => setEditorAbierto(true)}>
                   <Plus className="w-4 h-4" />
                   <span>{esEncargo ? 'Registrar encargo' : 'Registrar venta'}</span>
@@ -369,7 +455,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
         ) : (
           <DataTable
             columns={columnas}
-            rows={ventas}
+            rows={ventasPeriodo}
             rowKey={(v) => v.id}
             selectedKey={ventaDetalle?.id}
             onRowClick={(v) =>
@@ -380,7 +466,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
       </div>
 
       {ventaDetalle && (
-        <aside className="w-[410px] border-l border-borde bg-superficie flex flex-col shrink-0 animate-fade-in shadow-xl z-10">
+        <aside className="w-[410px] border-l border-borde bg-superficie flex flex-col shrink-0 animate-drawer shadow-xl z-10">
           {/* Cabecera pegajosa con botón de cerrar */}
           <div className="p-5 border-b border-borde bg-superficie-2/40 flex items-start justify-between gap-3 shrink-0">
             <div className="flex items-start gap-3 min-w-0">
@@ -500,14 +586,26 @@ export const VentasView: React.FC<VentasViewProps> = ({
             {/* Acciones principales */}
             <div className="space-y-2.5 pt-1">
               {ventaDetalle.estado !== 'CANCELADA' && ventaDetalle.saldo_usd_cents > 0 && (
-                <Button
-                  variant="primary"
-                  className="w-full shadow-xs"
-                  onClick={() => setPagoAbierto(true)}
-                >
-                  <DollarSign className="w-4 h-4" />
-                  <span>Registrar abono</span>
-                </Button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <Button
+                    variant="primary"
+                    className="w-full shadow-xs"
+                    onClick={() => setPagoAbierto(true)}
+                  >
+                    <DollarSign className="w-4 h-4" />
+                    <span>Registrar abono</span>
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    className="w-full text-emerald-700 bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/20 hover:text-emerald-800 font-medium"
+                    onClick={() => enviarCobroWhatsApp(ventaDetalle)}
+                    title="Enviar recordatorio con cuentas bancarias por WhatsApp"
+                  >
+                    <MessageCircle className="w-4 h-4 mr-1.5" />
+                    <span>WhatsApp</span>
+                  </Button>
+                </div>
               )}
 
               {ventaDetalle.estado === 'PENDIENTE' && (

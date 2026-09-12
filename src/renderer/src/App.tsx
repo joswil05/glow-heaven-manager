@@ -258,58 +258,61 @@ export const App: React.FC = () => {
           />
 
           <main className="flex-1 flex overflow-hidden">
-            {tab === 'panel' && (
-              <PanelView
-                data={panel}
-                loading={cargando}
-                onNavegar={navegarDesdePanel}
-                onNuevaVenta={() => irA('ventas', undefined, true)}
-                onNuevoPaquete={() => irA('paquetes', undefined, true)}
-              />
-            )}
+            <div key={tab} className="flex-1 flex overflow-hidden view-fade-slide">
+              {tab === 'panel' && (
+                <PanelView
+                  data={panel}
+                  loading={cargando}
+                  onNavegar={navegarDesdePanel}
+                  onNuevaVenta={() => irA('ventas', undefined, true)}
+                  onNuevoPaquete={() => irA('paquetes', undefined, true)}
+                />
+              )}
 
-            {tab === 'inventario' && (
-              <InventarioView
-                categorias={categorias}
-                parametros={parametros}
-                productoInicialId={productoSeleccionado}
-                onCambio={cargar}
-              />
-            )}
+              {tab === 'inventario' && (
+                <InventarioView
+                  categorias={categorias}
+                  parametros={parametros}
+                  productoInicialId={productoSeleccionado}
+                  onCambio={cargar}
+                />
+              )}
 
-            {tab === 'paquetes' && (
-              <PaquetesView
-                parametros={parametros}
-                abrirEditorAlEntrar={abrirEditor === 'paquetes'}
-                onCambio={cargar}
-              />
-            )}
+              {tab === 'paquetes' && (
+                <PaquetesView
+                  parametros={parametros}
+                  abrirEditorAlEntrar={abrirEditor === 'paquetes'}
+                  onCambio={cargar}
+                />
+              )}
 
-            {(tab === 'ventas' || tab === 'encargos') && (
-              <VentasView
-                key={tab}
-                tipo={tab === 'encargos' ? 'ENCARGO' : 'INVENTARIO'}
-                productos={productos}
-                clientes={clientes}
-                parametros={parametros}
-                ventaInicialId={ventaSeleccionada}
-                abrirEditorAlEntrar={abrirEditor === tab}
-                onCambio={cargar}
-              />
-            )}
+              {(tab === 'ventas' || tab === 'encargos') && (
+                <VentasView
+                  key={tab}
+                  tipo={tab === 'encargos' ? 'ENCARGO' : 'INVENTARIO'}
+                  productos={productos}
+                  clientes={clientes}
+                  parametros={parametros}
+                  ventaInicialId={ventaSeleccionada}
+                  abrirEditorAlEntrar={abrirEditor === tab}
+                  onCambio={cargar}
+                />
+              )}
 
-            {tab === 'clientes' && (
-              <ClientesView
-                onCambio={cargar}
-                onVerVenta={(id, tipoVenta) =>
-                  irA(tipoVenta === 'ENCARGO' ? 'encargos' : 'ventas', id)
-                }
-              />
-            )}
+              {tab === 'clientes' && (
+                <ClientesView
+                  parametros={parametros}
+                  onCambio={cargar}
+                  onVerVenta={(id, tipoVenta) =>
+                    irA(tipoVenta === 'ENCARGO' ? 'encargos' : 'ventas', id)
+                  }
+                />
+              )}
 
-            {tab === 'config' && (
-              <ConfigView parametros={parametros} categorias={categorias} onCambio={cargar} />
-            )}
+              {tab === 'config' && (
+                <ConfigView parametros={parametros} categorias={categorias} onCambio={cargar} />
+              )}
+            </div>
           </main>
         </div>
       </div>

@@ -23,6 +23,14 @@ export type TipoMovimiento = 'ENTRADA' | 'SALIDA' | 'AJUSTE';
 // Configuración
 // ---------------------------------------------------------------------------
 
+export interface CuentaBancaria {
+  banco: string; // BAC, LAFISE, Banpro, BDF, etc.
+  moneda: 'USD' | 'NIO';
+  numero: string;
+  titular?: string;
+  tipo?: string; // Corriente, Ahorros
+}
+
 export interface ParametrosSistema {
   /** Córdobas por dólar, en centavos. 3662 = C$36.62. Solo para mostrar. */
   tasa_cambio_cents: number;
@@ -42,6 +50,13 @@ export interface ParametrosSistema {
   telefono_negocio: string;
   onboarding_completado: boolean;
   pin_seguridad?: string;
+
+  // Nuevas configuraciones de confort y cobranza
+  plantilla_cobro_whatsapp?: string;
+  cuentas_bancarias?: CuentaBancaria[];
+  dias_alerta_mora?: number;
+  dias_alerta_encargos?: number;
+  moneda_defecto_venta?: 'USD' | 'NIO';
 }
 
 export interface Categoria {

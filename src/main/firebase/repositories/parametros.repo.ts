@@ -8,7 +8,7 @@ import {
 } from '../client';
 import { esPasoRedondeoValido, calcularPrecio } from '../../../core/precios';
 import { EventosRepoFirestore } from './eventos.repo';
-import type { ParametrosSistema, Categoria, ModoPrecio } from '../../../shared/types';
+import type { ParametrosSistema, Categoria, ModoPrecio, CuentaBancaria } from '../../../shared/types';
 
 export interface CategoriaInput {
   id?: number;
@@ -28,6 +28,11 @@ const DEFECTOS: Record<string, string> = {
   nombre_negocio: 'Glow Heaven',
   telefono_negocio: '',
   onboarding_completado: '0',
+  plantilla_cobro_whatsapp:
+    'Hola {cliente}, te saludamos de Glow Heaven ✨ Te recordamos que tienes un saldo pendiente de {saldo_usd} ({saldo_cs}). Si ya realizaste tu abono, por favor compártenos el comprobante. ¡Muchas gracias!',
+  dias_alerta_mora: '15',
+  dias_alerta_encargos: '10',
+  moneda_defecto_venta: 'USD',
 };
 
 /**
@@ -90,6 +95,15 @@ export class ParametrosRepoFirestore {
       telefono_negocio: texto('telefono_negocio'),
       onboarding_completado: booleano('onboarding_completado'),
       pin_seguridad: data?.pin_seguridad ? String(data.pin_seguridad) : undefined,
+      plantilla_cobro_whatsapp: data?.plantilla_cobro_whatsapp
+        ? String(data.plantilla_cobro_whatsapp)
+        : DEFECTOS.plantilla_cobro_whatsapp,
+      cuentas_bancarias: Array.isArray(data?.cuentas_bancarias)
+        ? (data!.cuentas_bancarias as CuentaBancaria[])
+        : [],
+      dias_alerta_mora: entero('dias_alerta_mora') || 15,
+      dias_alerta_encargos: entero('dias_alerta_encargos') || 10,
+      moneda_defecto_venta: data?.moneda_defecto_venta === 'NIO' ? 'NIO' : 'USD',
     };
 
     cacheParametros = { valor, expira: Date.now() + TTL_CACHE_MS };
@@ -97,7 +111,7 @@ export class ParametrosRepoFirestore {
   }
 
   static async actualizar(
-    valores: Record<string, string | number | boolean>,
+    valores: Record<string, unknown>,
     evento_grupo_id: string
   ): Promise<void> {
     if (valores.paso_redondeo_usd_cents !== undefined) {
