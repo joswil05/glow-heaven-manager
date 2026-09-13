@@ -92,18 +92,27 @@
        --superficie   tarjetas
        --superficie-2 campos y chips dentro de una tarjeta
        --superficie-3 hojas, menús y el dock: lo que flota sobre todo */
-  --fondo: 9 13 22;
-  --superficie: 21 29 45;
-  --superficie-2: 31 41 60;
-  --superficie-3: 43 55 77;
+  /* Los neutros son GRISES, no azules. El "slate" de Tailwind que había
+     antes traía 13 a 16 puntos de azul dentro de cada gris, y eso enfriaba
+     toda la app y peleaba con una marca de maquillaje cuyo logo es cálido.
+     Acá el desvío es de 1 a 3 puntos, y hacia lo cálido en vez de lo frío:
+     imperceptible como color, pero evita el gris de morgue.
+
+     Que los neutros no tengan cromacidad es lo que hace sonar al verde: si
+     es el único color saturado de la pantalla, no necesita gritar para que
+     lo veas. */
+  --fondo: 11 10 10;
+  --superficie: 22 21 21;
+  --superficie-2: 32 31 30;
+  --superficie-3: 44 42 41;
   /* Sin sombras, el borde es lo único que define una superficie: pesa más. */
-  --borde: 52 66 88;
-  --borde-fuerte: 74 89 112;
+  --borde: 48 46 45;
+  --borde-fuerte: 73 70 68;
 
   /* Blanco puro sobre casi negro produce halo y cansa: se baja un punto. */
-  --texto: 232 237 245;
-  --texto-2: 159 173 191;
-  --texto-3: 131 146 167;
+  --texto: 246 245 244;
+  --texto-2: 172 169 166;
+  --texto-3: 142 139 136;
 
   /* Un verde saturado sobre casi negro vibra y el ojo no lo enfoca: en
      oscuro el acento sube en luz y baja en saturación. Y al ser claro, su
@@ -123,10 +132,10 @@
   --peligro-fuerte: 253 164 175;
   --peligro-suave: 66 12 26;
 
-  --inverso: 232 237 245;
-  --inverso-2: 213 222 235;
-  --inverso-texto: 9 13 22;
-  --inverso-texto-2: 71 85 105;
+  --inverso: 246 245 244;
+  --inverso-2: 224 222 220;
+  --inverso-texto: 11 10 10;
+  --inverso-texto-2: 90 87 84;
   --velo: 0 0 0;
 
   /* En oscuro la sombra ya no es quien eleva (eso lo hace --superficie-N),
