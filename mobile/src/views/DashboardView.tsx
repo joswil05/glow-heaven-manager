@@ -24,6 +24,7 @@ import {
 import { MoneyDual } from '../components/MoneyDual';
 import { BottomSheet } from '../components/BottomSheet';
 import { useAuth } from '../context/AuthContext';
+import { useDatosNegocio } from '../context/DataContext';
 import { useTheme } from '../context/ThemeContext';
 import { PullToRefresh } from '../components/PullToRefresh';
 import { haptics } from '../lib/haptics';
@@ -45,6 +46,7 @@ export function DashboardView({
   onIrAInventario?: () => void;
 }) {
   const { usuario, salir } = useAuth();
+  const { version } = useDatosNegocio();
   const { theme, effectiveTheme, toggleTheme } = useTheme();
   const isDark = effectiveTheme === 'dark';
 
@@ -82,9 +84,12 @@ export function DashboardView({
     }
   }, []);
 
+  // `version` sube con cada venta, abono o ajuste hecho en cualquier pestaña.
+  // Las cuatro vistas viven montadas a la vez, así que sin esto el efecto
+  // corría una sola vez en toda la sesión y el panel quedaba congelado.
   useEffect(() => {
-    cargar(false);
-  }, [cargar]);
+    cargar(version > 0);
+  }, [cargar, version]);
 
   const cuentasPorCobrar = panel?.por_cobrar ?? [];
   const cuotasVencidas = cuentasPorCobrar.filter((f) => f.cuotas_vencidas > 0);

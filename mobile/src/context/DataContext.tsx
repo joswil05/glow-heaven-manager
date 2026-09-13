@@ -3,6 +3,7 @@ import type { ParametrosSistema, ProductoConStock, Categoria } from '@shared/typ
 import { ParametrosRepoFirestore } from '@repos/parametros.repo';
 import { ProductosRepoFirestore } from '@repos/productos.repo';
 import { useAuth } from './AuthContext';
+import { invalidarCacheDashboard } from '../lib/panel-movil';
 
 interface DataState {
   parametros: ParametrosSistema | null;
@@ -22,6 +23,19 @@ interface DataState {
   recargar: () => Promise<void>;
   recargarProductos: (forzar?: boolean) => Promise<void>;
   actualizarStockLocal: (lineas: { producto_id: number; variante_id?: number; cantidad: number }[]) => void;
+  /**
+   * Contador que sube con cada escritura (venta, abono, ajuste). Las vistas
+   * lo ponen en las dependencias de su efecto de carga y asi vuelven a pedir
+   * datos solas.
+   *
+   * Hace falta porque las cuatro vistas del celular estan montadas TODAS a la
+   * vez (App.tsx las oculta con `hidden`, no las desmonta), asi que su efecto
+   * de carga corria una unica vez en toda la sesion: registrabas un abono y
+   * el Inicio seguia mostrando el saldo viejo hasta recargar la app.
+   */
+  version: number;
+  /** Avisar que algo se escribio: todas las vistas se actualizan. */
+  marcarCambio: () => void;
 }
 
 const DEFAULT_PARAMS: ParametrosSistema = {
@@ -117,6 +131,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
+  const [version, setVersion] = useState(0);
+  const marcarCambio = useCallback(() => {
+    invalidarCacheDashboard();
+    setVersion((v) => v + 1);
+  }, []);
+
   useEffect(() => {
     if (usuario) {
       recargarParametros();
@@ -140,6 +160,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         recargar: recargarParametros,
         recargarProductos,
         actualizarStockLocal,
+        version,
+        marcarCambio,
       }}
     >
       {children}

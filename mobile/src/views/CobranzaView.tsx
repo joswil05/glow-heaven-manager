@@ -25,7 +25,7 @@ import { haptics } from '../lib/haptics';
 import { useScrollReveal } from '../lib/useScrollReveal';
 
 export function CobranzaView() {
-  const { parametros } = useDatosNegocio();
+  const { parametros, version, marcarCambio } = useDatosNegocio();
   const tasa = parametros?.tasa_cambio_cents ?? 3662;
 
   const [cuentas, setCuentas] = useState<FilaPorCobrar[]>(cacheDashboardGlobal.panel?.por_cobrar ?? []);
@@ -61,8 +61,8 @@ export function CobranzaView() {
   }, []);
 
   useEffect(() => {
-    cargar(false);
-  }, [cargar]);
+    cargar(version > 0);
+  }, [cargar, version]);
 
   // Cálculos consolidados
   const totalPorCobrarUsd = useMemo(
@@ -419,8 +419,9 @@ export function CobranzaView() {
           // Actualización optimista local
           if (ventaParaCobrar) {
             setCuentas((prev) => prev.filter((c) => c.venta_id !== ventaParaCobrar.venta_id));
-            invalidarCacheDashboard();
           }
+          // Avisa a las demás pestañas: el Inicio mostraba el saldo viejo.
+          marcarCambio();
           cargar(true);
         }}
       />
@@ -454,6 +455,10 @@ export function CobranzaView() {
       />
 
       <KardexClienteSheet
+        onCambio={() => {
+          marcarCambio();
+          cargar(true);
+        }}
         cliente={clienteParaKardex}
         abierto={Boolean(clienteParaKardex)}
         onCerrar={() => setClienteParaKardex(null)}

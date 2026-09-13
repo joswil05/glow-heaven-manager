@@ -48,7 +48,7 @@ function etiquetaVariante(v: ProductoVariante): string {
 }
 
 export function QuickSaleView() {
-  const { parametros, categorias, productos: todosProductos, cargandoProductos, actualizarStockLocal } = useDatosNegocio();
+  const { parametros, categorias, productos: todosProductos, cargandoProductos, actualizarStockLocal, marcarCambio } = useDatosNegocio();
   const { mostrar } = useSnackbar();
   const tasa = parametros?.tasa_cambio_cents ?? 3662;
 
@@ -269,6 +269,10 @@ export function QuickSaleView() {
       );
 
       // Descontar existencias inmediatamente en el estado global
+      // Una venta cambia el panel, las cuentas por cobrar y el stock. Sin
+      // este aviso, el Inicio seguia mostrando el total de ayer hasta
+      // recargar la app entera.
+      marcarCambio();
       actualizarStockLocal(
         carrito.map((l) => ({
           producto_id: l.producto.id,
