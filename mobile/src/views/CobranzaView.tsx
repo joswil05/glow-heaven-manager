@@ -107,22 +107,26 @@ export function CobranzaView() {
     <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#f8fafc] dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 transition-colors">
       {/* Top App Bar fija */}
       <header className="shrink-0 z-20 bg-white/95 dark:bg-[#121826]/95 backdrop-blur-md border-b border-slate-200/60 dark:border-slate-800/80 pt-safe-t px-4 pb-2 shadow-[0_1px_3px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.3)] transition-colors">
-        <div className="flex items-center justify-between py-1.5">
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-200/60 dark:border-amber-800/50">
+        <div className="flex items-center justify-between gap-2 py-1.5">
+          {/* Mismo molde que las otras 3 pantallas: ícono + "Glow Heaven" +
+              título en una sola línea. Antes esta pantalla era la única sin
+              el eyebrow de marca, y repetía el conteo de cuentas dos veces
+              (aquí y en el tab "Todas" de abajo) — se quitó la duplicación. */}
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-200/60 dark:border-amber-800/50">
               <HandCoins size={18} />
             </span>
-            <div>
-              <h1 className="text-title font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight">
+            <div className="min-w-0">
+              <span className="text-caption font-bold tracking-widest uppercase text-emerald-700 dark:text-emerald-400 block leading-none mb-0.5">
+                Glow Heaven
+              </span>
+              <h1 className="text-title font-extrabold text-slate-900 dark:text-white leading-tight truncate">
                 Cobranza y Abonos
               </h1>
-              <p className="text-caption text-slate-500 dark:text-slate-400 font-medium">
-                {cuentas.length} {cuentas.length === 1 ? 'cuenta pendiente' : 'cuentas pendientes'}
-              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
               type="button"
               onClick={() => {

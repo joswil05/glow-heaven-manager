@@ -96,8 +96,8 @@ export function DashboardView({
     <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#f8fafc] dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 transition-colors">
       {/* Top App Bar fija y limpia */}
       <header className="shrink-0 z-20 bg-white/95 dark:bg-[#121826]/95 backdrop-blur-md border-b border-slate-200/60 dark:border-slate-800/80 pt-safe-t px-4 pb-2 shadow-[0_1px_3px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.3)] transition-colors">
-        <div className="flex items-center justify-between py-1.5">
-          <div className="flex items-center gap-2.5">
+        <div className="flex items-center justify-between gap-2 py-1.5">
+          <div className="flex min-w-0 items-center gap-2.5">
             {/* Avatar: mismo tamaño (36px) que el ícono de sección de las
                 otras 3 pantallas, redondo en vez de cuadrado porque es una
                 persona, no una categoría — para que el encabezado se sienta
@@ -118,17 +118,17 @@ export function DashboardView({
                 </div>
               )}
             </div>
-            <div>
+            <div className="min-w-0">
               <span className="text-caption font-bold tracking-widest uppercase text-emerald-700 dark:text-emerald-400 block leading-none mb-0.5">
                 Glow Heaven
               </span>
-              <h1 className="text-title font-extrabold text-slate-900 dark:text-white leading-tight">
+              <h1 className="text-title font-extrabold text-slate-900 dark:text-white leading-tight truncate">
                 {usuario?.displayName?.split(' ')[0] || 'Mi Negocio'}
               </h1>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 shrink-0">
             {/* Toggle de Modo Oscuro / Claro / Sistema */}
             <button
               type="button"

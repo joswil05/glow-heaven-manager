@@ -354,16 +354,16 @@ export function QuickSaleView() {
     <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#f8fafc] dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 transition-colors">
       {/* Top App Bar de Venta Rápida: mismo molde que el resto de la app */}
       <header className="shrink-0 z-20 bg-white/95 dark:bg-[#121826]/95 backdrop-blur-md border-b border-slate-200/60 dark:border-slate-800/80 pt-safe-t px-4 pb-2 shadow-[0_1px_3px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.3)] transition-colors">
-        <div className="flex items-center justify-between py-1.5">
-          <div className="flex items-center gap-2.5">
+        <div className="flex items-center justify-between gap-2 py-1.5">
+          <div className="flex min-w-0 items-center gap-2.5">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/50">
               <ShoppingCart size={18} />
             </span>
-            <div>
+            <div className="min-w-0">
               <span className="text-caption font-bold tracking-widest uppercase text-emerald-700 dark:text-emerald-400 block leading-none mb-0.5">
                 Glow Heaven
               </span>
-              <h1 className="text-title font-extrabold text-slate-900 dark:text-white leading-tight">Venta Rápida</h1>
+              <h1 className="text-title font-extrabold text-slate-900 dark:text-white leading-tight truncate">Venta Rápida</h1>
             </div>
           </div>
           {clienteSeleccionado ? (
@@ -437,42 +437,47 @@ export function QuickSaleView() {
           )}
         </div>
 
-        {/* Chips de categorías: las mismas categorías reales de Windows */}
-        <div className="flex items-center gap-1.5 mt-2 overflow-x-auto sin-scrollbar py-0.5">
-          <button
-            type="button"
-            onClick={() => {
-              haptics.selection();
-              setCategoriaActiva(null);
-            }}
-            className={`m3-press shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
-              categoriaActiva === null
-                ? 'bg-emerald-700 dark:bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-800 dark:ring-emerald-500'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200/70 dark:hover:bg-slate-700 border border-slate-200/60 dark:border-slate-700'
-            }`}
-          >
-            Todos
-          </button>
-          {categorias.map((cat) => {
-            const activa = categoriaActiva === cat.id;
-            return (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => {
-                  haptics.selection();
-                  setCategoriaActiva(cat.id);
-                }}
-                className={`m3-press shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                  activa
-                    ? 'bg-emerald-700 dark:bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-800 dark:ring-emerald-500'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200/70 dark:hover:bg-slate-700 border border-slate-200/60 dark:border-slate-700'
-                }`}
-              >
-                {cat.nombre}
-              </button>
-            );
-          })}
+        {/* Chips de categorías: las mismas categorías reales de Windows.
+            El degradado a la derecha avisa que hay más chips fuera de
+            vista en vez de cortarlos en seco contra el borde. */}
+        <div className="relative mt-2">
+          <div className="flex items-center gap-1.5 overflow-x-auto sin-scrollbar py-0.5 pr-6">
+            <button
+              type="button"
+              onClick={() => {
+                haptics.selection();
+                setCategoriaActiva(null);
+              }}
+              className={`m3-press shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                categoriaActiva === null
+                  ? 'bg-emerald-700 dark:bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-800 dark:ring-emerald-500'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200/70 dark:hover:bg-slate-700 border border-slate-200/60 dark:border-slate-700'
+              }`}
+            >
+              Todos
+            </button>
+            {categorias.map((cat) => {
+              const activa = categoriaActiva === cat.id;
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => {
+                    haptics.selection();
+                    setCategoriaActiva(cat.id);
+                  }}
+                  className={`m3-press shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                    activa
+                      ? 'bg-emerald-700 dark:bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-800 dark:ring-emerald-500'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200/70 dark:hover:bg-slate-700 border border-slate-200/60 dark:border-slate-700'
+                  }`}
+                >
+                  {cat.nombre}
+                </button>
+              );
+            })}
+          </div>
+          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white dark:from-[#121826] to-transparent" />
         </div>
       </header>
 

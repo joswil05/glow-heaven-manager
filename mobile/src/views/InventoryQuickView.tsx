@@ -80,19 +80,26 @@ export function InventoryQuickView() {
     <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#f8fafc] dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 transition-colors">
       {/* Top App Bar: mismo molde que el resto de la app (icono + kicker + título) */}
       <header className="shrink-0 z-20 bg-white/95 dark:bg-[#121826]/95 backdrop-blur-md border-b border-slate-200/60 dark:border-slate-800/80 pt-safe-t px-4 pb-2 shadow-[0_1px_3px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.3)] transition-colors">
-        <div className="flex items-center justify-between py-1.5">
-          <div className="flex items-center gap-2.5">
+        <div className="flex items-center justify-between gap-2 py-1.5">
+          <div className="flex min-w-0 items-center gap-2.5">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/50">
               <Search size={18} />
             </span>
-            <div>
+            <div className="min-w-0">
               <span className="text-caption font-bold tracking-widest uppercase text-emerald-700 dark:text-emerald-400 block leading-none mb-0.5">
                 Glow Heaven
               </span>
-              <h1 className="text-title font-extrabold text-slate-900 dark:text-white leading-tight">Catálogo de Productos</h1>
+              {/* "Catálogo" y no "Catálogo de Productos": el nav inferior ya
+                  dice "Catálogo", y el título largo era justo lo que forzaba
+                  el encabezado a partirse en 2 líneas y quedar más alto que
+                  el resto de pantallas móviles. */}
+              <h1 className="text-title font-extrabold text-slate-900 dark:text-white leading-tight truncate">Catálogo</h1>
             </div>
           </div>
-          <span className="rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-label font-bold px-2.5 py-1 border border-slate-200/60 dark:border-slate-700">
+          {/* shrink-0 + whitespace-nowrap: esta píldora competía por espacio
+              con el título largo de arriba y terminaba partiéndose en 2
+              líneas también, doblando la altura del encabezado. */}
+          <span className="shrink-0 whitespace-nowrap rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-label font-bold px-3 py-1.5 border border-slate-200/60 dark:border-slate-700">
             {productos.length} {productos.length === 1 ? 'producto' : 'productos'}
           </span>
         </div>
@@ -139,48 +146,53 @@ export function InventoryQuickView() {
           )}
         </div>
 
-        {/* Chips de categorías: las mismas categorías reales de Windows */}
-        <div className="flex items-center gap-1.5 mt-2 overflow-x-auto sin-scrollbar py-0.5">
-          <button
-            type="button"
-            onClick={() => {
-              haptics.selection();
-              setCategoriaActiva(null);
-            }}
-            className={`m3-press shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
-              categoriaActiva === null
-                ? 'bg-emerald-700 dark:bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-800 dark:ring-emerald-500'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200/70 dark:hover:bg-slate-700 border border-slate-200/60 dark:border-slate-700'
-            }`}
-          >
-            Todos
-          </button>
-          {categorias.map((cat) => {
-            const activa = categoriaActiva === cat.id;
-            return (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => {
-                  haptics.selection();
-                  setCategoriaActiva(cat.id);
-                }}
-                className={`m3-press shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                  activa
-                    ? 'bg-emerald-700 dark:bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-800 dark:ring-emerald-500'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200/70 dark:hover:bg-slate-700 border border-slate-200/60 dark:border-slate-700'
-                }`}
-              >
-                {cat.nombre}
-              </button>
-            );
-          })}
+        {/* Chips de categorías: las mismas categorías reales de Windows.
+            El degradado a la derecha avisa que hay más chips fuera de
+            vista en vez de cortarlos en seco contra el borde. */}
+        <div className="relative mt-2">
+          <div className="flex items-center gap-1.5 overflow-x-auto sin-scrollbar py-0.5 pr-6">
+            <button
+              type="button"
+              onClick={() => {
+                haptics.selection();
+                setCategoriaActiva(null);
+              }}
+              className={`m3-press shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                categoriaActiva === null
+                  ? 'bg-emerald-700 dark:bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-800 dark:ring-emerald-500'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200/70 dark:hover:bg-slate-700 border border-slate-200/60 dark:border-slate-700'
+              }`}
+            >
+              Todos
+            </button>
+            {categorias.map((cat) => {
+              const activa = categoriaActiva === cat.id;
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => {
+                    haptics.selection();
+                    setCategoriaActiva(cat.id);
+                  }}
+                  className={`m3-press shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                    activa
+                      ? 'bg-emerald-700 dark:bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-800 dark:ring-emerald-500'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200/70 dark:hover:bg-slate-700 border border-slate-200/60 dark:border-slate-700'
+                  }`}
+                >
+                  {cat.nombre}
+                </button>
+              );
+            })}
+          </div>
+          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white dark:from-[#121826] to-transparent" />
         </div>
       </header>
 
       {/* Lista de productos con Pull-to-Refresh */}
       <PullToRefresh onRefresh={refrescar}>
-        <main ref={scrollRevealRef} className="flex flex-col gap-2.5 px-3.5 pt-2.5 pb-24 scroll-smooth">
+        <main ref={scrollRevealRef} className="flex flex-col gap-3 px-3.5 pt-3 pb-24 scroll-smooth">
 
           {cargando && (
             <div className="flex flex-col items-center justify-center py-16 gap-3 text-slate-400 dark:text-slate-500">
@@ -198,13 +210,8 @@ export function InventoryQuickView() {
               return (
                 <div
                   key={p.id}
-                  className="scroll-reveal rounded-2xl bg-white dark:bg-[#161f30] border border-slate-200/80 dark:border-slate-800 p-3 shadow-xs hover:border-slate-300 dark:hover:border-slate-700 transition-all flex flex-col gap-2"
+                  className="scroll-reveal rounded-2xl bg-white dark:bg-[#161f30] border border-slate-200/80 dark:border-slate-800 p-3.5 shadow-xs hover:border-slate-300 dark:hover:border-slate-700 transition-all flex flex-col gap-2.5"
                 >
-                  {/* Fila única: foto, datos, y acción de compartir alineada
-                      al centro vertical — antes el botón de WhatsApp vivía en
-                      su propia fila con borde, rompiendo la simetría de la
-                      tarjeta y desperdiciando una fila completa por cada
-                      producto. */}
                   <div className="flex gap-3 items-center">
                     {/* Foto o Placeholder */}
                     <div
@@ -229,15 +236,39 @@ export function InventoryQuickView() {
                       )}
                     </div>
 
-                    {/* Información del Producto */}
-                    <div className="flex min-w-0 flex-1 flex-col">
-                      <div className="flex items-start justify-between gap-1.5">
-                        <h2 className="text-body font-extrabold text-slate-900 dark:text-white leading-snug line-clamp-1">
-                          {p.nombre}
-                        </h2>
-                        {/* Badge de Stock */}
+                    {/* Información del Producto: el nombre ahora tiene toda
+                        la fila para sí solo (antes competía por ancho con el
+                        badge de stock y se cortaba a media palabra, ej.
+                        "Calzones Calvin..."). Stock se movió junto al
+                        precio, donde tiene más sentido leerlos juntos. */}
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                      <h2 className="text-body font-extrabold text-slate-900 dark:text-white leading-snug line-clamp-2">
+                        {p.nombre}
+                      </h2>
+
+                      <div className="flex items-center gap-1.5 text-caption text-slate-400 dark:text-slate-500 font-semibold">
+                        <span>#{p.codigo}</span>
+                        {p.categoria_nombre && (
+                          <>
+                            <span>·</span>
+                            <span className="truncate">{p.categoria_nombre}</span>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Precios duales + stock, agrupados: son la misma
+                          decisión de compra ("cuánto cuesta, cuánto hay") */}
+                      <div className="flex items-center justify-between gap-2 mt-0.5">
+                        <div className="flex items-baseline gap-1.5 min-w-0">
+                          <span className="text-sm font-black text-emerald-800 dark:text-emerald-400 tabular-nums">
+                            {formatearMoneda(p.precio_venta_usd_cents, 'USD')}
+                          </span>
+                          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 tabular-nums truncate">
+                            ≈ {formatearMoneda(precioCordobas, 'COR')}
+                          </span>
+                        </div>
                         <span
-                          className={`shrink-0 rounded-full px-2 py-0.2 text-caption font-bold ${
+                          className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-caption font-bold ${
                             !hayStock
                               ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800'
                               : stockBajo
@@ -246,26 +277,6 @@ export function InventoryQuickView() {
                           }`}
                         >
                           {!hayStock ? 'Agotado' : `${p.existencias} disp.`}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 text-caption text-slate-400 dark:text-slate-500 font-semibold mt-0.5">
-                        <span>#{p.codigo}</span>
-                        {p.categoria_nombre && (
-                          <>
-                            <span>·</span>
-                            <span>{p.categoria_nombre}</span>
-                          </>
-                        )}
-                      </div>
-
-                      {/* Precios duales */}
-                      <div className="mt-1 flex items-baseline gap-1.5">
-                        <span className="text-sm font-black text-emerald-800 dark:text-emerald-400 tabular-nums">
-                          {formatearMoneda(p.precio_venta_usd_cents, 'USD')}
-                        </span>
-                        <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 tabular-nums">
-                          ≈ {formatearMoneda(precioCordobas, 'COR')}
                         </span>
                       </div>
                     </div>
