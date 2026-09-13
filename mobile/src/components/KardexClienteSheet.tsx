@@ -142,7 +142,7 @@ export function KardexClienteSheet({
 
           <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
             <div className="flex flex-col">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <span className="text-caption font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 Saldo pendiente
               </span>
               <p
@@ -154,19 +154,19 @@ export function KardexClienteSheet({
               >
                 {formatearMoneda(saldoUsd, 'USD')}
               </p>
-              <p className="text-[10px] text-slate-400 font-medium">
+              <p className="text-caption text-slate-400 font-medium">
                 ≈ {formatearMoneda(saldoCor, 'COR')}
               </p>
             </div>
 
             <div className="flex flex-col text-right">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <span className="text-caption font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 Total abonado
               </span>
               <p className="text-sm font-black text-emerald-600 dark:text-emerald-400 tabular-nums">
                 {formatearMoneda(totalAbonadoUsd, 'USD')}
               </p>
-              <p className="text-[10px] text-slate-400 font-medium">
+              <p className="text-caption text-slate-400 font-medium">
                 {pagos.length} {pagos.length === 1 ? 'pago' : 'pagos'}
               </p>
             </div>

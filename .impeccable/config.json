@@ -11,6 +11,24 @@
         ],
         "createdAt": "2026-08-27T22:37:42.330Z",
         "reason": "Claude decidio: border-l-2 es el indicador de seleccion del item activo de navegacion, no un acento decorativo en tarjeta. Convencion establecida (VS Code, Slack, ajustes de GitHub, barras laterales de macOS). El borde persiste en transparente cuando esta inactivo, asi que no hay salto de layout. Quitarlo dejaria el item activo marcado solo por fondo, senal mas debil. Distinto del caso StatTile (border-l-4 codificando tono en tarjeta), que si se corrigio."
+      },
+      {
+        "rule": "gray-on-color",
+        "value": "*",
+        "files": [
+          "mobile/src/views/DashboardView.tsx"
+        ],
+        "createdAt": "2026-09-12T23:55:00.000Z",
+        "reason": "Claude decidio: false positive del detector, no error real. gray-on-color combina el color de texto en reposo del boton de cerrar sesion (text-slate-600 / dark:text-slate-300) con hover:bg-rose-50, un fondo que solo existe al pasar el mouse; en ese mismo instante hover:text-rose-600 tambien se activa, asi que ese gris nunca se pinta sobre ese fondo. Es el mismo par de colores que usan los botones vecinos de actualizar y tema (que no fallan la regla porque no tienen hover de color). gray-on-color no esta en la lista de reglas con valor extraible del detector (extractFindingIgnoreValue), asi que un ignore por valor especifico nunca puede calzar para esta regla; el comodin acotado a este archivo es el unico mecanismo que realmente la silencia, igual que el caso side-tab de arriba."
+      },
+      {
+        "rule": "gray-on-color",
+        "value": "*",
+        "files": [
+          "mobile/src/views/QuickSaleView.tsx"
+        ],
+        "createdAt": "2026-09-13T00:23:29.052Z",
+        "reason": "Claude decidio: mismo caso que DashboardView arriba (gray-on-color no tiene valor extraible, el comodin por archivo es el unico mecanismo real). Hallazgo puntual: text-slate-950 (#020617, casi negro) sobre bg-emerald-500 en el boton 'Cobrar' del carrito flotante. slate-950 no es un gris lavado, es el patron de alto contraste texto-oscuro-sobre-acento-brillante; el detector lo marca solo porque cualquier slate-* cuenta como 'gris' por nombre, sin evaluar luminancia real."
       }
     ]
   }

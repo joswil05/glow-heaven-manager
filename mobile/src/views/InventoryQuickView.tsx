@@ -96,12 +96,12 @@ export function InventoryQuickView() {
       <header className="shrink-0 z-20 bg-white/95 dark:bg-[#121826]/95 backdrop-blur-md border-b border-slate-200/60 dark:border-slate-800/80 pt-safe-t px-4 pb-2.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.3)] transition-colors">
         <div className="flex items-center justify-between py-1.5">
           <div>
-            <span className="text-[10px] font-bold tracking-widest uppercase text-emerald-700 dark:text-emerald-400 block leading-none mb-0.5">
+            <span className="text-caption font-bold tracking-widest uppercase text-emerald-700 dark:text-emerald-400 block leading-none mb-0.5">
               Glow Heaven
             </span>
-            <h1 className="text-base font-extrabold text-slate-900 dark:text-white leading-tight">Catálogo de Productos</h1>
+            <h1 className="text-title font-extrabold text-slate-900 dark:text-white leading-tight">Catálogo de Productos</h1>
           </div>
-          <span className="rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold px-2.5 py-1 border border-slate-200/60 dark:border-slate-700">
+          <span className="rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-label font-bold px-2.5 py-1 border border-slate-200/60 dark:border-slate-700">
             {productos.length} {productos.length === 1 ? 'producto' : 'productos'}
           </span>
         </div>
@@ -222,12 +222,12 @@ export function InventoryQuickView() {
                     {/* Información del Producto */}
                     <div className="flex min-w-0 flex-1 flex-col">
                       <div className="flex items-start justify-between gap-1.5">
-                        <h2 className="text-xs font-extrabold text-slate-900 dark:text-white leading-snug line-clamp-1">
+                        <h2 className="text-body font-extrabold text-slate-900 dark:text-white leading-snug line-clamp-1">
                           {p.nombre}
                         </h2>
                         {/* Badge de Stock */}
                         <span
-                          className={`shrink-0 rounded-full px-2 py-0.2 text-[10px] font-bold ${
+                          className={`shrink-0 rounded-full px-2 py-0.2 text-caption font-bold ${
                             !hayStock
                               ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800'
                               : stockBajo
@@ -239,7 +239,7 @@ export function InventoryQuickView() {
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-1.5 text-[10px] text-slate-400 dark:text-slate-500 font-semibold mt-0.5">
+                      <div className="flex items-center gap-1.5 text-caption text-slate-400 dark:text-slate-500 font-semibold mt-0.5">
                         <span>#{p.codigo}</span>
                         {p.categoria_nombre && (
                           <>
@@ -267,7 +267,7 @@ export function InventoryQuickView() {
                       {p.variantes.map((v) => (
                         <span
                           key={v.id}
-                          className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium border ${
+                          className={`rounded-md px-1.5 py-0.5 text-caption font-medium border ${
                             v.existencias > 0
                               ? 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
                               : 'bg-slate-100/50 dark:bg-slate-900/40 text-slate-400 dark:text-slate-500 border-dashed border-slate-200 dark:border-slate-800 line-through'
@@ -284,7 +284,7 @@ export function InventoryQuickView() {
                     <button
                       type="button"
                       onClick={() => compartirPorWhatsApp(p)}
-                      className="m3-press flex items-center gap-1.5 h-8 px-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/60 text-xs font-bold transition-colors cursor-pointer"
+                      className="m3-press flex items-center gap-1.5 h-8 px-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/60 text-label font-bold transition-colors cursor-pointer"
                     >
                       <MessageCircle size={14} className="text-emerald-600 dark:text-emerald-400" />
                       <span>Compartir por WhatsApp</span>

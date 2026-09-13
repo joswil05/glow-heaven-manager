@@ -1,4 +1,4 @@
-import React, { useId, useState, useMemo } from 'react';
+import React, { useId, useState, useMemo, useRef, useLayoutEffect } from 'react';
 import {
   TrendingUp,
   Award,
@@ -11,6 +11,43 @@ import {
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { formatearMoneda } from '@core/moneda';
+
+/**
+ * Ancho real del contenedor, medido con ResizeObserver.
+ *
+ * Las gráficas de barras dibujan su SVG en un `viewBox` de ancho fijo y lo
+ * estiran al 100% del contenedor con `preserveAspectRatio="none"`. Si el
+ * contenedor real es más ancho que ese valor fijo (siempre lo es: la tarjeta
+ * mide ~950px y el viewBox asumía 600), el navegador escala X e Y por
+ * separado y el texto SVG sale deformado (letras anchas y borrosas), aunque
+ * las barras en sí no se noten. Igualando el ancho del `viewBox` al ancho
+ * real en cada resize, la escala queda 1:1 en ambos ejes y la distorsión
+ * desaparece sin tocar el resto de la geometría (todo ya está calculado en
+ * proporción a `W`).
+ */
+function useAnchoResponsive(porDefecto: number) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [ancho, setAncho] = useState(porDefecto);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+
+    const medir = (w: number) => {
+      if (w > 0) setAncho(w);
+    };
+    medir(el.clientWidth);
+
+    const observer = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width;
+      if (w) medir(w);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return [ref, ancho] as const;
+}
 
 export interface PuntoSerie {
   etiqueta: string;
@@ -182,7 +219,7 @@ export const LineaCreciente: React.FC<LineaCrecienteProps> = ({
   // Margen superior para holgura estética
   const maximo = Math.ceil((maximoBruto * 1.18) / 1000) * 1000 || maximoBruto * 1.2;
 
-  const W = 680;
+  const [svgWrapRef, W] = useAnchoResponsive(680);
   const H = alto;
   const padLeft = 54; // Espacio para etiquetas del eje Y
   const padRight = 16;
@@ -274,7 +311,7 @@ export const LineaCreciente: React.FC<LineaCrecienteProps> = ({
   return (
     <div className={cn('w-full select-none flex flex-col', className)}>
       {/* Barra superior de control y métricas rápidas */}
-      <div className="flex items-center justify-between gap-3 pb-3 border-b border-borde/50 flex-wrap">
+      <div className="flex items-center justify-between gap-3 pb-2 border-b border-borde/50 flex-wrap">
         <div className="flex items-center gap-2">
           {resumen.mejorMes.valor > 0 && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-caption bg-emerald-500/10 text-emerald-700 font-semibold border border-emerald-500/20">
@@ -336,7 +373,7 @@ export const LineaCreciente: React.FC<LineaCrecienteProps> = ({
       </div>
 
       {/* Contenedor de la gráfica SVG */}
-      <div className="relative w-full mt-3" style={{ height: alto }}>
+      <div ref={svgWrapRef} className="relative w-full mt-2" style={{ height: alto }}>
         {/* Tooltip flotante interactivo de alta fidelidad */}
         {puntoActivo && (
           <div
@@ -852,7 +889,7 @@ export const GraficaVolumen: React.FC<GraficaVolumenProps> = ({
   const ticketPromedioGlobal = totalOrdenes > 0 ? Math.round(totalIngresos / totalOrdenes) : 0;
   const mesRecord = [...datos].sort((a, b) => b.ordenes - a.ordenes)[0];
 
-  const W = 600;
+  const [svgWrapRef, W] = useAnchoResponsive(600);
   const H = alto;
   const padLeft = 45;
   const padRight = 20;
@@ -895,7 +932,7 @@ export const GraficaVolumen: React.FC<GraficaVolumenProps> = ({
       </div>
 
       {/* Contenedor SVG y Tooltip Flotante */}
-      <div className="relative w-full" style={{ height: alto }}>
+      <div ref={svgWrapRef} className="relative w-full" style={{ height: alto }}>
         {itemActivo && activo !== null && (
           <div
             className="absolute z-30 pointer-events-none transition-all duration-150 ease-out"
@@ -1092,7 +1129,7 @@ export const GraficaMargen: React.FC<GraficaMargenProps> = ({
 
   const mejorMes = [...datos].sort((a, b) => b.margenPct - a.margenPct)[0];
 
-  const W = 600;
+  const [svgWrapRef, W] = useAnchoResponsive(600);
   const H = alto;
   const padLeft = 45;
   const padRight = 20;
@@ -1146,7 +1183,7 @@ export const GraficaMargen: React.FC<GraficaMargenProps> = ({
       </div>
 
       {/* Contenedor SVG y Tooltip */}
-      <div className="relative w-full" style={{ height: alto }}>
+      <div ref={svgWrapRef} className="relative w-full" style={{ height: alto }}>
         {itemActivo && activo !== null && (
           <div
             className="absolute z-30 pointer-events-none transition-all duration-150 ease-out"
@@ -1220,28 +1257,20 @@ export const GraficaMargen: React.FC<GraficaMargenProps> = ({
             );
           })}
 
-          {/* Línea de referencia de margen saludable (35%) */}
+          {/* Línea de referencia de margen saludable (35%): solo la línea aquí,
+              debajo de las barras. La etiqueta se dibuja después de las barras
+              (más abajo) para que ningún mes se la tape. */}
           {yUmbral >= padTop && yUmbral <= padTop + usableH && (
-            <g>
-              <line
-                x1={padLeft}
-                y1={yUmbral}
-                x2={W - padRight}
-                y2={yUmbral}
-                stroke="#10b981"
-                strokeWidth={1.5}
-                strokeDasharray="3 3"
-                opacity={0.65}
-              />
-              <text
-                x={W - padRight}
-                y={yUmbral - 4}
-                textAnchor="end"
-                className="fill-emerald-600 dark:fill-emerald-400 text-[9px] font-bold"
-              >
-                Meta 35%
-              </text>
-            </g>
+            <line
+              x1={padLeft}
+              y1={yUmbral}
+              x2={W - padRight}
+              y2={yUmbral}
+              stroke="#10b981"
+              strokeWidth={1.5}
+              strokeDasharray="3 3"
+              opacity={0.65}
+            />
           )}
 
           {/* Barras de datos */}
@@ -1314,25 +1343,24 @@ export const GraficaMargen: React.FC<GraficaMargenProps> = ({
               </g>
             );
           })}
+
+          {/* Etiqueta de la meta, dibujada al final para quedar sobre las
+              barras y anclada a la izquierda para que ningún mes la tape. */}
+          {yUmbral >= padTop && yUmbral <= padTop + usableH && (
+            <text
+              x={padLeft + 4}
+              y={yUmbral - 4}
+              textAnchor="start"
+              className="fill-emerald-600 dark:fill-emerald-400 text-[9px] font-bold"
+            >
+              Meta 35%
+            </text>
+          )}
         </svg>
       </div>
-
-      {/* Pie de leyenda */}
-      <div className="mt-2 flex items-center justify-between text-caption text-texto-3 border-t border-borde/50 pt-2 flex-wrap gap-2">
-        <div className="flex items-center gap-4">
-          <span className="inline-flex items-center gap-1.5 font-semibold text-texto text-[11px]">
-            <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" />
-            ≥35% Excelente
-          </span>
-          <span className="inline-flex items-center gap-1.5 font-medium text-texto-2 text-[11px]">
-            <span className="w-2.5 h-2.5 rounded-sm bg-purple-500" />
-            &lt;35% Estable
-          </span>
-        </div>
-        <span className="text-[11px] text-texto-3">
-          Ganancia Neta ÷ Facturación Bruta
-        </span>
-      </div>
+      {/* Sin pie de leyenda: el color de cada barra (verde = óptimo, morado =
+          por debajo) y la línea "Meta 35%" ya cuentan la misma historia; una
+          leyenda de colores más la fórmula debajo era decirlo tres veces. */}
     </div>
   );
 };
@@ -1513,7 +1541,7 @@ export const GraficaCostosIngresos: React.FC<GraficaCostosIngresosProps> = ({
   const totalGanancia = datos.reduce((acc, d) => acc + d.gananciaUsdCents, 0);
   const roiPct = totalCostos > 0 ? Math.round((totalGanancia / totalCostos) * 100) : 0;
 
-  const W = 600;
+  const [svgWrapRef, W] = useAnchoResponsive(600);
   const H = alto;
   const padLeft = 52;
   const padRight = 20;
@@ -1555,7 +1583,7 @@ export const GraficaCostosIngresos: React.FC<GraficaCostosIngresosProps> = ({
       </div>
 
       {/* Contenedor SVG y Tooltip */}
-      <div className="relative w-full" style={{ height: alto }}>
+      <div ref={svgWrapRef} className="relative w-full" style={{ height: alto }}>
         {itemActivo && activo !== null && (
           <div
             className="absolute z-30 pointer-events-none transition-all duration-150 ease-out"

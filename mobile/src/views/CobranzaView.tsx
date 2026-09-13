@@ -113,10 +113,10 @@ export function CobranzaView() {
               <HandCoins size={18} />
             </span>
             <div>
-              <h1 className="text-base font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight">
+              <h1 className="text-title font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight">
                 Cobranza y Abonos
               </h1>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+              <p className="text-caption text-slate-500 dark:text-slate-400 font-medium">
                 {cuentas.length} {cuentas.length === 1 ? 'cuenta pendiente' : 'cuentas pendientes'}
               </p>
             </div>
@@ -256,12 +256,12 @@ export function CobranzaView() {
 
             <div className="relative z-10">
               <div className="flex items-center justify-between">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-2.5 py-0.5 text-[10px] font-bold tracking-wide uppercase text-white backdrop-blur-md">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-2.5 py-0.5 text-caption font-bold tracking-wide uppercase text-white backdrop-blur-md">
                   <span className="h-1.5 w-1.5 rounded-full bg-amber-300 animate-pulse" />
                   Total por cobrar en la calle
                 </span>
                 {cuentasVencidas.length > 0 && (
-                  <span className="text-[10px] bg-red-500/90 text-white font-black px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <span className="text-caption bg-red-500/90 text-white font-black px-2 py-0.5 rounded-full flex items-center gap-1">
                     <AlertTriangle size={10} />
                     {cuentasVencidas.length} vencidas
                   </span>
@@ -289,7 +289,7 @@ export function CobranzaView() {
                     haptics.impact('medium');
                     setSheetAbonoSelectorAbierto(true);
                   }}
-                  className="w-full m3-press flex items-center justify-center gap-2 rounded-xl bg-white h-10 px-4 text-xs font-bold text-amber-950 shadow-md active:scale-95 transition-transform cursor-pointer"
+                  className="w-full m3-press flex items-center justify-center gap-2 rounded-xl bg-white h-11 px-4 text-body font-bold text-amber-950 shadow-md active:scale-95 transition-transform cursor-pointer"
                 >
                   <PlusCircle size={16} className="text-amber-700" />
                   <span>Registrar nuevo abono a clienta</span>
@@ -374,24 +374,24 @@ export function CobranzaView() {
                           {inicial}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <h2 className="text-sm font-bold text-slate-900 dark:text-white truncate leading-tight group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                          <h2 className="text-body font-bold text-slate-900 dark:text-white truncate leading-tight group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                             {f.cliente_nombre}
                           </h2>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate mt-0.5 flex items-center gap-1">
+                          <p className="text-caption text-slate-500 dark:text-slate-400 font-medium truncate mt-0.5 flex items-center gap-1">
                             <span>{f.codigo} · {f.fecha}</span>
-                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold underline">· Kardex</span>
+                            <span className="text-emerald-600 dark:text-emerald-400 font-semibold underline">· Kardex</span>
                           </p>
                         </div>
                       </button>
 
                       {/* Badge de vencimiento o al día */}
                       {vencida ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 dark:bg-rose-950/80 px-2.5 py-0.5 text-[10px] font-extrabold text-rose-700 dark:text-rose-400 shrink-0 border border-rose-200 dark:border-rose-800">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 dark:bg-rose-950/80 px-2.5 py-0.5 text-caption font-extrabold text-rose-700 dark:text-rose-400 shrink-0 border border-rose-200 dark:border-rose-800">
                           <AlertTriangle size={11} />
                           {f.cuotas_vencidas} {f.cuotas_vencidas === 1 ? 'vencida' : 'vencidas'}
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 shrink-0 border border-emerald-200/60 dark:border-emerald-800/80">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-0.5 text-caption font-bold text-emerald-700 dark:text-emerald-400 shrink-0 border border-emerald-200/60 dark:border-emerald-800/80">
                           Al día
                         </span>
                       )}
@@ -400,10 +400,10 @@ export function CobranzaView() {
                     {/* Fila 2: Saldo pendiente destacado */}
                     <div className="flex items-baseline justify-between px-3 py-2 rounded-xl bg-slate-50/90 border border-slate-100/90 dark:bg-slate-900/60 dark:border-slate-800/80">
                       <div>
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
+                        <span className="text-caption font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
                           Saldo pendiente
                         </span>
-                        <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
+                        <span className="text-caption text-slate-400 dark:text-slate-500 font-medium">
                           Pagado: {porcentaje}% de {formatearMoneda(f.total_usd_cents, 'USD')}
                         </span>
                       </div>
@@ -447,7 +447,7 @@ export function CobranzaView() {
                         target="_blank"
                         rel="noreferrer"
                         aria-label={`Escribir a ${f.cliente_nombre} por WhatsApp`}
-                        className={`m3-press flex items-center justify-center gap-1.5 h-10 px-3 rounded-xl border text-xs font-bold transition-all shrink-0 ${
+                        className={`m3-press flex items-center justify-center gap-1.5 h-10 px-3 rounded-xl border text-label font-bold transition-all shrink-0 ${
                           f.cliente_telefono
                             ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/80 hover:bg-emerald-100 dark:hover:bg-emerald-950/60 active:scale-95'
                             : 'bg-slate-50 text-slate-400 border-slate-200 dark:bg-slate-900/40 dark:text-slate-600 dark:border-slate-800 pointer-events-none'
@@ -471,7 +471,7 @@ export function CobranzaView() {
                             codigo: f.codigo,
                           });
                         }}
-                        className="m3-press flex items-center justify-center gap-1 h-10 px-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 transition-all cursor-pointer shrink-0"
+                        className="m3-press flex items-center justify-center gap-1 h-10 px-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-label font-bold hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 transition-all cursor-pointer shrink-0"
                         title="Ver historial de abonos"
                       >
                         <Clock3 size={14} className="shrink-0" />
@@ -491,7 +491,7 @@ export function CobranzaView() {
                             saldo_usd_cents: f.saldo_usd_cents,
                           });
                         }}
-                        className="m3-press flex-1 flex items-center justify-center gap-1.5 h-10 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold shadow-sm active:scale-95 transition-all cursor-pointer min-w-0"
+                        className="m3-press flex-1 flex items-center justify-center gap-1.5 h-10 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-label font-extrabold shadow-sm active:scale-95 transition-all cursor-pointer min-w-0"
                         aria-label={`Registrar abono de ${f.cliente_nombre}`}
                       >
                         <DollarSign size={15} className="shrink-0" />

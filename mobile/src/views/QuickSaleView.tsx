@@ -374,10 +374,10 @@ export function QuickSaleView() {
       <header className="shrink-0 z-20 bg-white/95 dark:bg-[#121826]/95 backdrop-blur-md border-b border-slate-200/60 dark:border-slate-800/80 pt-safe-t px-4 pb-2.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.3)] transition-colors">
         <div className="flex items-center justify-between py-1.5">
           <div>
-            <span className="text-[10px] font-bold tracking-widest uppercase text-emerald-700 dark:text-emerald-400 block leading-none mb-0.5">
+            <span className="text-caption font-bold tracking-widest uppercase text-emerald-700 dark:text-emerald-400 block leading-none mb-0.5">
               Glow Heaven
             </span>
-            <h1 className="text-base font-extrabold text-slate-900 dark:text-white leading-tight">Venta Rápida</h1>
+            <h1 className="text-title font-extrabold text-slate-900 dark:text-white leading-tight">Venta Rápida</h1>
           </div>
           {clienteSeleccionado ? (
             <button
@@ -523,18 +523,18 @@ export function QuickSaleView() {
 
                   {/* Datos del Producto */}
                   <div className="min-w-0 flex-1">
-                    <h2 className="text-xs font-extrabold text-slate-900 dark:text-white leading-snug line-clamp-1">
+                    <h2 className="text-body font-extrabold text-slate-900 dark:text-white leading-snug line-clamp-1">
                       {p.nombre}
                     </h2>
                     <div className="flex items-baseline gap-1 mt-0.5">
-                      <span className="text-xs font-black text-emerald-800 dark:text-emerald-400 tabular-nums">
+                      <span className="text-label font-black text-emerald-800 dark:text-emerald-400 tabular-nums">
                         {formatearMoneda(p.precio_venta_usd_cents, 'USD')}
                       </span>
-                      <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 tabular-nums">
+                      <span className="text-caption font-semibold text-slate-400 dark:text-slate-500 tabular-nums">
                         · {formatearMoneda(precioCordobas, 'COR')}
                       </span>
                     </div>
-                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 font-medium flex items-center gap-1">
+                    <p className="text-caption text-slate-400 dark:text-slate-500 mt-0.5 font-medium flex items-center gap-1">
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                       <span>{p.existencias} en stock {tieneVariantes ? `(${p.variantes.length} tonos)` : ''}</span>
                     </p>
@@ -652,7 +652,7 @@ export function QuickSaleView() {
                 </span>
               </div>
               <div>
-                <span className="text-[11px] font-medium text-slate-400 leading-none">Total carrito</span>
+                <span className="text-caption font-medium text-slate-400 leading-none">Total carrito</span>
                 <p className="text-base font-extrabold text-white leading-tight">
                   {formatearMoneda(totalUsdCents, 'USD')}
                   <span className="text-xs text-emerald-400 ml-1.5 font-bold">
@@ -770,11 +770,11 @@ export function QuickSaleView() {
                 className="flex items-center gap-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/80 p-2.5"
               >
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-bold text-slate-900 dark:text-white">{l.producto.nombre}</p>
+                  <p className="truncate text-body font-bold text-slate-900 dark:text-white">{l.producto.nombre}</p>
                   {l.producto.tiene_variantes && (
-                    <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold">{etiquetaVariante(l.variante)}</p>
+                    <p className="text-caption text-emerald-700 dark:text-emerald-400 font-semibold">{etiquetaVariante(l.variante)}</p>
                   )}
-                  <p className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">
+                  <p className="text-label text-slate-500 dark:text-slate-400 tabular-nums">
                     {formatearMoneda(l.producto.precio_venta_usd_cents, 'USD')} c/u
                   </p>
                 </div>

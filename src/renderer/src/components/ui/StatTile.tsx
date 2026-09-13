@@ -79,9 +79,13 @@ export const StatTile: React.FC<StatTileProps> = ({
 
   const contenido = (
     <div className="flex flex-col h-full justify-between">
-      {/* Fila superior: Icono + Label + Indicador click */}
-      <div className="flex items-center justify-between gap-2.5">
-        <div className="flex items-center gap-2.5 min-w-0">
+      {/* Fila superior: Icono + Label + Indicador click.
+          `flex-wrap` + una base mínima en el bloque del label: si el badge de
+          variación no entra al lado, baja a su propia línea en vez de comerse
+          el label entero (antes "Ganancia de este mes" quedaba en "G..." para
+          hacerle campo a "+31% vs mes pasado"). */}
+      <div className="flex items-start justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1 basis-[130px]">
           {Icon && (
             <div
               className={cn(
@@ -123,7 +127,7 @@ export const StatTile: React.FC<StatTileProps> = ({
       </div>
 
       {/* Fila central: Métrica principal en layout apilado */}
-      <div className={cn('flex items-baseline justify-between gap-2', size === 'lg' ? 'mt-2' : 'mt-1')}>
+      <div className={cn('flex items-baseline justify-between gap-2', size === 'lg' ? 'mt-1.5' : 'mt-1')}>
         <div className="flex flex-col min-w-0">
           {usd_cents !== undefined ? (
             <Money
@@ -142,7 +146,7 @@ export const StatTile: React.FC<StatTileProps> = ({
 
       {/* Fila inferior: Contexto / Pista */}
       {hint && (
-        <div className={cn('border-t border-borde/40 flex items-center justify-between text-caption text-texto-3 leading-tight', size === 'lg' ? 'mt-2 pt-1.5' : 'mt-1.5 pt-1')}>
+        <div className={cn('border-t border-borde/40 flex items-center justify-between text-caption text-texto-3 leading-tight', size === 'lg' ? 'mt-1.5 pt-1.5' : 'mt-1.5 pt-1')}>
           <span className="truncate">{hint}</span>
           {onClick && (
             <span className="text-[11px] font-medium text-acento inline-flex items-center gap-0.5 group-hover:underline ml-1.5 shrink-0">
@@ -158,7 +162,7 @@ export const StatTile: React.FC<StatTileProps> = ({
   const clases = cn(
     'group relative bg-gradient-to-b from-superficie via-superficie to-superficie-2/20 rounded-xl border text-left w-full shadow-2xs',
     'transition-[transform,box-shadow,border-color] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md',
-    size === 'lg' ? 'p-3.5' : 'p-2.5',
+    size === 'lg' ? 'p-3' : 'p-2.5',
     estilo.borde,
     estilo.glowBg,
     onClick &&
