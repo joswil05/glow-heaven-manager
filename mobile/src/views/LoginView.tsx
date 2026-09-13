@@ -1,7 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Loader2, Copy, Check, Smartphone, ExternalLink, AlertCircle, Share, RefreshCw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { esNavegadorInterno, esDispositivoIOS } from '../lib/firebase-mobile';
+import {
+  esNavegadorInterno,
+  esDispositivoIOS,
+  esDispositivoMovil,
+  esPwaInstalada,
+  loginEsMismoOrigen,
+  URL_APP_LOGIN_FUNCIONAL,
+} from '../lib/firebase-mobile';
 
 function IconoGoogle() {
   return (
@@ -20,10 +27,15 @@ export function LoginView() {
   const [esInterno, setEsInterno] = useState(false);
   const [esIOS, setEsIOS] = useState(false);
   const [copiado, setCopiado] = useState(false);
+  // El login solo puede terminar en el celular si ocurre en el mismo origen
+  // que la app. Si esta dirección no puede, avisamos antes de que lo intente
+  // y falle, en vez de después.
+  const [dominioSinLogin, setDominioSinLogin] = useState(false);
 
   useEffect(() => {
     setEsInterno(esNavegadorInterno());
     setEsIOS(esDispositivoIOS());
+    setDominioSinLogin(!loginEsMismoOrigen && (esDispositivoMovil() || esPwaInstalada()));
   }, []);
 
   async function copiarEnlace() {
@@ -101,6 +113,37 @@ export function LoginView() {
                   {copiado ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
                   {copiado ? '¡Enlace copiado! Pégalo en Safari' : 'Copiar enlace para Safari'}
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Esta dirección no puede terminar el login en un celular: el paso
+            final de Google ocurre en otro dominio, e iOS lo bloquea y en la
+            PWA instalada de Android se queda colgado. */}
+        {dominioSinLogin && (
+          <div className="w-full rounded-2xl border border-amber-300/80 bg-gradient-to-br from-amber-50 to-orange-50/50 p-4 text-left shadow-sm">
+            <div className="flex items-start gap-2.5">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-700">
+                <AlertCircle size={18} />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-xs font-bold text-amber-900">
+                  Usá la otra dirección para entrar
+                </h3>
+                <p className="mt-1 text-[11px] leading-relaxed text-amber-800/90">
+                  Desde esta dirección el inicio de sesión de Google no puede terminar en el
+                  celular. Abrí la app en la dirección de abajo y entrá ahí; desde esa pantalla
+                  podés volver a agregarla a la pantalla de inicio.
+                </p>
+
+                <a
+                  href={URL_APP_LOGIN_FUNCIONAL}
+                  className="m3-press tocable mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2.5 text-xs font-bold text-white shadow-sm active:scale-[0.98] transition-all"
+                >
+                  <ExternalLink size={14} />
+                  Abrir la app para iniciar sesión
+                </a>
               </div>
             </div>
           </div>

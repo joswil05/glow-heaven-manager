@@ -3,6 +3,7 @@ import type { User } from 'firebase/auth';
 import {
   alCambiarSesion,
   cerrarSesion,
+  hayRedireccionEnCurso,
   iniciarSesionGoogle,
   limpiarSesionLocalYRecargar,
   resolverRedireccionPendiente,
@@ -28,31 +29,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let activo = true;
 
-    // Si Google mandó de vuelta por redirect (celulares/PWA instalada), esto
-    // resuelve esa sesión. Si algo falla en el camino (dominio no
-    // autorizado, red, etc.) lo mostramos en vez de tragárnoslo.
-    resolverRedireccionPendiente().then(({ error: errRedirect }) => {
-      if (activo && errRedirect) setError(traducirErrorAuth(errRedirect));
-    });
+    // Solo pedimos el resultado del redirect si de verdad venimos de Google.
+    // Esa llamada es la que levanta el iframe del authDomain, así que en un
+    // arranque normal ni siquiera se carga.
+    const veniamosDeGoogle = hayRedireccionEnCurso();
+    let redireccionResuelta = !veniamosDeGoogle;
+    let estadoConocido = false;
 
-    // Si `onAuthStateChanged` nunca dispara (se ha visto colgado al volver
-    // de Google en algunas PWA instaladas en Android), no dejamos a la
-    // usuaria mirando el spinner para siempre.
+    // Red de seguridad: pase lo que pase, nadie se queda mirando el spinner.
     const limite = setTimeout(() => {
-      if (activo) {
-        setCargando((estabaCargando) => {
-          if (estabaCargando) setError(traducirErrorAuth({ code: 'app/redirect-timeout' }));
-          return false;
-        });
-      }
+      if (!activo) return;
+      setCargando((seguiaCargando) => {
+        if (seguiaCargando) setError(traducirErrorAuth({ code: 'app/redirect-timeout' }));
+        return false;
+      });
     }, 9000);
+
+    function terminarSiTodoListo() {
+      if (!activo || !redireccionResuelta || !estadoConocido) return;
+      clearTimeout(limite);
+      setCargando(false);
+    }
+
+    if (veniamosDeGoogle) {
+      resolverRedireccionPendiente().then(({ error: errRedirect }) => {
+        if (!activo) return;
+        if (errRedirect) setError(traducirErrorAuth(errRedirect));
+        redireccionResuelta = true;
+        terminarSiTodoListo();
+      });
+    }
 
     const desuscribir = alCambiarSesion((u) => {
       if (!activo) return;
-      clearTimeout(limite);
       setUsuario(u);
-      setCargando(false);
-      if (u) setError(null);
+      estadoConocido = true;
+      if (u) {
+        // Ya entró: no hay nada más que esperar.
+        setError(null);
+        redireccionResuelta = true;
+      }
+      terminarSiTodoListo();
     });
 
     return () => {
