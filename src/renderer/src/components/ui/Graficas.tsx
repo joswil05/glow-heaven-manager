@@ -312,17 +312,17 @@ export const LineaCreciente: React.FC<LineaCrecienteProps> = ({
     <div className={cn('w-full select-none flex flex-col', className)}>
       {/* Barra superior de control y métricas rápidas */}
       <div className="flex items-center justify-between gap-3 pb-2 border-b border-borde/50 flex-wrap">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3 text-caption text-texto-3">
           {resumen.mejorMes.valor > 0 && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-caption bg-emerald-500/10 text-emerald-700 font-semibold border border-emerald-500/20">
+            <span className="inline-flex items-center gap-1.5">
               <Award className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Récord: {resumen.mejorMes.etiqueta.toUpperCase()} ({formato(resumen.mejorMes.valor)})</span>
+              <span>Récord: <strong className="text-texto font-medium">{resumen.mejorMes.etiqueta.toUpperCase()}</strong> ({formato(resumen.mejorMes.valor)})</span>
             </span>
           )}
           {resumen.promedio > 0 && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-caption bg-sky-500/10 text-sky-700 font-medium border border-sky-500/20 hidden md:inline-flex">
-              <TrendingUp className="w-3.5 h-3.5 text-sky-600" />
-              <span>Promedio: {formato(resumen.promedio)}/mes</span>
+            <span className="inline-flex items-center gap-1.5 hidden md:inline-flex">
+              <TrendingUp className="w-3.5 h-3.5 text-texto-3" />
+              <span>Promedio: <strong className="text-texto font-medium">{formato(resumen.promedio)}</strong>/mes</span>
             </span>
           )}
         </div>
@@ -641,10 +641,6 @@ export const LineaCreciente: React.FC<LineaCrecienteProps> = ({
               {etiquetaSerieSecundaria}
             </span>
           )}
-        </div>
-        <div className="flex items-center gap-1.5 text-[11px] text-texto-3">
-          <DollarSign className="w-3 h-3 text-emerald-600" />
-          <span>Calculado en base a órdenes entregadas y costos reales</span>
         </div>
       </div>
     </div>

@@ -246,17 +246,6 @@ export const PanelView: React.FC<PanelViewProps> = ({
         ref={scrollRevealRef}
         className="px-4 md:px-6 py-3 md:py-3.5 max-w-[1500px] w-full mx-auto flex-1 flex flex-col justify-start gap-2.5"
       >
-        {/* El título ya lo puso el Header ("Tu negocio hoy"); acá solo el
-            indicador de que los datos están al minuto. Se quitaron el
-            subtítulo repetido y el detalle de implementación ("sincronizado
-            con Firestore"), que no le dicen nada a la dueña. */}
-        <div className="flex items-center pb-1 border-b border-borde/40 shrink-0">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-caption font-semibold bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            En tiempo real
-          </span>
-        </div>
-
         {sinDatos ? (
           <div className="rounded-2xl border border-dashed border-borde-fuerte bg-superficie p-8 text-center shadow-sm">
             <div className="w-12 h-12 rounded-xl bg-acento-suave/80 text-acento flex items-center justify-center mx-auto mb-3 border border-acento/20">
@@ -284,6 +273,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
             <StatTile
               label="Ganancia de este mes"
               usd_cents={gananciaActual}
+              soloUsd
               size="lg"
               tone={gananciaActual > 0 ? 'success' : 'neutral'}
               icon={TrendingUp}
@@ -295,7 +285,11 @@ export const PanelView: React.FC<PanelViewProps> = ({
                     }
                   : undefined
               }
-              hint={`${ganancia_mes_actual?.ventas_count ?? 0} venta(s) entregada(s)`}
+              hint={
+                (ganancia_mes_actual?.ventas_count ?? 0) === 1
+                  ? '1 venta entregada'
+                  : `${ganancia_mes_actual?.ventas_count ?? 0} ventas este mes`
+              }
               onClick={() => onNavegar('ventas')}
             />
 
@@ -303,10 +297,15 @@ export const PanelView: React.FC<PanelViewProps> = ({
             <StatTile
               label="Invertido en bodega"
               usd_cents={inversionTotal}
+              soloUsd
               size="lg"
               tone="purple"
               icon={Boxes}
-              hint={`${resumen.unidades_en_inventario} unidad(es) disponibles`}
+              hint={
+                resumen.unidades_en_inventario === 1
+                  ? '1 unidad disponible'
+                  : `${resumen.unidades_en_inventario} unidades disponibles`
+              }
               onClick={() => onNavegar('inventario')}
             />
 
@@ -314,6 +313,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
             <StatTile
               label="Te deben en la calle"
               usd_cents={resumen.por_cobrar_usd_cents}
+              soloUsd
               size="lg"
               tone={
                 resumen.por_cobrar_usd_cents === 0
@@ -325,8 +325,10 @@ export const PanelView: React.FC<PanelViewProps> = ({
               icon={Wallet}
               hint={
                 resumen.por_cobrar_usd_cents === 0
-                  ? '¡Cuentas al día! Nadie debe saldo'
-                  : `${data.por_cobrar.length} venta(s) con saldo`
+                  ? 'Cartera al día'
+                  : data.por_cobrar.length === 1
+                    ? '1 venta con saldo'
+                    : `${data.por_cobrar.length} ventas con saldo`
               }
               onClick={() => onNavegar('ventas')}
             />
@@ -339,9 +341,11 @@ export const PanelView: React.FC<PanelViewProps> = ({
               tone={data.bajo_stock.length > 0 ? 'danger' : 'success'}
               icon={PackageX}
               hint={
-                data.bajo_stock.length > 0
-                  ? `${data.bajo_stock.length} producto(s) en mínimo o agotados`
-                  : 'Existencias óptimas en catálogo'
+                data.bajo_stock.length === 0
+                  ? 'Existencias óptimas'
+                  : data.bajo_stock.length === 1
+                    ? '1 producto agotado o bajo'
+                    : `${data.bajo_stock.length} productos agotados o bajos`
               }
               onClick={() => onNavegar('inventario')}
             />
@@ -377,25 +381,20 @@ export const PanelView: React.FC<PanelViewProps> = ({
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-2.5 shrink-0">
           {/* Gráfica principal con selector ergonómico y animaciones */}
           <Card className="xl:col-span-2 shadow-2xs flex flex-col">
-            <CardHeader className="px-3.5 py-2 shrink-0 border-b border-borde/40">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-8 h-8 rounded-xl bg-acento/10 text-acento flex items-center justify-center shrink-0 border border-acento/20">
+            <CardHeader className="px-4 py-2.5 shrink-0 border-b border-borde/40">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-7 h-7 rounded-lg bg-acento/10 text-acento flex items-center justify-center shrink-0">
                     <IconoActual className="w-4 h-4" />
                   </div>
-                  <div className="min-w-0">
-                    <h3 className="text-title font-bold text-texto tracking-tight truncate">
-                      {infoGraficaActual.titulo}
-                    </h3>
-                    <p className="text-caption text-texto-3 mt-0.5 truncate">
-                      {infoGraficaActual.subtitulo}
-                    </p>
-                  </div>
+                  <h3 className="text-body font-bold text-texto tracking-tight truncate">
+                    {infoGraficaActual.titulo}
+                  </h3>
                 </div>
 
                 {/* Selector Segmentado de Gráfica (Pills Switcher) */}
                 <div
-                  className="flex items-center p-1 rounded-xl bg-superficie-2/90 border border-borde/70 shadow-2xs gap-0.5 overflow-x-auto max-w-full"
+                  className="flex items-center p-0.5 rounded-xl bg-superficie-2/90 border border-borde/70 shadow-2xs gap-0.5 overflow-x-auto max-w-full"
                   role="tablist"
                   aria-label="Seleccionar perspectiva de gráfica"
                 >
@@ -463,7 +462,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
             </CardContent>
           </Card>
 
-          {/* Dónde está la plata (Distribución ejecutiva de capital sin gráfica circular) */}
+          {/* Dónde está la plata (Distribución ejecutiva de capital sin repetición de porcentajes) */}
           {(() => {
             const capitalTotal = inversionTotal + resumen.por_cobrar_usd_cents;
             const pctBodega = capitalTotal > 0 ? Math.round((inversionTotal / capitalTotal) * 100) : 0;
@@ -471,17 +470,20 @@ export const PanelView: React.FC<PanelViewProps> = ({
 
             return (
               <Card className="shadow-2xs flex flex-col justify-between h-full">
-                <CardHeader className="px-4 py-3 border-b border-borde/50 shrink-0">
+                <CardHeader className="px-4 py-2.5 border-b border-borde/40 shrink-0">
                   <div className="flex items-center justify-between gap-2">
-                    <SectionHeader
-                      icon={Wallet}
-                      title="Dónde está tu plata"
-                      description="Capital activo disponible y crédito"
-                    />
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
+                        <Wallet className="w-4 h-4" />
+                      </div>
+                      <h3 className="text-body font-bold text-texto tracking-tight truncate">
+                        Dónde está tu plata
+                      </h3>
+                    </div>
                     {capitalTotal > 0 && (
                       <div className="text-right shrink-0">
                         <div className="text-[10px] font-semibold uppercase tracking-wider text-texto-3">
-                          Capital Activo
+                          Total Activo
                         </div>
                         <Money usd_cents={capitalTotal} size="sm" soloUsd className="font-bold text-texto font-mono" />
                       </div>
@@ -491,9 +493,8 @@ export const PanelView: React.FC<PanelViewProps> = ({
                 <CardContent className="p-4 flex-1 flex flex-col justify-between gap-3">
                   {capitalTotal > 0 ? (
                     <>
-                      {/* Estado diagnóstico balanceado: frase corta a propósito
-                          para que quepa entera y no se corte con `truncate`. */}
-                      <div className="rounded-xl p-2.5 bg-superficie-2/70 border border-borde/60 flex items-center justify-between gap-2 text-caption">
+                      {/* Estado diagnóstico balanceado */}
+                      <div className="rounded-xl px-3 py-2 bg-superficie-2/70 border border-borde/60 flex items-center justify-between gap-2 text-caption">
                         <div className="flex items-center gap-2 min-w-0">
                           <span
                             className={cn(
@@ -514,9 +515,9 @@ export const PanelView: React.FC<PanelViewProps> = ({
                         </span>
                       </div>
 
-                      {/* Barra segmentada proporcional con etiquetas */}
+                      {/* Barra segmentada proporcional con etiquetas limpias */}
                       <div className="space-y-1.5">
-                        <div className="flex items-center justify-between text-[11px] text-texto-3 font-medium">
+                        <div className="flex items-center justify-between text-[11px] font-medium">
                           <span className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-semibold">
                             <span className="w-2 h-2 rounded-full bg-emerald-500" />
                             Bodega ({pctBodega}%)
@@ -530,47 +531,38 @@ export const PanelView: React.FC<PanelViewProps> = ({
                           <div
                             className="h-full bg-gradient-to-r from-emerald-600 to-emerald-500 rounded-full transition-all duration-500"
                             style={{ width: `${Math.max(pctBodega > 0 ? 5 : 0, pctBodega)}%` }}
-                            title={`En bodega: ${pctBodega}%`}
                           />
                           <div
                             className="h-full bg-gradient-to-r from-amber-500 to-amber-400 rounded-full transition-all duration-500"
                             style={{ width: `${Math.max(pctCobrar > 0 ? 5 : 0, pctCobrar)}%` }}
-                            title={`Por cobrar: ${pctCobrar}%`}
                           />
                         </div>
                       </div>
 
-                      {/* Accesos directos a bodega y cobranza: solo el reparto
-                          visual (icono, etiqueta, %). Los montos en dólares ya
-                          los dicen las 4 tarjetas de arriba; repetirlos acá no
-                          agrega información, solo texto. */}
+                      {/* Accesos directos a bodega y cobranza sin repetición de porcentajes */}
                       <div className="grid grid-cols-2 gap-2.5">
                         <button
                           type="button"
                           onClick={() => onNavegar('inventario')}
-                          className="flex items-center justify-between gap-1.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10 px-3 py-2.5 transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 cursor-pointer"
+                          className="flex items-center justify-between gap-1.5 rounded-xl border border-borde/80 bg-superficie-2/50 hover:bg-emerald-500/10 hover:border-emerald-500/30 px-3 py-2 transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 cursor-pointer"
                         >
-                          <div className="flex items-center gap-1.5 text-caption font-semibold text-emerald-800 dark:text-emerald-300 min-w-0">
+                          <div className="flex items-center gap-2 text-caption font-medium text-texto min-w-0">
                             <Boxes className="w-3.5 h-3.5 text-emerald-600 group-hover:scale-110 transition-transform shrink-0" />
-                            <span className="truncate">En bodega</span>
+                            <span className="truncate">Ver inventario</span>
                           </div>
-                          <span className="text-caption font-bold px-1.5 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 shrink-0">
-                            {pctBodega}%
-                          </span>
+                          <ArrowRight className="w-3.5 h-3.5 text-texto-3 group-hover:text-emerald-700 group-hover:translate-x-0.5 transition-all shrink-0" />
                         </button>
 
                         <button
                           type="button"
                           onClick={() => onNavegar('cobranza')}
-                          className="flex items-center justify-between gap-1.5 rounded-xl border border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10 px-3 py-2.5 transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 cursor-pointer"
+                          className="flex items-center justify-between gap-1.5 rounded-xl border border-borde/80 bg-superficie-2/50 hover:bg-amber-500/10 hover:border-amber-500/30 px-3 py-2 transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 cursor-pointer"
                         >
-                          <div className="flex items-center gap-1.5 text-caption font-semibold text-amber-800 dark:text-amber-300 min-w-0">
+                          <div className="flex items-center gap-2 text-caption font-medium text-texto min-w-0">
                             <Wallet className="w-3.5 h-3.5 text-amber-600 group-hover:scale-110 transition-transform shrink-0" />
-                            <span className="truncate">Por cobrar</span>
+                            <span className="truncate">Ver cobranza</span>
                           </div>
-                          <span className="text-caption font-bold px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 shrink-0">
-                            {pctCobrar}%
-                          </span>
+                          <ArrowRight className="w-3.5 h-3.5 text-texto-3 group-hover:text-amber-700 group-hover:translate-x-0.5 transition-all shrink-0" />
                         </button>
                       </div>
 
@@ -602,18 +594,28 @@ export const PanelView: React.FC<PanelViewProps> = ({
           {/* 1. QUIÉN TE DEBE */}
           <Card className="shadow-xs card-hover-lift flex flex-col justify-between rounded-2xl border border-borde/70 bg-superficie overflow-hidden">
             <div>
-              <CardHeader className="px-4 py-2 border-b border-borde/40 shrink-0">
-                <SectionHeader
-                  icon={Users}
-                  title="Quién te debe"
-                  action={
-                    data.por_cobrar.length > 0 ? (
+              <CardHeader className="px-4 py-2.5 border-b border-borde/40 shrink-0">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
+                      <Users className="w-4 h-4" />
+                    </div>
+                    <h3 className="text-body font-bold text-texto truncate">Quién te debe</h3>
+                    {data.por_cobrar.length > 0 && (
                       <Badge tone={data.por_cobrar.some((p) => p.cuotas_vencidas > 0) ? 'danger' : 'warning'}>
-                        {data.por_cobrar.length} pendiente{data.por_cobrar.length === 1 ? '' : 's'}
+                        {data.por_cobrar.length}
                       </Badge>
-                    ) : undefined
-                  }
-                />
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onNavegar('cobranza')}
+                    className="inline-flex items-center gap-1 text-caption text-texto-3 hover:text-acento font-medium transition-colors cursor-pointer group shrink-0"
+                  >
+                    <span>Ver todo</span>
+                    <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                  </button>
+                </div>
               </CardHeader>
               <CardContent className="p-0">
                 {data.por_cobrar.length > 0 ? (
@@ -670,41 +672,43 @@ export const PanelView: React.FC<PanelViewProps> = ({
                     ))}
                   </ul>
                 ) : (
-                  <div className="py-5 px-4 flex flex-col items-center justify-center text-center gap-1">
-                    <div className="w-8 h-8 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center mb-1">
+                  <div className="py-6 px-4 flex flex-col items-center justify-center text-center gap-1.5">
+                    <div className="w-7 h-7 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
                       <CheckCircle2 className="w-4 h-4" />
                     </div>
-                    <span className="text-body font-bold text-texto">¡Cuentas al día!</span>
-                    <span className="text-caption text-texto-3">No hay clientes con saldo pendiente de pago.</span>
+                    <span className="text-body font-semibold text-texto">Cuentas al día</span>
+                    <span className="text-caption text-texto-3">No hay clientes con saldo pendiente</span>
                   </div>
                 )}
               </CardContent>
-            </div>
-
-            <div
-              className="px-4 py-1.5 border-t border-borde/40 bg-superficie-2/20 flex items-center justify-between text-[11px] font-semibold text-texto-3 hover:text-acento transition-colors cursor-pointer group"
-              onClick={() => onNavegar('cobranza')}
-            >
-              <span>Ver cartera completa e historial de abonos ({data.por_cobrar.length})</span>
-              <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
             </div>
           </Card>
 
           {/* 2. STOCK POR AGOTARSE */}
           <Card className="shadow-xs card-hover-lift flex flex-col justify-between rounded-2xl border border-borde/70 bg-superficie overflow-hidden">
             <div>
-              <CardHeader className="px-4 py-2 border-b border-borde/40 shrink-0">
-                <SectionHeader
-                  icon={PackageX}
-                  title="Stock por agotarse"
-                  action={
-                    data.bajo_stock.length > 0 ? (
-                      <Badge tone="danger">{data.bajo_stock.length} crítico{data.bajo_stock.length === 1 ? '' : 's'}</Badge>
+              <CardHeader className="px-4 py-2.5 border-b border-borde/40 shrink-0">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-7 h-7 rounded-lg bg-rose-500/10 text-rose-600 flex items-center justify-center shrink-0">
+                      <PackageX className="w-4 h-4" />
+                    </div>
+                    <h3 className="text-body font-bold text-texto truncate">Stock crítico</h3>
+                    {data.bajo_stock.length > 0 ? (
+                      <Badge tone="danger">{data.bajo_stock.length}</Badge>
                     ) : (
                       <Badge tone="success">Óptimo</Badge>
-                    )
-                  }
-                />
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onNavegar('inventario')}
+                    className="inline-flex items-center gap-1 text-caption text-texto-3 hover:text-acento font-medium transition-colors cursor-pointer group shrink-0"
+                  >
+                    <span>Ver todo</span>
+                    <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                  </button>
+                </div>
               </CardHeader>
               <CardContent className="p-0">
                 {data.bajo_stock.length > 0 ? (
@@ -743,35 +747,38 @@ export const PanelView: React.FC<PanelViewProps> = ({
                     ))}
                   </ul>
                 ) : (
-                  <div className="py-5 px-4 flex flex-col items-center justify-center text-center gap-1">
-                    <div className="w-8 h-8 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center mb-1">
+                  <div className="py-6 px-4 flex flex-col items-center justify-center text-center gap-1.5">
+                    <div className="w-7 h-7 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
                       <CheckCircle2 className="w-4 h-4" />
                     </div>
-                    <span className="text-body font-bold text-texto">Existencias saludables</span>
-                    <span className="text-caption text-texto-3">Todos los productos tienen existencias suficientes.</span>
+                    <span className="text-body font-semibold text-texto">Stock saludable</span>
+                    <span className="text-caption text-texto-3">Todos los productos tienen existencias</span>
                   </div>
                 )}
               </CardContent>
-            </div>
-
-            <div
-              className="px-4 py-1.5 border-t border-borde/40 bg-superficie-2/20 flex items-center justify-between text-[11px] font-semibold text-texto-3 hover:text-acento transition-colors cursor-pointer group"
-              onClick={() => onNavegar('inventario')}
-            >
-              <span>Gestionar catálogo e inventario</span>
-              <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
             </div>
           </Card>
 
           {/* 3. LO QUE MÁS SE VENDE (TOP ROTACIÓN) */}
           <Card className="shadow-xs card-hover-lift flex flex-col justify-between rounded-2xl border border-borde/70 bg-superficie overflow-hidden">
             <div>
-              <CardHeader className="px-4 py-2 border-b border-borde/40 shrink-0">
-                <SectionHeader
-                  icon={Flame}
-                  title="Más vendidos"
-                  description="Top rotación comercial"
-                />
+              <CardHeader className="px-4 py-2.5 border-b border-borde/40 shrink-0">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
+                      <Flame className="w-4 h-4" />
+                    </div>
+                    <h3 className="text-body font-bold text-texto truncate">Más vendidos</h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onNavegar('ventas')}
+                    className="inline-flex items-center gap-1 text-caption text-texto-3 hover:text-acento font-medium transition-colors cursor-pointer group shrink-0"
+                  >
+                    <span>Ver historial</span>
+                    <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                  </button>
+                </div>
               </CardHeader>
               <CardContent className="p-0">
                 {data.mas_vendidos.length > 0 ? (
@@ -817,20 +824,12 @@ export const PanelView: React.FC<PanelViewProps> = ({
                     })}
                   </ul>
                 ) : (
-                  <div className="py-5 px-4 flex flex-col items-center justify-center text-center gap-1">
-                    <span className="text-body font-bold text-texto">Sin ventas registradas</span>
-                    <span className="text-caption text-texto-3">Los productos destacados aparecerán con tus ventas.</span>
+                  <div className="py-6 px-4 flex flex-col items-center justify-center text-center gap-1.5">
+                    <span className="text-body font-semibold text-texto">Sin ventas aún</span>
+                    <span className="text-caption text-texto-3">Los productos destacados aparecerán con tus ventas</span>
                   </div>
                 )}
               </CardContent>
-            </div>
-
-            <div
-              className="px-4 py-1.5 border-t border-borde/40 bg-superficie-2/20 flex items-center justify-between text-[11px] font-semibold text-texto-3 hover:text-acento transition-colors cursor-pointer group"
-              onClick={() => onNavegar('ventas')}
-            >
-              <span>Ver historial de ventas</span>
-              <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
             </div>
           </Card>
         </div>

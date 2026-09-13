@@ -18,6 +18,10 @@ export interface StatTileProps {
   /** Comparación con el periodo anterior, ya formateada. */
   delta?: { texto: string; positivo: boolean };
   size?: 'md' | 'lg';
+  /** Si es true, solo muestra el monto en USD sin la conversión inferior en C$. */
+  soloUsd?: boolean;
+  /** Si es true, muestra el enlace textual 'Ver ->' en el pie. Por defecto false. */
+  mostrarVer?: boolean;
   onClick?: () => void;
   className?: string;
 }
@@ -72,6 +76,8 @@ export const StatTile: React.FC<StatTileProps> = ({
   icon: Icon,
   delta,
   size = 'lg',
+  soloUsd = false,
+  mostrarVer = false,
   onClick,
   className,
 }) => {
@@ -79,11 +85,7 @@ export const StatTile: React.FC<StatTileProps> = ({
 
   const contenido = (
     <div className="flex flex-col h-full justify-between">
-      {/* Fila superior: Icono + Label + Indicador click.
-          `flex-wrap` + una base mínima en el bloque del label: si el badge de
-          variación no entra al lado, baja a su propia línea en vez de comerse
-          el label entero (antes "Ganancia de este mes" quedaba en "G..." para
-          hacerle campo a "+31% vs mes pasado"). */}
+      {/* Fila superior: Icono + Label + Indicador click. */}
       <div className="flex items-start justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2.5 min-w-0 flex-1 basis-[130px]">
           {Icon && (
@@ -126,18 +128,19 @@ export const StatTile: React.FC<StatTileProps> = ({
         </div>
       </div>
 
-      {/* Fila central: Métrica principal en layout apilado */}
-      <div className={cn('flex items-baseline justify-between gap-2', size === 'lg' ? 'mt-1.5' : 'mt-1')}>
+      {/* Fila central: Métrica principal */}
+      <div className={cn('flex items-baseline justify-between gap-2', size === 'lg' ? 'mt-2' : 'mt-1.5')}>
         <div className="flex flex-col min-w-0">
           {usd_cents !== undefined ? (
             <Money
               usd_cents={usd_cents}
               size={size === 'lg' ? 'xl' : 'lg'}
-              layout="stacked"
-              className="font-bold tracking-tight text-texto"
+              soloUsd={soloUsd}
+              layout={soloUsd ? 'inline' : 'stacked'}
+              className="font-extrabold tracking-tight text-texto"
             />
           ) : (
-            <span className={cn('text-texto tabular font-bold tracking-tight leading-none', size === 'lg' ? 'text-2xl' : 'text-xl')}>
+            <span className={cn('text-texto tabular font-extrabold tracking-tight leading-none', size === 'lg' ? 'text-2xl' : 'text-xl')}>
               {value}
             </span>
           )}
@@ -146,9 +149,9 @@ export const StatTile: React.FC<StatTileProps> = ({
 
       {/* Fila inferior: Contexto / Pista */}
       {hint && (
-        <div className={cn('border-t border-borde/40 flex items-center justify-between text-caption text-texto-3 leading-tight', size === 'lg' ? 'mt-1.5 pt-1.5' : 'mt-1.5 pt-1')}>
-          <span className="truncate">{hint}</span>
-          {onClick && (
+        <div className={cn('border-t border-borde/40 flex items-center justify-between text-caption text-texto-3 leading-tight', size === 'lg' ? 'mt-2 pt-2' : 'mt-1.5 pt-1.5')}>
+          <span className="truncate font-medium">{hint}</span>
+          {mostrarVer && onClick && (
             <span className="text-[11px] font-medium text-acento inline-flex items-center gap-0.5 group-hover:underline ml-1.5 shrink-0">
               Ver
               <span className="transition-transform duration-200 group-hover:translate-x-0.5">&rarr;</span>

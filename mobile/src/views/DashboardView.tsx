@@ -186,7 +186,7 @@ export function DashboardView({
       <PullToRefresh onRefresh={() => cargar(true)} className="overflow-hidden h-full flex flex-col flex-1 min-h-0">
         <main
           ref={scrollRevealRef}
-          className="flex-1 min-h-0 flex flex-col justify-between gap-2.5 sm:gap-3 px-3.5 pt-2 sm:pt-2.5 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] overflow-hidden"
+          className="flex-1 min-h-0 flex flex-col justify-between gap-3 px-3.5 pt-2.5 pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))] overflow-hidden"
         >
           {error && (
             <div className="rounded-xl bg-rose-50 border border-rose-200 px-3.5 py-2 text-caption sm:text-label font-semibold text-rose-700 flex items-center justify-between shrink-0">
@@ -321,8 +321,8 @@ export function DashboardView({
             </div>
           </section>
 
-          {/* Gráfico 7 días interactivo */}
-          <section className="scroll-reveal m3-card p-3 sm:p-3.5 flex-1 min-h-0 flex flex-col justify-between">
+          {/* Gráfico 7 días interactivo (Altura balanceada, sin estiramiento) */}
+          <section className="scroll-reveal m3-card p-3 sm:p-3.5 shrink-0 flex flex-col gap-2">
             <div className="flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2 text-body font-bold text-slate-800 dark:text-slate-100">
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 shrink-0">
@@ -335,7 +335,7 @@ export function DashboardView({
 
             {/* Detalle flotante si se toca una barra */}
             {diaSeleccionado && (
-              <div className="my-1 flex items-center justify-between rounded-xl bg-slate-50 dark:bg-slate-800/90 border border-slate-200/70 dark:border-slate-700 px-2.5 py-1 text-caption sm:text-label animate-m3-fade shrink-0">
+              <div className="my-0.5 flex items-center justify-between rounded-xl bg-slate-50 dark:bg-slate-800/90 border border-slate-200/70 dark:border-slate-700 px-2.5 py-1 text-caption sm:text-label animate-m3-fade shrink-0">
                 <span className="font-semibold text-slate-700 dark:text-slate-200 capitalize">
                   {nombreDia(diaSeleccionado.fecha)} {diaSeleccionado.fecha.slice(5)}:
                 </span>
@@ -345,8 +345,8 @@ export function DashboardView({
               </div>
             )}
 
-            {/* Las barras toman flex-1 para expandirse y llenar la altura disponible */}
-            <div className="flex flex-1 min-h-0 items-end justify-between gap-1.5 sm:gap-2 pt-2 pb-0.5">
+            {/* Altura de barras proporcionada (76px) para evitar aspecto de rascacielos */}
+            <div className="flex items-end justify-between gap-1.5 sm:gap-2 pt-1 pb-0.5" style={{ height: '102px' }}>
               {serie.map((d) => {
                 const porcentaje = maxSerie > 0 ? (d.total_usd_cents / maxSerie) * 100 : 0;
                 const tieneVenta = d.total_usd_cents > 0;
@@ -362,9 +362,10 @@ export function DashboardView({
                     className="group flex flex-1 flex-col items-center gap-1.5 h-full justify-end cursor-pointer"
                   >
                     <div
-                      className={`relative w-full max-w-[32px] flex-1 min-h-[36px] rounded-lg overflow-hidden transition-all ${
+                      className={`relative w-full max-w-[30px] rounded-lg overflow-hidden transition-all ${
                         estaSeleccionado ? 'ring-2 ring-emerald-500' : ''
                       }`}
+                      style={{ height: '76px' }}
                     >
                       <div
                         style={{
