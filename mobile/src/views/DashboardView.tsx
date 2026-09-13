@@ -184,7 +184,7 @@ export function DashboardView({
       {/* Contenido con Pull-to-Refresh nativo */}
       <PullToRefresh onRefresh={() => cargar(true)} className="flex flex-col flex-1 min-h-0">
         <main
-          className="flex flex-col flex-1 min-h-0 gap-2.5 px-3.5 pt-2 pb-[calc(5rem+env(safe-area-inset-bottom,0px))]"
+          className="flex flex-col flex-1 min-h-0 gap-2.5 px-3.5 pt-2 pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))]"
         >
           {error && (
             <div className="rounded-xl bg-rose-50 border border-rose-200 px-3.5 py-2 text-caption sm:text-label font-semibold text-rose-700 flex items-center justify-between shrink-0">
@@ -406,7 +406,7 @@ export function DashboardView({
                 onIrAInventario?.();
               }
             }}
-            className={`m3-card p-3.5 flex-1 min-h-[90px] flex flex-col justify-between border transition-all ${
+            className={`m3-card p-3 flex-1 min-h-[85px] flex flex-col justify-between border transition-all ${
               (panel?.bajo_stock?.length ?? 0) > 0
                 ? 'bg-rose-50/50 dark:bg-rose-950/20 border-rose-200/60 dark:border-rose-900/40 cursor-pointer active:scale-[0.995]'
                 : 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200/50 dark:border-emerald-900/30'
@@ -423,12 +423,12 @@ export function DashboardView({
                       <span className="text-caption sm:text-label font-bold text-rose-800 dark:text-rose-300 block truncate leading-tight">
                         Stock crítico ({panel!.bajo_stock.length})
                       </span>
-                      <span className="text-[10.5px] text-rose-600/80 dark:text-rose-400/80 block leading-tight">
-                        Productos agotados o por debajo del mínimo
+                      <span className="text-[10.5px] text-rose-600/80 dark:text-rose-400/80 block truncate leading-tight">
+                        Agotados o bajo el mínimo
                       </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 text-[11px] font-semibold text-rose-700 dark:text-rose-400 shrink-0">
+                  <div className="flex items-center gap-1 text-[11px] font-semibold text-rose-700 dark:text-rose-400 shrink-0 pl-1">
                     <span>Gestionar</span>
                     <ChevronRight size={14} />
                   </div>

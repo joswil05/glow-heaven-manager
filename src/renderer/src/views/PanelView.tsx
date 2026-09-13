@@ -463,7 +463,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
             return (
               <Card className="shadow-2xs flex flex-col justify-between h-full">
                 <CardHeader className="px-4 py-2.5 border-b border-borde/40 shrink-0">
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-2 min-w-0">
                       <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
                         <Wallet className="w-4 h-4" />
@@ -473,11 +473,11 @@ export const PanelView: React.FC<PanelViewProps> = ({
                       </h3>
                     </div>
                     {capitalTotal > 0 && (
-                      <div className="text-right shrink-0">
-                        <div className="text-[10px] font-semibold uppercase tracking-wider text-texto-3">
+                      <div className="text-right shrink-0 pl-3.5 border-l border-borde/60 flex flex-col items-end justify-center">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-texto-3 leading-none mb-0.5">
                           Total Activo
-                        </div>
-                        <Money usd_cents={capitalTotal} size="sm" soloUsd className="font-bold text-texto font-mono" />
+                        </span>
+                        <Money usd_cents={capitalTotal} size="sm" soloUsd className="font-bold text-texto font-mono leading-tight" />
                       </div>
                     )}
                   </div>
@@ -519,15 +519,15 @@ export const PanelView: React.FC<PanelViewProps> = ({
                             Por cobrar ({pctCobrar}%)
                           </span>
                         </div>
-                        <div className="h-3.5 w-full rounded-lg bg-superficie-2 border border-borde/80 p-0.5 flex overflow-hidden gap-1 shadow-inner">
+                        <div className="h-2.5 w-full rounded-full bg-superficie-2 flex overflow-hidden gap-1">
                           <div
-                            className="h-full bg-emerald-600 dark:bg-emerald-500 rounded-md transition-all duration-500 shadow-xs"
-                            style={{ width: `${Math.max(pctBodega > 0 ? 5 : 0, pctBodega)}%` }}
+                            className="h-full bg-emerald-600 dark:bg-emerald-500 rounded-full transition-all duration-500"
+                            style={{ width: `${Math.max(pctBodega > 0 ? 4 : 0, pctBodega)}%` }}
                             title={`Bodega: ${pctBodega}%`}
                           />
                           <div
-                            className="h-full bg-amber-500 dark:bg-amber-400 rounded-md transition-all duration-500 shadow-xs"
-                            style={{ width: `${Math.max(pctCobrar > 0 ? 5 : 0, pctCobrar)}%` }}
+                            className="h-full bg-amber-500 dark:bg-amber-400 rounded-full transition-all duration-500"
+                            style={{ width: `${Math.max(pctCobrar > 0 ? 4 : 0, pctCobrar)}%` }}
                             title={`Por cobrar: ${pctCobrar}%`}
                           />
                         </div>
