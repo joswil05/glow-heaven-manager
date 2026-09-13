@@ -4,14 +4,9 @@ import {
   Search,
   AlertTriangle,
   CheckCircle2,
-  DollarSign,
-  MessageCircle,
-  Clock3,
   X,
-  UserCheck,
   RefreshCw,
   PlusCircle,
-  ChevronRight,
 } from 'lucide-react';
 import { formatearMoneda } from '@core/moneda';
 import type { FilaPorCobrar } from '@shared/types';
@@ -20,12 +15,12 @@ import {
   invalidarCacheDashboard,
   cacheDashboardGlobal,
 } from '../lib/panel-movil';
-import { linkWhatsapp } from '../lib/util';
 import { useDatosNegocio } from '../context/DataContext';
 import { PullToRefresh } from '../components/PullToRefresh';
 import { AbonoModalSheet, type VentaCobroItem } from '../components/AbonoModalSheet';
 import { AbonoSelectorSheet } from '../components/AbonoSelectorSheet';
 import { KardexClienteSheet, type ClienteKardexInfo } from '../components/KardexClienteSheet';
+import { DetalleCobroSheet } from '../components/DetalleCobroSheet';
 import { haptics } from '../lib/haptics';
 import { useScrollReveal } from '../lib/useScrollReveal';
 
@@ -45,6 +40,8 @@ export function CobranzaView() {
   const [sheetAbonoSelectorAbierto, setSheetAbonoSelectorAbierto] = useState(false);
   const [ventaParaCobrar, setVentaParaCobrar] = useState<VentaCobroItem | null>(null);
   const [clienteParaKardex, setClienteParaKardex] = useState<ClienteKardexInfo | null>(null);
+  // Ficha de una cuenta: la lista quedo compacta y el detalle vive aca.
+  const [detalleCobro, setDetalleCobro] = useState<FilaPorCobrar | null>(null);
 
   const cargar = useCallback(async (forzar = false) => {
     if (forzar) {
@@ -343,167 +340,60 @@ export function CobranzaView() {
                 const porcentaje = Math.min(100, Math.max(0, Math.round((pagado / totalVenta) * 100)));
 
                 return (
-                  <div
+                  /* Fila compacta: la lista responde "quién me debe, cuánto y
+                     a quién le cobro primero", y para eso alcanzan el nombre,
+                     la cifra y el estado. El código de venta, la fecha, el
+                     porcentaje, la barra y las tres acciones se mudaron a la
+                     ficha, donde ya se eligió a la clienta y no le cobran
+                     espacio a las demás. Pasó de ~208px a ~72px por fila: de
+                     3 clientas visibles a 8. */
+                  <button
                     key={f.venta_id}
-                    className={`scroll-reveal flex flex-col gap-2.5 rounded-2xl border p-3.5 shadow-xs transition-all ${
-                      vencida
-                        ? 'border-peligro-suave bg-peligro-suave'
-                        : 'border-borde bg-superficie  hover:border-borde'
+                    type="button"
+                    onClick={() => {
+                      haptics.selection();
+                      setDetalleCobro(f);
+                    }}
+                    className={`scroll-reveal flex w-full items-center gap-3 rounded-2xl border bg-superficie p-3 text-left shadow-xs active:scale-[0.99] transition-transform cursor-pointer ${
+                      vencida ? 'border-peligro-suave' : 'border-borde'
                     }`}
                   >
-                    {/* Fila 1: Avatar + Nombre + Referencia + Badge de estado */}
-                    <div className="flex items-center justify-between gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          haptics.selection();
-                          setClienteParaKardex({
-                            cliente_id: f.cliente_id,
-                            cliente_nombre: f.cliente_nombre,
-                            cliente_telefono: f.cliente_telefono,
-                            saldo_usd_cents: f.saldo_usd_cents,
-                            venta_id: f.venta_id,
-                            codigo: f.codigo,
-                          });
-                        }}
-                        className="flex items-center gap-2.5 min-w-0 flex-1 text-left cursor-pointer group"
-                        title="Ver historial de abonos (Kardex)"
-                      >
-                        <div
-                          className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-black shrink-0 border ${
-                            vencida
-                              ? 'bg-peligro-suave text-peligro-fuerte border-peligro-suave'
-                              : 'bg-acento-suave text-acento-fuerte border-acento-suave'
-                          }`}
-                        >
-                          {inicial}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <h2 className="text-body font-bold text-texto truncate leading-tight group-hover:text-acento transition-colors">
-                            {f.cliente_nombre}
-                          </h2>
-                          <p className="text-caption text-texto-3 font-medium truncate mt-0.5 flex items-center gap-1">
-                            <span>{f.codigo} · {f.fecha}</span>
-                            <span className="text-acento font-semibold underline">· Kardex</span>
-                          </p>
-                        </div>
-                      </button>
+                    <div
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-xs font-black ${
+                        vencida
+                          ? 'border-peligro-suave bg-peligro-suave text-peligro-fuerte'
+                          : 'border-acento-suave bg-acento-suave text-acento-fuerte'
+                      }`}
+                    >
+                      {inicial}
+                    </div>
 
-                      {/* Badge de vencimiento o al día */}
+                    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                      <h2 className="truncate text-body font-bold leading-tight text-texto">
+                        {f.cliente_nombre}
+                      </h2>
+                      <p className="truncate text-caption font-medium text-texto-3">
+                        {porcentaje}% pagado · {f.codigo}
+                      </p>
+                    </div>
+
+                    {/* La cifra y el estado, alineados a la derecha y con
+                        tabular-nums: así las columnas de saldo se leen de un
+                        golpe al recorrer la lista. */}
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      <span className="text-base font-black tabular-nums leading-none text-texto">
+                        {formatearMoneda(f.saldo_usd_cents, 'USD')}
+                      </span>
                       {vencida ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-peligro-suave px-2.5 py-0.5 text-caption font-extrabold text-peligro shrink-0 border border-peligro-suave">
-                          <AlertTriangle size={11} />
-                          {f.cuotas_vencidas} {f.cuotas_vencidas === 1 ? 'vencida' : 'vencidas'}
+                        <span className="inline-flex items-center gap-1 rounded-full bg-peligro-suave px-2 py-0.5 text-caption font-extrabold text-peligro-fuerte">
+                          <AlertTriangle size={10} />
+                          {f.cuotas_vencidas} venc.
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-acento-suave px-2.5 py-0.5 text-caption font-bold text-acento shrink-0 border border-acento-suave">
-                          Al día
-                        </span>
+                        <span className="text-caption font-semibold text-texto-3">Al día</span>
                       )}
                     </div>
-
-                    {/* Fila 2: Saldo pendiente destacado */}
-                    <div className="flex items-baseline justify-between px-3 py-2 rounded-xl bg-superficie-2 border border-borde">
-                      <div>
-                        <span className="text-caption font-bold uppercase tracking-wider text-texto-3 block">
-                          Saldo pendiente
-                        </span>
-                        <span className="text-caption text-texto-3 font-medium">
-                          Pagado: {porcentaje}% de {formatearMoneda(f.total_usd_cents, 'USD')}
-                        </span>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-base font-black text-texto tabular-nums">
-                          {formatearMoneda(f.saldo_usd_cents, 'USD')}
-                        </span>
-                        <span className="text-xs font-semibold text-texto-3 ml-1.5 block">
-                          ≈ {formatearMoneda(saldoCor, 'COR')}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Barra de progreso de pago */}
-                    <div className="w-full bg-superficie-2 rounded-full h-1.5 overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all duration-300 ${
-                          vencida ? 'bg-peligro' : 'bg-acento'
-                        }`}
-                        style={{ width: `${porcentaje}%` }}
-                      />
-                    </div>
-
-                    {/* Fila 3: Botones de acción cómodos */}
-                    <div className="flex items-center gap-2 pt-0.5">
-                      {/* Botón WhatsApp */}
-                      <a
-                        href={
-                          linkWhatsapp(
-                            f.cliente_telefono,
-                            `Hola ${f.cliente_nombre}, te escribo de Glow Heaven por tu saldo pendiente de ${formatearMoneda(
-                              f.saldo_usd_cents,
-                              'USD'
-                            )} (≈ ${formatearMoneda(
-                              saldoCor,
-                              'COR'
-                            )}) de la venta ${f.codigo}. ¿Cuándo podés completar el pago? Muchas gracias.`
-                          ) ?? undefined
-                        }
-                        onClick={() => haptics.impact('light')}
-                        target="_blank"
-                        rel="noreferrer"
-                        aria-label={`Escribir a ${f.cliente_nombre} por WhatsApp`}
-                        className={`m3-press flex items-center justify-center gap-1.5 h-10 px-3 rounded-xl border text-label font-bold transition-all shrink-0 ${
-                          f.cliente_telefono
-                            ? 'bg-acento-suave text-acento-fuerte border-acento-suave hover:bg-acento-suave active:scale-95'
-                            : 'bg-superficie-2 text-texto-3 border-borde-2 pointer-events-none'
-                        }`}
-                      >
-                        <MessageCircle size={15} className="shrink-0" />
-                        <span>WhatsApp</span>
-                      </a>
-
-                      {/* Botón Kardex / Historial */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          haptics.impact('light');
-                          setClienteParaKardex({
-                            cliente_id: f.cliente_id,
-                            cliente_nombre: f.cliente_nombre,
-                            cliente_telefono: f.cliente_telefono,
-                            saldo_usd_cents: f.saldo_usd_cents,
-                            venta_id: f.venta_id,
-                            codigo: f.codigo,
-                          });
-                        }}
-                        className="m3-press flex items-center justify-center gap-1 h-10 px-2.5 rounded-xl border border-borde bg-superficie-2 text-texto-2 text-label font-bold hover:bg-superficie-2 active:scale-95 transition-all cursor-pointer shrink-0"
-                        title="Ver historial de abonos"
-                      >
-                        <Clock3 size={14} className="shrink-0" />
-                        <span>Kardex</span>
-                      </button>
-
-                      {/* Botón Abonar */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          haptics.impact('medium');
-                          setVentaParaCobrar({
-                            venta_id: f.venta_id,
-                            codigo: f.codigo,
-                            cliente_nombre: f.cliente_nombre,
-                            cliente_telefono: f.cliente_telefono,
-                            saldo_usd_cents: f.saldo_usd_cents,
-                          });
-                        }}
-                        className="m3-press flex-1 flex items-center justify-center gap-1.5 h-10 px-3 rounded-xl bg-acento hover:bg-acento text-acento-texto text-label font-extrabold shadow-sm active:scale-95 transition-all cursor-pointer min-w-0"
-                        aria-label={`Registrar abono de ${f.cliente_nombre}`}
-                      >
-                        <DollarSign size={15} className="shrink-0" />
-                        <span className="truncate">Abonar</span>
-                      </button>
-                    </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -536,6 +426,33 @@ export function CobranzaView() {
       />
 
       {/* Modal Bottom Sheet de Kardex de Abonos del Cliente */}
+      <DetalleCobroSheet
+        fila={detalleCobro}
+        tasaCambioCents={tasa}
+        onCerrar={() => setDetalleCobro(null)}
+        onAbonar={(f) => {
+          setDetalleCobro(null);
+          setVentaParaCobrar({
+            venta_id: f.venta_id,
+            codigo: f.codigo,
+            cliente_nombre: f.cliente_nombre,
+            cliente_telefono: f.cliente_telefono,
+            saldo_usd_cents: f.saldo_usd_cents,
+          });
+        }}
+        onVerKardex={(f) => {
+          setDetalleCobro(null);
+          setClienteParaKardex({
+            cliente_id: f.cliente_id,
+            cliente_nombre: f.cliente_nombre,
+            cliente_telefono: f.cliente_telefono,
+            saldo_usd_cents: f.saldo_usd_cents,
+            venta_id: f.venta_id,
+            codigo: f.codigo,
+          });
+        }}
+      />
+
       <KardexClienteSheet
         cliente={clienteParaKardex}
         abierto={Boolean(clienteParaKardex)}
