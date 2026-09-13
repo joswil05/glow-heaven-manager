@@ -257,15 +257,17 @@ export function CobranzaView() {
               era una losa de ámbar saturado que en oscuro se veía como un
               ladrillo naranja tapando todo. El ámbar sigue siendo la seña de
               "plata en la calle", pero como resplandor, no como fondo. */}
-          <section className="scroll-reveal relative overflow-hidden rounded-[24px] border border-borde bg-superficie p-4 shadow-m3-1">
-            <div
-              aria-hidden
-              className="pointer-events-none absolute -right-10 -top-14 h-44 w-44 rounded-full bg-alerta/20 blur-3xl"
-            />
-
+          <section
+            className="scroll-reveal relative overflow-hidden rounded-[24px] border border-alerta/30 bg-superficie p-4 shadow-m3-2"
+            style={{
+              backgroundImage:
+                'radial-gradient(130% 110% at 88% -10%, rgb(var(--alerta) / 0.28), transparent 58%),' +
+                'linear-gradient(180deg, rgb(var(--alerta) / 0.07), transparent 45%)',
+            }}
+          >
             <div className="relative z-10">
               <div className="flex items-center justify-between gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-alerta-suave px-2.5 py-0.5 text-caption font-bold uppercase tracking-wide text-alerta-fuerte">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-alerta px-2.5 py-0.5 text-caption font-bold uppercase tracking-wide text-alerta-texto">
                   Total por cobrar en la calle
                 </span>
                 {cuentasVencidas.length > 0 && (
@@ -277,7 +279,7 @@ export function CobranzaView() {
               </div>
 
               <div className="mt-2.5 flex items-baseline gap-2">
-                <p className="text-2xl sm:text-3xl font-black tracking-tight tabular-nums text-texto leading-none">
+                <p className="text-3xl sm:text-4xl font-black tracking-tight tabular-nums text-texto leading-none">
                   {formatearMoneda(totalPorCobrarUsd, 'USD')}
                 </p>
                 <span className="text-xs font-semibold tabular-nums text-texto-3">

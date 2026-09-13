@@ -200,28 +200,35 @@ export function DashboardView({
               Ahora es una superficie normal con un resplandor verde suave en
               una esquina: el color de marca sigue ahí, pero el héroe es la
               cifra. Es lo que hacen los paneles de referencia. */}
-          <section className="relative overflow-hidden rounded-[20px] border border-borde bg-superficie p-3.5 sm:p-4 shadow-m3-1 shrink-0 flex flex-col justify-between">
-            <div
-              aria-hidden
-              className="pointer-events-none absolute -right-10 -top-16 h-48 w-48 rounded-full bg-acento/20 blur-3xl"
-            />
-
+          <section
+            className="relative overflow-hidden rounded-[20px] border border-acento/30 bg-superficie p-3.5 sm:p-4 shadow-m3-2 shrink-0 flex flex-col justify-between"
+            style={{
+              // El degradado sale de los tokens, así que se adapta al tema en
+              // vez de ser un color quemado. Se ve, pero no tapa: el número
+              // sigue leyéndose contra la superficie, no contra el color.
+              backgroundImage:
+                'radial-gradient(130% 110% at 88% -10%, rgb(var(--acento) / 0.30), transparent 58%),' +
+                'linear-gradient(180deg, rgb(var(--acento) / 0.07), transparent 45%)',
+            }}
+          >
             <div className="relative z-10 flex flex-col gap-2 sm:gap-2.5">
               <div className="flex items-center justify-between">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-acento-suave px-2.5 py-0.5 text-[11px] font-bold tracking-wide uppercase text-acento-fuerte">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-acento px-2.5 py-0.5 text-[11px] font-bold tracking-wide uppercase text-acento-texto">
                   Ventas de hoy
                 </span>
-                <span className="rounded-full bg-superficie-2 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-texto-2">
+                <span className="rounded-full bg-superficie-2/80 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-texto-2 backdrop-blur-sm">
                   {hoy.ventas_count} {hoy.ventas_count === 1 ? 'venta' : 'ventas'}
                 </span>
               </div>
 
               <div className="flex items-end justify-between gap-2">
                 <div>
-                  <span className="mb-0.5 block text-[11px] font-medium uppercase tracking-wider text-texto-3">
+                  <span className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-texto-3">
                     Total generado
                   </span>
-                  <p className="text-2xl sm:text-3xl font-black tracking-tight tabular-nums text-texto leading-none">
+                  {/* La cifra del día es el dato más importante de la app:
+                      que pese como tal. */}
+                  <p className="text-3xl sm:text-4xl font-black tracking-tight tabular-nums text-texto leading-none">
                     {formatearMoneda(hoy.total_usd_cents, 'USD')}
                   </p>
                 </div>

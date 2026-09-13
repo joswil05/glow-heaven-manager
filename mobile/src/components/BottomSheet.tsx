@@ -207,7 +207,7 @@ export function BottomSheet({
       <div
         ref={scrimRef}
         onClick={onCerrar}
-        className="fixed inset-0 bg-fondo backdrop-blur-[3px] animate-m3-fade"
+        className="fixed inset-0 bg-velo/60 backdrop-blur-[3px] animate-m3-fade"
         aria-hidden="true"
       />
 
