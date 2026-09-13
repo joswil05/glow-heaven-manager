@@ -11,6 +11,7 @@ import {
   Money,
   BarraProgreso,
   Confirmar,
+  Portal,
 } from './ui';
 import { parsearDecimal } from '@core/numeros';
 import {
@@ -149,10 +150,11 @@ export const PagoModal: React.FC<PagoModalProps> = ({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-velo/40 backdrop-blur-xs p-4 cursor-pointer"
-      role="dialog"
-      aria-modal="true"
+    <Portal>
+      <div
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 cursor-pointer"
+        role="dialog"
+        aria-modal="true"
       aria-labelledby="titulo-pago"
       onClick={(e) => {
         if (e.target === e.currentTarget) onCerrar();
@@ -410,5 +412,6 @@ export const PagoModal: React.FC<PagoModalProps> = ({
         </footer>
       </div>
     </div>
+    </Portal>
   );
 };

@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { X, Printer, MessageCircle, FileText, Download, Loader2 } from 'lucide-react';
 import type { VentaCompleta, ParametrosSistema, CuentaBancaria } from '../../../shared/types';
-import { Button } from './ui';
+import { Button, Portal } from './ui';
 import { useToast } from '../context/ToastContext';
 import {
   generarHtmlFactura,
@@ -150,9 +150,10 @@ export const DocumentoModal: React.FC<DocumentoModalProps> = ({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-velo/50 backdrop-blur-xs p-4 cursor-pointer"
-      role="dialog"
+    <Portal>
+      <div
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 cursor-pointer"
+        role="dialog"
       aria-modal="true"
       onClick={(e) => {
         if (e.target === e.currentTarget) onCerrar();
@@ -242,5 +243,6 @@ export const DocumentoModal: React.FC<DocumentoModalProps> = ({
         </div>
       </div>
     </div>
+    </Portal>
   );
 };

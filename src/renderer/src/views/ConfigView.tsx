@@ -314,7 +314,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
 
   return (
     <div className="flex-1 overflow-y-auto p-4 md:px-6 md:py-5 animate-fade-in scroll-smooth" onKeyDown={alPresionarEnter}>
-      <div className="max-w-4xl mx-auto space-y-5">
+      <div className="max-w-[1500px] w-full mx-auto space-y-5 stagger-children">
         <div>
           <p className="text-label text-texto-2">
             Los costos que pagás y cómo se calculan tus precios.

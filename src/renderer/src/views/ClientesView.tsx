@@ -13,6 +13,7 @@ import {
   DataTable,
   Confirmar,
   ContextMenu,
+  Portal,
   type Column,
 } from '../components/ui';
 import { EmptyState } from '../components/shared/EmptyState';
@@ -301,8 +302,8 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 
   return (
     <div className="flex-1 flex overflow-hidden">
-      <div className="flex-1 overflow-y-auto p-4 md:px-6 md:py-4 scroll-smooth">
-        <div className="max-w-[1500px] w-full mx-auto space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 md:px-6 md:py-4 animate-fade-in scroll-smooth">
+        <div className="max-w-[1500px] w-full mx-auto space-y-4 stagger-children">
           {/* Barra superior estilizada idéntica a la del inicio */}
         <div className="flex items-center justify-between gap-3 pb-1 border-b border-borde/40 text-caption text-texto-3 shrink-0 flex-wrap">
           <div className="flex items-center gap-2">
@@ -331,7 +332,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 stagger-children">
           <StatTile
             label="Clientes registrados"
             value={clientes.length}
@@ -964,10 +965,11 @@ const ClienteModal: React.FC<{
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-velo/40 backdrop-blur-xs p-4 cursor-pointer"
-      role="dialog"
-      aria-modal="true"
+    <Portal>
+      <div
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 cursor-pointer"
+        role="dialog"
+        aria-modal="true"
       aria-labelledby="titulo-cliente"
       onClick={(e) => {
         if (e.target === e.currentTarget) onCerrar();
@@ -1045,6 +1047,7 @@ const ClienteModal: React.FC<{
         </footer>
       </div>
     </div>
+    </Portal>
   );
 };
 

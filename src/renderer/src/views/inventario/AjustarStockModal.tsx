@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Button, Field, Input } from '../../components/ui';
+import { Button, Field, Input, Portal } from '../../components/ui';
 import { cn } from '../../lib/cn';
 
 /**
@@ -56,9 +56,10 @@ export const AjustarStockModal: React.FC<Props> = ({ ajuste, onCerrar, onConfirm
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-velo/60 backdrop-blur-xs p-4 animate-fade-in cursor-pointer"
-      role="dialog"
+    <Portal>
+      <div
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fade-in cursor-pointer"
+        role="dialog"
       aria-modal="true"
       aria-labelledby="titulo-ajuste"
       onClick={(e) => {
@@ -132,5 +133,6 @@ export const AjustarStockModal: React.FC<Props> = ({ ajuste, onCerrar, onConfirm
         </footer>
       </form>
     </div>
+    </Portal>
   );
 };

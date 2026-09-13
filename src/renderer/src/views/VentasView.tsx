@@ -364,8 +364,8 @@ export const VentasView: React.FC<VentasViewProps> = ({
 
   return (
     <div className="flex-1 flex overflow-hidden">
-      <div className="flex-1 overflow-y-auto p-4 md:px-6 md:py-4 scroll-smooth">
-        <div className="max-w-[1500px] w-full mx-auto space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 md:px-6 md:py-4 animate-fade-in scroll-smooth">
+        <div className="max-w-[1500px] w-full mx-auto space-y-4 stagger-children">
           {/* Barra superior estilizada idéntica a la del inicio */}
         <div className="flex items-center justify-between gap-3 pb-1 border-b border-borde/40 text-caption text-texto-3 shrink-0 flex-wrap">
           <div className="flex items-center gap-2">
@@ -393,7 +393,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 stagger-children">
           <StatTile
             label={esEncargo ? 'Total cotizado' : 'Total facturado'}
             usd_cents={totales.vendido}

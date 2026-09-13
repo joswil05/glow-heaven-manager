@@ -20,6 +20,7 @@ import {
   Badge,
   Money,
   Porcentaje,
+  Portal,
 } from '../../components/ui';
 import { calcularPrecio } from '@core/precios';
 import { parsearDecimal } from '@core/numeros';
@@ -478,10 +479,11 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-velo/40 backdrop-blur-xs p-4 cursor-pointer"
-      role="dialog"
-      aria-modal="true"
+    <Portal>
+      <div
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 cursor-pointer"
+        role="dialog"
+        aria-modal="true"
       aria-labelledby="titulo-producto"
       onClick={(e) => {
         if (e.target === e.currentTarget) onCerrar();
@@ -1176,5 +1178,6 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
         </footer>
       </div>
     </div>
+    </Portal>
   );
 };

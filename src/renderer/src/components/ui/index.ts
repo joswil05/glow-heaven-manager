@@ -32,3 +32,5 @@ export { Confirmar } from './Confirmar';
 export type { ConfirmarProps } from './Confirmar';
 export { ContextMenu } from './ContextMenu';
 export type { ContextMenuProps, ContextMenuItem } from './ContextMenu';
+export { Portal } from './Portal';
+export type { PortalProps } from './Portal';

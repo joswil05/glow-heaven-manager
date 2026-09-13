@@ -32,6 +32,7 @@ import {
   Column,
   StatTile,
   Confirmar,
+  Portal,
 } from '../components/ui';
 import { formatearMoneda, formatearFecha } from '@core/moneda';
 import { enlaceWhatsApp } from '../lib/whatsapp';
@@ -359,8 +360,8 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-superficie-2/40">
-      <div className="flex-1 overflow-y-auto p-4 md:px-6 md:py-4 scroll-smooth">
-        <div className="max-w-[1500px] w-full mx-auto space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 md:px-6 md:py-4 animate-fade-in scroll-smooth">
+        <div className="max-w-[1500px] w-full mx-auto space-y-4 stagger-children">
           {/* Header estilizado idéntico al panel */}
           <div className="flex items-center justify-between gap-3 pb-2 border-b border-borde/40 text-caption text-texto-3 flex-wrap">
             <div className="flex items-center gap-2">
@@ -424,7 +425,7 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
           </div>
 
           {/* StatTiles métricos de cobranza */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 stagger-children">
             <StatTile
               label="Total Recaudado en Abonos"
               usd_cents={totalAbonosUsd}
@@ -650,8 +651,9 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
 
       {/* Modal para Registrar Abono */}
       {modalAbonoAbierto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 animate-fade-in backdrop-blur-xs">
-          <div className="bg-superficie rounded-2xl border border-borde shadow-xl max-w-md w-full p-5 space-y-4 animate-scale-in">
+        <Portal>
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 animate-fade-in backdrop-blur-xs">
+            <div className="bg-superficie rounded-2xl border border-borde shadow-xl max-w-md w-full p-5 space-y-4 animate-scale-in">
             <div className="flex items-center justify-between pb-2 border-b border-borde">
               <div className="flex items-center gap-2">
                 <CreditCard className="w-5 h-5 text-acento" />
@@ -764,6 +766,7 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
             </div>
           </div>
         </div>
+        </Portal>
       )}
 
       {/* Confirmar anulación de abono */}

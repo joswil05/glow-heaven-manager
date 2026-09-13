@@ -163,22 +163,28 @@ export function CobranzaView() {
           )}
         </div>
 
-        {/* Segmented Filter Pills */}
-        <div className="grid grid-cols-3 p-1 mt-2 rounded-xl bg-slate-100/90 dark:bg-slate-900/90 border border-slate-200/70 dark:border-slate-800 text-xs font-bold gap-1">
+        {/* Filtros en chips compactos consistentes con el catálogo */}
+        <div className="flex items-center gap-1.5 mt-2 overflow-x-auto sin-scrollbar py-0.5">
           <button
             type="button"
             onClick={() => {
               haptics.selection();
               setFiltro('todas');
             }}
-            className={`py-1.5 px-2 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            className={`m3-press shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
               filtro === 'todas'
-                ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold shadow-xs'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                ? 'bg-emerald-700 dark:bg-emerald-600 text-white shadow-xs ring-1 ring-emerald-800 dark:ring-emerald-500'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200/70 dark:hover:bg-slate-700 border border-slate-200/60 dark:border-slate-700'
             }`}
           >
             <span>Todas</span>
-            <span className="text-[10px] py-0.5 px-1.5 rounded-full bg-slate-200/60 dark:bg-slate-700/60 font-semibold">
+            <span
+              className={`text-[10px] py-0.2 px-1.5 rounded-full font-semibold ${
+                filtro === 'todas'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-slate-200/70 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+              }`}
+            >
               {cuentas.length}
             </span>
           </button>
@@ -189,21 +195,21 @@ export function CobranzaView() {
               haptics.selection();
               setFiltro('vencidas');
             }}
-            className={`py-1.5 px-2 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            className={`m3-press shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
               filtro === 'vencidas'
-                ? 'bg-red-500 text-white font-bold shadow-xs'
+                ? 'bg-rose-600 dark:bg-rose-600 text-white shadow-xs ring-1 ring-rose-700 dark:ring-rose-500'
                 : cuentasVencidas.length > 0
-                ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30'
-                : 'text-slate-500 dark:text-slate-400'
+                ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200/70 dark:hover:bg-slate-700 border border-slate-200/60 dark:border-slate-700'
             }`}
           >
             <span>Vencidas</span>
             {cuentasVencidas.length > 0 && (
               <span
-                className={`text-[10px] py-0.5 px-1.5 rounded-full font-bold ${
+                className={`text-[10px] py-0.2 px-1.5 rounded-full font-bold ${
                   filtro === 'vencidas'
                     ? 'bg-white/20 text-white'
-                    : 'bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300'
+                    : 'bg-rose-200/80 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200'
                 }`}
               >
                 {cuentasVencidas.length}
@@ -217,18 +223,18 @@ export function CobranzaView() {
               haptics.selection();
               setFiltro('al_dia');
             }}
-            className={`py-1.5 px-2 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            className={`m3-press shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
               filtro === 'al_dia'
-                ? 'bg-emerald-600 text-white font-bold shadow-xs'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                ? 'bg-emerald-700 dark:bg-emerald-600 text-white shadow-xs ring-1 ring-emerald-800 dark:ring-emerald-500'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200/70 dark:hover:bg-slate-700 border border-slate-200/60 dark:border-slate-700'
             }`}
           >
             <span>Al día</span>
             <span
-              className={`text-[10px] py-0.5 px-1.5 rounded-full font-semibold ${
+              className={`text-[10px] py-0.2 px-1.5 rounded-full font-semibold ${
                 filtro === 'al_dia'
                   ? 'bg-white/20 text-white'
-                  : 'bg-slate-200/60 dark:bg-slate-700/60'
+                  : 'bg-slate-200/70 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
               }`}
             >
               {cuentasAlDia.length}

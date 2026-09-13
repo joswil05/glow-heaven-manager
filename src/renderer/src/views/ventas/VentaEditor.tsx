@@ -25,7 +25,7 @@ import type {
   MonedaPago,
   TipoDescuento,
 } from '../../../../shared/types';
-import { Button, Field, Input, Select, Textarea, Badge, Money } from '../../components/ui';
+import { Button, Field, Input, Select, Textarea, Badge, Money, Portal } from '../../components/ui';
 import { parsearDecimal } from '@core/numeros';
 import { formatearMoneda } from '@core/moneda';
 import { useToast } from '../../context/ToastContext';
@@ -501,10 +501,11 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
   ];
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-velo/40 backdrop-blur-xs p-4 cursor-pointer"
-      role="dialog"
-      aria-modal="true"
+    <Portal>
+      <div
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 cursor-pointer"
+        role="dialog"
+        aria-modal="true"
       aria-labelledby="titulo-venta"
       onClick={(e) => {
         if (e.target === e.currentTarget) onCerrar();
@@ -1590,5 +1591,6 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
         </footer>
       </div>
     </div>
+    </Portal>
   );
 };

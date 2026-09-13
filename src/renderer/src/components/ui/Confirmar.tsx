@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { Button } from './Button';
+import { Portal } from './Portal';
 import { cn } from '../../lib/cn';
 
 /**
@@ -52,9 +53,10 @@ export const Confirmar: React.FC<ConfirmarProps> = ({
   if (!abierto) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-velo/50 backdrop-blur-xs p-4 animate-fade-in cursor-pointer"
-      role="alertdialog"
+    <Portal>
+      <div
+        className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fade-in cursor-pointer"
+        role="alertdialog"
       aria-modal="true"
       aria-labelledby="titulo-confirmar"
       onClick={(e) => {
@@ -124,5 +126,6 @@ export const Confirmar: React.FC<ConfirmarProps> = ({
         </footer>
       </div>
     </div>
+    </Portal>
   );
 };

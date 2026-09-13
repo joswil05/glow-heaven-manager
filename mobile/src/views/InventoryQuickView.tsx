@@ -210,9 +210,8 @@ export function InventoryQuickView() {
               return (
                 <div
                   key={p.id}
-                  className="scroll-reveal rounded-2xl bg-white dark:bg-[#161f30] border border-slate-200/80 dark:border-slate-800 p-3.5 shadow-xs hover:border-slate-300 dark:hover:border-slate-700 transition-all flex flex-col gap-2.5"
+                  className="scroll-reveal rounded-2xl bg-white dark:bg-[#161f30] border border-slate-200/80 dark:border-slate-800 p-3.5 shadow-xs hover:border-slate-300 dark:hover:border-slate-700 transition-all flex gap-3 items-center"
                 >
-                  <div className="flex gap-3 items-center">
                     {/* Foto o Placeholder */}
                     <div
                       className="shrink-0 overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700 relative flex items-center justify-center"
@@ -292,25 +291,6 @@ export function InventoryQuickView() {
                     >
                       <MessageCircle size={16} />
                     </button>
-                  </div>
-
-                  {/* Tonos / Variantes disponibles */}
-                  {p.tiene_variantes && p.variantes.length > 0 && (
-                    <div className="flex flex-wrap gap-1 pt-1.5 border-t border-slate-100 dark:border-slate-800">
-                      {p.variantes.map((v) => (
-                        <span
-                          key={v.id}
-                          className={`rounded-md px-1.5 py-0.5 text-caption font-medium border ${
-                            v.existencias > 0
-                              ? 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
-                              : 'bg-slate-100/50 dark:bg-slate-900/40 text-slate-400 dark:text-slate-500 border-dashed border-slate-200 dark:border-slate-800 line-through'
-                          }`}
-                        >
-                          {[v.talla, v.color].filter(Boolean).join(' ') || 'Único'} ({v.existencias})
-                        </span>
-                      ))}
-                    </div>
-                  )}
                 </div>
               );
             })}
