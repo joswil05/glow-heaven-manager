@@ -37,33 +37,33 @@ const ESTILOS_TONO: Record<
 > = {
   neutral: {
     borde: 'border-borde hover:border-borde-fuerte',
-    iconBox: 'bg-slate-100 text-slate-700 border-slate-200/80 shadow-sm',
-    glowBg: 'hover:shadow-slate-200/40',
+    iconBox: 'bg-superficie-2 text-texto-2 border-borde/80 shadow-2xs',
+    glowBg: 'hover:shadow-superficie-2/50',
   },
   success: {
     borde: 'border-borde hover:border-emerald-500/40',
-    iconBox: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20 shadow-sm shadow-emerald-500/10',
+    iconBox: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20 shadow-2xs',
     glowBg: 'hover:shadow-emerald-500/5',
   },
   warning: {
     borde: 'border-borde hover:border-amber-500/40',
-    iconBox: 'bg-amber-500/10 text-amber-700 border-amber-500/20 shadow-sm shadow-amber-500/10',
+    iconBox: 'bg-amber-500/10 text-amber-700 border-amber-500/20 shadow-2xs',
     glowBg: 'hover:shadow-amber-500/5',
   },
   danger: {
     borde: 'border-borde hover:border-rose-500/40',
-    iconBox: 'bg-rose-500/10 text-rose-700 border-rose-500/20 shadow-sm shadow-rose-500/10',
+    iconBox: 'bg-rose-500/10 text-rose-700 border-rose-500/20 shadow-2xs',
     glowBg: 'hover:shadow-rose-500/5',
   },
   info: {
     borde: 'border-borde hover:border-sky-500/40',
-    iconBox: 'bg-sky-500/10 text-sky-700 border-sky-500/20 shadow-sm shadow-sky-500/10',
+    iconBox: 'bg-sky-500/10 text-sky-700 border-sky-500/20 shadow-2xs',
     glowBg: 'hover:shadow-sky-500/5',
   },
   purple: {
-    borde: 'border-borde hover:border-indigo-500/40',
-    iconBox: 'bg-indigo-500/10 text-indigo-700 border-indigo-500/20 shadow-sm shadow-indigo-500/10',
-    glowBg: 'hover:shadow-indigo-500/5',
+    borde: 'border-borde hover:border-borde-fuerte',
+    iconBox: 'bg-superficie-2 text-texto-2 border-borde/80 shadow-2xs',
+    glowBg: 'hover:shadow-superficie-2/50',
   },
 };
 

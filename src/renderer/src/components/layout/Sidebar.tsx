@@ -106,14 +106,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Encabezado con Logo y Marca */}
       <div
         className={cn(
-          'flex items-center border-b border-barra-2 transition-all duration-200',
-          colapsada ? 'py-3.5 px-2 justify-center' : 'px-3.5 py-4 gap-3'
+          'flex items-center border-b border-borde/60 transition-all duration-200',
+          colapsada ? 'py-3.5 px-2 justify-center' : 'px-3.5 py-3.5 gap-3'
         )}
       >
         <div
           className={cn(
-            'rounded-xl overflow-hidden border-2 border-acento/25 shadow-sm shrink-0 bg-white p-0.5 transition-all',
-            colapsada ? 'w-9 h-9' : 'w-11 h-11'
+            'rounded-xl overflow-hidden ring-1 ring-borde/80 shadow-2xs shrink-0 bg-white p-1 transition-all',
+            colapsada ? 'w-9 h-9' : 'w-10 h-10'
           )}
           title={colapsada ? nombreNegocio : undefined}
         >
@@ -126,11 +126,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {!colapsada && (
           <div className="flex flex-col min-w-0 animate-fade-in">
-            <span className="text-body font-bold text-barra-texto truncate leading-tight">
+            <span className="text-body font-bold text-texto tracking-tight truncate leading-tight">
               {nombreNegocio}
             </span>
-            <span className="text-[9px] text-acento font-semibold tracking-[0.15em] uppercase truncate">
-              PURE • MAGIC • DIVINE
+            <span className="text-[11px] text-texto-3 font-medium tracking-normal truncate mt-0.5">
+              Gestión Boutique
             </span>
           </div>
         )}
@@ -150,21 +150,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
               aria-current={activo ? 'page' : undefined}
               title={colapsada ? `${TITULOS[item.id]}${tieneBadge ? ` (${item.badge})` : ''}` : undefined}
               className={cn(
-                'group w-full flex items-center rounded-lg text-body text-left border-l-2 cursor-pointer relative',
-                'transition-[background-color,border-color,color,transform,box-shadow] duration-150 ease-out active:scale-[0.98]',
+                'group w-full flex items-center rounded-lg text-body text-left cursor-pointer relative',
+                'transition-[background-color,color,transform,box-shadow] duration-150 ease-out active:scale-[0.98]',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento focus-visible:ring-inset',
                 colapsada ? 'justify-center py-2.5 px-0' : 'justify-between px-3 py-2',
                 activo
-                  ? 'bg-superficie text-texto border-l-acento font-medium shadow-xs'
-                  : 'border-l-transparent text-barra-texto hover:bg-barra-2 hover:text-texto'
+                  ? 'bg-acento-suave/60 text-acento-fuerte font-semibold shadow-2xs'
+                  : 'text-texto-2 hover:bg-superficie-2/70 hover:text-texto font-medium'
               )}
             >
+              {activo && (
+                <span
+                  className={cn(
+                    'absolute top-1.5 bottom-1.5 w-1 bg-acento rounded-r-full transition-all duration-150',
+                    colapsada ? 'left-0.5' : 'left-0'
+                  )}
+                  aria-hidden="true"
+                />
+              )}
+
               <span className={cn('flex items-center', colapsada ? 'justify-center' : 'gap-3')}>
                 <Icon
                   className={cn(
                     'w-4 h-4 transition-transform duration-150',
                     colapsada ? 'group-hover:scale-110' : 'group-hover:translate-x-0.5',
-                    activo ? 'text-acento' : 'text-barra-texto-2'
+                    activo ? 'text-acento-fuerte' : 'text-texto-3 group-hover:text-texto-2'
                   )}
                 />
                 {!colapsada && (
@@ -195,21 +205,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </nav>
 
       {/* Pie de Barra Lateral con Botón de Plegar/Expandir */}
-      <div className="p-2 border-t border-barra-2 mt-auto shrink-0">
+      <div className="p-2 border-t border-borde/60 mt-auto shrink-0">
         <button
           type="button"
           onClick={toggleColapso}
           title={colapsada ? 'Expandir barra lateral' : 'Plegar barra lateral'}
           className={cn(
-            'w-full flex items-center rounded-lg text-caption font-semibold text-barra-texto-2 hover:text-texto hover:bg-barra-2 transition-colors cursor-pointer py-2',
+            'w-full flex items-center rounded-lg text-caption font-medium text-texto-3 hover:text-texto hover:bg-superficie-2/70 transition-colors cursor-pointer py-2',
             colapsada ? 'justify-center px-0' : 'justify-between px-3'
           )}
         >
           {!colapsada && <span>Plegar menú</span>}
           {colapsada ? (
-            <ChevronRight className="w-4 h-4 text-barra-texto-2 hover:text-texto transition-colors" />
+            <ChevronRight className="w-4 h-4 text-texto-3 hover:text-texto transition-colors" />
           ) : (
-            <ChevronLeft className="w-4 h-4 text-barra-texto-2 hover:text-texto transition-colors" />
+            <ChevronLeft className="w-4 h-4 text-texto-3 hover:text-texto transition-colors" />
           )}
         </button>
       </div>

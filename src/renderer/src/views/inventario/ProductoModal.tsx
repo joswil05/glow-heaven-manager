@@ -1018,7 +1018,7 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
                         )}
                         {esPack && preview.precio_usd_cents > 0 && (
                           <div className="pt-2 mt-1 border-t border-borde text-caption text-texto-2">
-                            <span className="font-semibold text-acento-fuerte">💡 Si vendés el paquete completo ({unidadesPorPack} uds):</span>{' '}
+                            <span className="font-semibold text-acento-fuerte">Si vendés el paquete completo ({unidadesPorPack} uds):</span>{' '}
                             <span className="font-medium text-texto">
                               {formatearMoneda(
                                 preview.precio_usd_cents *

@@ -281,7 +281,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
             )}
 
             <p className="text-caption text-texto-2 leading-relaxed pt-1">
-              💡 <strong>¿Dónde se ingresan los productos?</strong> En la pestaña{' '}
+              <strong>¿Dónde se ingresan los productos?</strong> En la pestaña{' '}
               <strong>Inventario</strong> (botón <em>Agregar producto</em>). Allí podrás cargar cada
               prenda con sus fotos, tallas y vincularla a este paquete si deseas asociar su flete.
             </p>

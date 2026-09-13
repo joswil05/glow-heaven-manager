@@ -9,7 +9,7 @@ import {
   PackageX,
   CheckCircle2,
   Boxes,
-  Flame,
+  Award,
   Plus,
   Eye,
   DollarSign,
@@ -283,7 +283,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
               usd_cents={inversionTotal}
               soloUsd
               size="lg"
-              tone="purple"
+              tone="neutral"
               icon={Boxes}
               hint={
                 resumen.unidades_en_inventario === 1
@@ -338,20 +338,20 @@ export const PanelView: React.FC<PanelViewProps> = ({
 
         {/* Nivel 2: Centro de alertas urgentes */}
         {urgentes.length > 0 && (
-          <div className="rounded-xl border border-rose-300/80 bg-gradient-to-r from-rose-50 to-amber-50/60 p-3.5 shadow-2xs shrink-0 animate-slide-up">
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-lg bg-rose-500/15 text-rose-700 flex items-center justify-center shrink-0 border border-rose-300">
-                <AlertTriangle className="w-4 h-4" />
+          <div className="rounded-xl border border-rose-200/80 bg-rose-50/50 p-3 shadow-2xs shrink-0 animate-slide-up">
+            <div className="flex items-start gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-rose-500/10 text-rose-700 flex items-center justify-center shrink-0 border border-rose-200/80">
+                <AlertTriangle className="w-3.5 h-3.5" />
               </div>
-              <div className="flex-1 min-w-0 space-y-1.5">
+              <div className="flex-1 min-w-0 space-y-1">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-rose-800">
-                    Atención inmediata requerida ({urgentes.length})
+                    Atención requerida ({urgentes.length})
                   </span>
                 </div>
-                <div className="space-y-1.5 divide-y divide-rose-200/50">
+                <div className="space-y-1 divide-y divide-rose-200/50">
                   {urgentes.map((a) => (
-                    <div key={a.id} className="pt-1.5 first:pt-0">
+                    <div key={a.id} className="pt-1 first:pt-0">
                       <FilaAlerta alerta={a} onNavegar={onNavegar} compacta />
                     </div>
                   ))}
@@ -482,7 +482,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
                           <span
                             className={cn(
                               'w-2 h-2 rounded-full shrink-0',
-                              pctCobrar > 50 ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'
+                              pctCobrar > 50 ? 'bg-amber-500' : 'bg-emerald-500'
                             )}
                           />
                           <span className="text-texto-2 font-medium">
@@ -512,11 +512,11 @@ export const PanelView: React.FC<PanelViewProps> = ({
                         </div>
                         <div className="h-2 w-full rounded-full bg-superficie-2 border border-borde/70 p-0.5 flex overflow-hidden gap-0.5">
                           <div
-                            className="h-full bg-gradient-to-r from-emerald-600 to-emerald-500 rounded-full transition-all duration-500"
+                            className="h-full bg-emerald-600 rounded-full transition-all duration-500"
                             style={{ width: `${Math.max(pctBodega > 0 ? 5 : 0, pctBodega)}%` }}
                           />
                           <div
-                            className="h-full bg-gradient-to-r from-amber-500 to-amber-400 rounded-full transition-all duration-500"
+                            className="h-full bg-amber-500 rounded-full transition-all duration-500"
                             style={{ width: `${Math.max(pctCobrar > 0 ? 5 : 0, pctCobrar)}%` }}
                           />
                         </div>
@@ -527,25 +527,25 @@ export const PanelView: React.FC<PanelViewProps> = ({
                         <button
                           type="button"
                           onClick={() => onNavegar('inventario')}
-                          className="flex items-center justify-between gap-1.5 rounded-xl border border-borde/80 bg-superficie-2/50 hover:bg-emerald-500/10 hover:border-emerald-500/30 px-3 py-2 transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 cursor-pointer"
+                          className="flex items-center justify-between gap-1.5 rounded-xl border border-borde bg-superficie hover:bg-superficie-2 hover:border-borde-fuerte px-3 py-2 transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento cursor-pointer"
                         >
                           <div className="flex items-center gap-2 text-caption font-medium text-texto min-w-0">
-                            <Boxes className="w-3.5 h-3.5 text-emerald-600 group-hover:scale-110 transition-transform shrink-0" />
+                            <Boxes className="w-3.5 h-3.5 text-texto-3 group-hover:text-texto transition-colors shrink-0" />
                             <span className="truncate">Ver inventario</span>
                           </div>
-                          <ArrowRight className="w-3.5 h-3.5 text-texto-3 group-hover:text-emerald-700 group-hover:translate-x-0.5 transition-all shrink-0" />
+                          <ArrowRight className="w-3.5 h-3.5 text-texto-3 group-hover:text-texto group-hover:translate-x-0.5 transition-all shrink-0" />
                         </button>
 
                         <button
                           type="button"
                           onClick={() => onNavegar('cobranza')}
-                          className="flex items-center justify-between gap-1.5 rounded-xl border border-borde/80 bg-superficie-2/50 hover:bg-amber-500/10 hover:border-amber-500/30 px-3 py-2 transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 cursor-pointer"
+                          className="flex items-center justify-between gap-1.5 rounded-xl border border-borde bg-superficie hover:bg-superficie-2 hover:border-borde-fuerte px-3 py-2 transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento cursor-pointer"
                         >
                           <div className="flex items-center gap-2 text-caption font-medium text-texto min-w-0">
-                            <Wallet className="w-3.5 h-3.5 text-amber-600 group-hover:scale-110 transition-transform shrink-0" />
+                            <Wallet className="w-3.5 h-3.5 text-texto-3 group-hover:text-texto transition-colors shrink-0" />
                             <span className="truncate">Ver cobranza</span>
                           </div>
-                          <ArrowRight className="w-3.5 h-3.5 text-texto-3 group-hover:text-amber-700 group-hover:translate-x-0.5 transition-all shrink-0" />
+                          <ArrowRight className="w-3.5 h-3.5 text-texto-3 group-hover:text-texto group-hover:translate-x-0.5 transition-all shrink-0" />
                         </button>
                       </div>
 
@@ -615,14 +615,14 @@ export const PanelView: React.FC<PanelViewProps> = ({
                           className="w-full px-4 py-2 hover:bg-superficie-2/70 transition-colors flex items-center justify-between gap-3 group cursor-pointer"
                         >
                           <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                            <div className="w-7 h-7 rounded-full bg-amber-500/10 text-amber-700 dark:bg-amber-400/15 dark:text-amber-300 font-extrabold text-xs flex items-center justify-center border border-amber-500/20 shrink-0 group-hover:scale-105 transition-transform">
+                            <div className="w-7 h-7 rounded-full bg-superficie-2 text-texto-2 font-semibold text-xs flex items-center justify-center border border-borde/70 shrink-0 group-hover:scale-105 transition-transform">
                               {p.cliente_nombre.charAt(0).toUpperCase()}
                             </div>
                             <div className="min-w-0 flex-1">
                               <div className="text-body font-semibold text-texto truncate group-hover:text-acento transition-colors flex items-center gap-1.5">
                                 <span className="truncate">{p.cliente_nombre}</span>
                                 {p.cuotas_vencidas > 0 && (
-                                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-rose-100 text-rose-700 dark:bg-rose-950/80 dark:text-rose-400 border border-rose-200 dark:border-rose-900 shrink-0">
+                                  <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-rose-50 text-rose-700 dark:bg-rose-950/80 dark:text-rose-400 border border-rose-200 dark:border-rose-900 shrink-0">
                                     {p.cuotas_vencidas} vencida{p.cuotas_vencidas > 1 ? 's' : ''}
                                   </span>
                                 )}
@@ -645,7 +645,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
                                 enviarCobroWhatsApp(p);
                               }}
                               title="Cobrar por WhatsApp"
-                              className="w-7 h-7 rounded-lg flex items-center justify-center text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 hover:text-emerald-700 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                              className="w-7 h-7 rounded-lg flex items-center justify-center text-texto-3 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
                             >
                               <MessageCircle className="w-3.5 h-3.5" />
                             </button>
@@ -748,8 +748,8 @@ export const PanelView: React.FC<PanelViewProps> = ({
               <CardHeader className="px-4 py-2.5 border-b border-borde/40 shrink-0">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
-                    <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
-                      <Flame className="w-4 h-4" />
+                    <div className="w-7 h-7 rounded-lg bg-superficie-2 text-texto-2 flex items-center justify-center shrink-0 border border-borde/60">
+                      <Award className="w-4 h-4" />
                     </div>
                     <h3 className="text-body font-bold text-texto truncate">Más vendidos</h3>
                   </div>
@@ -766,45 +766,37 @@ export const PanelView: React.FC<PanelViewProps> = ({
               <CardContent className="p-0">
                 {data.mas_vendidos.length > 0 ? (
                   <ul className="divide-y divide-borde/40">
-                    {data.mas_vendidos.slice(0, 4).map((p, idx) => {
-                      const podioEstilos = [
-                        'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-700',
-                        'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
-                        'bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-700',
-                      ];
-
-                      return (
-                        <li
-                          key={p.producto_id}
-                          onClick={() => onNavegar('inventario', p.producto_id)}
-                          onContextMenu={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setMenuContextual({ x: e.clientX, y: e.clientY, tipo: 'vendido', item: p });
-                          }}
-                          className="px-4 py-2 flex items-center justify-between gap-3 hover:bg-superficie-2/70 transition-colors cursor-pointer group"
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                            <span className={cn('w-5 h-5 rounded-full text-[11px] font-extrabold flex items-center justify-center border shrink-0', podioEstilos[idx] ?? 'bg-superficie-2 text-texto-3 border-borde')}>
-                              {idx + 1}
-                            </span>
-                            <div className="min-w-0 flex-1">
-                              <div className="text-body font-semibold text-texto truncate group-hover:text-acento transition-colors">
-                                {p.nombre}
-                              </div>
-                              <div className="text-caption text-texto-3">
-                                {p.unidades_vendidas_90d} unidad{p.unidades_vendidas_90d === 1 ? '' : 'es'} vendida{p.unidades_vendidas_90d === 1 ? '' : 's'}
-                              </div>
+                    {data.mas_vendidos.slice(0, 4).map((p, idx) => (
+                      <li
+                        key={p.producto_id}
+                        onClick={() => onNavegar('inventario', p.producto_id)}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setMenuContextual({ x: e.clientX, y: e.clientY, tipo: 'vendido', item: p });
+                        }}
+                        className="px-4 py-2 flex items-center justify-between gap-3 hover:bg-superficie-2/70 transition-colors cursor-pointer group"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <span className="w-5 h-5 rounded-md text-[11px] font-mono font-bold flex items-center justify-center border shrink-0 bg-superficie-2 text-texto-2 border-borde/70">
+                            {idx + 1}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-body font-semibold text-texto truncate group-hover:text-acento transition-colors">
+                              {p.nombre}
+                            </div>
+                            <div className="text-caption text-texto-3">
+                              {p.unidades_vendidas_90d} unidad{p.unidades_vendidas_90d === 1 ? '' : 'es'} vendida{p.unidades_vendidas_90d === 1 ? '' : 's'}
                             </div>
                           </div>
+                        </div>
 
-                          <div className="text-right shrink-0">
-                            <Money usd_cents={p.ganancia_90d_usd_cents} size="sm" soloUsd className="font-extrabold text-emerald-700 dark:text-emerald-400 tabular" />
-                            <div className="text-[10px] text-texto-3 font-medium">ganancia</div>
-                          </div>
-                        </li>
-                      );
-                    })}
+                        <div className="text-right shrink-0">
+                          <Money usd_cents={p.ganancia_90d_usd_cents} size="sm" soloUsd className="font-extrabold text-emerald-700 dark:text-emerald-400 tabular" />
+                          <div className="text-[10px] text-texto-3 font-medium">ganancia</div>
+                        </div>
+                      </li>
+                    ))}
                   </ul>
                 ) : (
                   <div className="py-6 px-4 flex flex-col items-center justify-center text-center gap-1.5">
