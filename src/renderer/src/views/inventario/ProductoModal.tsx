@@ -811,16 +811,35 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
                 )}
               </div>
 
-              {/* Existencias iniciales directas */}
-              {esNuevo ? (
+              {/* Existencias iniciales directas.
+                  Con multipack activo este bloque NO se muestra: la cantidad y
+                  el costo por unidad ya salen del cálculo de arriba, y volver a
+                  pedirlos como campos editables era pedir dos veces el mismo
+                  dato. Además cualquier edición manual se perdía, porque el
+                  cálculo del pack los reescribe al tocar cualquier campo. */}
+              {esNuevo && esPack ? (
+                <div className="rounded-lg border border-borde bg-superficie-2/60 p-4">
+                  <h4 className="text-label font-medium text-texto">Existencias y costo inicial</h4>
+                  <p className="text-caption text-texto-3 mt-1">
+                    Se toman del multipack de arriba:{' '}
+                    <strong className="text-texto">
+                      {calculoPack?.totalUnidades ?? 0} unidades
+                    </strong>{' '}
+                    a{' '}
+                    <strong className="text-texto">
+                      ${((calculoPack?.costoLandedUnitCents ?? 0) / 100).toFixed(2)}
+                    </strong>{' '}
+                    cada una. Para cambiarlos, modificá los packs, las unidades por pack o el
+                    precio del pack.
+                  </p>
+                </div>
+              ) : esNuevo ? (
                 <div className="rounded-lg border border-borde bg-superficie-2/60 p-4">
                   <h4 className="text-label font-medium text-texto">
                     Existencias y costo inicial
                   </h4>
                   <p className="text-caption text-texto-3 mb-3">
-                    {esPack
-                      ? 'Calculado automáticamente desde el multipack. Podés ajustarlo si lo deseás.'
-                      : 'Indicá cuántas unidades tenés en mano y cuánto te costó cada una.'}
+                    Indicá cuántas unidades tenés en mano y cuánto te costó cada una.
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <Field label="Cantidad de unidades en mano">

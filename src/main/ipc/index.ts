@@ -96,9 +96,26 @@ export function registrarHandlers(): void {
 
   manejar(
     IPC.PRODUCTOS_AJUSTAR_STOCK,
-    async (variante_id: number, existencias: number, motivo?: string) => {
+    async (
+      variante_id: number,
+      existencias: number,
+      motivo?: string,
+      producto_id?: number
+    ) => {
+      // `producto_id` es obligatorio en la práctica: los ids de variante se
+      // asignan como `i + 1` DENTRO de cada producto, así que casi todos los
+      // productos tienen una variante 1. Este handler lo recibía del renderer
+      // y lo descartaba, y entonces el repositorio tenía que adivinar el
+      // producto recorriendo la colección: el ajuste terminaba aplicándose al
+      // primer producto que tuviera ese id de variante, no al elegido.
       const evento_grupo_id = nuevoGrupo();
-      await ProductosRepo.ajustar(variante_id, existencias, evento_grupo_id, motivo);
+      await ProductosRepo.ajustar(
+        variante_id,
+        existencias,
+        evento_grupo_id,
+        motivo,
+        producto_id
+      );
       return { evento_grupo_id };
     }
   );

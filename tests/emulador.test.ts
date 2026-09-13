@@ -470,6 +470,77 @@ describe('contra el emulador oficial de Firestore', () => {
   );
 });
 
+describe('ajuste de existencias', () => {
+  beforeEach(async () => {
+    if (!disponible) return;
+    await limpiar();
+    await autorizarUid(uidPrueba);
+    const { Parametros } = await repos();
+    Parametros.invalidarCache();
+    await Parametros.getParametros();
+    await Parametros.getCategorias();
+  });
+
+  it.skipIf(!disponible)(
+    'ajusta el producto que se pidió, no otro que comparta el id de variante',
+    async () => {
+      const { Productos } = await repos();
+
+      // Los ids de variante se asignan como `i + 1` dentro de cada producto,
+      // así que NO son únicos entre productos: los dos tienen una variante 1.
+      const primero = await Productos.crear(
+        { nombre: 'Primero', stock_inicial: { cantidad: 5, costo_unitario_usd_cents: 100 } },
+        g()
+      );
+      const segundo = await Productos.crear(
+        { nombre: 'Segundo', stock_inicial: { cantidad: 5, costo_unitario_usd_cents: 100 } },
+        g()
+      );
+
+      const antes = await Productos.getById(segundo);
+      const varianteDelSegundo = antes!.variantes[0].id;
+
+      // Subir de 5 a 9 el SEGUNDO producto.
+      await Productos.ajustar(varianteDelSegundo, 9, g(), 'Conteo manual', segundo);
+
+      const p1 = await Productos.getById(primero);
+      const p2 = await Productos.getById(segundo);
+
+      expect(p2!.existencias).toBe(9);
+      // Si esto falla, el ajuste se aplicó al producto equivocado.
+      expect(p1!.existencias).toBe(5);
+    },
+    120000
+  );
+
+  it.skipIf(!disponible)(
+    'sin producto_id no adivina: falla en vez de tocar el producto equivocado',
+    async () => {
+      const { Productos } = await repos();
+
+      await Productos.crear(
+        { nombre: 'Primero', stock_inicial: { cantidad: 5, costo_unitario_usd_cents: 100 } },
+        g()
+      );
+      const segundo = await Productos.crear(
+        { nombre: 'Segundo', stock_inicial: { cantidad: 5, costo_unitario_usd_cents: 100 } },
+        g()
+      );
+
+      const antes = await Productos.getById(segundo);
+      const varianteAmbigua = antes!.variantes[0].id;
+
+      // Ambos productos tienen una variante con ese id: es ambiguo. Antes esto
+      // elegía en silencio el primero que apareciera y ajustaba el stock del
+      // producto equivocado.
+      await expect(
+        Productos.ajustar(varianteAmbigua, 9, g(), 'Conteo manual')
+      ).rejects.toThrow(/ambigu|no se puede determinar|producto/i);
+    },
+    120000
+  );
+});
+
 /**
  * Guardia de las reglas de seguridad.
  *

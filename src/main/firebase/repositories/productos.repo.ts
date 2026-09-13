@@ -483,14 +483,30 @@ export class ProductosRepoFirestore {
 
     // Con el id del producto se va directo. Sin él hay que buscarlo, que es
     // una lectura de toda la colección: la interfaz siempre lo manda.
+    //
+    // Y buscarlo es AMBIGUO: los ids de variante se asignan como `i + 1`
+    // dentro de cada producto, así que no son únicos entre productos (casi
+    // todos tienen una variante 1). Antes acá se usaba `find`, que se quedaba
+    // con el primero que apareciera: el ajuste de existencias se aplicaba en
+    // silencio a un producto distinto del que la usuaria había elegido.
+    // Ante la duda, es preferible fallar y que se vea.
     let productoId = producto_id;
     if (productoId === undefined) {
       const snap = await getDocs(query(collection(db, 'productos'), where('activo', '==', true)));
-      const encontrado = snap.docs.find((d) =>
+      const candidatos = snap.docs.filter((d) =>
         ((d.data() as ProductoDoc).variantes || []).some((v) => v.id === variante_id)
       );
-      if (!encontrado) throw new Error(`Variante #${variante_id} no encontrada.`);
-      productoId = Number(encontrado.id);
+
+      if (candidatos.length === 0) {
+        throw new Error(`Variante #${variante_id} no encontrada.`);
+      }
+      if (candidatos.length > 1) {
+        throw new Error(
+          `No se puede determinar a qué producto pertenece la variante #${variante_id}: ` +
+            `la comparten ${candidatos.length} productos. Volvé a intentarlo desde la lista de inventario.`
+        );
+      }
+      productoId = Number(candidatos[0].id);
     }
 
     const [parametros, categorias] = await Promise.all([

@@ -36,17 +36,25 @@ export const DocumentoModal: React.FC<DocumentoModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [abierto, onCerrar]);
 
-  if (!abierto || !venta) return null;
-
-  const esEncargo = venta.tipo === 'ENCARGO';
-  const titulo = esEncargo ? 'Cotización / Proforma' : 'Factura Comercial';
+  // OJO: todos los hooks van ANTES de cualquier `return` condicional.
+  //
+  // Este `useMemo` vivía debajo del `if (!abierto || !venta) return null`.
+  // Con el modal cerrado React contaba cuatro hooks y al abrirlo cinco, así
+  // que lanzaba "Rendered more hooks than during the previous render" y la
+  // pantalla se caía justo al pedir una factura o una proforma. Era la causa
+  // de que la generación de documentos no funcionara.
+  const esEncargo = venta?.tipo === 'ENCARGO';
 
   const html = useMemo(() => {
-    if (esEncargo) {
-      return generarHtmlProforma(venta, parametros);
-    }
-    return generarHtmlFactura(venta, parametros);
+    if (!venta) return '';
+    return esEncargo
+      ? generarHtmlProforma(venta, parametros)
+      : generarHtmlFactura(venta, parametros);
   }, [venta, parametros, esEncargo]);
+
+  if (!abierto || !venta) return null;
+
+  const titulo = esEncargo ? 'Cotización / Proforma' : 'Factura Comercial';
 
   const handleGuardarPdf = async () => {
     setGuardandoPdf(true);
