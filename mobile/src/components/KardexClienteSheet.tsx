@@ -16,7 +16,7 @@ import { formatearMoneda } from '@core/moneda';
 import { linkWhatsapp, nuevoGrupoEvento } from '../lib/util';
 import { useDatosNegocio } from '../context/DataContext';
 import { haptics } from '../lib/haptics';
-import { PencilLine, AlertTriangle } from 'lucide-react';
+import { Ban, AlertTriangle } from 'lucide-react';
 import type { PagoCompleto } from '@shared/types';
 import type { VentaCobroItem } from './AbonoModalSheet';
 
@@ -49,13 +49,22 @@ export function KardexClienteSheet({
   const [pagos, setPagos] = useState<PagoCompleto[]>([]);
   /**
    * Un abono mal cargado (el caso tipico: elegir C$ cuando eran dolares) no
-   * tenia arreglo desde el celular. Y en contabilidad un pago registrado es un
-   * HECHO: editarlo en el lugar haria que el historial mienta, mostrando el
-   * valor corregido como si siempre hubiera sido ese. Por eso "Corregir" anula
-   * el registro viejo y abre el formulario para cargar el bueno: la persona
-   * vive una correccion y el libro guarda la verdad.
+   * tenia arreglo desde el celular.
+   *
+   * La accion se llama ANULAR, no "corregir" ni "editar". Un pago registrado
+   * es un HECHO: ocurrio un dia, por un monto. No se edita, se anula, y si
+   * hace falta se carga uno nuevo.
+   *
+   * El nombre importa tanto como el mecanismo: si la persona cree que
+   * "corrigio" algo, no va a entender que en realidad hubo dos operaciones.
+   *
+   * Que hace anular, verificado en pagos.repo: marca el pago como inactivo y
+   * devuelve el saldo. La consulta del historial filtra por `activo`, asi que
+   * el abono DEJA de verse aca; la anulacion queda en la auditoria. El texto
+   * de la confirmacion dice exactamente eso: prometer que "queda en el
+   * historial" habria sido falso.
    */
-  const [pagoACorregir, setPagoACorregir] = useState<PagoCompleto | null>(null);
+  const [pagoAAnular, setPagoAAnular] = useState<PagoCompleto | null>(null);
   const [anulando, setAnulando] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -103,14 +112,14 @@ export function KardexClienteSheet({
 
   const saldoUsd = cliente.saldo_usd_cents ?? 0;
   const saldoCor = Math.round((saldoUsd * tasa) / 100);
-  async function corregirAbono(p: PagoCompleto) {
+  async function anularAbono(p: PagoCompleto) {
     setAnulando(true);
     try {
       await PagosRepoFirestore.anular(p.id, nuevoGrupoEvento());
-      setPagoACorregir(null);
+      setPagoAAnular(null);
       onCambio?.();
-      // Se reabre el formulario para cargar el monto correcto: la persona
-      // vino a corregir, no solo a borrar.
+      // Tras anular se ofrece cargar el abono correcto, que es a lo que la
+      // persona vino. Son DOS asientos en el historial, no una edicion.
       if (cliente?.venta_id) {
         onAbonar({
           venta_id: cliente.venta_id,
@@ -269,26 +278,26 @@ export function KardexClienteSheet({
           ) : (
             <div className="flex flex-col gap-2">
               {/* Mueve plata: se confirma antes, y se dice exactamente qué va
-                  a pasar con el historial. Sin esto, "corregir" parecería una
-                  edición silenciosa. */}
-              {pagoACorregir && (
+                  a pasar con el historial y con el saldo. */}
+              {pagoAAnular && (
                 <div className="rounded-2xl border border-alerta-suave bg-alerta-suave p-3.5">
                   <div className="flex items-start gap-2.5">
                     <AlertTriangle size={18} className="mt-0.5 shrink-0 text-alerta-fuerte" />
                     <div className="min-w-0 flex-1">
                       <h4 className="text-xs font-bold text-alerta-fuerte">
-                        Corregir abono de {formatearMoneda(pagoACorregir.monto_usd_cents, 'USD')}
+                        ¿Anular este abono de {formatearMoneda(pagoAAnular.monto_usd_cents, 'USD')}?
                       </h4>
                       <p className="mt-1 text-[11px] leading-relaxed text-alerta-fuerte/90">
-                        Se anula este abono, el saldo vuelve a subir y se abre el formulario para
-                        cargarlo bien. El abono anulado queda en el historial: no se borra, porque
-                        un pago registrado es un hecho y el historial tiene que poder reconstruirse.
+                        El saldo vuelve a subir {formatearMoneda(pagoAAnular.monto_usd_cents, 'USD')} y
+                        después vas a poder registrar el abono correcto. Este abono deja de
+                        aparecer en el historial de la clienta; la anulación sí queda asentada en
+                        la auditoría del sistema.
                       </p>
                       <div className="mt-2.5 grid grid-cols-2 gap-2">
                         <button
                           type="button"
                           disabled={anulando}
-                          onClick={() => setPagoACorregir(null)}
+                          onClick={() => setPagoAAnular(null)}
                           className="tocable rounded-xl border border-borde bg-superficie px-3 py-2 text-xs font-bold text-texto-2 active:scale-[0.98] transition-transform disabled:opacity-50 cursor-pointer"
                         >
                           Cancelar
@@ -296,10 +305,10 @@ export function KardexClienteSheet({
                         <button
                           type="button"
                           disabled={anulando}
-                          onClick={() => corregirAbono(pagoACorregir)}
+                          onClick={() => anularAbono(pagoAAnular)}
                           className="tocable rounded-xl bg-alerta px-3 py-2 text-xs font-bold text-alerta-texto active:scale-[0.98] transition-transform disabled:opacity-50 cursor-pointer"
                         >
-                          {anulando ? 'Anulando…' : 'Anular y corregir'}
+                          {anulando ? 'Anulando…' : 'Anular abono'}
                         </button>
                       </div>
                     </div>
@@ -351,12 +360,12 @@ export function KardexClienteSheet({
                           type="button"
                           onClick={() => {
                             haptics.selection();
-                            setPagoACorregir(p);
+                            setPagoAAnular(p);
                           }}
-                          aria-label={`Corregir el abono de ${formatearMoneda(p.monto_usd_cents, 'USD')}`}
+                          aria-label={`Anular el abono de ${formatearMoneda(p.monto_usd_cents, 'USD')}`}
                           className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-texto-3 hover:bg-superficie-2 hover:text-texto-2 active:scale-95 transition-[background-color,color,transform] duration-150 ease-out cursor-pointer"
                         >
-                          <PencilLine size={13} />
+                          <Ban size={13} />
                         </button>
                       </div>
                     </div>
