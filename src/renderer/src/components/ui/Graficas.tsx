@@ -925,7 +925,7 @@ export const Anillo: React.FC<AnilloProps> = ({
 
                 <div className="mt-1.5 h-1.5 w-full rounded-full bg-borde/50 overflow-hidden">
                   <div
-                    className="h-full rounded-full transition-all duration-500"
+                    className="h-full rounded-full transition-[width] duration-500 ease-out"
                     style={{ width: `${pct}%`, backgroundColor: s.color }}
                   />
                 </div>
@@ -978,7 +978,7 @@ export const BarraProgreso: React.FC<BarraProgresoProps> = ({
         aria-label={etiqueta}
       >
         <div
-          className={cn('h-full rounded-full transition-all duration-500 animate-bar-grow', colores[tono])}
+          className={cn('h-full rounded-full transition-[width] duration-500 ease-out animate-bar-grow', colores[tono])}
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -1088,7 +1088,7 @@ export const GraficaTopProductos: React.FC<GraficaTopProductosProps> = ({
                 <div className="h-2 w-full rounded-full bg-borde/50 overflow-hidden">
                   <div
                     className={cn(
-                      'h-full rounded-full transition-all duration-500',
+                      'h-full rounded-full transition-[width] duration-500 ease-out',
                       esPrimero
                         ? 'bg-gradient-to-r from-amber-500 to-amber-400'
                         : 'bg-gradient-to-r from-acento to-indigo-400'

@@ -106,13 +106,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Encabezado con Logo y Marca */}
       <div
         className={cn(
-          'flex items-center border-b border-borde/60 transition-all duration-200',
+          'flex items-center border-b border-borde/60 transition-[padding] duration-200 ease-out',
           colapsada ? 'py-3.5 px-2 justify-center' : 'px-3.5 py-3.5 gap-3'
         )}
       >
         <div
           className={cn(
-            'rounded-xl overflow-hidden ring-1 ring-borde/80 shadow-2xs shrink-0 bg-white p-1 transition-all',
+            'rounded-xl overflow-hidden ring-1 ring-borde/80 shadow-2xs shrink-0 bg-white p-1 transition-[width,height] duration-200 ease-out',
             colapsada ? 'w-9 h-9' : 'w-10 h-10'
           )}
           title={colapsada ? nombreNegocio : undefined}
@@ -162,7 +162,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {activo && (
                 <span
                   className={cn(
-                    'absolute top-1.5 bottom-1.5 w-1 bg-acento rounded-r-full transition-all duration-150',
+                    'absolute top-1.5 bottom-1.5 w-1 bg-acento rounded-r-full transition-[left] duration-150 ease-out',
                     colapsada ? 'left-0.5' : 'left-0'
                   )}
                   aria-hidden="true"

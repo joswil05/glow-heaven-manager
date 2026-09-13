@@ -521,12 +521,12 @@ export const PanelView: React.FC<PanelViewProps> = ({
                         </div>
                         <div className="h-2.5 w-full rounded-full bg-superficie-2 flex overflow-hidden gap-1">
                           <div
-                            className="h-full bg-emerald-600 dark:bg-emerald-500 rounded-full transition-all duration-500"
+                            className="h-full bg-emerald-600 dark:bg-emerald-500 rounded-full transition-[width] duration-500 ease-out"
                             style={{ width: `${Math.max(pctBodega > 0 ? 4 : 0, pctBodega)}%` }}
                             title={`Bodega: ${pctBodega}%`}
                           />
                           <div
-                            className="h-full bg-amber-500 dark:bg-amber-400 rounded-full transition-all duration-500"
+                            className="h-full bg-amber-500 dark:bg-amber-400 rounded-full transition-[width] duration-500 ease-out"
                             style={{ width: `${Math.max(pctCobrar > 0 ? 4 : 0, pctCobrar)}%` }}
                             title={`Por cobrar: ${pctCobrar}%`}
                           />

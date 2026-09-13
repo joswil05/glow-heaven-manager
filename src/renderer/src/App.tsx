@@ -283,7 +283,7 @@ export const App: React.FC = () => {
           <div className="bg-slate-800 text-white px-5 py-1.5 flex items-center justify-between text-xs shrink-0 z-50">
             <span>Descargando actualización en segundo plano: {descargandoUpdate.toFixed(0)}%</span>
             <div className="w-32 bg-slate-700 h-1.5 rounded-full overflow-hidden">
-              <div className="bg-emerald-400 h-full transition-all duration-300" style={{ width: `${descargandoUpdate}%` }} />
+              <div className="bg-emerald-400 h-full transition-[width] duration-300 ease-out" style={{ width: `${descargandoUpdate}%` }} />
             </div>
           </div>
         )}

@@ -138,12 +138,12 @@
 .stagger-children > *:nth-child(4) { animation-delay: 150ms; }
 .stagger-children > *:nth-child(5) { animation-delay: 200ms; }
 .stagger-children > *:nth-child(6) { animation-delay: 250ms; }
-.stagger-children > *:nth-child(7) { animation-delay: 300ms; }
-.stagger-children > *:nth-child(8) { animation-delay: 350ms; }
-.stagger-children > *:nth-child(9) { animation-delay: 400ms; }
-.stagger-children > *:nth-child(10) { animation-delay: 450ms; }
-.stagger-children > *:nth-child(11) { animation-delay: 500ms; }
-.stagger-children > *:nth-child(12) { animation-delay: 550ms; }
+/* A partir del séptimo el retraso se congela en 300ms.
+ * La cascada se lee en los primeros elementos; estirarla hasta 550ms sólo
+ * hacía que la última tarjeta llegara medio segundo tarde y que el panel se
+ * sintiera lento al abrirlo. El escalonado es decorativo: nunca debe retrasar
+ * lo que la persona vino a ver. */
+.stagger-children > *:nth-child(n + 7) { animation-delay: 300ms; }
 
 /* Scale-in para modales y popovers */
 @keyframes scaleIn {
@@ -206,14 +206,16 @@
   animation: drawLine 1.2s cubic-bezier(0.33, 1, 0.68, 1) forwards;
 }
 
-/* Puntos de datos de gráfica que brotan escalonadamente */
+/* Puntos de datos de gráfica que brotan escalonadamente.
+ * Arranca en 0.5 y no en 0: nada en el mundo real aparece de la nada, y un
+ * elemento que nace de tamaño cero se siente sintético. */
 @keyframes popIn {
   0% {
     opacity: 0;
-    transform: scale(0);
+    transform: scale(0.5);
   }
   70% {
-    transform: scale(1.25);
+    transform: scale(1.15);
   }
   100% {
     opacity: 1;
@@ -271,10 +273,13 @@
   animation: dotPulse 2s ease-in-out infinite;
 }
 
-/* PIN dots aparecen */
+/* PIN dots aparecen.
+ * Desde 0.7, no desde 0: es una animación que se ve en cada tecla del PIN, así
+ * que tiene que ser mínima; nacer de tamaño cero la vuelve llamativa cuando
+ * debería pasar desapercibida. */
 @keyframes pinDotIn {
   from {
-    transform: scale(0);
+    transform: scale(0.7);
     opacity: 0;
   }
   to {
