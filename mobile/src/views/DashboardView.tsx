@@ -20,7 +20,6 @@ import {
   cacheDashboardGlobal,
   type DiaVentas,
   type ResumenHoy,
-  type EncargoPendiente,
 } from '../lib/panel-movil';
 import { MoneyDual } from '../components/MoneyDual';
 import { BottomSheet } from '../components/BottomSheet';
@@ -52,7 +51,6 @@ export function DashboardView({
   const [panel, setPanel] = useState<PanelData | null>(cacheDashboardGlobal.panel);
   const [serie, setSerie] = useState<DiaVentas[]>(cacheDashboardGlobal.serie);
   const [hoy, setHoy] = useState<ResumenHoy>(cacheDashboardGlobal.hoy);
-  const [encargos, setEncargos] = useState<EncargoPendiente[]>(cacheDashboardGlobal.encargos);
   const [cargando, setCargando] = useState(!cacheDashboardGlobal.panel);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,7 +72,6 @@ export function DashboardView({
       setPanel(data.panel);
       setSerie(data.serie);
       setHoy(data.hoy);
-      setEncargos(data.encargos);
     } catch (err) {
       console.error('[DashboardView] Error cargando el panel:', err);
       if (!cacheDashboardGlobal.panel) {

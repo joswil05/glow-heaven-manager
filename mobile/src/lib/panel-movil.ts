@@ -80,7 +80,15 @@ export interface EncargoPendiente {
   fecha: string;
 }
 
-/** Encargos que todavía no se entregan (cotizados o ya con anticipo). */
+/**
+ * Encargos que todavía no se entregan (cotizados o ya con anticipo).
+ *
+ * NO se llama desde el panel. Se llamaba en cada carga del inicio —dos
+ * consultas de colección completa, `ventas` filtradas por ENCARGO y TODAS las
+ * clientas activas— y el resultado no se mostraba en ninguna pantalla: se
+ * guardaba en un estado que nadie renderizaba. Queda disponible para cuando se
+ * construya el widget que lo muestre; mientras tanto no se paga esa lectura.
+ */
 export async function cargarEncargosPendientes(): Promise<EncargoPendiente[]> {
   const db = getFirestoreDb();
   const snap = await getDocs(
@@ -133,15 +141,13 @@ export async function obtenerDatosDashboard(forzar = false): Promise<CacheDashbo
   if (!forzar && cacheDashboardGlobal.panel && ahora - cacheDashboardGlobal.tiempo < 45000) {
     return cacheDashboardGlobal;
   }
-  const [panelData, tendencia, encargosPendientes] = await Promise.all([
+  const [panelData, tendencia] = await Promise.all([
     PanelRepoFirestore.cargar(),
     cargarTendenciaDiaria(7),
-    cargarEncargosPendientes(),
   ]);
   cacheDashboardGlobal.panel = panelData;
   cacheDashboardGlobal.serie = tendencia.serie;
   cacheDashboardGlobal.hoy = tendencia.hoy;
-  cacheDashboardGlobal.encargos = encargosPendientes;
   cacheDashboardGlobal.tiempo = Date.now();
   return cacheDashboardGlobal;
 }
