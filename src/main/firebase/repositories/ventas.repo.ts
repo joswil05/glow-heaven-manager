@@ -12,6 +12,7 @@ import { ParametrosRepoFirestore } from './parametros.repo';
 import { ProductosRepoFirestore, type ProductoDoc } from './productos.repo';
 import { ClientesRepoFirestore } from './clientes.repo';
 import { EventosRepoFirestore } from './eventos.repo';
+import { PagosRepoFirestore } from './pagos.repo';
 import type {
   Venta,
   VentaCompleta,
@@ -514,6 +515,34 @@ export class VentasRepoFirestore {
     if (venta.estado === estado) return;
 
     const anterior = { ...venta } as unknown as Record<string, unknown>;
+
+    // Cancelar una venta tiene que anular tambien sus abonos. Sin esto la
+    // plata seguia contada como cobrada para una venta que ya no existe: el
+    // saldo de la clienta quedaba mal y los reportes sumaban ingresos de algo
+    // cancelado. Se anulan ANTES de cambiar el estado para que el saldo de la
+    // venta quede consistente, y con el MISMO grupo de eventos, asi deshacer
+    // la cancelacion devuelve tambien los pagos.
+    if (estado === 'CANCELADA') {
+      const db = getFirestoreDb();
+      const pagosSnap = await getDocs(
+        query(
+          collection(db, 'pagos'),
+          where('venta_id', '==', venta_id),
+          where('activo', '==', true)
+        )
+      );
+      for (const d of pagosSnap.docs) {
+        const pagoId = Number((d.data() as { id: number }).id);
+        try {
+          await PagosRepoFirestore.anular(pagoId, evento_grupo_id);
+        } catch (err) {
+          console.warn(
+            `[ventas.repo] No se pudo anular el pago #${pagoId} al cancelar la venta #${venta_id}:`,
+            err
+          );
+        }
+      }
+    }
 
     // Cancelar una venta de inventario devuelve la mercadería. Sin esto las
     // existencias quedan cortas para siempre.
