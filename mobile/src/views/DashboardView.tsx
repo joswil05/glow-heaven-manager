@@ -98,10 +98,13 @@ export function DashboardView({
       <header className="shrink-0 z-20 bg-white/95 dark:bg-[#121826]/95 backdrop-blur-md border-b border-slate-200/60 dark:border-slate-800/80 pt-safe-t px-4 pb-2 shadow-[0_1px_3px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.3)] transition-colors">
         <div className="flex items-center justify-between py-1.5">
           <div className="flex items-center gap-2.5">
-            {/* Avatar pequeño y discreto (sin quitar protagonismo) */}
+            {/* Avatar: mismo tamaño (36px) que el ícono de sección de las
+                otras 3 pantallas, redondo en vez de cuadrado porque es una
+                persona, no una categoría — para que el encabezado se sienta
+                de la misma familia sin perder la identidad de "inicio". */}
             <div
               className="relative shrink-0 overflow-hidden rounded-full border border-slate-200/80 dark:border-slate-700 shadow-xs"
-              style={{ width: '32px', height: '32px', minWidth: '32px', minHeight: '32px' }}
+              style={{ width: '36px', height: '36px', minWidth: '36px', minHeight: '36px' }}
             >
               {usuario?.photoURL ? (
                 <img
@@ -180,7 +183,7 @@ export function DashboardView({
 
       {/* Contenido con Pull-to-Refresh nativo */}
       <PullToRefresh onRefresh={() => cargar(true)}>
-        <main ref={scrollRevealRef} className="flex flex-col gap-4 px-3.5 pt-3 pb-40 scroll-smooth">
+        <main ref={scrollRevealRef} className="flex flex-col gap-4 px-3.5 pt-3 pb-24 scroll-smooth">
           {error && (
             <div className="rounded-2xl bg-rose-50 border border-rose-200 px-4 py-3 text-label font-semibold text-rose-700 flex items-center justify-between">
               <span>{error}</span>

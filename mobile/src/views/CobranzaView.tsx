@@ -235,7 +235,7 @@ export function CobranzaView() {
 
       {/* Contenido con Pull-To-Refresh y Smooth Scroll */}
       <PullToRefresh onRefresh={() => cargar(true)}>
-        <main ref={scrollRevealRef} className="flex flex-col gap-3 px-3.5 pt-3 pb-40 scroll-smooth">
+        <main ref={scrollRevealRef} className="flex flex-col gap-3 px-3.5 pt-3 pb-24 scroll-smooth">
           {error && (
             <div className="rounded-2xl bg-rose-50 border border-rose-200 px-4 py-3 text-xs font-semibold text-rose-700 flex items-center justify-between">
               <span>{error}</span>

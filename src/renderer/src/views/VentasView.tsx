@@ -661,7 +661,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
 
             {ventaDetalle.notas && (
               <div className="rounded-xl border border-borde/70 bg-superficie-2/20 p-3.5 shadow-xs">
-                <div className="text-caption font-medium text-texto-3 mb-1">Notas del cliente</div>
+                <div className="text-caption font-medium text-texto-3 mb-1">Notas de la clienta</div>
                 <p className="text-label text-texto-2 leading-relaxed">{ventaDetalle.notas}</p>
               </div>
             )}
@@ -893,11 +893,11 @@ export const VentasView: React.FC<VentasViewProps> = ({
             },
             {
               id: 'copiar-cliente',
-              label: `Copiar cliente (${menuContextual.venta.cliente_nombre ?? 'Mostrador'})`,
+              label: `Copiar clienta (${menuContextual.venta.cliente_nombre ?? 'Mostrador'})`,
               icon: <Copy className="w-4 h-4" />,
               onClick: () => {
                 navigator.clipboard.writeText(menuContextual.venta.cliente_nombre ?? 'Mostrador');
-                showToast({ message: 'Cliente copiado al portapapeles', type: 'info' });
+                showToast({ message: 'Clienta copiada al portapapeles', type: 'info' });
               },
             },
             'separator' as const,

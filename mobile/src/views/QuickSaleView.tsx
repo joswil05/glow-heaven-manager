@@ -47,24 +47,17 @@ function etiquetaVariante(v: ProductoVariante): string {
   return [v.talla, v.color].filter(Boolean).join(' · ') || 'Único';
 }
 
-const CATEGORIAS_VENTA = [
-  'Todos',
-  'Labiales',
-  'Bases y Polvos',
-  'Ojos y Cejas',
-  'Skincare',
-  'Rostro',
-  'Accesorios',
-];
-
 export function QuickSaleView() {
-  const { parametros, productos: todosProductos, cargandoProductos, actualizarStockLocal } = useDatosNegocio();
+  const { parametros, categorias, productos: todosProductos, cargandoProductos, actualizarStockLocal } = useDatosNegocio();
   const { mostrar } = useSnackbar();
   const tasa = parametros?.tasa_cambio_cents ?? 3662;
 
   // --- Catálogo y Búsqueda ------------------------------------------------
   const [busqueda, setBusqueda] = useState('');
-  const [categoriaActiva, setCategoriaActiva] = useState('Todos');
+  // `null` = "Todos". El resto son los `id` reales de las categorías que la
+  // dueña administra en Windows, las mismas que usa el Catálogo — antes cada
+  // pantalla tenía su propia lista de categorías inventada.
+  const [categoriaActiva, setCategoriaActiva] = useState<number | null>(null);
   const [productoConVariantesAbierto, setProductoConVariantesAbierto] = useState<ProductoConStock | null>(null);
 
   // Filtrar solo los productos con stock disponible en memoria
@@ -87,19 +80,8 @@ export function QuickSaleView() {
       );
     }
 
-    if (categoriaActiva !== 'Todos') {
-      const catNorm = categoriaActiva.toLowerCase();
-      res = res.filter((p) => {
-        const nombre = p.nombre.toLowerCase();
-        const categoria = (p.categoria_nombre || '').toLowerCase();
-        if (catNorm === 'labiales') return nombre.includes('labial') || nombre.includes('tint') || categoria.includes('labial');
-        if (catNorm === 'bases y polvos') return nombre.includes('base') || nombre.includes('polvo') || nombre.includes('corrector');
-        if (catNorm === 'ojos y cejas') return nombre.includes('mascara') || nombre.includes('sombra') || nombre.includes('ceja') || nombre.includes('delineador');
-        if (catNorm === 'skincare') return nombre.includes('serum') || nombre.includes('crema') || nombre.includes('limpiador') || categoria.includes('skin');
-        if (catNorm === 'rostro') return nombre.includes('rubor') || nombre.includes('blush') || nombre.includes('iluminador') || nombre.includes('primer');
-        if (catNorm === 'accesorios') return nombre.includes('brocha') || nombre.includes('esponja') || nombre.includes('rizador');
-        return categoria.includes(catNorm);
-      });
+    if (categoriaActiva !== null) {
+      res = res.filter((p) => p.categoria_id === categoriaActiva);
     }
 
     return res;
@@ -370,14 +352,19 @@ export function QuickSaleView() {
 
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#f8fafc] dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 transition-colors">
-      {/* Top App Bar de Venta Rápida */}
-      <header className="shrink-0 z-20 bg-white/95 dark:bg-[#121826]/95 backdrop-blur-md border-b border-slate-200/60 dark:border-slate-800/80 pt-safe-t px-4 pb-2.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.3)] transition-colors">
+      {/* Top App Bar de Venta Rápida: mismo molde que el resto de la app */}
+      <header className="shrink-0 z-20 bg-white/95 dark:bg-[#121826]/95 backdrop-blur-md border-b border-slate-200/60 dark:border-slate-800/80 pt-safe-t px-4 pb-2 shadow-[0_1px_3px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.3)] transition-colors">
         <div className="flex items-center justify-between py-1.5">
-          <div>
-            <span className="text-caption font-bold tracking-widest uppercase text-emerald-700 dark:text-emerald-400 block leading-none mb-0.5">
-              Glow Heaven
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/50">
+              <ShoppingCart size={18} />
             </span>
-            <h1 className="text-title font-extrabold text-slate-900 dark:text-white leading-tight">Venta Rápida</h1>
+            <div>
+              <span className="text-caption font-bold tracking-widest uppercase text-emerald-700 dark:text-emerald-400 block leading-none mb-0.5">
+                Glow Heaven
+              </span>
+              <h1 className="text-title font-extrabold text-slate-900 dark:text-white leading-tight">Venta Rápida</h1>
+            </div>
           </div>
           {clienteSeleccionado ? (
             <button
@@ -450,17 +437,31 @@ export function QuickSaleView() {
           )}
         </div>
 
-        {/* Chips de Categorías Horizontales */}
+        {/* Chips de categorías: las mismas categorías reales de Windows */}
         <div className="flex items-center gap-1.5 mt-2 overflow-x-auto sin-scrollbar py-0.5">
-          {CATEGORIAS_VENTA.map((cat) => {
-            const activa = categoriaActiva === cat;
+          <button
+            type="button"
+            onClick={() => {
+              haptics.selection();
+              setCategoriaActiva(null);
+            }}
+            className={`m3-press shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+              categoriaActiva === null
+                ? 'bg-emerald-700 dark:bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-800 dark:ring-emerald-500'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200/70 dark:hover:bg-slate-700 border border-slate-200/60 dark:border-slate-700'
+            }`}
+          >
+            Todos
+          </button>
+          {categorias.map((cat) => {
+            const activa = categoriaActiva === cat.id;
             return (
               <button
-                key={cat}
+                key={cat.id}
                 type="button"
                 onClick={() => {
                   haptics.selection();
-                  setCategoriaActiva(cat);
+                  setCategoriaActiva(cat.id);
                 }}
                 className={`m3-press shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
                   activa
@@ -468,7 +469,7 @@ export function QuickSaleView() {
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200/70 dark:hover:bg-slate-700 border border-slate-200/60 dark:border-slate-700'
                 }`}
               >
-                {cat}
+                {cat.nombre}
               </button>
             );
           })}

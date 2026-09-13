@@ -6,20 +6,9 @@ import {
   AlertTriangle,
   RefreshCw,
   ShieldCheck,
-  ChevronDown,
-  ChevronUp,
 } from 'lucide-react';
 import type { EstadoNube } from '../../../../shared/ipc-contracts';
-import {
-  Card,
-  CardHeader,
-  CardContent,
-  SectionHeader,
-  Button,
-  Field,
-  Input,
-  Badge,
-} from '../../components/ui';
+import { Card, CardHeader, CardContent, SectionHeader, Button, Badge } from '../../components/ui';
 import { useToast } from '../../context/ToastContext';
 
 /**
@@ -27,51 +16,30 @@ import { useToast } from '../../context/ToastContext';
  *
  * Muestra el estado activo de sincronización con la cuenta de Google
  * y provee verificación en vivo de la conexión.
+ *
+ * Hasta hace poco esta tarjeta también ofrecía un login manual por correo y
+ * contraseña ("Credenciales alternativas de Firebase"), sobrante de antes de
+ * que el acceso pasara a ser solo con Google. Convivían dos formas de
+ * entrar a la nube en la misma pantalla, y la manual ya no tenía a dónde
+ * llevar a alguien que no hubiera iniciado sesión primero con Google — se
+ * quitó del todo.
  */
 export const NubeSection: React.FC = () => {
   const { showToast } = useToast();
 
   const [estado, setEstado] = useState<EstadoNube | null>(null);
-  const [correo, setCorreo] = useState('');
-  const [clave, setClave] = useState('');
   const [ocupado, setOcupado] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [mostrarCredencialesManuales, setMostrarCredencialesManuales] = useState(false);
 
   const cargar = useCallback(async () => {
     const r = await window.api.nube.estado();
     if (r.success) {
       setEstado(r.data);
-      if (r.data.correo) setCorreo(r.data.correo);
     }
   }, []);
 
   useEffect(() => {
     cargar();
   }, [cargar]);
-
-  const guardarManual = async () => {
-    if (!correo.trim() || !clave) {
-      setError('Escribí el correo y la contraseña de la cuenta de Firebase.');
-      return;
-    }
-
-    setOcupado(true);
-    setError(null);
-    try {
-      const r = await window.api.nube.configurar(correo.trim(), clave);
-      if (!r.success) {
-        setError(r.error);
-        return;
-      }
-      setClave('');
-      setEstado(r.data);
-      showToast({ message: 'Conectado a Firebase con éxito', type: 'success' });
-      setMostrarCredencialesManuales(false);
-    } finally {
-      setOcupado(false);
-    }
-  };
 
   const verificarSincronizacion = async () => {
     setOcupado(true);
@@ -157,57 +125,6 @@ export const NubeSection: React.FC = () => {
             </p>
           </div>
         )}
-
-        {/* Acceso manual alternativo (oculto por defecto si ya está conectado con Google) */}
-        <div className="pt-1">
-          <button
-            type="button"
-            onClick={() => setMostrarCredencialesManuales((prev) => !prev)}
-            className="text-caption text-texto-3 hover:text-texto flex items-center gap-1.5 transition-colors"
-          >
-            <span>Credenciales alternativas de Firebase (Opcional)</span>
-            {mostrarCredencialesManuales ? (
-              <ChevronUp className="w-3.5 h-3.5" />
-            ) : (
-              <ChevronDown className="w-3.5 h-3.5" />
-            )}
-          </button>
-
-          {mostrarCredencialesManuales && (
-            <div className="mt-3 p-4 rounded-xl border border-borde bg-superficie-2 space-y-3 animate-fade-in">
-              {error && (
-                <p className="rounded-md border border-danger-200 bg-danger-50 p-2.5 text-caption text-danger-800">
-                  {error}
-                </p>
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Field label="Correo de Firebase">
-                  <Input
-                    type="email"
-                    value={correo}
-                    onChange={(e) => setCorreo(e.target.value)}
-                    placeholder="cuenta@firebase.com"
-                  />
-                </Field>
-                <Field label="Contraseña">
-                  <Input
-                    type="password"
-                    value={clave}
-                    onChange={(e) => setClave(e.target.value)}
-                    placeholder="••••••••"
-                  />
-                </Field>
-              </div>
-
-              <div className="flex justify-end pt-1">
-                <Button variant="primary" size="sm" onClick={guardarManual} disabled={ocupado}>
-                  {ocupado ? 'Guardando...' : 'Conectar cuenta manual'}
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
       </CardContent>
     </Card>
   );

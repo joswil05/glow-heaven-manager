@@ -279,9 +279,13 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
           {onVerVenta && (
             <button
               type="button"
-              onClick={(e) => {
+              onClick={async (e) => {
                 e.stopPropagation();
-                onVerVenta(p.venta_id, 'INVENTARIO');
+                // El tipo real (venta de inventario o encargo) decide a qué
+                // pestaña navegar; antes quedaba fijo en 'INVENTARIO' y un
+                // abono de un encargo abría la pestaña equivocada.
+                const r = await window.api.ventas.get(p.venta_id);
+                onVerVenta(p.venta_id, r.success && r.data ? r.data.tipo : 'INVENTARIO');
               }}
               className="text-[11px] text-texto-3 hover:text-acento text-left cursor-pointer"
             >

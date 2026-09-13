@@ -894,11 +894,11 @@ export const PanelView: React.FC<PanelViewProps> = ({
                   },
                   {
                     id: 'copiar-cliente',
-                    label: `Copiar cliente (${menuContextual.item.cliente_nombre})`,
+                    label: `Copiar clienta (${menuContextual.item.cliente_nombre})`,
                     icon: <Copy className="w-4 h-4" />,
                     onClick: () => {
                       navigator.clipboard.writeText(menuContextual.item.cliente_nombre);
-                      showToast({ message: 'Nombre del cliente copiado', type: 'info' });
+                      showToast({ message: 'Nombre de la clienta copiado', type: 'info' });
                     },
                   },
                 ]

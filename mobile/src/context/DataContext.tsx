@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
-import type { ParametrosSistema, ProductoConStock } from '@shared/types';
+import type { ParametrosSistema, ProductoConStock, Categoria } from '@shared/types';
 import { ParametrosRepoFirestore } from '@repos/parametros.repo';
 import { ProductosRepoFirestore } from '@repos/productos.repo';
 import { useAuth } from './AuthContext';
@@ -7,6 +7,15 @@ import { useAuth } from './AuthContext';
 interface DataState {
   parametros: ParametrosSistema | null;
   productos: ProductoConStock[];
+  /**
+   * Las categorías reales que la dueña creó en Configuración > Ganancia por
+   * categoría (Windows). Antes cada pantalla del celular tenía su propia
+   * lista inventada ("Labiales", "Bases y Polvos"...) que adivinaba la
+   * categoría por palabras dentro del nombre del producto — por eso los
+   * filtros del celular nunca coincidían con las categorías reales que se ven
+   * en Windows. Ahora las dos apps leen la misma fuente.
+   */
+  categorias: Categoria[];
   cargandoProductos: boolean;
   cargando: boolean;
   error: string | null;
@@ -34,6 +43,7 @@ const DataContext = createContext<DataState | null>(null);
 export function DataProvider({ children }: { children: ReactNode }) {
   const { usuario } = useAuth();
   const [parametros, setParametros] = useState<ParametrosSistema | null>(null);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [productos, setProductos] = useState<ProductoConStock[]>([]);
   const [cargandoProductos, setCargandoProductos] = useState(false);
   const [cargando, setCargando] = useState(true);
@@ -45,8 +55,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setCargando(true);
     setError(null);
     try {
-      const p = await ParametrosRepoFirestore.getParametros();
+      const [p, cats] = await Promise.all([
+        ParametrosRepoFirestore.getParametros(),
+        ParametrosRepoFirestore.getCategorias(),
+      ]);
       setParametros(p);
+      setCategorias(cats);
     } catch (err) {
       console.error('[DataContext] Error cargando parámetros:', err);
       setError('No se pudieron cargar los parámetros del negocio. Usando valores por defecto.');
@@ -118,6 +132,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     <DataContext.Provider
       value={{
         parametros,
+        categorias,
         productos,
         cargandoProductos,
         cargando,

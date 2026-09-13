@@ -189,7 +189,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
   const columnas: Column<ClienteDetalle>[] = [
     {
       key: 'nombre',
-      header: 'Cliente',
+      header: 'Clienta',
       render: (c) => {
         const iniciales =
           c.nombre
@@ -284,7 +284,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
             size="sm"
             variant="ghost"
             aria-label={`Eliminar a ${c.nombre}`}
-            title="Eliminar cliente"
+            title="Eliminar clienta"
             className="text-texto-3 hover:text-danger-600 rounded-lg"
             onClick={(e) => {
               e.stopPropagation();
@@ -305,7 +305,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
           {/* Barra superior estilizada idéntica a la del inicio */}
         <div className="flex items-center justify-between gap-3 pb-1 border-b border-borde/40 text-caption text-texto-3 shrink-0 flex-wrap">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-texto text-body">Directorio de Clientes</span>
+            <span className="font-bold text-texto text-body">Directorio de Clientas</span>
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               {clientes.length} clienta{clientes.length === 1 ? '' : 's'}
@@ -325,7 +325,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
               }}
             >
               <Plus className="w-4 h-4" />
-              <span>Agregar cliente</span>
+              <span>Agregar clienta</span>
             </Button>
           </div>
         </div>
@@ -344,7 +344,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
             usd_cents={totalDeuda}
             tone={totalDeuda > 0 ? 'warning' : 'success'}
             icon={Wallet}
-            hint={`${conDeuda} cliente(s) con saldo pendiente`}
+            hint={`${conDeuda} clienta(s) con saldo pendiente`}
           />
           <StatTile
             label="Total histórico comprado"
@@ -397,7 +397,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
                   }}
                 >
                   <Plus className="w-4 h-4" />
-                  <span>Agregar el primer cliente</span>
+                  <span>Agregar la primera clienta</span>
                 </Button>
               ) : undefined
             }
@@ -733,7 +733,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
                 onClick={() => detalle && setArchivando(detalle)}
               >
                 <Trash2 className="w-3.5 h-3.5 mr-1.5" />
-                <span>Eliminar cliente</span>
+                <span>Eliminar clienta</span>
               </Button>
             </div>
           </div>
@@ -759,7 +759,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
         peligroso
         titulo={`¿Eliminar a ${archivando?.nombre ?? ''}?`}
         consecuencias={[
-          'El cliente se eliminará de la lista activa y no aparecerá al registrar nuevas ventas.',
+          'La clienta se eliminará de la lista activa y no aparecerá al registrar nuevas ventas.',
           ...(archivando && archivando.saldo_pendiente_usd_cents > 0
             ? [
                 `Actualmente tiene un saldo pendiente de ${formatearMoneda(archivando.saldo_pendiente_usd_cents, 'USD')}.`,
@@ -906,7 +906,7 @@ const ClienteModal: React.FC<{
 
   const guardar = async () => {
     if (!nombre.trim()) {
-      setError('El cliente necesita un nombre.');
+      setError('La clienta necesita un nombre.');
       return;
     }
 
@@ -927,7 +927,7 @@ const ClienteModal: React.FC<{
         return;
       }
 
-      showToast({ message: cliente ? 'Cliente actualizado' : 'Cliente agregado', type: 'success' });
+      showToast({ message: cliente ? 'Clienta actualizada' : 'Clienta agregada', type: 'success' });
       await onGuardado();
       onCerrar();
     } finally {
@@ -979,7 +979,7 @@ const ClienteModal: React.FC<{
       >
         <header className="flex items-center justify-between px-5 py-4 border-b border-borde">
           <h3 id="titulo-cliente" className="text-title text-texto">
-            {cliente ? `Editar ${cliente.nombre}` : 'Agregar cliente'}
+            {cliente ? `Editar ${cliente.nombre}` : 'Agregar clienta'}
           </h3>
           <Button variant="ghost" size="sm" onClick={onCerrar} aria-label="Cerrar">
             <X className="w-4 h-4" />

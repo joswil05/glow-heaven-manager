@@ -887,7 +887,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
 
               <Field
                 label="Encargos estancados en USA"
-                hint="Días en bodega Miami sin meter a un paquete"
+                hint="Días comprados sin meter a un paquete"
               >
                 <Select
                   value={diasEncargos}

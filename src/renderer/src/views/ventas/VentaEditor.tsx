@@ -54,7 +54,7 @@ interface VentaEditorProps {
 
 const PASOS = [
   { id: 1, titulo: 'Productos', subtitulo: 'Selección y cantidades', icono: Package },
-  { id: 2, titulo: 'Cliente y Cobro', subtitulo: 'Forma de pago y plazos', icono: CreditCard },
+  { id: 2, titulo: 'Clienta y Cobro', subtitulo: 'Forma de pago y plazos', icono: CreditCard },
   { id: 3, titulo: 'Confirmación', subtitulo: 'Resumen y entrega', icono: FileCheck },
 ] as const;
 
@@ -250,7 +250,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
       setMostrarCrearCliente(false);
       setBusquedaCliente('');
       showToast({
-        message: `Cliente "${nuevo.nombre}" guardado y asociado`,
+        message: `Clienta "${nuevo.nombre}" guardada y asociada`,
         type: 'success',
       });
     } finally {
@@ -352,7 +352,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
 
     if (p === 2) {
       if (esEncargo && !clienteId) {
-        setError('Un encargo necesita un cliente asignado.');
+        setError('Un encargo necesita una clienta asignada.');
         return false;
       }
     }
@@ -481,7 +481,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
 
   const MOTIVOS_DESCUENTO = [
     '',
-    'Cliente frecuente',
+    'Clienta frecuente',
     'Promoción / Rebaja',
     'Liquidación',
     'Cortesía',
@@ -521,7 +521,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
             </h3>
             <p className="text-caption text-texto-3">
               {esEncargo
-                ? 'Cotizá lo que el cliente encargó y cobrá el anticipo.'
+                ? 'Cotizá lo que la clienta encargó y cobrá el anticipo.'
                 : 'Vendé de tu inventario. Las existencias se descuentan automáticamente.'}
             </p>
           </div>
@@ -598,7 +598,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
               <div className="flex items-center justify-between">
                 <div>
                   <h4 className="text-label font-semibold text-texto">
-                    {esEncargo ? 'Prendas a cotizar' : '¿Qué prendas lleva el cliente?'}
+                    {esEncargo ? 'Prendas a cotizar' : '¿Qué prendas lleva la clienta?'}
                   </h4>
                   <p className="text-caption text-texto-3">
                     Buscá en tu inventario o ingresá la descripción.
@@ -714,7 +714,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                                 actualizarLinea(l.clave, 'descripcion', e.target.value)
                               }
                               placeholder={
-                                esEncargo ? 'Ej. Vestido floral pedido por cliente' : 'Producto sin registrar en inventario'
+                                esEncargo ? 'Ej. Vestido floral pedido por clienta' : 'Producto sin registrar en inventario'
                               }
                               className="flex-1"
                             />
@@ -865,13 +865,13 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
               <div className="rounded-xl border border-borde p-5 bg-superficie space-y-4">
                 <div className="flex items-center gap-2 border-b border-borde/60 pb-2">
                   <User className="w-4 h-4 text-acento" />
-                  <h4 className="text-label font-semibold text-texto">Cliente y Fecha</h4>
+                  <h4 className="text-label font-semibold text-texto">Clienta y Fecha</h4>
                 </div>
 
                 <div className="space-y-3">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-caption font-medium text-texto-2">
-                      {esEncargo ? 'Cliente (Requerido para encargos)' : 'Cliente asignado'}
+                      {esEncargo ? 'Clienta (Requerida para encargos)' : 'Clienta asignada'}
                     </span>
                     <div className="flex items-center gap-2">
                       <Field label="Fecha de la venta" className="w-40 mb-0">
@@ -925,7 +925,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                       <div className="flex items-center justify-between border-b border-borde/60 pb-2">
                         <span className="text-body font-semibold text-texto flex items-center gap-2">
                           <UserPlus className="w-4 h-4 text-acento" />
-                          Registrar nuevo cliente
+                          Registrar nueva clienta
                         </span>
                         <Button
                           type="button"
@@ -943,7 +943,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                           <Input
                             value={nuevoNombreCliente}
                             onChange={(e) => setNuevoNombreCliente(e.target.value)}
-                            placeholder="Nombre del cliente"
+                            placeholder="Nombre de la clienta"
                             autoFocus
                           />
                         </Field>
@@ -1007,7 +1007,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                           className="shrink-0"
                         >
                           <UserPlus className="w-4 h-4 text-acento" />
-                          <span>+ Nuevo cliente</span>
+                          <span>+ Nueva clienta</span>
                         </Button>
                       </div>
 
@@ -1023,7 +1023,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                             className="w-full text-left px-3.5 py-2.5 hover:bg-superficie-2 flex items-center justify-between text-body transition-colors"
                           >
                             <span className="font-medium text-texto">
-                              🏪 Mostrador (Venta rápida sin registrar cliente)
+                              🏪 Mostrador (Venta rápida sin registrar clienta)
                             </span>
                             <Badge tone="neutral">Genérico</Badge>
                           </button>
@@ -1153,7 +1153,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                           <Badge tone="warning">Queda saldo</Badge>
                         </div>
                         <span className="text-caption text-texto-3">
-                          Se registra un saldo a favor que el cliente pagará después o en cuotas.
+                          Se registra un saldo a favor que la clienta pagará después o en cuotas.
                         </span>
                       </button>
                     </div>
@@ -1468,7 +1468,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                   <div className="flex items-center gap-2.5 p-3 rounded-lg bg-warning-50/70 border border-warning-200 text-warning-800 text-caption">
                     <AlertTriangle className="w-4 h-4 text-warning-600 shrink-0" />
                     <span>
-                      Se registrará un saldo pendiente de <strong>{formatearMoneda(totales.total, 'USD')}</strong> en la cuenta de {clienteSeleccionado?.nombre ?? 'el cliente'}.
+                      Se registrará un saldo pendiente de <strong>{formatearMoneda(totales.total, 'USD')}</strong> en la cuenta de {clienteSeleccionado?.nombre ?? 'la clienta'}.
                     </span>
                   </div>
                 )}
@@ -1489,7 +1489,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                         Entregar mercadería ahora mismo
                       </span>
                       <span className="text-caption text-texto-3">
-                        Descuenta de inmediato las unidades físicas del inventario. Desmárcalo solo si el cliente aparta la ropa para recogerla después.
+                        Descuenta de inmediato las unidades físicas del inventario. Desmárcalo solo si la clienta aparta la ropa para recogerla después.
                       </span>
                     </div>
                   </label>

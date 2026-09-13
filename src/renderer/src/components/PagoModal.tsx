@@ -100,7 +100,7 @@ export const PagoModal: React.FC<PagoModalProps> = ({
 
   const registrar = async () => {
     if (montoCents <= 0) {
-      setError('Escribí cuánto pagó el cliente.');
+      setError('Escribí cuánto pagó la clienta.');
       return;
     }
 
@@ -125,7 +125,7 @@ export const PagoModal: React.FC<PagoModalProps> = ({
 
       const mensaje =
         r.data.excedente_usd_cents > 0
-          ? `Abono registrado. El cliente pagó ${formatearMoneda(r.data.excedente_usd_cents, 'USD')} de más.`
+          ? `Abono registrado. La clienta pagó ${formatearMoneda(r.data.excedente_usd_cents, 'USD')} de más.`
           : r.data.saldo_usd_cents <= 0
             ? 'Abono registrado. La venta quedó saldada.'
             : `Abono registrado. Queda ${formatearMoneda(r.data.saldo_usd_cents, 'USD')}.`;
@@ -294,7 +294,7 @@ export const PagoModal: React.FC<PagoModalProps> = ({
               <div className="text-label">
                 {saldoDespues < 0 ? (
                   <p className="text-success-800">
-                    Queda saldada y el cliente paga {formatearMoneda(-saldoDespues, 'USD')} de
+                    Queda saldada y la clienta paga {formatearMoneda(-saldoDespues, 'USD')} de
                     más.
                   </p>
                 ) : saldoDespues === 0 ? (

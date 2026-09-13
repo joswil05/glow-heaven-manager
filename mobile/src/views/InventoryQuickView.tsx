@@ -1,7 +1,6 @@
 import { useState, useMemo } from 'react';
-import { Search, ImageOff, MessageCircle, Share2, X, Check, AlertCircle } from 'lucide-react';
+import { Search, MessageCircle, X } from 'lucide-react';
 import type { ProductoConStock } from '@shared/types';
-import { MoneyDual } from '../components/MoneyDual';
 import { PullToRefresh } from '../components/PullToRefresh';
 import { useSnackbar } from '../components/Snackbar';
 import { formatearMoneda } from '@core/moneda';
@@ -9,25 +8,23 @@ import { useDatosNegocio } from '../context/DataContext';
 import { haptics } from '../lib/haptics';
 import { useScrollReveal } from '../lib/useScrollReveal';
 
-const CATEGORIAS_RAPIDAS = [
-  'Todos',
-  'Labiales',
-  'Bases y Polvos',
-  'Ojos y Cejas',
-  'Skincare',
-  'Rostro',
-  'Accesorios',
-];
-
+/** `null` representa "Todos". El resto son los `id` reales de `categorias`,
+ * las mismas que la dueña administra en Windows > Configuración > Ganancia
+ * por categoría — antes esta pantalla inventaba su propia lista de
+ * categorías ("Labiales", "Bases y Polvos"...) adivinando por palabras
+ * dentro del nombre del producto, así que nunca coincidía con lo real. */
 export function InventoryQuickView() {
-  const { parametros, productos, cargandoProductos, recargarProductos } = useDatosNegocio();
+  const { parametros, categorias, productos, cargandoProductos, recargarProductos } = useDatosNegocio();
   const { mostrar } = useSnackbar();
 
   const [busqueda, setBusqueda] = useState('');
-  const [categoriaActiva, setCategoriaActiva] = useState('Todos');
+  const [categoriaActiva, setCategoriaActiva] = useState<number | null>(null);
 
   const tasa = parametros?.tasa_cambio_cents ?? 3662;
   const cargando = cargandoProductos && productos.length === 0;
+  const nombreCategoriaActiva = categoriaActiva === null
+    ? 'Todos'
+    : categorias.find((c) => c.id === categoriaActiva)?.nombre ?? 'esa categoría';
 
   const refrescar = async () => {
     try {
@@ -37,7 +34,7 @@ export function InventoryQuickView() {
     }
   };
 
-  // Filtrado reactivo por texto y categoría
+  // Filtrado reactivo por texto y categoría real (por id, no por nombre adivinado)
   const filtrados = useMemo(() => {
     let res = productos;
     const q = busqueda.trim().toLowerCase();
@@ -51,19 +48,8 @@ export function InventoryQuickView() {
       );
     }
 
-    if (categoriaActiva !== 'Todos') {
-      const catNorm = categoriaActiva.toLowerCase();
-      res = res.filter((p) => {
-        const nombre = p.nombre.toLowerCase();
-        const categoria = (p.categoria_nombre || '').toLowerCase();
-        if (catNorm === 'labiales') return nombre.includes('labial') || nombre.includes('tint') || categoria.includes('labial');
-        if (catNorm === 'bases y polvos') return nombre.includes('base') || nombre.includes('polvo') || nombre.includes('corrector');
-        if (catNorm === 'ojos y cejas') return nombre.includes('mascara') || nombre.includes('sombra') || nombre.includes('ceja') || nombre.includes('delineador');
-        if (catNorm === 'skincare') return nombre.includes('serum') || nombre.includes('crema') || nombre.includes('limpiador') || categoria.includes('skin');
-        if (catNorm === 'rostro') return nombre.includes('rubor') || nombre.includes('blush') || nombre.includes('iluminador') || nombre.includes('primer');
-        if (catNorm === 'accesorios') return nombre.includes('brocha') || nombre.includes('esponja') || nombre.includes('rizador');
-        return categoria.includes(catNorm);
-      });
+    if (categoriaActiva !== null) {
+      res = res.filter((p) => p.categoria_id === categoriaActiva);
     }
 
     return res;
@@ -92,14 +78,19 @@ export function InventoryQuickView() {
 
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#f8fafc] dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 transition-colors">
-      {/* Top App Bar fija */}
-      <header className="shrink-0 z-20 bg-white/95 dark:bg-[#121826]/95 backdrop-blur-md border-b border-slate-200/60 dark:border-slate-800/80 pt-safe-t px-4 pb-2.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.3)] transition-colors">
+      {/* Top App Bar: mismo molde que el resto de la app (icono + kicker + título) */}
+      <header className="shrink-0 z-20 bg-white/95 dark:bg-[#121826]/95 backdrop-blur-md border-b border-slate-200/60 dark:border-slate-800/80 pt-safe-t px-4 pb-2 shadow-[0_1px_3px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.3)] transition-colors">
         <div className="flex items-center justify-between py-1.5">
-          <div>
-            <span className="text-caption font-bold tracking-widest uppercase text-emerald-700 dark:text-emerald-400 block leading-none mb-0.5">
-              Glow Heaven
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/50">
+              <Search size={18} />
             </span>
-            <h1 className="text-title font-extrabold text-slate-900 dark:text-white leading-tight">Catálogo de Productos</h1>
+            <div>
+              <span className="text-caption font-bold tracking-widest uppercase text-emerald-700 dark:text-emerald-400 block leading-none mb-0.5">
+                Glow Heaven
+              </span>
+              <h1 className="text-title font-extrabold text-slate-900 dark:text-white leading-tight">Catálogo de Productos</h1>
+            </div>
           </div>
           <span className="rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-label font-bold px-2.5 py-1 border border-slate-200/60 dark:border-slate-700">
             {productos.length} {productos.length === 1 ? 'producto' : 'productos'}
@@ -148,17 +139,31 @@ export function InventoryQuickView() {
           )}
         </div>
 
-        {/* Chips de Categorías Horizontales con estética refinada */}
+        {/* Chips de categorías: las mismas categorías reales de Windows */}
         <div className="flex items-center gap-1.5 mt-2 overflow-x-auto sin-scrollbar py-0.5">
-          {CATEGORIAS_RAPIDAS.map((cat) => {
-            const activa = categoriaActiva === cat;
+          <button
+            type="button"
+            onClick={() => {
+              haptics.selection();
+              setCategoriaActiva(null);
+            }}
+            className={`m3-press shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+              categoriaActiva === null
+                ? 'bg-emerald-700 dark:bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-800 dark:ring-emerald-500'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200/70 dark:hover:bg-slate-700 border border-slate-200/60 dark:border-slate-700'
+            }`}
+          >
+            Todos
+          </button>
+          {categorias.map((cat) => {
+            const activa = categoriaActiva === cat.id;
             return (
               <button
-                key={cat}
+                key={cat.id}
                 type="button"
                 onClick={() => {
                   haptics.selection();
-                  setCategoriaActiva(cat);
+                  setCategoriaActiva(cat.id);
                 }}
                 className={`m3-press shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
                   activa
@@ -166,7 +171,7 @@ export function InventoryQuickView() {
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200/70 dark:hover:bg-slate-700 border border-slate-200/60 dark:border-slate-700'
                 }`}
               >
-                {cat}
+                {cat.nombre}
               </button>
             );
           })}
@@ -175,7 +180,7 @@ export function InventoryQuickView() {
 
       {/* Lista de productos con Pull-to-Refresh */}
       <PullToRefresh onRefresh={refrescar}>
-        <main ref={scrollRevealRef} className="flex flex-col gap-2.5 px-3.5 pt-2.5 pb-40 scroll-smooth">
+        <main ref={scrollRevealRef} className="flex flex-col gap-2.5 px-3.5 pt-2.5 pb-24 scroll-smooth">
 
           {cargando && (
             <div className="flex flex-col items-center justify-center py-16 gap-3 text-slate-400 dark:text-slate-500">
@@ -195,8 +200,13 @@ export function InventoryQuickView() {
                   key={p.id}
                   className="scroll-reveal rounded-2xl bg-white dark:bg-[#161f30] border border-slate-200/80 dark:border-slate-800 p-3 shadow-xs hover:border-slate-300 dark:hover:border-slate-700 transition-all flex flex-col gap-2"
                 >
-                  <div className="flex gap-3 items-start">
-                    {/* Foto o Placeholder Estético */}
+                  {/* Fila única: foto, datos, y acción de compartir alineada
+                      al centro vertical — antes el botón de WhatsApp vivía en
+                      su propia fila con borde, rompiendo la simetría de la
+                      tarjeta y desperdiciando una fila completa por cada
+                      producto. */}
+                  <div className="flex gap-3 items-center">
+                    {/* Foto o Placeholder */}
                     <div
                       className="shrink-0 overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700 relative flex items-center justify-center"
                       style={{
@@ -213,7 +223,7 @@ export function InventoryQuickView() {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-emerald-50 via-slate-50 to-slate-100 dark:from-emerald-950/30 dark:via-slate-900/40 dark:to-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 font-extrabold text-sm uppercase">
+                        <div className="w-full h-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 font-extrabold text-sm uppercase">
                           {p.nombre.slice(0, 2)}
                         </div>
                       )}
@@ -259,6 +269,18 @@ export function InventoryQuickView() {
                         </span>
                       </div>
                     </div>
+
+                    {/* Compartir por WhatsApp: ícono compacto en la misma
+                        fila, no una fila propia */}
+                    <button
+                      type="button"
+                      onClick={() => compartirPorWhatsApp(p)}
+                      aria-label={`Compartir ${p.nombre} por WhatsApp`}
+                      title="Compartir por WhatsApp"
+                      className="m3-press flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/60 transition-colors cursor-pointer"
+                    >
+                      <MessageCircle size={16} />
+                    </button>
                   </div>
 
                   {/* Tonos / Variantes disponibles */}
@@ -278,18 +300,6 @@ export function InventoryQuickView() {
                       ))}
                     </div>
                   )}
-
-                  {/* Botón de Compartir por WhatsApp compacto y estilizado */}
-                  <div className="flex justify-end pt-1 border-t border-slate-100/80 dark:border-slate-800">
-                    <button
-                      type="button"
-                      onClick={() => compartirPorWhatsApp(p)}
-                      className="m3-press flex items-center gap-1.5 h-8 px-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/60 text-label font-bold transition-colors cursor-pointer"
-                    >
-                      <MessageCircle size={14} className="text-emerald-600 dark:text-emerald-400" />
-                      <span>Compartir por WhatsApp</span>
-                    </button>
-                  </div>
                 </div>
               );
             })}
@@ -301,13 +311,13 @@ export function InventoryQuickView() {
               </div>
               <p className="text-sm font-bold text-slate-700 dark:text-slate-200">Sin productos encontrados</p>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xs">
-                No hay coincidencias para “{busqueda}” en la categoría “{categoriaActiva}”.
+                No hay coincidencias para "{busqueda}" en la categoría "{nombreCategoriaActiva}".
               </p>
               <button
                 type="button"
                 onClick={() => {
                   setBusqueda('');
-                  setCategoriaActiva('Todos');
+                  setCategoriaActiva(null);
                 }}
                 className="mt-3 rounded-full bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 px-4 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 cursor-pointer"
               >

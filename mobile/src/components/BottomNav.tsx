@@ -48,8 +48,15 @@ export function BottomNav({ actual, onCambiar, badgeCarrito = 0, badgeCobranza =
               {/* Contenedor Pill de Material 3 */}
               <div className="relative">
                 <div
-                  className="flex items-center justify-center w-15 h-8 rounded-full transition-all duration-200"
+                  className="flex items-center justify-center rounded-full transition-all duration-200"
                   style={{
+                    // `w-15` no existe en la escala de Tailwind (ni la
+                    // default ni la personalizada de este proyecto): quedaba
+                    // sin ancho aplicado y la burbuja se encogía al tamaño
+                    // del ícono. Ancho explícito para que sea una píldora
+                    // Material 3 real, no un círculo apretado.
+                    width: '56px',
+                    height: '32px',
                     transform: activo ? 'scale(1.04)' : 'scale(1)',
                     backgroundColor: activo
                       ? isDark
