@@ -672,7 +672,7 @@ export function QuickSaleView() {
               </div>
               <div>
                 <span className="text-caption font-medium text-texto-3 leading-none">Total carrito</span>
-                <p className="text-base font-extrabold text-inverso-texto leading-tight">
+                <p className="text-base font-extrabold text-texto leading-tight">
                   {formatearMoneda(totalUsdCents, 'USD')}
                   <span className="text-xs text-acento ml-1.5 font-bold">
                     ≈ {formatearMoneda(Math.round((totalUsdCents * tasa) / 100), 'COR')}

@@ -18,7 +18,8 @@
     "emulador": "node scripts/emulador.mjs",
     "test:emulador": "node scripts/test-emulador.mjs",
     "dev:mobile": "vite --config mobile/vite.config.ts",
-    "build:mobile": "tsc -p mobile/tsconfig.json --noEmit && vite build --config mobile/vite.config.ts",
+    "auditar:colores": "node scripts/auditar-colores.mjs",
+    "build:mobile": "tsc -p mobile/tsconfig.json --noEmit && node scripts/auditar-colores.mjs && vite build --config mobile/vite.config.ts",
     "preview:mobile": "vite preview --config mobile/vite.config.ts",
     "deploy:mobile": "npm run build:mobile && npx firebase deploy --only hosting",
     "release:windows": "npm run limpiar && tsc && vite build && electron-builder --publish always"

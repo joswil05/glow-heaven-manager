@@ -59,25 +59,23 @@ export function SnackbarProvider({ children }: { children: ReactNode }) {
           <div
             key={m.id}
             onClick={() => cerrar(m.id)}
-            className="pointer-events-auto flex items-center gap-3 rounded-2xl px-4 py-3 shadow-2xl backdrop-blur-md animate-m3-slide-down text-inverso-texto text-xs font-semibold max-w-sm w-full transition-all"
-            style={{
-              backgroundColor:
-                m.tipo === 'success'
-                  ? 'rgb(var(--texto))'
-                  : m.tipo === 'error'
-                    ? '#be123c'
-                    : '#1e293b',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.25)',
-            }}
+            /* Un aviso es una superficie ELEVADA, no una invertida. Antes
+               usaba `rgb(var(--texto))` de fondo —el color del texto como
+               fondo—, así que en tema oscuro salía un rectángulo blanco
+               encandilando, y en error/info tenía dos colores escritos a
+               mano (uno de ellos slate, azul). El tipo de aviso lo dice el
+               ícono; no hace falta inundar todo el recuadro de color. */
+            className={`pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-2xl border bg-superficie-3 px-4 py-3 text-xs font-semibold text-texto shadow-m3-3 backdrop-blur-md animate-m3-slide-down ${
+              m.tipo === 'error' ? 'border-peligro-suave' : 'border-borde'
+            }`}
           >
             {m.tipo === 'success' && <CheckCircle2 size={18} className="shrink-0 text-acento" />}
-            {m.tipo === 'error' && <AlertCircle size={18} className="shrink-0 text-peligro-fuerte" />}
+            {m.tipo === 'error' && <AlertCircle size={18} className="shrink-0 text-peligro" />}
             {m.tipo === 'info' && <Info size={18} className="shrink-0 text-texto-2" />}
             <span className="flex-1 leading-snug">{m.texto}</span>
             <button
               type="button"
-              className="text-inverso-texto-2 hover:text-inverso-texto shrink-0 p-1 cursor-pointer"
+              className="shrink-0 p-1 text-texto-3 hover:text-texto cursor-pointer"
               aria-label="Cerrar notificación"
             >
               <X size={15} />
