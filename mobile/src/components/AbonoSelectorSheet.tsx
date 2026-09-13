@@ -96,19 +96,19 @@ export function AbonoSelectorSheet({
 
         {/* Resumen Total Pendiente */}
         {cuentasPorCobrar.length > 0 && (
-          <div className="flex items-center justify-between rounded-2xl bg-acento-suave border border-acento-suave p-3 shadow-sm shrink-0">
+          <div className="flex items-center justify-between rounded-2xl bg-superficie-2 border border-borde p-3 shadow-sm shrink-0">
             <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-acento">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-texto-3">
                 Total por cobrar en el negocio
               </span>
-              <p className="text-sm font-black text-acento">
+              <p className="text-sm font-black text-texto">
                 {formatearMoneda(totalPendienteUsd, 'USD')}{' '}
-                <span className="text-xs font-semibold text-acento">
+                <span className="text-xs font-semibold text-texto-2">
                   (≈ {formatearMoneda(totalPendienteCor, 'COR')})
                 </span>
               </p>
             </div>
-            <span className="rounded-full bg-acento-suave text-acento text-xs font-extrabold px-2.5 py-1">
+            <span className="rounded-full bg-superficie-3 text-texto-2 text-xs font-extrabold px-2.5 py-1">
               {cuentasPorCobrar.length} cuenta{cuentasPorCobrar.length > 1 ? 's' : ''}
             </span>
           </div>
@@ -157,7 +157,7 @@ export function AbonoSelectorSheet({
                     <p className="text-[11px] text-texto-3 font-medium">
                       {c.codigo} · {c.fecha}
                     </p>
-                    <p className="text-xs font-black text-acento mt-0.5 tabular-nums">
+                    <p className="text-xs font-black text-texto mt-0.5 tabular-nums">
                       {formatearMoneda(c.saldo_usd_cents, 'USD')}{' '}
                       <span className="text-[11px] font-semibold text-texto-3">
                         (≈ {formatearMoneda(saldoCor, 'COR')})

@@ -8,10 +8,13 @@ import { DashboardView } from './views/DashboardView';
 import { QuickSaleView } from './views/QuickSaleView';
 import { CobranzaView } from './views/CobranzaView';
 import { InventoryQuickView } from './views/InventoryQuickView';
+import { AjustesView } from './views/AjustesView';
 import { BottomNav } from './components/BottomNav';
 import { SnackbarProvider } from './components/Snackbar';
 
-export type Vista = 'panel' | 'vender' | 'cobranza' | 'inventario';
+// `ajustes` no esta en el dock: se toca cada varias semanas y el dock es
+// para lo de cada minuto. Se entra por el engranaje del Inicio.
+export type Vista = 'panel' | 'vender' | 'cobranza' | 'inventario' | 'ajustes';
 
 import { ShieldAlert } from 'lucide-react';
 
@@ -73,6 +76,7 @@ function AppContenido() {
           <div className="flex-1 min-h-0 relative">
             <div className={`h-full w-full overflow-hidden ${vista === 'panel' ? 'block animate-vista' : 'hidden'}`}>
               <DashboardView
+                onIrAAjustes={() => setVista('ajustes')}
                 onIrAVenta={() => setVista('vender')}
                 onIrACobranza={() => setVista('cobranza')}
                 onIrAInventario={() => setVista('inventario')}
@@ -87,8 +91,11 @@ function AppContenido() {
             <div className={`h-full w-full overflow-hidden ${vista === 'inventario' ? 'block animate-vista' : 'hidden'}`}>
               <InventoryQuickView />
             </div>
+            <div className={`h-full w-full overflow-hidden ${vista === 'ajustes' ? 'block animate-vista' : 'hidden'}`}>
+              <AjustesView onVolver={() => setVista('panel')} />
+            </div>
           </div>
-          <BottomNav actual={vista} onCambiar={setVista} />
+          {vista !== 'ajustes' && <BottomNav actual={vista} onCambiar={setVista} />}
         </div>
       </DataProvider>
     </SnackbarProvider>

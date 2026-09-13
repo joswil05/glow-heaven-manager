@@ -116,7 +116,7 @@ export function AbonoModalSheet({ venta, onCerrar, onAbonoRegistrado }: AbonoMod
     >
       {exito ? (
         <div className="flex flex-col items-center text-center py-4 gap-4 animate-m3-fade">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-acento-suave text-acento shadow-sm">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-acento-suave text-acento-fuerte">
             <CheckCircle2 size={36} />
           </div>
 
@@ -179,7 +179,7 @@ export function AbonoModalSheet({ venta, onCerrar, onAbonoRegistrado }: AbonoMod
             <button
               type="button"
               onClick={llenarSaldoTotal}
-              className="m3-press rounded-xl bg-acento-suave border border-acento-suave px-3 py-1.5 text-xs font-bold text-acento hover:bg-acento-suave"
+              className="m3-press rounded-xl bg-superficie-2 border border-borde px-3 py-1.5 text-xs font-bold text-texto-2 hover:bg-superficie-3"
             >
               Pagar todo
             </button>
@@ -197,7 +197,7 @@ export function AbonoModalSheet({ venta, onCerrar, onAbonoRegistrado }: AbonoMod
                     setMoneda('COR');
                   }}
                   className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                    moneda === 'COR' ? 'bg-superficie-3 text-acento shadow-sm' : 'text-texto-3'
+                    moneda === 'COR' ? 'bg-superficie-3 text-texto shadow-sm' : 'text-texto-3'
                   }`}
                 >
                   Córdobas (C$)
@@ -209,7 +209,7 @@ export function AbonoModalSheet({ venta, onCerrar, onAbonoRegistrado }: AbonoMod
                     setMoneda('USD');
                   }}
                   className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                    moneda === 'USD' ? 'bg-superficie-3 text-acento shadow-sm' : 'text-texto-3'
+                    moneda === 'USD' ? 'bg-superficie-3 text-texto shadow-sm' : 'text-texto-3'
                   }`}
                 >
                   Dólares (US$)

@@ -120,7 +120,7 @@ export function DetalleCobroSheet({
             aria-label={`Escribir a ${f.cliente_nombre} por WhatsApp`}
             className={`m3-press tocable flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-label font-bold transition-transform ${
               f.cliente_telefono
-                ? 'border-acento-suave bg-acento-suave text-acento-fuerte active:scale-[0.98]'
+                ? 'border-borde bg-superficie-2 text-texto-2 active:scale-[0.98]'
                 : 'pointer-events-none border-borde bg-superficie-2 text-texto-3'
             }`}
           >

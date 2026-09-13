@@ -114,7 +114,7 @@ export function CobranzaView() {
               <HandCoins size={18} />
             </span>
             <div className="min-w-0">
-              <span className="text-caption font-bold tracking-widest uppercase text-acento block leading-none mb-0.5">
+              <span className="text-caption font-bold tracking-widest uppercase text-texto-3 block leading-none mb-0.5">
                 Glow Heaven
               </span>
               <h1 className="text-title font-extrabold text-texto leading-tight truncate">
@@ -134,7 +134,7 @@ export function CobranzaView() {
               aria-label="Refrescar cuentas"
               className="flex h-9 w-9 items-center justify-center rounded-xl bg-superficie-2/90 text-texto-2 hover:bg-superficie-2 active:scale-95 transition-all border border-borde cursor-pointer disabled:opacity-50"
             >
-              <RefreshCw size={15} className={cargando ? 'animate-spin text-acento' : ''} />
+              <RefreshCw size={15} className={cargando ? 'animate-spin text-texto-2' : ''} />
             </button>
           </div>
         </div>

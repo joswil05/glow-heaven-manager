@@ -49,11 +49,7 @@ export function BottomNav({ actual, onCambiar, badgeCarrito = 0, badgeCobranza =
               <div
                 className="relative flex items-center justify-center px-4 py-1 rounded-full transition-all duration-250 ease-out"
                 style={{
-                  backgroundColor: activo
-                    ? isDark
-                      ? 'rgba(16, 185, 129, 0.20)'
-                      : '#dcfce7'
-                    : 'transparent',
+                  backgroundColor: activo ? 'rgb(var(--acento) / 0.18)' : 'transparent',
                 }}
               >
                 <Icono
@@ -63,9 +59,7 @@ export function BottomNav({ actual, onCambiar, badgeCarrito = 0, badgeCobranza =
                     transform: activo ? 'scale(1.08)' : 'scale(1)',
                     strokeWidth: activo ? 2.4 : 1.9,
                     color: activo
-                      ? isDark
-                        ? '#34d399'
-                        : '#059669'
+                      ? 'rgb(var(--acento))'
                       : isDark
                         ? 'rgb(var(--texto-3))'
                         : 'rgb(var(--texto-3))',
@@ -93,11 +87,9 @@ export function BottomNav({ actual, onCambiar, badgeCarrito = 0, badgeCobranza =
                 style={{
                   fontWeight: activo ? 700 : 500,
                   color: activo
-                    ? isDark
-                      ? '#34d399'
-                      : '#059669'
-                    : isDark
-                      ? 'rgb(var(--texto-3))'
+                      ? 'rgb(var(--acento))'
+                      : isDark
+                        ? 'rgb(var(--texto-3))'
                       : 'rgb(var(--texto-3))',
                 }}
               >

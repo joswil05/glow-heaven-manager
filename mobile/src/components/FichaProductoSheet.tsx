@@ -74,7 +74,7 @@ export function FichaProductoSheet({ producto, tasaCambioCents, onCerrar }: Fich
         <div className="rounded-2xl border border-borde bg-superficie-2 px-4 py-3">
           <span className="text-caption font-bold uppercase tracking-widest text-texto-3">Precio de venta</span>
           <div className="mt-1 flex items-baseline gap-2.5">
-            <span className="text-2xl font-black tabular-nums text-acento">
+            <span className="text-2xl font-black tabular-nums text-texto">
               {formatearMoneda(p.precio_venta_usd_cents, 'USD')}
             </span>
             <span className="text-sm font-bold tabular-nums text-texto-2">

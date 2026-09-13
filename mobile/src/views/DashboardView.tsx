@@ -3,14 +3,11 @@ import {
   RefreshCw,
   AlertTriangle,
   PackageX,
-  LogOut,
+  Settings,
   TrendingUp,
   PlusCircle,
   ChevronRight,
   HandCoins,
-  Sun,
-  Moon,
-  Monitor,
   CheckCircle2,
 } from 'lucide-react';
 import type { PanelData } from '@shared/types';
@@ -25,7 +22,6 @@ import { MoneyDual } from '../components/MoneyDual';
 import { BottomSheet } from '../components/BottomSheet';
 import { useAuth } from '../context/AuthContext';
 import { useDatosNegocio } from '../context/DataContext';
-import { useTheme } from '../context/ThemeContext';
 import { PullToRefresh } from '../components/PullToRefresh';
 import { haptics } from '../lib/haptics';
 
@@ -37,18 +33,18 @@ function nombreDia(iso: string): string {
 }
 
 export function DashboardView({
+  onIrAAjustes,
   onIrAVenta,
   onIrACobranza,
   onIrAInventario,
 }: {
+  onIrAAjustes?: () => void;
   onIrAVenta?: () => void;
   onIrACobranza?: () => void;
   onIrAInventario?: () => void;
 }) {
-  const { usuario, salir } = useAuth();
+  const { usuario } = useAuth();
   const { version } = useDatosNegocio();
-  const { theme, effectiveTheme, toggleTheme } = useTheme();
-  const isDark = effectiveTheme === 'dark';
 
   const [panel, setPanel] = useState<PanelData | null>(cacheDashboardGlobal.panel);
   const [serie, setSerie] = useState<DiaVentas[]>(cacheDashboardGlobal.serie);
@@ -58,9 +54,6 @@ export function DashboardView({
 
   // Día seleccionado en el gráfico para ver el detalle
   const [diaSeleccionado, setDiaSeleccionado] = useState<DiaVentas | null>(null);
-  // Confirmación antes de cerrar sesión: es un botón destructivo que vive a
-  // un dedo del de actualizar, en la esquina que más pulgar recibe.
-  const [confirmandoSalida, setConfirmandoSalida] = useState(false);
   // Cajón deslizable (Bottom Sheet) de stock crítico
   const [mostrarStockSheet, setMostrarStockSheet] = useState(false);
 
@@ -117,13 +110,13 @@ export function DashboardView({
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center bg-acento-suave text-acento font-extrabold text-xs">
+                <div className="w-full h-full flex items-center justify-center bg-superficie-2 text-texto-2 font-extrabold text-xs">
                   {(usuario?.displayName || usuario?.email || 'G').charAt(0).toUpperCase()}
                 </div>
               )}
             </div>
             <div className="min-w-0">
-              <span className="text-caption font-bold tracking-widest uppercase text-acento block leading-none mb-0.5">
+              <span className="text-caption font-bold tracking-widest uppercase text-texto-3 block leading-none mb-0.5">
                 Glow Heaven
               </span>
               <h1 className="text-title font-extrabold text-texto leading-tight truncate">
@@ -133,26 +126,9 @@ export function DashboardView({
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
-            {/* Toggle de Modo Oscuro / Claro / Sistema */}
-            <button
-              type="button"
-              onClick={() => {
-                haptics.selection();
-                toggleTheme();
-              }}
-              aria-label="Cambiar tema de apariencia"
-              title={`Tema: ${theme === 'system' ? 'Automático' : theme === 'dark' ? 'Oscuro' : 'Claro'}`}
-              className="m3-press group flex h-9 w-9 items-center justify-center rounded-xl bg-superficie-2/90 text-texto-2 hover:bg-superficie-2 active:scale-90 transition-all border border-borde cursor-pointer"
-            >
-              {theme === 'system' ? (
-                <Monitor size={16} className="text-texto-3 transition-transform duration-200 group-hover:scale-110" />
-              ) : effectiveTheme === 'dark' ? (
-                <Moon size={16} className="text-acento transition-transform duration-300 group-hover:-rotate-12 group-hover:scale-110" />
-              ) : (
-                <Sun size={16} className="text-alerta-fuerte transition-transform duration-300 group-hover:rotate-45 group-hover:scale-110" />
-              )}
-            </button>
-
+            {/* El tema y "cerrar sesión" vivían acá apretados. Ahora tienen
+                su lugar en Ajustes, y el encabezado queda para lo del día:
+                actualizar los datos. */}
             <button
               type="button"
               onClick={() => {
@@ -160,26 +136,21 @@ export function DashboardView({
                 cargar(true);
               }}
               aria-label="Actualizar datos"
-              className="m3-press group flex h-9 w-9 items-center justify-center rounded-xl bg-superficie-2/90 text-texto-2 hover:bg-superficie-2 active:scale-90 transition-all border border-borde cursor-pointer"
+              className="m3-press group flex h-9 w-9 items-center justify-center rounded-xl border border-borde bg-superficie-2/90 text-texto-2 active:scale-90 transition-[background-color,color,transform] duration-150 ease-out cursor-pointer"
             >
-              <RefreshCw size={16} className={cargando ? 'animate-spin text-acento' : 'transition-transform duration-500 group-hover:rotate-180'} />
+              <RefreshCw size={16} className={cargando ? 'animate-spin text-texto-2' : 'transition-transform duration-200 group-hover:rotate-180'} />
             </button>
-
-            {/* Separador deliberado: cerrar sesión es la única acción
-                destructiva de la barra y no debe quedar a un roce del
-                refresco. */}
-            <div className="w-px h-5 bg-superficie-2 mx-0.5" aria-hidden="true" />
 
             <button
               type="button"
               onClick={() => {
-                haptics.impact('light');
-                setConfirmandoSalida(true);
+                haptics.selection();
+                onIrAAjustes?.();
               }}
-              aria-label="Cerrar sesión"
-              className="m3-press group flex h-9 w-9 items-center justify-center rounded-xl bg-superficie-2/90 text-texto-2 hover:text-peligro hover:bg-peligro-suave active:scale-90 transition-all border border-borde cursor-pointer"
+              aria-label="Ajustes"
+              className="m3-press flex h-9 w-9 items-center justify-center rounded-xl border border-borde bg-superficie-2/90 text-texto-2 active:scale-90 transition-[background-color,color,transform] duration-150 ease-out cursor-pointer"
             >
-              <LogOut size={16} className="transition-transform duration-150 group-hover:translate-x-0.5" />
+              <Settings size={16} />
             </button>
           </div>
         </div>
@@ -339,7 +310,7 @@ export function DashboardView({
           <section className="m3-card p-3 sm:p-3.5 shrink-0 flex flex-col gap-2">
             <div className="flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2 text-body font-bold text-texto">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-acento-suave text-acento shrink-0">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-superficie-2 text-texto-2 shrink-0">
                   <TrendingUp size={16} />
                 </div>
                 <span className="text-caption sm:text-label font-bold text-texto">Ventas últimos 7 días</span>
@@ -353,7 +324,7 @@ export function DashboardView({
                 <span className="font-semibold text-texto-2 capitalize">
                   {nombreDia(diaSeleccionado.fecha)} {diaSeleccionado.fecha.slice(5)}:
                 </span>
-                <span className="font-bold text-acento">
+                <span className="font-bold text-texto">
                   {formatearMoneda(diaSeleccionado.total_usd_cents, 'USD')} ({diaSeleccionado.cantidad} vtas.)
                 </span>
               </div>
@@ -387,8 +358,8 @@ export function DashboardView({
                           height: '100%',
                           borderRadius: '6px',
                           background: tieneVenta
-                            ? 'linear-gradient(180deg, #10b981 0%, #059669 100%)'
-                            : (isDark ? '#334155' : 'rgb(var(--borde))'),
+                            ? 'rgb(var(--acento))'
+                            : 'rgb(var(--borde))',
                           transform: `scaleY(${tieneVenta ? Math.max(0.18, porcentaje / 100) : 0.05})`,
                           transformOrigin: 'bottom',
                           transition: 'transform 300ms ease-out',
@@ -400,10 +371,10 @@ export function DashboardView({
                       style={{
                         fontWeight: estaSeleccionado || tieneVenta ? 700 : 500,
                         color: estaSeleccionado
-                          ? (isDark ? '#34d399' : '#047857')
+                          ? 'rgb(var(--acento))'
                           : tieneVenta
-                            ? (isDark ? '#f8fafc' : 'rgb(var(--texto))')
-                            : (isDark ? 'rgb(var(--texto-3))' : 'rgb(var(--texto-3))'),
+                            ? 'rgb(var(--texto))'
+                            : 'rgb(var(--texto-3))',
                       }}
                     >
                       {nombreDia(d.fecha)}
@@ -600,38 +571,6 @@ export function DashboardView({
 
       {/* Confirmación de cierre de sesión: es la única acción destructiva de
           esta pantalla y merece un paso extra, sin usar window.confirm. */}
-      <BottomSheet
-        abierto={confirmandoSalida}
-        onCerrar={() => setConfirmandoSalida(false)}
-        titulo="¿Cerrar sesión?"
-        subtitulo={usuario?.email ? `Vas a salir de la cuenta ${usuario.email}.` : undefined}
-        footer={
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setConfirmandoSalida(false)}
-              className="m3-press flex-1 rounded-xl bg-superficie-2 py-3 text-label font-bold text-texto-2 cursor-pointer"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                haptics.impact('medium');
-                setConfirmandoSalida(false);
-                salir();
-              }}
-              className="m3-press flex-1 rounded-xl bg-peligro hover:bg-peligro py-3 text-label font-bold text-peligro-texto shadow-md shadow-m3-2 cursor-pointer"
-            >
-              Sí, cerrar sesión
-            </button>
-          </div>
-        }
-      >
-        <p className="text-label text-texto-3">
-          Vas a tener que volver a iniciar sesión con Google para entrar de nuevo.
-        </p>
-      </BottomSheet>
     </div>
   );
 }

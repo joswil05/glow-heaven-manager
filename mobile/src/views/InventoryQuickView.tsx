@@ -68,11 +68,11 @@ export function InventoryQuickView() {
       <header className="shrink-0 z-20 bg-superficie/95 backdrop-blur-md border-b border-borde pt-safe-t px-4 pb-2 shadow-m3-1 transition-colors">
         <div className="flex items-center justify-between gap-2 py-1.5">
           <div className="flex min-w-0 items-center gap-2.5">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-acento-suave text-acento-fuerte border border-borde">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-superficie-2 text-texto-2 border border-borde">
               <Search size={18} />
             </span>
             <div className="min-w-0">
-              <span className="text-caption font-bold tracking-widest uppercase text-acento block leading-none mb-0.5">
+              <span className="text-caption font-bold tracking-widest uppercase text-texto-3 block leading-none mb-0.5">
                 Glow Heaven
               </span>
               {/* "Catálogo" y no "Catálogo de Productos": el nav inferior ya
@@ -238,7 +238,7 @@ export function InventoryQuickView() {
                         cifras entre filas para poder escanearlas de un golpe. */}
                     <div className="mt-0.5 flex items-baseline justify-between gap-2">
                       <div className="flex min-w-0 items-baseline gap-1.5">
-                        <span className="text-sm font-black tabular-nums text-acento">
+                        <span className="text-sm font-black tabular-nums text-texto">
                           {formatearMoneda(p.precio_venta_usd_cents, 'USD')}
                         </span>
                         <span className="whitespace-nowrap text-[11px] font-semibold tabular-nums text-texto-3">

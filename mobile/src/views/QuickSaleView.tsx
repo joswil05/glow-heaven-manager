@@ -373,11 +373,11 @@ export function QuickSaleView() {
       <header className="shrink-0 z-20 bg-superficie/95 backdrop-blur-md border-b border-borde pt-safe-t px-4 pb-2 shadow-m3-1 transition-colors">
         <div className="flex items-center justify-between gap-2 py-1.5">
           <div className="flex min-w-0 items-center gap-2.5">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-acento-suave text-acento border border-acento-suave">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-superficie-2 text-texto-2 border border-borde">
               <ShoppingCart size={18} />
             </span>
             <div className="min-w-0">
-              <span className="text-caption font-bold tracking-widest uppercase text-acento block leading-none mb-0.5">
+              <span className="text-caption font-bold tracking-widest uppercase text-texto-3 block leading-none mb-0.5">
                 Glow Heaven
               </span>
               <h1 className="text-title font-extrabold text-texto leading-tight truncate">Venta Rápida</h1>
@@ -390,11 +390,11 @@ export function QuickSaleView() {
                 haptics.impact('light');
                 setSheetClienteAbierto(true);
               }}
-              className="m3-press flex items-center gap-1.5 rounded-xl bg-acento-suave border border-acento-suave px-3 py-1.5 text-xs font-bold text-acento active:scale-95 transition-transform cursor-pointer"
+              className="m3-press flex items-center gap-1.5 rounded-xl bg-superficie-2 border border-borde px-3 py-1.5 text-xs font-bold text-texto-2 active:scale-95 transition-transform cursor-pointer"
             >
-              <User size={13} className="text-acento" />
+              <User size={13} className="text-texto-3" />
               <span className="max-w-[110px] truncate">{clienteSeleccionado.nombre}</span>
-              <ChevronRight size={12} className="text-acento" />
+              <ChevronRight size={12} className="text-texto-3" />
             </button>
           ) : (
             <button
@@ -502,7 +502,7 @@ export function QuickSaleView() {
       <main ref={scrollRevealRef} className="flex-1 min-h-0 overflow-y-auto px-3.5 pt-2.5 pb-40 scroll-smooth">
         {cargandoProductos && (
           <div className="flex flex-col items-center justify-center py-16 gap-3 text-texto-3">
-            <div className="h-8 w-8 rounded-full border-2 border-acento-suave border-t-transparent animate-spin" />
+            <div className="h-8 w-8 rounded-full border-2 border-borde-fuerte border-t-transparent animate-spin" />
             <p className="text-xs font-medium">Cargando catálogo disponible…</p>
           </div>
         )}
@@ -538,7 +538,7 @@ export function QuickSaleView() {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <div className="w-full h-full bg-acento-suave flex items-center justify-center text-texto-3 font-black text-xs uppercase">
+                      <div className="w-full h-full bg-superficie-2 flex items-center justify-center text-texto-3 font-black text-xs uppercase">
                         {p.nombre.slice(0, 2)}
                       </div>
                     )}
@@ -550,7 +550,7 @@ export function QuickSaleView() {
                       {p.nombre}
                     </h2>
                     <div className="flex items-baseline gap-1 mt-0.5">
-                      <span className="text-label font-black text-acento tabular-nums">
+                      <span className="text-label font-black text-texto tabular-nums">
                         {formatearMoneda(p.precio_venta_usd_cents, 'USD')}
                       </span>
                       <span className="text-caption font-semibold text-texto-3 tabular-nums">
@@ -558,7 +558,7 @@ export function QuickSaleView() {
                       </span>
                     </div>
                     <p className="text-caption text-texto-3 mt-0.5 font-medium flex items-center gap-1">
-                      <span className="h-1.5 w-1.5 rounded-full bg-acento" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-texto-3" />
                       <span>{p.existencias} en stock {tieneVariantes ? `(${p.variantes.length} tonos)` : ''}</span>
                     </p>
                   </div>
@@ -584,7 +584,7 @@ export function QuickSaleView() {
                       </button>
                     ) : cantidadEnCarrito > 0 ? (
                       /* Stepper interactivo directamente en la tarjeta POS */
-                      <div className="flex items-center rounded-xl bg-acento-suave border border-acento-suave p-0.5 shadow-xs">
+                      <div className="flex items-center rounded-xl bg-superficie-2 border border-borde p-0.5 shadow-xs">
                         <button
                           type="button"
                           onClick={() => {
@@ -598,11 +598,11 @@ export function QuickSaleView() {
                             }
                           }}
                           aria-label="Disminuir"
-                          className="m3-press flex h-7 w-7 items-center justify-center rounded-lg bg-superficie text-acento shadow-xs active:scale-90 cursor-pointer"
+                          className="m3-press flex h-7 w-7 items-center justify-center rounded-lg bg-superficie text-texto-2 shadow-xs active:scale-90 cursor-pointer"
                         >
                           <Minus size={13} />
                         </button>
-                        <span className="w-6 text-center text-xs font-black text-acento tabular-nums">
+                        <span className="w-6 text-center text-xs font-black text-texto tabular-nums">
                           {cantidadEnCarrito}
                         </span>
                         <button
@@ -840,7 +840,7 @@ export function QuickSaleView() {
           <div className="flex flex-col gap-1">
             <span className="text-xs font-bold text-texto-2">Clienta de la venta</span>
             {clienteSeleccionado ? (
-              <div className="flex items-center justify-between rounded-2xl bg-acento-suave border border-acento-suave p-3">
+              <div className="flex items-center justify-between rounded-2xl bg-superficie-2 border border-borde p-3">
                 <div className="min-w-0">
                   <p className="text-xs font-bold text-acento">{clienteSeleccionado.nombre}</p>
                   {clienteSeleccionado.telefono && (

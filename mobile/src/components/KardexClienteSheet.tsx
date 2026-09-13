@@ -179,7 +179,7 @@ export function KardexClienteSheet({
                 onClick={() => haptics.impact('light')}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center gap-1.5 min-h-[36px] px-3 rounded-xl bg-acento-suave text-acento border border-acento-suave text-[11px] font-bold active:scale-95 transition-all shrink-0"
+                className="flex items-center gap-1.5 min-h-[36px] px-3 rounded-xl bg-superficie-2 text-texto-2 border border-borde text-[11px] font-bold active:scale-95 transition-all shrink-0"
               >
                 <MessageCircle size={14} />
                 <span>WhatsApp</span>
@@ -210,7 +210,7 @@ export function KardexClienteSheet({
               <span className="text-caption font-bold uppercase tracking-wider text-texto-3">
                 Total abonado
               </span>
-              <p className="text-sm font-black text-acento tabular-nums">
+              <p className="text-sm font-black text-texto tabular-nums">
                 {formatearMoneda(totalAbonadoUsd, 'USD')}
               </p>
               <p className="text-caption text-texto-3 font-medium">
@@ -327,7 +327,7 @@ export function KardexClienteSheet({
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5">
-                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-acento-suave text-acento">
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-superficie-2 text-texto-3">
                           {esEfectivo ? <Banknote size={11} /> : <CreditCard size={11} />}
                         </span>
                         <span className="text-xs font-bold text-texto-2">
