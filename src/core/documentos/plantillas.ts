@@ -43,15 +43,31 @@ export function generarHtmlFactura(venta: VentaCompleta, parametros: ParametrosS
       padding: 0;
     }
 
+    /* Un documento comercial se define contra el PAPEL, no contra la
+       pantalla. Sin @page el navegador elige los margenes por su cuenta y el
+       mismo archivo sale distinto en cada impresora. A4 es el tamano de
+       oficina en Nicaragua. */
+    @page {
+      size: A4;
+      margin: 16mm 15mm;
+    }
+
     body {
       font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      color: #1e293b;
+      color: #1a1a1a;
       background-color: #ffffff;
-      line-height: 1.5;
-      padding: 32px;
-      max-width: 800px;
+      line-height: 1.45;
+      /* Ancho util de un A4 con esos margenes. En pantalla se centra con el
+         mismo ancho que va a tener impreso, asi lo que se ve es lo que sale. */
+      width: 180mm;
+      padding: 16mm 15mm;
       margin: 0 auto;
+      font-size: 10.5pt;
     }
+
+    /* Una fila de la tabla partida entre dos hojas es ilegible. */
+    tr, .bank-item, .total-row { break-inside: avoid; }
+    thead { display: table-header-group; }
 
     .header {
       display: flex;
@@ -271,13 +287,17 @@ export function generarHtmlFactura(venta: VentaCompleta, parametros: ParametrosS
     }
 
     @media print {
+      /* Al imprimir, el margen lo pone @page: si el body tambien lo pusiera,
+         se sumarian los dos. */
       body {
+        width: auto;
         padding: 0;
-        max-width: 100%;
+        margin: 0;
       }
-      .no-print {
-        display: none !important;
-      }
+      .no-print { display: none !important; }
+      /* Sin esto el navegador descarta los fondos de las celdas y los
+         encabezados de tabla pierden su franja. */
+      * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     }
   </style>
 </head>
@@ -285,8 +305,7 @@ export function generarHtmlFactura(venta: VentaCompleta, parametros: ParametrosS
   <div class="header">
     <div>
       <div class="brand-title">${escaparHtml(parametros.nombre_negocio || 'GLOW HEAVEN')}</div>
-      <div class="brand-subtitle">Moda & Accesorios Exclusivos</div>
-      <div class="brand-contact">
+            <div class="brand-contact">
         ${parametros.telefono_negocio ? `Tel: ${escaparHtml(parametros.telefono_negocio)} · ` : ''}Managua, Nicaragua
       </div>
     </div>
@@ -391,7 +410,7 @@ export function generarHtmlFactura(venta: VentaCompleta, parametros: ParametrosS
 
   ${cuentas.length > 0 ? `
   <div class="bank-accounts">
-    <div class="bank-title">💳 Cuentas bancarias para transferencias</div>
+    <div class="bank-title">Cuentas bancarias para transferencias</div>
     <ul class="bank-list">
       ${cuentas.map((c: CuentaBancaria) => `<li><strong>${escaparHtml(c.banco)} (${escaparHtml(c.moneda)}):</strong> ${escaparHtml(c.numero)}${c.titular ? ` · ${escaparHtml(c.titular)}` : ''}</li>`).join('')}
     </ul>
@@ -433,15 +452,31 @@ export function generarHtmlProforma(venta: VentaCompleta, parametros: Parametros
       padding: 0;
     }
 
+    /* Un documento comercial se define contra el PAPEL, no contra la
+       pantalla. Sin @page el navegador elige los margenes por su cuenta y el
+       mismo archivo sale distinto en cada impresora. A4 es el tamano de
+       oficina en Nicaragua. */
+    @page {
+      size: A4;
+      margin: 16mm 15mm;
+    }
+
     body {
       font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      color: #1e293b;
+      color: #1a1a1a;
       background-color: #ffffff;
-      line-height: 1.5;
-      padding: 32px;
-      max-width: 800px;
+      line-height: 1.45;
+      /* Ancho util de un A4 con esos margenes. En pantalla se centra con el
+         mismo ancho que va a tener impreso, asi lo que se ve es lo que sale. */
+      width: 180mm;
+      padding: 16mm 15mm;
       margin: 0 auto;
+      font-size: 10.5pt;
     }
+
+    /* Una fila de la tabla partida entre dos hojas es ilegible. */
+    tr, .bank-item, .total-row { break-inside: avoid; }
+    thead { display: table-header-group; }
 
     .header {
       display: flex;
@@ -689,13 +724,17 @@ export function generarHtmlProforma(venta: VentaCompleta, parametros: Parametros
     }
 
     @media print {
+      /* Al imprimir, el margen lo pone @page: si el body tambien lo pusiera,
+         se sumarian los dos. */
       body {
+        width: auto;
         padding: 0;
-        max-width: 100%;
+        margin: 0;
       }
-      .no-print {
-        display: none !important;
-      }
+      .no-print { display: none !important; }
+      /* Sin esto el navegador descarta los fondos de las celdas y los
+         encabezados de tabla pierden su franja. */
+      * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     }
   </style>
 </head>
@@ -703,8 +742,7 @@ export function generarHtmlProforma(venta: VentaCompleta, parametros: Parametros
   <div class="header">
     <div>
       <div class="brand-title">${escaparHtml(parametros.nombre_negocio || 'GLOW HEAVEN')}</div>
-      <div class="brand-subtitle">Servicio de Encargos & Importación</div>
-      <div class="brand-contact">
+            <div class="brand-contact">
         ${parametros.telefono_negocio ? `Tel: ${escaparHtml(parametros.telefono_negocio)} · ` : ''}Managua, Nicaragua
       </div>
     </div>
@@ -810,7 +848,7 @@ export function generarHtmlProforma(venta: VentaCompleta, parametros: Parametros
 
   ${cuentas.length > 0 ? `
   <div class="bank-accounts">
-    <div class="bank-title">💳 Cuentas bancarias para depósito del anticipo</div>
+    <div class="bank-title">Cuentas bancarias para depósito del anticipo</div>
     <ul class="bank-list">
       ${cuentas.map((c: CuentaBancaria) => `<li><strong>${escaparHtml(c.banco)} (${escaparHtml(c.moneda)}):</strong> ${escaparHtml(c.numero)}${c.titular ? ` · ${escaparHtml(c.titular)}` : ''}</li>`).join('')}
     </ul>

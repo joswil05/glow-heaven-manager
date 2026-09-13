@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ShoppingBag, HandCoins, Loader2, Ban, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, ShoppingBag, HandCoins, Loader2, Ban, AlertTriangle, FileText } from 'lucide-react';
 import type { Venta, PagoCompleto } from '@shared/types';
 import { VentasRepoFirestore } from '@repos/ventas.repo';
 import { PagosRepoFirestore } from '@repos/pagos.repo';
@@ -9,6 +9,7 @@ import { useSnackbar } from '../components/Snackbar';
 import { BottomSheet } from '../components/BottomSheet';
 import { PullToRefresh } from '../components/PullToRefresh';
 import { nuevoGrupoEvento } from '../lib/util';
+import { abrirDocumentoDeVenta } from '../lib/documentos';
 import { haptics } from '../lib/haptics';
 
 /**
@@ -55,6 +56,7 @@ export function ActividadView({ onVolver }: { onVolver: () => void }) {
   const [filtro, setFiltro] = useState<Filtro>('todo');
   const [seleccionado, setSeleccionado] = useState<ItemActividad | null>(null);
   const [anulando, setAnulando] = useState(false);
+  const [abriendoDoc, setAbriendoDoc] = useState(false);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -124,6 +126,19 @@ export function ActividadView({ onVolver }: { onVolver: () => void }) {
       mostrar('No se pudo anular. Probá de nuevo.', 'error');
     } finally {
       setAnulando(false);
+    }
+  }
+
+  async function verDocumento(item: ItemActividad) {
+    if (!item.venta || !parametros) return;
+    setAbriendoDoc(true);
+    try {
+      await abrirDocumentoDeVenta(item.venta.id, parametros);
+    } catch (err) {
+      console.error('[ActividadView] Error abriendo el documento:', err);
+      mostrar('No se pudo abrir el documento.', 'error');
+    } finally {
+      setAbriendoDoc(false);
     }
   }
 
@@ -282,6 +297,18 @@ export function ActividadView({ onVolver }: { onVolver: () => void }) {
                 </span>
               </div>
             </div>
+
+            {seleccionado.tipo === 'venta' && (
+              <button
+                type="button"
+                disabled={abriendoDoc}
+                onClick={() => verDocumento(seleccionado)}
+                className="m3-press tocable flex w-full items-center justify-center gap-2 rounded-2xl border border-borde bg-superficie-2 px-4 py-3 text-sm font-bold text-texto active:scale-[0.98] transition-transform disabled:opacity-50 cursor-pointer"
+              >
+                {abriendoDoc ? <Loader2 size={17} className="animate-spin" /> : <FileText size={17} />}
+                {seleccionado.venta?.tipo === 'ENCARGO' ? 'Ver proforma' : 'Ver factura'}
+              </button>
+            )}
 
             {seleccionado.cancelada ? (
               <p className="text-body text-texto-2">Esta venta ya está cancelada.</p>
