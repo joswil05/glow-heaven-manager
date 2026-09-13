@@ -59,6 +59,32 @@ async function limpiar(): Promise<void> {
   await fetch(URL_BASE, { method: 'DELETE' });
 }
 
+/** UID de la cuenta de prueba, necesario para autorizarla ante las reglas. */
+let uidPrueba = '';
+
+/**
+ * Da de alta el UID en `usuarios_autorizados`.
+ *
+ * Las reglas ya no dejan entrar a cualquier sesión: exigen estar en la lista
+ * blanca. El emulador acepta `Authorization: Bearer owner` para escribir
+ * saltándose las reglas, que es la única forma de sembrar el permiso (desde el
+ * cliente esa colección es de sólo lectura, a propósito).
+ */
+async function autorizarUid(uid: string): Promise<void> {
+  if (!uid) return;
+  await fetch(
+    `http://${HOST}/v1/projects/${PROYECTO}/databases/(default)/documents/usuarios_autorizados/${uid}`,
+    {
+      method: 'PATCH',
+      headers: {
+        Authorization: 'Bearer owner',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ fields: { activo: { booleanValue: true } } }),
+    }
+  );
+}
+
 /** Crea la cuenta de prueba en el emulador de Auth y abre sesión. */
 async function iniciarSesion(): Promise<void> {
   const { initializeApp, getApps, getApp } = await import('firebase/app');
@@ -79,13 +105,14 @@ async function iniciarSesion(): Promise<void> {
   } catch {
     // La cuenta ya existía de una corrida anterior.
   }
-  await signInWithEmailAndPassword(auth, CORREO, CLAVE);
+  const credencial = await signInWithEmailAndPassword(auth, CORREO, CLAVE);
+  uidPrueba = credencial.user.uid;
 }
 
 beforeAll(async () => {
   if (!disponible) return;
-  // Las reglas exigen sesión iniciada, así que las pruebas corren
-  // autenticadas: es exactamente como corre la aplicación en producción.
+  // Las reglas exigen sesión iniciada Y que el UID esté autorizado, así que
+  // las pruebas corren igual que la aplicación en producción.
   await iniciarSesion();
 }, 60_000);
 
@@ -120,6 +147,8 @@ describe('contra el emulador oficial de Firestore', () => {
   beforeEach(async () => {
     if (!disponible) return;
     await limpiar();
+    // `limpiar()` borra todo, incluida la autorización: hay que resembrarla.
+    await autorizarUid(uidPrueba);
     const { Parametros } = await repos();
     Parametros.invalidarCache();
     await Parametros.getParametros();
@@ -438,5 +467,121 @@ describe('contra el emulador oficial de Firestore', () => {
       expect(ms).toBeLessThan(5000);
     },
     120000
+  );
+});
+
+/**
+ * Guardia de las reglas de seguridad.
+ *
+ * Estas pruebas existen por un incidente real: al agregar la lista blanca, la
+ * función `autenticado()` de `firestore.rules` quedó escrita como
+ * `request.auth == null || (...lista blanca...)`. La intención era dejar pasar
+ * al proceso Node del escritorio, pero en Firestore `request.auth` es null
+ * justamente cuando nadie inició sesión, así que esa línea le abría la base
+ * entera —clientas, teléfonos, costos, deudas— a cualquiera que llamara a la
+ * API sin autenticarse.
+ *
+ * Ni el typecheck ni las 140 pruebas del motor falso podían verlo: el motor
+ * falso no evalúa reglas. Sólo el emulador las aplica de verdad.
+ */
+describe('reglas de seguridad de Firestore', () => {
+  /**
+   * Comprueba que Firestore rechazó por permisos.
+   *
+   * Se mira `code` y no el texto: el mensaje varía según cómo terminó la
+   * evaluación. Cuando el UID no está en `usuarios_autorizados`, el `exists()`
+   * de las reglas produce un "evaluation error" en vez de un `false` limpio;
+   * Firestore deniega igual (las reglas fallan cerradas), pero el texto
+   * cambia. `code` siempre es `permission-denied`.
+   */
+  async function esperarDenegado(operacion: Promise<unknown>): Promise<void> {
+    let codigo: string | undefined;
+    try {
+      await operacion;
+    } catch (err) {
+      codigo = (err as { code?: string })?.code;
+    }
+    expect(codigo).toBe('permission-denied');
+  }
+
+  /** Cliente de Firestore SIN sesión, como el de un tercero cualquiera. */
+  async function dbSinSesion() {
+    const { initializeApp, getApps, deleteApp } = await import('firebase/app');
+    const { getFirestore, connectFirestoreEmulator } = await import('firebase/firestore');
+    const { FIREBASE_CONFIG } = await import('../src/shared/firebase-config');
+
+    const nombre = `anonimo-${randomUUID()}`;
+    const previa = getApps().find((a) => a.name === nombre);
+    if (previa) await deleteApp(previa);
+
+    const appAnon = initializeApp(FIREBASE_CONFIG, nombre);
+    const db = getFirestore(appAnon);
+    const [host, puerto] = HOST.split(':');
+    connectFirestoreEmulator(db, host || '127.0.0.1', Number(puerto) || 8080);
+    return db;
+  }
+
+  it.skipIf(!disponible)(
+    'una petición SIN sesión no puede leer nada',
+    async () => {
+      const { doc, getDoc } = await import('firebase/firestore');
+      const db = await dbSinSesion();
+
+      await esperarDenegado(getDoc(doc(db, 'productos', '1')));
+      await esperarDenegado(getDoc(doc(db, 'clientes', '1')));
+      await esperarDenegado(getDoc(doc(db, 'ventas', '1')));
+    },
+    60000
+  );
+
+  it.skipIf(!disponible)(
+    'una petición SIN sesión no puede escribir nada',
+    async () => {
+      const { doc, setDoc } = await import('firebase/firestore');
+      const db = await dbSinSesion();
+
+      await esperarDenegado(setDoc(doc(db, 'productos', '999999'), { nombre: 'intruso' }));
+      await esperarDenegado(setDoc(doc(db, 'clientes', '999999'), { nombre: 'intruso' }));
+    },
+    60000
+  );
+
+  it.skipIf(!disponible)(
+    'una sesión válida pero fuera de la lista blanca tampoco entra',
+    async () => {
+      const { initializeApp, getApps, deleteApp } = await import('firebase/app');
+      const { getAuth, connectAuthEmulator, createUserWithEmailAndPassword, signInWithEmailAndPassword } =
+        await import('firebase/auth');
+      const { getFirestore, connectFirestoreEmulator, doc, getDoc } = await import(
+        'firebase/firestore'
+      );
+      const { FIREBASE_CONFIG } = await import('../src/shared/firebase-config');
+
+      const nombre = `intruso-${randomUUID()}`;
+      const previa = getApps().find((a) => a.name === nombre);
+      if (previa) await deleteApp(previa);
+
+      const appIntruso = initializeApp(FIREBASE_CONFIG, nombre);
+      const auth = getAuth(appIntruso);
+      connectAuthEmulator(auth, `http://${HOST_AUTH}`, { disableWarnings: true });
+
+      const correo = `intruso-${Date.now()}@ajeno.com`;
+      try {
+        await createUserWithEmailAndPassword(auth, correo, 'intruso1234');
+      } catch {
+        await signInWithEmailAndPassword(auth, correo, 'intruso1234');
+      }
+
+      const db = getFirestore(appIntruso);
+      const [host, puerto] = HOST.split(':');
+      connectFirestoreEmulator(db, host || '127.0.0.1', Number(puerto) || 8080);
+
+      // Tiene sesión de Firebase perfectamente válida, pero su UID no está ni
+      // en la lista del archivo de reglas ni en `usuarios_autorizados`.
+      // Este es el caso que la versión rota de las reglas dejaba pasar.
+      await esperarDenegado(getDoc(doc(db, 'clientes', '1')));
+      await esperarDenegado(getDoc(doc(db, 'ventas', '1')));
+    },
+    60000
   );
 });

@@ -1,14 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { app, safeStorage } from 'electron';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import {
-  getAuth,
-  connectAuthEmulator,
-  signInWithEmailAndPassword,
-  type Auth,
-} from 'firebase/auth';
-import { FIREBASE_CONFIG } from '../../shared/firebase-config';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { getAuthInstance, haySesionViva } from './auth-instance';
 import { GoogleAuthService } from './google-auth.service';
 
 /**
@@ -29,25 +23,8 @@ export interface EstadoAcceso {
   error?: string;
 }
 
-let authInstance: Auth | null = null;
 let conectado = false;
 let ultimoError: string | undefined;
-
-function getAuthInstance(): Auth {
-  if (!authInstance) {
-    const appFb = getApps().length === 0 ? initializeApp(FIREBASE_CONFIG) : getApp();
-    authInstance = getAuth(appFb);
-
-    // Mismo mecanismo que Firestore: la variable de entorno redirige al
-    // emulador local para probar sin tocar las cuentas reales.
-    const emulador = process.env.FIREBASE_AUTH_EMULATOR_HOST;
-    if (emulador) {
-      const url = emulador.startsWith('http') ? emulador : `http://${emulador}`;
-      connectAuthEmulator(authInstance, url, { disableWarnings: true });
-    }
-  }
-  return authInstance;
-}
 
 function rutaArchivo(): string {
   return path.join(app.getPath('userData'), ARCHIVO);
@@ -145,9 +122,16 @@ export class AccesoFirebase {
     };
   }
 
+  /**
+   * La verdad es lo que diga el SDK, no lo que diga el caché en disco.
+   *
+   * Antes bastaba con que existiera el archivo de sesión de Google para
+   * responder `true`, aunque el SDK no tuviera ninguna sesión viva. Con eso la
+   * aplicación se mostraba "conectada" mientras cada lectura a Firestore salía
+   * sin credenciales y era rechazada por las reglas.
+   */
   static estaConectado(): boolean {
-    if (GoogleAuthService.obtenerUsuarioActual()) return true;
-    return conectado;
+    return haySesionViva() || conectado;
   }
 
   static olvidar(): void {

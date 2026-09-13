@@ -3,8 +3,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { app, shell, BrowserWindow, safeStorage } from 'electron';
+import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
 import { FIREBASE_CONFIG } from '../../shared/firebase-config';
+import { getAuthInstance, haySesionViva } from './auth-instance';
 import type { UsuarioGoogle } from '../../shared/ipc-contracts';
+
+/** Lo que se guarda en disco: el usuario más el token con que se lo consiguió. */
+interface SesionGuardada extends UsuarioGoogle {
+  idToken?: string;
+}
 
 function getSessionPath(): string {
   try {
@@ -24,31 +31,105 @@ function getSessionPath(): string {
 export class GoogleAuthService {
   private static usuarioActivo: UsuarioGoogle | null = null;
 
-  static obtenerUsuarioActual(): UsuarioGoogle | null {
-    if (this.usuarioActivo) return this.usuarioActivo;
-
+  /** Lee y descifra el archivo de sesión. No prueba que la sesión siga viva. */
+  private static leerSesionGuardada(): SesionGuardada | null {
     const ruta = getSessionPath();
-    if (fs.existsSync(ruta)) {
-      try {
-        const raw = fs.readFileSync(ruta);
-        let contenidoStr = '';
-        if (safeStorage && safeStorage.isEncryptionAvailable()) {
-          try {
-            contenidoStr = safeStorage.decryptString(raw);
-          } catch {
-            // Si el archivo estaba en texto plano antes de la actualización
-            contenidoStr = raw.toString('utf-8');
-          }
-        } else {
+    if (!fs.existsSync(ruta)) return null;
+
+    try {
+      const raw = fs.readFileSync(ruta);
+      let contenidoStr = '';
+      if (safeStorage && safeStorage.isEncryptionAvailable()) {
+        try {
+          contenidoStr = safeStorage.decryptString(raw);
+        } catch {
+          // Si el archivo estaba en texto plano antes de la actualización
           contenidoStr = raw.toString('utf-8');
         }
-        this.usuarioActivo = JSON.parse(contenidoStr) as UsuarioGoogle;
-        return this.usuarioActivo;
-      } catch (err) {
-        console.error('Error al leer sesión guardada:', err);
+      } else {
+        contenidoStr = raw.toString('utf-8');
       }
+      return JSON.parse(contenidoStr) as SesionGuardada;
+    } catch (err) {
+      console.error('Error al leer sesión guardada:', err);
+      return null;
+    }
+  }
+
+  private static borrarSesionGuardada(): void {
+    try {
+      const ruta = getSessionPath();
+      if (fs.existsSync(ruta)) fs.unlinkSync(ruta);
+    } catch {
+      // Si no se puede borrar, el próximo inicio de sesión lo sobrescribe.
+    }
+  }
+
+  /**
+   * Quién está usando la aplicación, según el SDK y no según el disco.
+   *
+   * Antes esto devolvía el usuario con sólo encontrar el archivo de sesión, lo
+   * que hacía que la aplicación se mostrara "conectada" después de cada
+   * reinicio aunque no hubiera ninguna sesión real. Firestore rechazaba todo,
+   * y para tapar ese síntoma se terminó abriendo la base a peticiones sin
+   * autenticar en las reglas. La verdad la tiene el SDK.
+   */
+  static obtenerUsuarioActual(): UsuarioGoogle | null {
+    if (!haySesionViva()) return null;
+    if (this.usuarioActivo) return this.usuarioActivo;
+
+    // Sesión viva pero sin datos en memoria: completar desde el disco.
+    const guardada = this.leerSesionGuardada();
+    if (guardada) {
+      const { idToken: _descartado, ...usuario } = guardada;
+      this.usuarioActivo = usuario;
+      return this.usuarioActivo;
     }
     return null;
+  }
+
+  /**
+   * Reabre la sesión de Firebase al arrancar, con el token que quedó guardado.
+   *
+   * En Node el SDK no persiste nada: se comprobó que
+   * `setPersistence(browserLocalPersistence)` se acepta pero cae en silencio a
+   * memoria. Así que la sesión se rehidrata a mano acá.
+   *
+   * El token de Google dura una hora. Si ya venció, no hay forma de renovarlo
+   * sin que la persona vuelva a pasar por Google, así que se limpia la sesión
+   * y la aplicación muestra la pantalla de ingreso. Es un clic, y el navegador
+   * normalmente ya tiene la cuenta elegida.
+   */
+  static async restaurarSesion(): Promise<UsuarioGoogle | null> {
+    if (haySesionViva()) return this.obtenerUsuarioActual();
+
+    const guardada = this.leerSesionGuardada();
+    if (!guardada?.idToken) {
+      if (guardada) {
+        // Sesión de una versión vieja, sin token: no sirve para reconectar.
+        this.borrarSesionGuardada();
+      }
+      this.usuarioActivo = null;
+      return null;
+    }
+
+    try {
+      const credencial = GoogleAuthProvider.credential(guardada.idToken);
+      await signInWithCredential(getAuthInstance(), credencial);
+
+      const { idToken: _descartado, ...usuario } = guardada;
+      this.usuarioActivo = usuario;
+      console.log('[GoogleAuthService] Sesión restaurada para', usuario.email);
+      return this.usuarioActivo;
+    } catch (err) {
+      console.warn(
+        '[GoogleAuthService] La sesión guardada ya no sirve (el token de Google dura una hora). Hay que volver a ingresar:',
+        (err as Error)?.message || err
+      );
+      this.borrarSesionGuardada();
+      this.usuarioActivo = null;
+      return null;
+    }
   }
 
   static async cerrarSesion(): Promise<{ ok: true }> {
@@ -140,15 +221,22 @@ export class GoogleAuthService {
                 foto: data.foto || undefined,
               };
 
-              // Sincronizar credencial con la instancia Firebase Auth en Node si viene token (M-1)
-              if (data.idToken) {
+              // Sincronizar credencial con la instancia Firebase Auth en Node.
+              // Sin esto Firestore rechaza todo: las reglas exigen que la
+              // petición traiga un usuario de la lista blanca (M-1).
+              if (!data.idToken) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Falta el token de Google.' }));
+                clearTimeout(timeout);
+                limpiar();
+                reject(new Error('Google no devolvió el token de identidad.'));
+                return;
+              }
+
+              {
                 try {
-                  const { getAuth, GoogleAuthProvider, signInWithCredential } = await import('firebase/auth');
-                  const { getApps, initializeApp, getApp } = await import('firebase/app');
-                  const appFb = getApps().length === 0 ? initializeApp(FIREBASE_CONFIG) : getApp();
-                  const auth = getAuth(appFb);
                   const cred = GoogleAuthProvider.credential(data.idToken);
-                  await signInWithCredential(auth, cred);
+                  await signInWithCredential(getAuthInstance(), cred);
                   console.log('[GoogleAuthService] Sesión de Firebase sincronizada en proceso principal.');
                 } catch (authErr) {
                   console.error('[GoogleAuthService] Error al sincronizar credencial con Auth principal:', authErr);

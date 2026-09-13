@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog } from 'electron';
 import { getFirestoreDb } from './firebase/client';
 import { AccesoFirebase } from './firebase/auth';
+import { GoogleAuthService } from './firebase/google-auth.service';
 import { ParametrosRepoFirestore } from './firebase/repositories/parametros.repo';
 import { registrarHandlers } from './ipc';
 import { createMainWindow } from './windows/main.window';
@@ -24,10 +25,18 @@ if (!gotTheLock) {
     try {
       getFirestoreDb();
 
+      // Reabrir la sesión de Google guardada. En Node el SDK de Firebase no
+      // persiste nada entre arranques, así que sin esto cada reinicio dejaba a
+      // la aplicación sin credenciales frente a Firestore, mostrándose
+      // "conectada" pero sin poder leer ni escribir nada.
+      const usuarioGoogle = await GoogleAuthService.restaurarSesion();
+
       // Las reglas de Firestore exigen una sesión. Si falta configurarla, la
       // aplicación abre igual y lo pide desde Configuración: cerrarla dejaría
       // al usuario sin ninguna pantalla donde resolverlo.
-      const acceso = await AccesoFirebase.conectar();
+      const acceso = usuarioGoogle
+        ? { conectado: true }
+        : await AccesoFirebase.conectar();
 
       if (acceso.conectado) {
         // Semilla de parámetros y categorías, solo con sesión válida.

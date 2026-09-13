@@ -9,38 +9,49 @@ rules_version = '2';
 // teléfonos de clientes, costos, ganancias y deudas. El ID viaja dentro de la
 // aplicación, así que no es un secreto.
 //
-// Acá solo entra una sesión autenticada. Antes de publicar estas reglas hay
-// que dejar lista la cuenta, o la aplicación se queda sin acceso:
+// Acá no entra cualquiera: hace falta una sesión de Google Y que ese UID esté
+// autorizado. Estar autenticado NO alcanza, porque cualquier persona del mundo
+// puede crearse una cuenta de Google.
 //
-//   1. Consola de Firebase > Authentication > Sign-in method
-//      Habilitar "Correo electrónico/contraseña".
-//   2. Authentication > Users > Add user
-//      Crear UNA cuenta para el negocio y anotar el correo y la contraseña.
-//   3. En la aplicación: Configuración > Acceso a la base, escribir esos
-//      datos. Se guardan cifrados en esta computadora.
-//   4. Recién entonces: firebase deploy --only firestore:rules
+// Hay dos formas de autorizar a alguien:
 //
-// Si más adelante hay más de una persona operando, lo correcto es una cuenta
-// por persona y una lista de UID permitidos acá.
+//   1. Agregando su UID a la lista de `autenticado()`, acá abajo, y publicando
+//      las reglas con:  firebase deploy --only firestore:rules
+//   2. Creando el documento `usuarios_autorizados/<UID>` desde la consola de
+//      Firebase. No hace falta volver a publicar reglas; sirve para dar de
+//      alta a una empleada sin tocar este archivo.
+//
+// El UID se saca de: Consola de Firebase > Authentication > Users.
+//
+// Para quitarle el acceso a alguien: borrar su UID de la lista (y publicar) o
+// borrar su documento de `usuarios_autorizados`.
 // ============================================================================
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // IMPORTANTE — no reintroducir `request.auth == null` acá.
+    //
+    // Una versión anterior de esta función empezaba con
+    // `return request.auth == null || (...)`, con la intención de dejar
+    // trabajar al proceso Node de Electron. En las reglas de Firestore
+    // `request.auth` es null justamente cuando NADIE inició sesión, así que
+    // esa condición le abría la base entera a cualquiera que llamara a la API
+    // sin autenticarse: peor que no tener lista blanca.
+    //
+    // Si el escritorio vuelve a quedarse sin permisos, el problema está en que
+    // su sesión de Firebase Auth no se restauró (ver
+    // `GoogleAuthService.restaurarSesion()`), no acá.
     function autenticado() {
-      // Si la petición viene autenticada (PWA móvil, web o cliente con sesión),
-      // exige estrictamente que pertenezca a la lista blanca autorizada.
-      // Si viene del proceso local de Electron Desktop (sin cabecera de usuario en Node),
-      // se permite para que la herramienta de gestión de escritorio opere con normalidad.
-      return request.auth == null || (
-        request.auth.uid != null && (
-          request.auth.uid in [
-            'PLCUbpheiAhjelGqcZznVypc3O72',
-            'ZdM86RTlEEQLYWHSBZPvsKq2YgJ3'
-          ]
-          || exists(/databases/$(database)/documents/usuarios_autorizados/$(request.auth.uid))
-        )
-      );
+      return request.auth != null
+          && request.auth.uid != null
+          && (
+            request.auth.uid in [
+              'PLCUbpheiAhjelGqcZznVypc3O72',
+              'ZdM86RTlEEQLYWHSBZPvsKq2YgJ3'
+            ]
+            || exists(/databases/$(database)/documents/usuarios_autorizados/$(request.auth.uid))
+          );
     }
 
     match /usuarios_autorizados/{uid} {
