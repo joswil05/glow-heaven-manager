@@ -1,4 +1,4 @@
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 import {
   getFirestoreDb,
   siguienteId,
@@ -116,6 +116,39 @@ export class VentasRepoFirestore {
       const cmp = (b.fecha || '').localeCompare(a.fecha || '');
       return cmp !== 0 ? cmp : b.id - a.id;
     });
+  }
+
+  /**
+   * Las ultimas ventas, ordenadas y limitadas EN EL SERVIDOR.
+   *
+   * `listar` trae la coleccion entera y filtra despues, que para un historial
+   * significa pagar la lectura de todas las ventas de la historia del negocio
+   * cada vez que alguien mira lo de hoy. Firestore cobra por documento leido.
+   */
+  static async recientes(limite = 40): Promise<Venta[]> {
+    const db = getFirestoreDb();
+    const snap = await getDocs(
+      query(
+        collection(db, 'ventas'),
+        where('activo', '==', true),
+        orderBy('fecha', 'desc'),
+        orderBy('id', 'desc'),
+        limit(limite)
+      )
+    );
+    const ventas = snap.docs.map((d) => {
+      const { lineas: _l, cuotas: _c, ...v } = d.data() as VentaDoc;
+      return v as unknown as Venta;
+    });
+
+    // Los nombres de clienta se piden en un solo viaje, no uno por venta.
+    const ids = [...new Set(ventas.map((v) => v.cliente_id).filter(Boolean))] as number[];
+    if (ids.length === 0) return ventas;
+    const clientes = await leerVarios<{ nombre: string }>('clientes', ids);
+    return ventas.map((v) => ({
+      ...v,
+      cliente_nombre: v.cliente_id ? clientes.get(String(v.cliente_id))?.nombre : undefined,
+    }));
   }
 
   static async getById(id: number): Promise<VentaCompleta | null> {

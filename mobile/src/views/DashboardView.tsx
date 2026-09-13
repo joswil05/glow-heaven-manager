@@ -34,11 +34,13 @@ function nombreDia(iso: string): string {
 
 export function DashboardView({
   onIrAAjustes,
+  onIrAActividad,
   onIrAVenta,
   onIrACobranza,
   onIrAInventario,
 }: {
   onIrAAjustes?: () => void;
+  onIrAActividad?: () => void;
   onIrAVenta?: () => void;
   onIrACobranza?: () => void;
   onIrAInventario?: () => void;
@@ -192,9 +194,17 @@ export function DashboardView({
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-acento px-2.5 py-0.5 text-[11px] font-bold tracking-wide uppercase text-acento-texto">
                   Ventas de hoy
                 </span>
-                <span className="rounded-full bg-superficie-2/80 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-texto-2 backdrop-blur-sm">
+                <button
+                  type="button"
+                  onClick={() => {
+                    haptics.selection();
+                    onIrAActividad?.();
+                  }}
+                  className="m3-press flex items-center gap-1 rounded-full border border-borde bg-superficie-2/80 px-2.5 py-0.5 text-[11px] font-semibold tabular-nums text-texto-2 backdrop-blur-sm active:scale-95 transition-transform cursor-pointer"
+                >
                   {hoy.ventas_count} {hoy.ventas_count === 1 ? 'venta' : 'ventas'}
-                </span>
+                  <ChevronRight size={12} />
+                </button>
               </div>
 
               <div className="flex items-end justify-between gap-2">
