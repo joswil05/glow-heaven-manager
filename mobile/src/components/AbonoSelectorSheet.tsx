@@ -71,7 +71,7 @@ export function AbonoSelectorSheet({
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar por clienta o código de venta…"
-            className="w-full h-11 rounded-full bg-superficie-2 text-xs font-semibold text-texto placeholder:text-texto-3 outline-none focus:bg-superficie focus:ring-2 focus:ring-emerald-500/30 border border-transparent transition-all"
+            className="w-full h-11 rounded-full bg-superficie-2 text-xs font-semibold text-texto placeholder:text-texto-3 outline-none focus:bg-superficie focus:ring-2 focus:ring-acento border border-transparent transition-all"
             style={{
               paddingLeft: '44px',
               paddingRight: '40px',
@@ -178,7 +178,7 @@ export function AbonoSelectorSheet({
                       });
                       onCerrar();
                     }}
-                    className="m3-press flex items-center gap-1 h-9 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/20 shrink-0 cursor-pointer"
+                    className="m3-press flex items-center gap-1 h-9 px-3 rounded-xl bg-acento hover:bg-acento text-acento-texto text-xs font-bold shadow-md shadow-m3-2 shrink-0 cursor-pointer"
                   >
                     <DollarSign size={14} />
                     Abonar

@@ -68,13 +68,13 @@ export function LoginView() {
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-fondo px-6 pb-safe-b pt-safe-t text-texto">
       <div className="flex flex-col items-center gap-3 text-center">
         {/* Logo oficial */}
-        <div className="relative flex h-28 w-28 items-center justify-center rounded-[28px] bg-white shadow-xl shadow-emerald-600/10 ring-4 ring-emerald-500/10 overflow-hidden">
+        <div className="relative flex h-28 w-28 items-center justify-center rounded-[28px] bg-superficie shadow-xl shadow-m3-2 ring-4 ring-acento overflow-hidden">
           <img src="/icons/logo-hero.png" alt="Glow Heaven" className="h-full w-full object-cover" />
         </div>
 
         <div className="mt-2">
           <div className="inline-flex items-center gap-1.5 rounded-full bg-acento-suave px-3 py-1 text-xs font-bold text-acento border border-acento-suave mb-2">
-            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="h-2 w-2 rounded-full bg-acento animate-pulse" />
             Punto de Venta Móvil
           </div>
           <h1 className="text-3xl font-black text-texto tracking-tight">Glow Heaven</h1>
@@ -87,9 +87,9 @@ export function LoginView() {
       <div className="flex flex-col items-center w-full max-w-sm gap-3">
         {/* Aviso amigable SOLO para iPhone si se abrió dentro de WhatsApp */}
         {esIOS && esInterno && (
-          <div className="w-full rounded-2xl border border-alerta-suave bg-gradient-to-br from-amber-50 to-orange-50/50 p-4 text-left shadow-sm">
+          <div className="w-full rounded-2xl border border-alerta-suave bg-gradient-to-br from-alerta-suave to-alerta-suave p-4 text-left shadow-sm">
             <div className="flex items-start gap-2.5">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-alerta">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-alerta text-alerta">
                 <Smartphone size={18} />
               </div>
               <div className="flex-1">
@@ -100,7 +100,7 @@ export function LoginView() {
                   Si ves un error al iniciar sesión, ábrelo en Safari:
                 </p>
 
-                <div className="mt-2 space-y-1 rounded-xl bg-white/70 p-2 border border-alerta-suave text-[11px] text-alerta">
+                <div className="mt-2 space-y-1 rounded-xl bg-superficie/70 p-2 border border-alerta-suave text-[11px] text-alerta">
                   <p>1. Toca los <strong>tres puntos (…)</strong> abajo a la derecha.</p>
                   <p>2. Selecciona <strong>"Abrir en Safari"</strong>.</p>
                 </div>
@@ -108,7 +108,7 @@ export function LoginView() {
                 <button
                   type="button"
                   onClick={copiarEnlace}
-                  className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-xl border border-alerta-suave bg-white px-3 py-1.5 text-xs font-bold text-alerta shadow-sm active:scale-95 transition-all"
+                  className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-xl border border-alerta-suave bg-superficie px-3 py-1.5 text-xs font-bold text-alerta shadow-sm active:scale-95 transition-all"
                 >
                   {copiado ? <Check size={14} className="text-acento" /> : <Copy size={14} />}
                   {copiado ? '¡Enlace copiado! Pégalo en Safari' : 'Copiar enlace para Safari'}
@@ -122,9 +122,9 @@ export function LoginView() {
             final de Google ocurre en otro dominio, e iOS lo bloquea y en la
             PWA instalada de Android se queda colgado. */}
         {dominioSinLogin && (
-          <div className="w-full rounded-2xl border border-alerta-suave bg-gradient-to-br from-amber-50 to-orange-50/50 p-4 text-left shadow-sm">
+          <div className="w-full rounded-2xl border border-alerta-suave bg-gradient-to-br from-alerta-suave to-alerta-suave p-4 text-left shadow-sm">
             <div className="flex items-start gap-2.5">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-alerta">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-alerta text-alerta">
                 <AlertCircle size={18} />
               </div>
               <div className="flex-1">
@@ -139,7 +139,7 @@ export function LoginView() {
 
                 <a
                   href={URL_APP_LOGIN_FUNCIONAL}
-                  className="m3-press tocable mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2.5 text-xs font-bold text-white shadow-sm active:scale-[0.98] transition-all"
+                  className="m3-press tocable mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-xl bg-acento px-3 py-2.5 text-xs font-bold text-acento-texto shadow-sm active:scale-[0.98] transition-all"
                 >
                   <ExternalLink size={14} />
                   Abrir la app para iniciar sesión
@@ -153,7 +153,7 @@ export function LoginView() {
           type="button"
           onClick={manejarClick}
           disabled={entrando}
-          className="m3-press tocable flex w-full items-center justify-center gap-3 rounded-2xl border border-borde bg-white px-5 py-4 text-sm font-bold text-texto shadow-md hover:bg-superficie-2 active:scale-[0.98] disabled:opacity-60 transition-all"
+          className="m3-press tocable flex w-full items-center justify-center gap-3 rounded-2xl border border-borde bg-superficie px-5 py-4 text-sm font-bold text-texto shadow-md hover:bg-superficie-2 active:scale-[0.98] disabled:opacity-60 transition-all"
         >
           {entrando ? <Loader2 size={20} className="animate-spin text-acento" /> : <IconoGoogle />}
           {entrando ? 'Iniciando sesión…' : 'Continuar con Google'}
@@ -161,13 +161,13 @@ export function LoginView() {
 
         {error && (
           <div className="w-full flex flex-col gap-2">
-            <p className="w-full rounded-xl bg-rose-50 border border-peligro-suave p-3 text-center text-xs font-semibold text-peligro" role="alert">
+            <p className="w-full rounded-xl bg-peligro-suave border border-peligro-suave p-3 text-center text-xs font-semibold text-peligro" role="alert">
               {error}
             </p>
             <button
               type="button"
               onClick={repararSesion}
-              className="m3-press tocable flex w-full items-center justify-center gap-2 rounded-xl border border-borde bg-white px-3 py-2.5 text-xs font-bold text-texto-2 shadow-sm active:scale-[0.98] transition-all"
+              className="m3-press tocable flex w-full items-center justify-center gap-2 rounded-xl border border-borde bg-superficie px-3 py-2.5 text-xs font-bold text-texto-2 shadow-sm active:scale-[0.98] transition-all"
             >
               <RefreshCw size={14} />
               Reparar e intentar de nuevo

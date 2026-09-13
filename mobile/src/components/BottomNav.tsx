@@ -74,14 +74,14 @@ export function BottomNav({ actual, onCambiar, badgeCarrito = 0, badgeCobranza =
 
                 {/* Badge de carrito */}
                 {vista === 'vender' && badgeCarrito > 0 && (
-                  <span className="absolute -top-1 -right-1.5 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-emerald-600 text-[9.5px] font-black text-white shadow-xs animate-in zoom-in-75">
+                  <span className="absolute -top-1 -right-1.5 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-acento text-[9.5px] font-black text-acento-texto shadow-xs animate-in zoom-in-75">
                     {badgeCarrito}
                   </span>
                 )}
 
                 {/* Badge de cobranza */}
                 {vista === 'cobranza' && badgeCobranza > 0 && (
-                  <span className="absolute -top-1 -right-1.5 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-rose-600 text-[9.5px] font-black text-white shadow-xs animate-in zoom-in-75">
+                  <span className="absolute -top-1 -right-1.5 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-peligro text-[9.5px] font-black text-peligro-texto shadow-xs animate-in zoom-in-75">
                     {badgeCobranza}
                   </span>
                 )}

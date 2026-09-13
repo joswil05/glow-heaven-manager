@@ -426,7 +426,7 @@ export function QuickSaleView() {
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar por producto o código…"
-            className="w-full rounded-xl bg-superficie-2 text-xs font-medium text-texto placeholder:text-texto-3 outline-none focus:bg-superficie focus:ring-2 focus:ring-emerald-500/25 transition-all border border-borde"
+            className="w-full rounded-xl bg-superficie-2 text-xs font-medium text-texto placeholder:text-texto-3 outline-none focus:bg-superficie focus:ring-2 focus:ring-acento transition-all border border-borde"
             style={{
               paddingLeft: '38px',
               paddingRight: '36px',
@@ -463,7 +463,7 @@ export function QuickSaleView() {
               }}
               className={`m3-press shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
                 categoriaActiva === null
-                  ? 'bg-acento text-white shadow-sm ring-1 ring-acento'
+                  ? 'bg-acento text-acento-texto shadow-sm ring-1 ring-acento'
                   : 'bg-superficie-2 text-texto-2 hover:bg-superficie-3 border border-borde'
               }`}
             >
@@ -481,7 +481,7 @@ export function QuickSaleView() {
                   }}
                   className={`m3-press shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
                     activa
-                      ? 'bg-acento text-white shadow-sm ring-1 ring-acento'
+                      ? 'bg-acento text-acento-texto shadow-sm ring-1 ring-acento'
                       : 'bg-superficie-2 text-texto-2 hover:bg-superficie-3 border border-borde'
                   }`}
                 >
@@ -490,7 +490,7 @@ export function QuickSaleView() {
               );
             })}
           </div>
-          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent" />
+          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-superficie to-transparent" />
         </div>
       </header>
 
@@ -554,7 +554,7 @@ export function QuickSaleView() {
                       </span>
                     </div>
                     <p className="text-caption text-texto-3 mt-0.5 font-medium flex items-center gap-1">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-acento" />
                       <span>{p.existencias} en stock {tieneVariantes ? `(${p.variantes.length} tonos)` : ''}</span>
                     </p>
                   </div>
@@ -572,7 +572,7 @@ export function QuickSaleView() {
                       >
                         <span>Tonos</span>
                         {cantidadEnCarrito > 0 && (
-                          <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-acento px-1 text-[10px] font-black text-white">
+                          <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-acento px-1 text-[10px] font-black text-acento-texto">
                             {cantidadEnCarrito}
                           </span>
                         )}
@@ -612,7 +612,7 @@ export function QuickSaleView() {
                           }}
                           disabled={cantidadEnCarrito >= p.existencias}
                           aria-label="Aumentar"
-                          className="m3-press flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-xs active:scale-90 disabled:opacity-40 cursor-pointer"
+                          className="m3-press flex h-7 w-7 items-center justify-center rounded-lg bg-acento text-acento-texto shadow-xs active:scale-90 disabled:opacity-40 cursor-pointer"
                         >
                           <Plus size={13} />
                         </button>
@@ -625,7 +625,7 @@ export function QuickSaleView() {
                           const v = p.variantes[0];
                           if (v) agregarAlCarrito(p, v);
                         }}
-                        className="m3-press flex items-center justify-center text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm rounded-xl active:scale-90 cursor-pointer"
+                        className="m3-press flex items-center justify-center text-acento-texto bg-acento hover:bg-acento shadow-sm rounded-xl active:scale-90 cursor-pointer"
                         style={{
                           width: '38px',
                           height: '38px',
@@ -661,27 +661,27 @@ export function QuickSaleView() {
         >
           <div
             onClick={() => setSheetCarritoAbierto(true)}
-            className="pointer-events-auto m3-press flex items-center justify-between gap-3 w-full max-w-md rounded-2xl bg-fondo text-white px-4 py-3.5 shadow-2xl shadow-m3-3 border border-borde cursor-pointer"
+            className="pointer-events-auto m3-press flex items-center justify-between gap-3 w-full max-w-md rounded-2xl bg-fondo text-inverso-texto px-4 py-3.5 shadow-2xl shadow-m3-3 border border-borde cursor-pointer"
           >
             <div className="flex items-center gap-3">
-              <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500 text-white font-bold">
+              <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-acento text-acento-texto font-bold">
                 <ShoppingCart size={18} />
-                <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-white text-texto px-0.5 text-[10px] font-black">
+                <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-superficie text-texto px-0.5 text-[10px] font-black">
                   {cantidadTotalItems}
                 </span>
               </div>
               <div>
                 <span className="text-caption font-medium text-texto-3 leading-none">Total carrito</span>
-                <p className="text-base font-extrabold text-white leading-tight">
+                <p className="text-base font-extrabold text-inverso-texto leading-tight">
                   {formatearMoneda(totalUsdCents, 'USD')}
-                  <span className="text-xs text-emerald-400 ml-1.5 font-bold">
+                  <span className="text-xs text-acento ml-1.5 font-bold">
                     ≈ {formatearMoneda(Math.round((totalUsdCents * tasa) / 100), 'COR')}
                   </span>
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-1 rounded-xl bg-emerald-500 hover:bg-emerald-400 px-3.5 py-2 text-xs font-black text-texto uppercase tracking-wide shadow-sm">
+            <div className="flex items-center gap-1 rounded-xl bg-acento hover:bg-acento px-3.5 py-2 text-xs font-black text-texto uppercase tracking-wide shadow-sm">
               <span>Cobrar</span>
               <ChevronRight size={16} />
             </div>
@@ -772,7 +772,7 @@ export function QuickSaleView() {
               type="button"
               onClick={confirmarVenta}
               disabled={guardandoVenta}
-              className="m3-press tocable flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 px-5 py-3.5 text-sm font-extrabold text-white shadow-lg shadow-emerald-600/25 active:scale-[0.98] disabled:opacity-50 cursor-pointer"
+              className="m3-press tocable flex w-full items-center justify-center gap-2 rounded-2xl bg-acento hover:bg-acento px-5 py-3.5 text-sm font-extrabold text-acento-texto shadow-lg shadow-m3-2 active:scale-[0.98] disabled:opacity-50 cursor-pointer"
             >
               {guardandoVenta ? <Loader2 size={19} className="animate-spin" /> : <CheckCircle2 size={19} />}
               <span>{guardandoVenta ? 'Registrando en Firestore…' : 'Confirmar Venta'}</span>
@@ -906,7 +906,7 @@ export function QuickSaleView() {
                     }}
                     className={`min-h-[36px] px-3.5 rounded-full text-xs font-bold border transition-all active:scale-95 cursor-pointer flex items-center justify-center ${
                       activa
-                        ? 'bg-emerald-600 text-white border-acento-suave shadow-xs'
+                        ? 'bg-acento text-acento-texto border-acento-suave shadow-xs'
                         : 'bg-superficie text-texto-2 border-borde hover:border-acento-suave'
                     }`}
                   >
@@ -920,7 +920,7 @@ export function QuickSaleView() {
               <select
                 value={descTipo}
                 onChange={(e) => setDescTipo(e.target.value as TipoDescuento)}
-                className="h-10 rounded-xl border border-borde bg-superficie px-3 text-xs font-bold text-texto outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-acento-suave flex-1 transition-all"
+                className="h-10 rounded-xl border border-borde bg-superficie px-3 text-xs font-bold text-texto outline-none focus:ring-2 focus:ring-acento focus:border-acento-suave flex-1 transition-all"
               >
                 <option value="PORCENTAJE">% Porcentaje</option>
                 <option value="MONTO_FIJO">$ Monto fijo</option>
@@ -932,7 +932,7 @@ export function QuickSaleView() {
                 value={descValorTexto}
                 onChange={(e) => setDescValorTexto(e.target.value)}
                 placeholder={descTipo === 'PORCENTAJE' ? 'Ej. 10%' : 'Ej. $5.00'}
-                className="h-10 rounded-xl border border-borde bg-superficie px-3.5 text-xs font-extrabold text-texto placeholder:text-texto-3 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-acento-suave flex-[2] transition-all"
+                className="h-10 rounded-xl border border-borde bg-superficie px-3.5 text-xs font-extrabold text-texto placeholder:text-texto-3 outline-none focus:ring-2 focus:ring-acento focus:border-acento-suave flex-[2] transition-all"
               />
             </div>
           </div>
@@ -946,7 +946,7 @@ export function QuickSaleView() {
                 onClick={() => setEsCredito(false)}
                 className={`m3-press py-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                   !esCredito
-                    ? 'bg-emerald-600 text-white border-acento-suave shadow-md shadow-emerald-600/20'
+                    ? 'bg-acento text-acento-texto border-acento-suave shadow-md shadow-m3-2'
                     : 'bg-superficie text-texto-2 border-borde'
                 }`}
               >
@@ -957,7 +957,7 @@ export function QuickSaleView() {
                 onClick={() => setEsCredito(true)}
                 className={`m3-press py-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                   esCredito
-                    ? 'bg-emerald-600 text-white border-acento-suave shadow-md shadow-emerald-600/20'
+                    ? 'bg-acento text-acento-texto border-acento-suave shadow-md shadow-m3-2'
                     : 'bg-superficie text-texto-2 border-borde'
                 }`}
               >
@@ -1028,7 +1028,7 @@ export function QuickSaleView() {
                 value={clienteQuery}
                 onChange={(e) => setClienteQuery(e.target.value)}
                 placeholder="Buscar clienta por nombre o teléfono…"
-                className="w-full h-11 rounded-full bg-superficie-2 pl-10 pr-4 text-xs font-semibold text-texto placeholder:text-texto-3 border border-transparent outline-none focus:bg-superficie focus:ring-2 focus:ring-emerald-500/30"
+                className="w-full h-11 rounded-full bg-superficie-2 pl-10 pr-4 text-xs font-semibold text-texto placeholder:text-texto-3 border border-transparent outline-none focus:bg-superficie focus:ring-2 focus:ring-acento"
               />
             </div>
 
@@ -1099,7 +1099,7 @@ export function QuickSaleView() {
                 type="button"
                 onClick={crearClienteRapido}
                 disabled={!nuevoNombre.trim() || creandoCliente}
-                className="m3-press flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 py-3 text-xs font-bold text-white shadow-md shadow-emerald-600/20 disabled:opacity-40 cursor-pointer"
+                className="m3-press flex-1 rounded-xl bg-acento hover:bg-acento py-3 text-xs font-bold text-acento-texto shadow-md shadow-m3-2 disabled:opacity-40 cursor-pointer"
               >
                 {creandoCliente ? 'Guardando…' : 'Guardar y elegir'}
               </button>
@@ -1149,7 +1149,7 @@ function PantallaExito({ venta, onNuevaVenta }: { venta: VentaCompleta; onNuevaV
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-5 bg-fondo px-6 pb-safe-b pt-safe-t text-center animate-m3-fade">
-      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-acento-suave text-acento shadow-xl shadow-emerald-600/10 ring-8 ring-acento">
+      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-acento-suave text-acento shadow-xl shadow-m3-2 ring-8 ring-acento">
         <CheckCircle2 size={48} />
       </div>
 
@@ -1216,7 +1216,7 @@ function PantallaExito({ venta, onNuevaVenta }: { venta: VentaCompleta; onNuevaV
           href={link ?? undefined}
           target="_blank"
           rel="noreferrer"
-          className="m3-press tocable flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 px-5 py-3.5 text-sm font-bold text-white shadow-lg shadow-emerald-600/20 active:scale-[0.98]"
+          className="m3-press tocable flex w-full items-center justify-center gap-2 rounded-2xl bg-acento hover:bg-acento px-5 py-3.5 text-sm font-bold text-acento-texto shadow-lg shadow-m3-2 active:scale-[0.98]"
         >
           <MessageCircle size={18} />
           Enviar recibo a WhatsApp

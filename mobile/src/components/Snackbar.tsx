@@ -59,7 +59,7 @@ export function SnackbarProvider({ children }: { children: ReactNode }) {
           <div
             key={m.id}
             onClick={() => cerrar(m.id)}
-            className="pointer-events-auto flex items-center gap-3 rounded-2xl px-4 py-3 shadow-2xl backdrop-blur-md animate-m3-slide-down text-white text-xs font-semibold max-w-sm w-full transition-all"
+            className="pointer-events-auto flex items-center gap-3 rounded-2xl px-4 py-3 shadow-2xl backdrop-blur-md animate-m3-slide-down text-inverso-texto text-xs font-semibold max-w-sm w-full transition-all"
             style={{
               backgroundColor:
                 m.tipo === 'success'
@@ -71,13 +71,13 @@ export function SnackbarProvider({ children }: { children: ReactNode }) {
               boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.25)',
             }}
           >
-            {m.tipo === 'success' && <CheckCircle2 size={18} className="shrink-0 text-emerald-400" />}
+            {m.tipo === 'success' && <CheckCircle2 size={18} className="shrink-0 text-acento" />}
             {m.tipo === 'error' && <AlertCircle size={18} className="shrink-0 text-peligro-fuerte" />}
             {m.tipo === 'info' && <Info size={18} className="shrink-0 text-texto-2" />}
             <span className="flex-1 leading-snug">{m.texto}</span>
             <button
               type="button"
-              className="text-white/60 hover:text-white shrink-0 p-1 cursor-pointer"
+              className="text-inverso-texto-2 hover:text-inverso-texto shrink-0 p-1 cursor-pointer"
               aria-label="Cerrar notificación"
             >
               <X size={15} />

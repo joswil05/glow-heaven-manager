@@ -147,7 +147,7 @@ export function AbonoModalSheet({ venta, onCerrar, onAbonoRegistrado }: AbonoMod
                 }
                 target="_blank"
                 rel="noreferrer"
-                className="tocable flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 px-4 py-3.5 text-sm font-semibold text-white shadow-sm active:scale-[0.98] transition-transform"
+                className="tocable flex w-full items-center justify-center gap-2 rounded-2xl bg-acento hover:bg-acento px-4 py-3.5 text-sm font-semibold text-acento-texto shadow-sm active:scale-[0.98] transition-transform"
               >
                 <MessageCircle size={18} />
                 Enviar recibo por WhatsApp
@@ -247,7 +247,7 @@ export function AbonoModalSheet({ venta, onCerrar, onAbonoRegistrado }: AbonoMod
                 value={montoTexto}
                 onChange={(e) => setMontoTexto(e.target.value)}
                 placeholder="0.00"
-                className="w-full rounded-2xl border border-borde bg-superficie pl-10 pr-4 py-2.5 text-base font-bold text-texto placeholder:text-texto-3 outline-none focus:border-acento-suave focus:ring-2 focus:ring-emerald-500/20"
+                className="w-full rounded-2xl border border-borde bg-superficie pl-10 pr-4 py-2.5 text-base font-bold text-texto placeholder:text-texto-3 outline-none focus:border-acento-suave focus:ring-2 focus:ring-acento"
               />
             </div>
           </div>
@@ -271,7 +271,7 @@ export function AbonoModalSheet({ venta, onCerrar, onAbonoRegistrado }: AbonoMod
             type="button"
             onClick={handleConfirmar}
             disabled={guardando}
-            className="m3-press mt-2 tocable flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3.5 text-sm font-bold text-white shadow-lg shadow-emerald-600/20 active:scale-[0.98] disabled:opacity-50"
+            className="m3-press mt-2 tocable flex w-full items-center justify-center gap-2 rounded-2xl bg-acento px-5 py-3.5 text-sm font-bold text-acento-texto shadow-lg shadow-m3-2 active:scale-[0.98] disabled:opacity-50"
           >
             {guardando ? <Loader2 size={18} className="animate-spin" /> : <DollarSign size={18} />}
             {guardando ? 'Registrando en Firestore…' : 'Registrar Abono Ahora'}

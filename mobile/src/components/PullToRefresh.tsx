@@ -105,7 +105,7 @@ export function PullToRefresh({ onRefresh, children, className }: PullToRefreshP
           opacity: pullDistance > 10 || refreshing ? 1 : 0,
         }}
       >
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-lg border border-borde text-acento">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-superficie shadow-lg border border-borde text-acento">
           <Loader2
             size={20}
             className={refreshing ? 'animate-spin' : ''}

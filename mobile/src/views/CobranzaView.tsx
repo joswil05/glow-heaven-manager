@@ -150,7 +150,7 @@ export function CobranzaView() {
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar por cliente, venta o teléfono…"
-            className="w-full h-10 pl-9 pr-9 rounded-xl bg-superficie-2 border border-borde text-xs font-semibold text-texto placeholder:text-texto-3 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
+            className="w-full h-10 pl-9 pr-9 rounded-xl bg-superficie-2 border border-borde text-xs font-semibold text-texto placeholder:text-texto-3 focus:outline-none focus:ring-2 focus:ring-acento transition-all"
           />
           {busqueda && (
             <button
@@ -173,7 +173,7 @@ export function CobranzaView() {
             }}
             className={`m3-press shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
               filtro === 'todas'
-                ? 'bg-acento text-white shadow-xs ring-1 ring-acento'
+                ? 'bg-acento text-acento-texto shadow-xs ring-1 ring-acento'
                 : 'bg-superficie-2 text-texto-2 hover:bg-superficie-3 border border-borde'
             }`}
           >
@@ -181,7 +181,7 @@ export function CobranzaView() {
             <span
               className={`text-[10px] py-0.2 px-1.5 rounded-full font-semibold ${
                 filtro === 'todas'
-                  ? 'bg-white/20 text-white'
+                  ? 'bg-acento-suave text-acento-fuerte'
                   : 'bg-superficie-3 text-texto-2'
               }`}
             >
@@ -208,7 +208,7 @@ export function CobranzaView() {
               <span
                 className={`text-[10px] py-0.2 px-1.5 rounded-full font-bold ${
                   filtro === 'vencidas'
-                    ? 'bg-white/20 text-white'
+                    ? 'bg-acento-suave text-acento-fuerte'
                     : 'bg-peligro-suave text-peligro'
                 }`}
               >
@@ -225,7 +225,7 @@ export function CobranzaView() {
             }}
             className={`m3-press shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
               filtro === 'al_dia'
-                ? 'bg-acento text-white shadow-xs ring-1 ring-acento'
+                ? 'bg-acento text-acento-texto shadow-xs ring-1 ring-acento'
                 : 'bg-superficie-2 text-texto-2 hover:bg-superficie-3 border border-borde'
             }`}
           >
@@ -233,7 +233,7 @@ export function CobranzaView() {
             <span
               className={`text-[10px] py-0.2 px-1.5 rounded-full font-semibold ${
                 filtro === 'al_dia'
-                  ? 'bg-white/20 text-white'
+                  ? 'bg-acento-suave text-acento-fuerte'
                   : 'bg-superficie-3 text-texto-2'
               }`}
             >
@@ -247,51 +247,44 @@ export function CobranzaView() {
       <PullToRefresh onRefresh={() => cargar(true)}>
         <main ref={scrollRevealRef} className="flex flex-col gap-3 px-3.5 pt-3 pb-24 scroll-smooth">
           {error && (
-            <div className="rounded-2xl bg-rose-50 border border-peligro-suave px-4 py-3 text-xs font-semibold text-peligro flex items-center justify-between">
+            <div className="rounded-2xl bg-peligro-suave border border-peligro-suave px-4 py-3 text-xs font-semibold text-peligro flex items-center justify-between">
               <span>{error}</span>
               <button onClick={() => cargar(true)} className="underline text-peligro">Reintentar</button>
             </div>
           )}
 
-          {/* Tarjeta Hero de Cobranza: Resumen Financiero Consolidado */}
-          <section
-            className="scroll-reveal relative overflow-hidden rounded-[24px] p-4 shadow-md shadow-amber-900/10 text-white"
-            style={{
-              background: 'linear-gradient(135deg, #b45309 0%, #92400e 55%, #78350f 100%)',
-            }}
-          >
-            {/* Esferas de luz sutil */}
-            <div className="absolute -right-6 -bottom-6 h-32 w-32 rounded-full bg-white/10 blur-xl pointer-events-none" />
-            <div className="absolute left-1/3 -top-8 h-20 w-20 rounded-full bg-amber-400/20 blur-lg pointer-events-none" />
+          {/* Tarjeta destacada de cobranza. Mismo criterio que la del Inicio:
+              era una losa de ámbar saturado que en oscuro se veía como un
+              ladrillo naranja tapando todo. El ámbar sigue siendo la seña de
+              "plata en la calle", pero como resplandor, no como fondo. */}
+          <section className="scroll-reveal relative overflow-hidden rounded-[24px] border border-borde bg-superficie p-4 shadow-m3-1">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -right-10 -top-14 h-44 w-44 rounded-full bg-alerta/20 blur-3xl"
+            />
 
             <div className="relative z-10">
-              <div className="flex items-center justify-between">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-2.5 py-0.5 text-caption font-bold tracking-wide uppercase text-white backdrop-blur-md">
-                  <span className="h-1.5 w-1.5 rounded-full bg-amber-300 animate-pulse" />
+              <div className="flex items-center justify-between gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-alerta-suave px-2.5 py-0.5 text-caption font-bold uppercase tracking-wide text-alerta-fuerte">
                   Total por cobrar en la calle
                 </span>
                 {cuentasVencidas.length > 0 && (
-                  <span className="text-caption bg-red-500/90 text-white font-black px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <span className="flex shrink-0 items-center gap-1 rounded-full bg-peligro-suave px-2 py-0.5 text-caption font-black text-peligro-fuerte">
                     <AlertTriangle size={10} />
                     {cuentasVencidas.length} vencidas
                   </span>
                 )}
               </div>
 
-              <div className="mt-2.5 flex items-baseline justify-between gap-2">
-                <div>
-                  <div className="flex items-baseline gap-2">
-                    <p className="text-2xl sm:text-3xl font-black tracking-tight tabular-nums text-white leading-none">
-                      {formatearMoneda(totalPorCobrarUsd, 'USD')}
-                    </p>
-                    <span className="text-xs font-semibold text-alerta-fuerte tabular-nums">
-                      ≈ {formatearMoneda(totalPorCobrarCor, 'COR')}
-                    </span>
-                  </div>
-                </div>
+              <div className="mt-2.5 flex items-baseline gap-2">
+                <p className="text-2xl sm:text-3xl font-black tracking-tight tabular-nums text-texto leading-none">
+                  {formatearMoneda(totalPorCobrarUsd, 'USD')}
+                </p>
+                <span className="text-xs font-semibold tabular-nums text-texto-3">
+                  {formatearMoneda(totalPorCobrarCor, 'COR')}
+                </span>
               </div>
 
-              {/* Botón Acción Principal: Registrar Abono */}
               <div className="mt-3.5">
                 <button
                   type="button"
@@ -299,9 +292,9 @@ export function CobranzaView() {
                     haptics.impact('medium');
                     setSheetAbonoSelectorAbierto(true);
                   }}
-                  className="w-full m3-press flex items-center justify-center gap-2 rounded-xl bg-white h-11 px-4 text-body font-bold text-alerta shadow-md active:scale-95 transition-transform cursor-pointer"
+                  className="m3-press flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-acento px-4 text-body font-bold text-acento-texto active:scale-95 transition-transform cursor-pointer"
                 >
-                  <PlusCircle size={16} className="text-alerta" />
+                  <PlusCircle size={16} />
                   <span>Registrar nuevo abono a clienta</span>
                 </button>
               </div>
@@ -353,7 +346,7 @@ export function CobranzaView() {
                     className={`scroll-reveal flex flex-col gap-2.5 rounded-2xl border p-3.5 shadow-xs transition-all ${
                       vencida
                         ? 'border-peligro-suave bg-peligro-suave'
-                        : 'border-borde bg-white  hover:border-borde'
+                        : 'border-borde bg-superficie  hover:border-borde'
                     }`}
                   >
                     {/* Fila 1: Avatar + Nombre + Referencia + Badge de estado */}
@@ -431,7 +424,7 @@ export function CobranzaView() {
                     <div className="w-full bg-superficie-2 rounded-full h-1.5 overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all duration-300 ${
-                          vencida ? 'bg-rose-500' : 'bg-emerald-500'
+                          vencida ? 'bg-peligro' : 'bg-acento'
                         }`}
                         style={{ width: `${porcentaje}%` }}
                       />
@@ -501,7 +494,7 @@ export function CobranzaView() {
                             saldo_usd_cents: f.saldo_usd_cents,
                           });
                         }}
-                        className="m3-press flex-1 flex items-center justify-center gap-1.5 h-10 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-label font-extrabold shadow-sm active:scale-95 transition-all cursor-pointer min-w-0"
+                        className="m3-press flex-1 flex items-center justify-center gap-1.5 h-10 px-3 rounded-xl bg-acento hover:bg-acento text-acento-texto text-label font-extrabold shadow-sm active:scale-95 transition-all cursor-pointer min-w-0"
                         aria-label={`Registrar abono de ${f.cliente_nombre}`}
                       >
                         <DollarSign size={15} className="shrink-0" />

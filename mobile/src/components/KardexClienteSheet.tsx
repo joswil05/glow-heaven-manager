@@ -189,11 +189,11 @@ export function KardexClienteSheet({
           }}
           className={`flex items-center justify-center gap-2 h-11 px-4 rounded-xl font-extrabold text-xs shadow-xs transition-all active:scale-[0.98] cursor-pointer ${
             saldoUsd > 0
-              ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
+              ? 'bg-acento hover:bg-acento text-acento-texto shadow-m3-2'
               : 'bg-superficie-2 hover:bg-superficie-3 text-texto-2 border border-borde'
           }`}
         >
-          <DollarSign size={16} className={saldoUsd > 0 ? 'text-white' : 'text-emerald-500'} />
+          <DollarSign size={16} className={saldoUsd > 0 ? 'text-peligro' : 'text-acento'} />
           <span>{saldoUsd > 0 ? 'Registrar Nuevo Abono' : 'Registrar Abono Anticipado'}</span>
         </button>
 
