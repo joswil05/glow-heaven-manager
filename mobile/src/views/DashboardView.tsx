@@ -408,14 +408,21 @@ export function DashboardView({
                 onIrAInventario?.();
               }
             }}
-            className={`m3-card p-3 sm:p-3.5 shrink-0 flex items-center justify-between border transition-all cursor-pointer active:scale-[0.985] ${
+            /* `flex-1` y no `shrink-0`: las otras tres secciones tienen alto
+               propio, así que todo el espacio sobrante se acumulaba como un
+               hueco muerto entre esta tarjeta y el dock. Ahora esta sección se
+               estira para ocuparlo, y ese espacio se llena con los productos
+               críticos en vez de estirar una caja vacía. El `pb` del <main> ya
+               reserva la altura del dock, así que no hay choque. */
+            className={`m3-card p-3 sm:p-3.5 flex-1 min-h-[76px] flex flex-col border transition-colors cursor-pointer active:scale-[0.985] ${
               (panel?.bajo_stock?.length ?? 0) > 0
                 ? 'bg-rose-50/60 dark:bg-rose-950/25 border-rose-200/70 dark:border-rose-900/50 hover:border-rose-300 dark:hover:border-rose-800'
                 : 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200/50 dark:border-emerald-900/30'
             }`}
           >
             {(panel?.bajo_stock?.length ?? 0) > 0 ? (
-              <div className="flex items-center justify-between w-full gap-2.5 min-w-0">
+              <div className="flex flex-col h-full min-h-0 w-full gap-2.5">
+              <div className="flex items-center justify-between w-full gap-2.5 min-w-0 shrink-0">
                 <div className="flex items-center gap-2.5 min-w-0 flex-1">
                   <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-500/15 text-rose-700 dark:text-rose-400 shrink-0 border border-rose-500/20">
                     <PackageX size={17} />
@@ -442,8 +449,34 @@ export function DashboardView({
                   <ChevronRight size={14} />
                 </div>
               </div>
+
+              {/* El espacio que antes quedaba vacío ahora dice QUÉ falta, que
+                  es la razón por la que alguien mira esta tarjeta. Si no
+                  entran todos, la lista hace scroll; tocar abre el detalle. */}
+              <div className="flex-1 min-h-0 overflow-y-auto sin-scrollbar flex flex-col gap-1 border-t border-rose-200/60 dark:border-rose-900/50 pt-2">
+                {panel!.bajo_stock.map((item) => (
+                  <div
+                    key={item.producto_id}
+                    className="flex items-center justify-between gap-2 rounded-lg bg-white/70 dark:bg-rose-950/30 px-2.5 py-1.5 border border-rose-100 dark:border-rose-900/40"
+                  >
+                    <span className="text-caption font-semibold text-rose-950 dark:text-rose-100 truncate">
+                      {item.nombre}
+                    </span>
+                    <span
+                      className={`text-caption font-bold shrink-0 tabular-nums ${
+                        item.existencias === 0
+                          ? 'text-rose-600 dark:text-rose-400'
+                          : 'text-amber-700 dark:text-amber-400'
+                      }`}
+                    >
+                      {item.existencias === 0 ? 'Agotado' : `${item.existencias} u.`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              </div>
             ) : (
-              <div className="flex items-center justify-between w-full gap-2.5 min-w-0">
+              <div className="flex items-center justify-between w-full gap-2.5 min-w-0 h-full">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 shrink-0 border border-emerald-500/20">
                     <CheckCircle2 size={17} />

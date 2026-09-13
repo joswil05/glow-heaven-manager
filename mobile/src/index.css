@@ -190,6 +190,34 @@ input, textarea, [contenteditable="true"] {
   }
 }
 
+/* Cambio de pestaña del dock inferior.
+ *
+ * Antes las 4 vistas se intercambiaban con display:none/block, o sea un corte
+ * seco: el contenido aparecía de golpe y la app se sentía trabada.
+ *
+ * Es un gesto que se repite decenas de veces al día, así que la animación
+ * tiene que ser casi imperceptible: 160ms, un desplazamiento de 6px y nada
+ * más. Sin slide lateral ni escala, que a esa frecuencia cansan y hacen sentir
+ * lenta la aplicación. Una animación de entrada va con ease-out.
+ *
+ * Funciona sin desmontar las vistas (conservan scroll y datos): un elemento en
+ * display:none no corre animaciones, y al pasar a display:block la animación
+ * arranca sola desde cero. */
+@keyframes vistaEntra {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-vista {
+  animation: vistaEntra 160ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 .animate-m3-fade {
   animation: m3FadeIn 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
@@ -246,4 +274,34 @@ input, textarea, [contenteditable="true"] {
 .scroll-reveal.is-revealed {
   opacity: 1;
   transform: translateY(0);
+}
+
+/* Movimiento reducido.
+ *
+ * Faltaba por completo en la app del celular. Quien activa esta preferencia
+ * del sistema suele hacerlo porque el movimiento le provoca mareo, así que
+ * no es un detalle opcional.
+ *
+ * No se apaga todo: se conservan los cambios de opacidad y color, que ayudan
+ * a entender qué cambió, y se elimina el desplazamiento. Reducir movimiento
+ * es menos movimiento, no cero transiciones. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-vista,
+  .animate-m3-slide-up,
+  .animate-m3-snackbar,
+  .animate-m3-slide-down,
+  .animate-card-enter {
+    animation: m3FadeIn 120ms ease forwards;
+  }
+
+  .m3-press:active,
+  .tocable:active {
+    transform: none;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
 }

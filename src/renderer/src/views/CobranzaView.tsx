@@ -58,7 +58,9 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
   onVerVenta,
 }) => {
   const { showToast, showUndoToast } = useToast();
-  const [tabActiva, setTabActiva] = useState<TabCobranza>('historial');
+  // Arranca en "Por cobrar": es lo accionable. El historial es consulta, y
+  // abrir la pantalla mostrando lo ya cobrado enterraba lo que falta cobrar.
+  const [tabActiva, setTabActiva] = useState<TabCobranza>('por_cobrar');
 
   // Estados de datos
   const [pagos, setPagos] = useState<PagoCompleto[]>([]);
@@ -95,11 +97,25 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
         window.api.panel.cargar(),
       ]);
 
+      // Si una consulta falla hay que decirlo. Antes estos `if` no tenían
+      // `else`: cuando la consulta del historial fallaba (le faltaba el índice
+      // compuesto de Firestore), la lista quedaba vacía para siempre sin un
+      // solo mensaje, y parecía que no había abonos registrados.
       if (resPagos.success) {
         setPagos(resPagos.data);
+      } else {
+        showToast({
+          message: `No se pudo cargar el historial de abonos: ${resPagos.error}`,
+          type: 'error',
+        });
       }
       if (resPanel.success) {
         setCuentasPorCobrar(resPanel.data.por_cobrar || []);
+      } else {
+        showToast({
+          message: `No se pudieron cargar las cuentas por cobrar: ${resPanel.error}`,
+          type: 'error',
+        });
       }
     } catch {
       showToast({ message: 'Error al sincronizar historial de abonos', type: 'error' });
@@ -381,24 +397,14 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
             <div className="flex items-center gap-3">
               {/* Botón selector de pestañas principales */}
               <div className="flex rounded-xl bg-superficie border border-borde/80 p-1 shadow-2xs">
-                <button
-                  type="button"
-                  onClick={() => setTabActiva('historial')}
-                  className={cn(
-                    'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-label font-bold transition-all',
-                    tabActiva === 'historial'
-                      ? 'bg-acento text-white shadow-xs'
-                      : 'text-texto-3 hover:text-texto'
-                  )}
-                >
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>Historial de Abonos ({pagos.length})</span>
-                </button>
+                {/* "Por cobrar" va primero: es la deuda viva, lo accionable.
+                    El historial es consulta y queda a la derecha. */}
                 <button
                   type="button"
                   onClick={() => setTabActiva('por_cobrar')}
                   className={cn(
-                    'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-label font-bold transition-all',
+                    'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-label font-bold cursor-pointer',
+                    'transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97]',
                     tabActiva === 'por_cobrar'
                       ? 'bg-acento text-white shadow-xs'
                       : 'text-texto-3 hover:text-texto'
@@ -406,6 +412,20 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
                 >
                   <Wallet className="w-3.5 h-3.5" />
                   <span>Por Cobrar ({cuentasPorCobrar.length})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTabActiva('historial')}
+                  className={cn(
+                    'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-label font-bold cursor-pointer',
+                    'transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97]',
+                    tabActiva === 'historial'
+                      ? 'bg-acento text-white shadow-xs'
+                      : 'text-texto-3 hover:text-texto'
+                  )}
+                >
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>Historial de Abonos ({pagos.length})</span>
                 </button>
               </div>
 

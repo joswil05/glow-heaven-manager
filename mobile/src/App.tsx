@@ -71,20 +71,20 @@ function AppContenido() {
       <DataProvider>
         <div className="flex flex-col h-[100dvh] overflow-hidden bg-fondo dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors duration-200">
           <div className="flex-1 min-h-0 relative">
-            <div className={`h-full w-full overflow-hidden ${vista === 'panel' ? 'block' : 'hidden'}`}>
+            <div className={`h-full w-full overflow-hidden ${vista === 'panel' ? 'block animate-vista' : 'hidden'}`}>
               <DashboardView
                 onIrAVenta={() => setVista('vender')}
                 onIrACobranza={() => setVista('cobranza')}
                 onIrAInventario={() => setVista('inventario')}
               />
             </div>
-            <div className={`h-full w-full overflow-hidden ${vista === 'vender' ? 'block' : 'hidden'}`}>
+            <div className={`h-full w-full overflow-hidden ${vista === 'vender' ? 'block animate-vista' : 'hidden'}`}>
               <QuickSaleView />
             </div>
-            <div className={`h-full w-full overflow-hidden ${vista === 'cobranza' ? 'block' : 'hidden'}`}>
+            <div className={`h-full w-full overflow-hidden ${vista === 'cobranza' ? 'block animate-vista' : 'hidden'}`}>
               <CobranzaView />
             </div>
-            <div className={`h-full w-full overflow-hidden ${vista === 'inventario' ? 'block' : 'hidden'}`}>
+            <div className={`h-full w-full overflow-hidden ${vista === 'inventario' ? 'block animate-vista' : 'hidden'}`}>
               <InventoryQuickView />
             </div>
           </div>
