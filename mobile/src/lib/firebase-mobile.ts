@@ -103,13 +103,18 @@ export async function iniciarSesionGoogle(): Promise<User | null> {
   }
 }
 
-export async function resolverRedireccionPendiente(): Promise<User | null> {
+/**
+ * Resuelve el resultado de un `signInWithRedirect` pendiente (al volver de
+ * Google). Nunca lanza: devuelve el error para que quien llama decida qué
+ * mostrar, en vez de tragárselo en silencio.
+ */
+export async function resolverRedireccionPendiente(): Promise<{ user: User | null; error: unknown }> {
   try {
     const resultado = await getRedirectResult(auth);
-    return resultado?.user ?? null;
+    return { user: resultado?.user ?? null, error: null };
   } catch (err) {
     console.warn('[firebase-mobile] Error resolviendo el redirect de Google:', err);
-    return null;
+    return { user: null, error: err };
   }
 }
 
@@ -134,6 +139,8 @@ export function traducirErrorAuth(err: unknown): string {
       return 'No hay conexión a internet.';
     case 'auth/unauthorized-domain':
       return 'Este dominio no está autorizado en Firebase Authentication.';
+    case 'app/redirect-timeout':
+      return 'El regreso desde Google tardó demasiado. Esto puede pasar en la app instalada en el celular. Probá otra vez, o abrí el enlace en Chrome (sin abrir la app instalada) para entrar por primera vez.';
     default:
       return (err as Error)?.message ?? 'No se pudo iniciar sesión con Google.';
   }

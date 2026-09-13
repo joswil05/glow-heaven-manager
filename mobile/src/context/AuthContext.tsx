@@ -24,15 +24,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Si Google mandó de vuelta por redirect (celulares angostos), esto
-    // resuelve esa sesión antes de que `onAuthStateChanged` se dispare solo.
-    resolverRedireccionPendiente().catch(() => {});
+    let activo = true;
+
+    // Si Google mandó de vuelta por redirect (celulares/PWA instalada), esto
+    // resuelve esa sesión. Si algo falla en el camino (dominio no
+    // autorizado, red, etc.) lo mostramos en vez de tragárnoslo.
+    resolverRedireccionPendiente().then(({ error: errRedirect }) => {
+      if (activo && errRedirect) setError(traducirErrorAuth(errRedirect));
+    });
+
+    // Si `onAuthStateChanged` nunca dispara (se ha visto colgado al volver
+    // de Google en algunas PWA instaladas en Android), no dejamos a la
+    // usuaria mirando el spinner para siempre.
+    const limite = setTimeout(() => {
+      if (activo) {
+        setCargando((estabaCargando) => {
+          if (estabaCargando) setError(traducirErrorAuth({ code: 'app/redirect-timeout' }));
+          return false;
+        });
+      }
+    }, 9000);
 
     const desuscribir = alCambiarSesion((u) => {
+      if (!activo) return;
+      clearTimeout(limite);
       setUsuario(u);
       setCargando(false);
+      if (u) setError(null);
     });
-    return desuscribir;
+
+    return () => {
+      activo = false;
+      clearTimeout(limite);
+      desuscribir();
+    };
   }, []);
 
   async function ingresar() {
