@@ -48,20 +48,54 @@ export function esDispositivoIOS(): boolean {
   return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 }
 
+/** Detecta un teléfono/tablet Android o iOS (para decidir popup vs. redirect). */
+export function esDispositivoMovil(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  return /Android|iPad|iPhone|iPod/i.test(ua) || esDispositivoIOS();
+}
+
 /**
- * Inicia sesión con Google usando popup, con fallback inteligente a redirección
- * si Safari bloquea las ventanas emergentes.
+ * Detecta si la app corre "instalada" (agregada a la pantalla de inicio),
+ * sin barra de navegador. En ese modo no existe una ventana real donde
+ * abrir un popup: Chrome/Android lo simula y pierde el foco al mostrar el
+ * selector de cuenta de Google, lo que Firebase reporta como
+ * "auth/popup-closed-by-user" aunque nadie cerró nada.
+ */
+export function esPwaInstalada(): boolean {
+  if (typeof window === 'undefined') return false;
+  return (
+    window.matchMedia?.('(display-mode: standalone)').matches === true ||
+    (navigator as any).standalone === true
+  );
+}
+
+/**
+ * Inicia sesión con Google. En celular (o PWA instalada) usa redirección
+ * directamente: el popup es poco confiable ahí y suele cerrarse solo antes
+ * de terminar. En escritorio usa popup, con fallback a redirect si el
+ * navegador lo bloquea o lo cierra de forma espuria.
  */
 export async function iniciarSesionGoogle(): Promise<User | null> {
   await persistenciaLista;
+
+  if (esDispositivoMovil() || esPwaInstalada()) {
+    await signInWithRedirect(auth, googleProvider);
+    return null;
+  }
+
   try {
     const resultado = await signInWithPopup(auth, googleProvider);
     return resultado.user;
   } catch (err: any) {
     const codigo = err?.code;
-    // Si Safari bloqueó el popup por directiva del navegador, recurrir a redirect
-    if (codigo === 'auth/popup-blocked') {
-      console.warn('[firebase-mobile] Popup bloqueado por el navegador, iniciando redirección...');
+    // Si el navegador bloqueó o cerró el popup de forma espuria, recurrir a redirect
+    if (
+      codigo === 'auth/popup-blocked' ||
+      codigo === 'auth/popup-closed-by-user' ||
+      codigo === 'auth/cancelled-popup-request'
+    ) {
+      console.warn('[firebase-mobile] Popup no disponible, iniciando redirección...');
       await signInWithRedirect(auth, googleProvider);
       return null;
     }
