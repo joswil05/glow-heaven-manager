@@ -4,6 +4,7 @@ import {
   alCambiarSesion,
   cerrarSesion,
   iniciarSesionGoogle,
+  limpiarSesionLocalYRecargar,
   resolverRedireccionPendiente,
   traducirErrorAuth,
 } from '../lib/firebase-mobile';
@@ -14,6 +15,7 @@ interface AuthState {
   error: string | null;
   ingresar: () => Promise<void>;
   salir: () => Promise<void>;
+  repararSesion: () => void;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -78,7 +80,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ usuario, cargando, error, ingresar, salir }}>
+    <AuthContext.Provider
+      value={{ usuario, cargando, error, ingresar, salir, repararSesion: limpiarSesionLocalYRecargar }}
+    >
       {children}
     </AuthContext.Provider>
   );

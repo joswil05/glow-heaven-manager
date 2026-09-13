@@ -122,6 +122,29 @@ export async function cerrarSesion(): Promise<void> {
   await signOut(auth);
 }
 
+/**
+ * Borra la base de datos local (IndexedDB) donde Firebase guarda la sesión.
+ * Si un intento de login anterior se cortó a mitad de camino (celular que
+ * suspende la app al volver de Google, por ejemplo en teléfonos Xiaomi/MIUI
+ * con ahorro de batería agresivo), esa base puede quedar en un estado que
+ * traba todos los intentos siguientes aunque el login en sí funcione bien.
+ * Esto la deja limpia para que el próximo intento arranque de cero.
+ */
+export function limpiarSesionLocalYRecargar(): void {
+  try {
+    const borrar = indexedDB.deleteDatabase('firebaseLocalStorageDb');
+    const recargar = () => window.location.reload();
+    borrar.onsuccess = recargar;
+    borrar.onerror = recargar;
+    borrar.onblocked = recargar;
+    // Por si alguno de esos eventos nunca llega, no dejamos a la usuaria
+    // esperando: recargamos igual después de un instante.
+    setTimeout(recargar, 1500);
+  } catch {
+    window.location.reload();
+  }
+}
+
 export function alCambiarSesion(cb: (user: User | null) => void): () => void {
   return onAuthStateChanged(auth, cb);
 }
