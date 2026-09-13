@@ -3,6 +3,37 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content" />
+    <script>
+      /*
+       * Una sola dirección para la app.
+       *
+       * El login de Google solo puede terminar cuando ocurre en el MISMO
+       * origen que el authDomain del proyecto. Desde cualquier otra dirección
+       * el paso final queda en un iframe de tercera parte: iOS Safari lo
+       * bloquea (ITP) y en la PWA instalada de Android se queda colgado, que
+       * es el bug que dejaba la app en "Cargando Glow Heaven…" para siempre.
+       *
+       * El proyecto tiene tres direcciones para la misma app (dos que Firebase
+       * da solas y una que se creó a mano), así que sin esto cualquiera puede
+       * instalar la "equivocada" y no poder entrar nunca.
+       *
+       * Va acá y no en el bundle para que ni siquiera haga falta descargarlo.
+       * La lista es explícita a propósito: localhost y cualquier dominio nuevo
+       * quedan intactos, y así no hay forma de armar un bucle de redirección.
+       *
+       * Si algún día cambia el dominio canónico, actualizar también
+       * DOMINIOS_CON_LOGIN_PROPIO en src/lib/firebase-mobile.ts.
+       */
+      (function () {
+        var canonico = 'glow-heaven-db-app.firebaseapp.com';
+        var alternos = ['glow-heaven-movil.web.app', 'glow-heaven-db-app.web.app'];
+        if (location.hostname !== canonico && alternos.indexOf(location.hostname) !== -1) {
+          location.replace(
+            'https://' + canonico + location.pathname + location.search + location.hash
+          );
+        }
+      })();
+    </script>
     <meta name="theme-color" content="#ffffff" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://apis.google.com https://*.firebaseio.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' https: wss:;" />
     <meta name="description" content="Ventas rápidas y panel del negocio de Glow Heaven, desde el celular." />
