@@ -411,7 +411,7 @@ export function DashboardView({
             /* `flex-1` y no `shrink-0`: las otras tres secciones tienen alto
                propio, así que todo el espacio sobrante se acumulaba como un
                hueco muerto entre esta tarjeta y el dock. Ahora la tarjeta se
-               estira para ocuparlo y su contenido queda centrado. Sin lista y
+               estira para ocuparlo y reparte su contenido dentro. Sin lista y
                sin scroll a propósito: el detalle vive en el cajón que se abre
                al tocarla. El `pb` del <main> ya reserva la altura del dock. */
             className={`m3-card p-3 sm:p-3.5 flex-1 min-h-[76px] flex flex-col border transition-colors cursor-pointer active:scale-[0.985] ${
@@ -420,52 +420,60 @@ export function DashboardView({
                 : 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200/50 dark:border-emerald-900/30'
             }`}
           >
+            {/* El contenido se reparte con `justify-between`: la información
+                arriba y la acción abajo. Antes era una sola fila centrada, así
+                que en una tarjeta alta quedaban dos franjas vacías arriba y
+                abajo que se leían como un error de maquetación en vez de una
+                decisión. Repartir en vez de centrar se adapta a cualquier
+                sobrante sin números fijos, y de paso el área táctil crece. */}
             {(panel?.bajo_stock?.length ?? 0) > 0 ? (
-              <div className="flex items-center justify-between w-full gap-2.5 min-w-0 h-full">
-                <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-500/15 text-rose-700 dark:text-rose-400 shrink-0 border border-rose-500/20">
-                    <PackageX size={17} />
+              <div className="flex flex-col justify-between h-full w-full gap-3 min-w-0">
+                <div className="flex items-start gap-2.5 min-w-0">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-500/15 text-rose-700 dark:text-rose-400 shrink-0 border border-rose-500/20">
+                    <PackageX size={20} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-caption sm:text-label font-bold text-rose-900 dark:text-rose-200 truncate leading-tight">
+                      <span className="text-label sm:text-body font-bold text-rose-900 dark:text-rose-200 truncate leading-tight">
                         Stock crítico ({panel!.bajo_stock.length})
                       </span>
                       {panel!.bajo_stock.some((i) => i.existencias === 0) && (
                         <span className="h-2 w-2 rounded-full bg-rose-500 animate-pulse shrink-0" />
                       )}
                     </div>
-                    <p className="text-[11px] sm:text-caption text-rose-700/80 dark:text-rose-400/80 font-medium truncate mt-0.5 leading-tight">
+                    <p className="text-caption text-rose-700/80 dark:text-rose-400/80 font-medium truncate mt-0.5 leading-tight">
                       {panel!.bajo_stock.length === 1
                         ? panel!.bajo_stock[0].nombre
-                        : `${panel!.bajo_stock.filter((i) => i.existencias === 0).length} agotados · Toca para ver lista`}
+                        : `${panel!.bajo_stock.filter((i) => i.existencias === 0).length} agotados`}
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1 text-xs font-bold text-rose-700 dark:text-rose-300 bg-rose-100/90 dark:bg-rose-900/40 px-2.5 py-1.5 rounded-xl shrink-0 border border-rose-200/60 dark:border-rose-800/60 group-hover:bg-rose-200/80 transition-colors">
-                  <span>Revisar</span>
-                  <ChevronRight size={14} />
+                <div className="flex w-full items-center justify-center gap-1.5 text-label font-bold text-rose-700 dark:text-rose-300 bg-rose-100/90 dark:bg-rose-900/40 px-3 py-2.5 rounded-xl border border-rose-200/60 dark:border-rose-800/60 shrink-0">
+                  <span>Revisar inventario</span>
+                  <ChevronRight size={15} />
                 </div>
               </div>
             ) : (
-              <div className="flex items-center justify-between w-full gap-2.5 min-w-0 h-full">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 shrink-0 border border-emerald-500/20">
-                    <CheckCircle2 size={17} />
+              <div className="flex flex-col justify-between h-full w-full gap-3 min-w-0">
+                <div className="flex items-start gap-2.5 min-w-0">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 shrink-0 border border-emerald-500/20">
+                    <CheckCircle2 size={20} />
                   </div>
-                  <div className="min-w-0">
-                    <span className="text-caption sm:text-label font-bold text-emerald-800 dark:text-emerald-300 block leading-tight">
+                  <div className="min-w-0 flex-1">
+                    <span className="text-label sm:text-body font-bold text-emerald-800 dark:text-emerald-300 block leading-tight">
                       Inventario en orden
                     </span>
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                    <span className="text-caption text-slate-500 dark:text-slate-400 block mt-0.5 leading-tight">
                       Existencias óptimas en todos los artículos
                     </span>
                   </div>
                 </div>
-                <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-100/80 dark:bg-emerald-950/80 px-2.5 py-1 rounded-full shrink-0 border border-emerald-200/60 dark:border-emerald-800/60">
-                  Al día
-                </span>
+
+                <div className="flex w-full items-center justify-center gap-1.5 text-label font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100/80 dark:bg-emerald-950/80 px-3 py-2.5 rounded-xl border border-emerald-200/60 dark:border-emerald-800/60 shrink-0">
+                  <span>Ver inventario</span>
+                  <ChevronRight size={15} />
+                </div>
               </div>
             )}
           </section>
