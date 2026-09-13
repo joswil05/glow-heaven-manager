@@ -9,13 +9,21 @@
  * Acepta coma o punto como separador decimal. Devuelve null si no es un
  * número finito, en vez de NaN, para que quien llame tenga que decidir.
  */
-export function parsearDecimal(texto: string): number | null {
+export function parsearDecimal(
+  texto: string,
+  opciones?: { min?: number; max?: number }
+): number | null {
   const limpio = texto.trim().replace(/\s+/g, '').replace(',', '.');
   if (limpio === '') return null;
   if (!/^-?\d+(\.\d+)?$/.test(limpio)) return null;
 
   const valor = Number(limpio);
-  return Number.isFinite(valor) ? valor : null;
+  if (!Number.isFinite(valor)) return null;
+
+  if (opciones?.min !== undefined && valor < opciones.min) return null;
+  if (opciones?.max !== undefined && valor > opciones.max) return null;
+
+  return valor;
 }
 
 /**
@@ -26,11 +34,8 @@ export function parsearACentavos(
   texto: string,
   opciones?: { min?: number; max?: number }
 ): number | null {
-  const valor = parsearDecimal(texto);
+  const valor = parsearDecimal(texto, opciones);
   if (valor === null) return null;
-
-  if (opciones?.min !== undefined && valor < opciones.min) return null;
-  if (opciones?.max !== undefined && valor > opciones.max) return null;
 
   return Math.round(valor * 100);
 }

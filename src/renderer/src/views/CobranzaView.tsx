@@ -35,6 +35,7 @@ import {
   Portal,
 } from '../components/ui';
 import { formatearMoneda, formatearFecha } from '@core/moneda';
+import { parsearACentavos } from '@core/numeros';
 import { enlaceWhatsApp } from '../lib/whatsapp';
 import { useToast } from '../context/ToastContext';
 import { cn } from '../lib/cn';
@@ -182,9 +183,9 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
       showToast({ message: 'Selecciona a qué clienta abonar', type: 'error' });
       return;
     }
-    const montoNum = parseFloat(abonoMontoTexto.replace(',', '.'));
-    if (isNaN(montoNum) || montoNum <= 0) {
-      showToast({ message: 'Ingresa un monto válido para el abono', type: 'error' });
+    const montoCents = parsearACentavos(abonoMontoTexto, { min: 0.01 });
+    if (montoCents === null) {
+      showToast({ message: 'Ingresa un monto válido para el abono (mayor a cero)', type: 'error' });
       return;
     }
 
@@ -193,7 +194,7 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
       const input: AbonoClienteInput = {
         cliente_id: clienteSeleccionadoId,
         fecha: abonoFecha,
-        monto_cents: Math.round(montoNum * 100),
+        monto_cents: montoCents,
         moneda: abonoMoneda,
         metodo: abonoMetodo,
         referencia: abonoReferencia.trim() || undefined,
@@ -203,7 +204,7 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
       const r = await window.api.pagos.registrarAbonoCliente(input);
       if (r.success) {
         showToast({
-          message: `Abono de ${abonoMoneda === 'USD' ? '$' : 'C$'}${montoNum.toFixed(2)} registrado con éxito`,
+          message: `Abono de ${abonoMoneda === 'USD' ? '$' : 'C$'}${(montoCents / 100).toFixed(2)} registrado con éxito`,
           type: 'success',
         });
         setModalAbonoAbierto(false);

@@ -313,7 +313,7 @@ export class VentasRepoFirestore {
       if (input.descuento_tipo === 'PORCENTAJE' && input.descuento_valor && input.descuento_valor > 0) {
         descuentoUsdCents = Math.round((subtotalVenta * input.descuento_valor) / 100);
       } else if (input.descuento_tipo === 'MONTO_FIJO' && input.descuento_valor && input.descuento_valor > 0) {
-        descuentoUsdCents = Math.round(input.descuento_valor);
+        descuentoUsdCents = Math.round(input.descuento_valor * 100);
       }
       descuentoUsdCents = Math.min(subtotalVenta, Math.max(0, descuentoUsdCents));
       total = Math.max(0, subtotalVenta - descuentoUsdCents);

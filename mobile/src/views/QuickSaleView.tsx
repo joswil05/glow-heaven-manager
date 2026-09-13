@@ -28,7 +28,7 @@ import type {
   TipoDescuento,
 } from '@shared/types';
 import { formatearMoneda } from '@core/moneda';
-import { parsearACentavos } from '@core/numeros';
+import { parsearACentavos, parsearDecimal } from '@core/numeros';
 import { nuevoGrupoEvento, hoyISO, linkWhatsapp } from '../lib/util';
 import { useDatosNegocio } from '../context/DataContext';
 import { BottomSheet } from '../components/BottomSheet';
@@ -147,10 +147,13 @@ export function QuickSaleView() {
   const [descValorTexto, setDescValorTexto] = useState('');
 
   const descuentoCents = useMemo(() => {
-    const v = parseFloat(descValorTexto) || 0;
-    if (v <= 0) return 0;
-    if (descTipo === 'PORCENTAJE') return Math.round((subtotalUsdCents * v) / 100);
-    return Math.min(subtotalUsdCents, Math.round(v * 100));
+    if (!descValorTexto.trim()) return 0;
+    if (descTipo === 'PORCENTAJE') {
+      const v = parsearDecimal(descValorTexto, { min: 0, max: 100 }) ?? 0;
+      return Math.round((subtotalUsdCents * v) / 100);
+    }
+    const valCents = parsearACentavos(descValorTexto, { min: 0 }) ?? 0;
+    return Math.min(subtotalUsdCents, valCents);
   }, [subtotalUsdCents, descTipo, descValorTexto]);
 
   const totalUsdCents = Math.max(0, subtotalUsdCents - descuentoCents);
@@ -250,7 +253,12 @@ export function QuickSaleView() {
           entregar_ahora: true,
           lineas: lineasParaGuardar,
           descuento_tipo: descuentoCents > 0 ? descTipo : undefined,
-          descuento_valor: descuentoCents > 0 ? (parseFloat(descValorTexto) || 0) : undefined,
+          descuento_valor:
+            descuentoCents > 0
+              ? descTipo === 'PORCENTAJE'
+                ? (parsearDecimal(descValorTexto, { min: 0, max: 100 }) ?? 0)
+                : ((parsearACentavos(descValorTexto, { min: 0 }) ?? 0) / 100)
+              : undefined,
           pago_inicial: {
             moneda,
             metodo,
@@ -302,7 +310,12 @@ export function QuickSaleView() {
         saldo_usd_cents: Math.max(0, totalUsdCents - pagadoUsd),
         anticipo_esperado_usd_cents: 0,
         descuento_tipo: descuentoCents > 0 ? descTipo : undefined,
-        descuento_valor: descuentoCents > 0 ? (parseFloat(descValorTexto) || 0) : undefined,
+        descuento_valor:
+          descuentoCents > 0
+            ? descTipo === 'PORCENTAJE'
+              ? (parsearDecimal(descValorTexto, { min: 0, max: 100 }) ?? 0)
+              : ((parsearACentavos(descValorTexto, { min: 0 }) ?? 0) / 100)
+            : undefined,
         activo: true,
         lineas: carrito.map((l, idx) => ({
           id: idx + 1,
@@ -877,7 +890,7 @@ export function QuickSaleView() {
                 { l: '$5', t: 'MONTO_FIJO', v: 5 },
                 { l: '$10', t: 'MONTO_FIJO', v: 10 },
               ] as { l: string; t: TipoDescuento; v: number }[]).map((p) => {
-                const activa = descTipo === p.t && (parseFloat(descValorTexto) || 0) === p.v;
+                const activa = descTipo === p.t && (parsearDecimal(descValorTexto) ?? 0) === p.v;
                 return (
                   <button
                     key={p.l}

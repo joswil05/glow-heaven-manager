@@ -31,5 +31,8 @@ describe('src/core/numeros.ts', () => {
     expect(parsearACentavos('-5', { min: 0 })).toBeNull();
     expect(parsearACentavos('150', { min: 0, max: 100 })).toBeNull();
     expect(parsearACentavos('50', { min: 0, max: 100 })).toBe(5000);
+    expect(parsearDecimal('-0.5', { min: 0 })).toBeNull();
+    expect(parsearDecimal('101', { max: 100 })).toBeNull();
+    expect(parsearDecimal('15', { min: 0, max: 100 })).toBe(15);
   });
 });

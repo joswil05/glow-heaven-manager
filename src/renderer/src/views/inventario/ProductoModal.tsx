@@ -23,7 +23,7 @@ import {
   Portal,
 } from '../../components/ui';
 import { calcularPrecio } from '@core/precios';
-import { parsearDecimal } from '@core/numeros';
+import { parsearDecimal, parsearACentavos } from '@core/numeros';
 import { formatearMoneda, formatearPeso, formatearFecha } from '@core/moneda';
 import { aMiniatura } from '../../lib/foto';
 import { cn } from '../../lib/cn';
@@ -67,11 +67,6 @@ export interface DatosProducto {
   notas?: string;
   stock_inicial?: { cantidad: number; costo_unitario_usd_cents: number };
 }
-
-const aCentavos = (texto: string): number => {
-  const v = parsearDecimal(texto);
-  return v === null ? 0 : Math.round(v * 100);
-};
 
 const MODOS: { valor: ModoPrecio; etiqueta: string }[] = [
   { valor: 'MARGEN', etiqueta: 'Por ganancia %' },
@@ -241,7 +236,7 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
     const packs = Math.max(1, Math.round(parsearDecimal(packsComprados) ?? 1));
     const porPack = Math.max(1, Math.round(parsearDecimal(unidadesPorPack) ?? 5));
     const totalUnidades = packs * porPack;
-    const precioPackCents = aCentavos(costoPackUsaTexto);
+    const precioPackCents = parsearACentavos(costoPackUsaTexto, { min: 0 }) ?? 0;
 
     const costoBaseUnitCents = precioPackCents > 0 ? Math.round(precioPackCents / porPack) : 0;
     const taxUnitCents =
@@ -276,9 +271,10 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
     return cat?.margen_defecto_bp ?? margenDefectoBp;
   }, [margenTexto, categoriaId, categorias, margenDefectoBp]);
 
+  const costoParsed = costoInicialTexto.trim() ? parsearACentavos(costoInicialTexto, { min: 0 }) : null;
   const costoPreview =
-    costoInicialTexto.trim() && aCentavos(costoInicialTexto) >= 0
-      ? aCentavos(costoInicialTexto)
+    costoParsed !== null
+      ? costoParsed
       : producto
       ? producto.costo_unitario_usd_cents
       : 0;
@@ -290,7 +286,7 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
         modo: modoPrecio,
         margen_bp: margenEfectivoBp,
         multiplicador_bp: Math.round((parsearDecimal(multiplicadorTexto) ?? 2) * 10000),
-        precio_manual_usd_cents: aCentavos(precioManualTexto),
+        precio_manual_usd_cents: parsearACentavos(precioManualTexto, { min: 0 }) ?? 0,
         paso_redondeo_usd_cents: pasoRedondeo,
       }),
     [
@@ -338,9 +334,32 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
         setError('Si ponés existencias iniciales, indicá el costo por unidad.');
         return false;
       }
-      if (costoInicialTexto.trim() && aCentavos(costoInicialTexto) < 0) {
-        setError('El costo por unidad debe ser un monto válido mayor o igual a 0.');
-        return false;
+      if (costoInicialTexto.trim()) {
+        const cParsed = parsearACentavos(costoInicialTexto, { min: 0 });
+        if (cParsed === null) {
+          setError('El costo por unidad debe ser un monto válido mayor o igual a $0.00.');
+          return false;
+        }
+      }
+    }
+    if (p === 3) {
+      if (modoPrecio === 'MANUAL') {
+        if (!precioManualTexto.trim()) {
+          setError('Escribí el precio de venta manual para el producto.');
+          return false;
+        }
+        const pParsed = parsearACentavos(precioManualTexto, { min: 0.01 });
+        if (pParsed === null) {
+          setError('El precio manual debe ser un monto válido mayor a $0.00.');
+          return false;
+        }
+      }
+      if (esPack && costoPackUsaTexto.trim()) {
+        const packParsed = parsearACentavos(costoPackUsaTexto, { min: 0 });
+        if (packParsed === null) {
+          setError('El costo del pack en USA debe ser un monto válido mayor o igual a $0.00.');
+          return false;
+        }
       }
     }
     if (p === 4) {
@@ -414,7 +433,7 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
   };
 
   const manejarGuardar = async () => {
-    if (!validarPaso(1) || !validarPaso(2) || !validarPaso(4)) {
+    if (!validarPaso(1) || !validarPaso(2) || !validarPaso(3) || !validarPaso(4)) {
       return;
     }
 
@@ -427,7 +446,9 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
         ? variantes.reduce((s, v) => s + Math.max(0, Math.round(parsearDecimal(v.existencias) ?? 0)), 0)
         : 0;
       const totalUnidades = tieneVariantes ? totalVariantes : cantidad;
-      const costoUnitarioCents = costoInicialTexto.trim() ? Math.max(0, aCentavos(costoInicialTexto)) : undefined;
+      const costoUnitarioCents = costoInicialTexto.trim()
+        ? parsearACentavos(costoInicialTexto, { min: 0 }) ?? undefined
+        : undefined;
 
       await onGuardar({
         id: producto?.id,
@@ -447,7 +468,8 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
           modoPrecio === 'MULTIPLICADOR'
             ? Math.round((parsearDecimal(multiplicadorTexto) ?? 2) * 10000)
             : undefined,
-        precio_manual_usd_cents: modoPrecio === 'MANUAL' ? aCentavos(precioManualTexto) : undefined,
+        precio_manual_usd_cents:
+          modoPrecio === 'MANUAL' ? parsearACentavos(precioManualTexto, { min: 0.01 }) ?? undefined : undefined,
         costo_unitario_usd_cents: costoUnitarioCents,
         stock_minimo: Math.round(parsearDecimal(stockMinimo) ?? 0),
         peso_unitario_mlb: 0,
@@ -457,9 +479,10 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
         packs_comprados: esPack
           ? Math.max(1, Math.round(parsearDecimal(packsComprados) ?? 1))
           : undefined,
-        costo_pack_usa_usd_cents: esPack && costoPackUsaTexto.trim()
-          ? aCentavos(costoPackUsaTexto)
-          : undefined,
+        costo_pack_usa_usd_cents:
+          esPack && costoPackUsaTexto.trim()
+            ? parsearACentavos(costoPackUsaTexto, { min: 0 }) ?? undefined
+            : undefined,
         aplicar_tax_usa: esPack ? aplicarTaxUsa : undefined,
         paquete_id: paqueteId,
         foto,
@@ -729,7 +752,7 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
                           onChange={(e) => {
                             setUnidadesPorPack(e.target.value);
                             const porPack = Math.max(1, Math.round(parsearDecimal(e.target.value) ?? 5));
-                            const precioPack = aCentavos(costoPackUsaTexto);
+                            const precioPack = parsearACentavos(costoPackUsaTexto, { min: 0 }) ?? 0;
                             if (precioPack > 0) {
                               const base = Math.round(precioPack / porPack);
                               const tax = aplicarTaxUsa ? Math.round(base * 0.07) : 0;
@@ -749,7 +772,7 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
                           value={costoPackUsaTexto}
                           onChange={(e) => {
                             setCostoPackUsaTexto(e.target.value);
-                            const precioPack = aCentavos(e.target.value);
+                            const precioPack = parsearACentavos(e.target.value, { min: 0 }) ?? 0;
                             const porPack = Math.max(1, Math.round(parsearDecimal(unidadesPorPack) ?? 5));
                             if (precioPack > 0) {
                               const base = Math.round(precioPack / porPack);
@@ -770,7 +793,7 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
                         checked={aplicarTaxUsa}
                         onChange={(e) => {
                           setAplicarTaxUsa(e.target.checked);
-                          const precioPack = aCentavos(costoPackUsaTexto);
+                          const precioPack = parsearACentavos(costoPackUsaTexto, { min: 0 }) ?? 0;
                           const porPack = Math.max(1, Math.round(parsearDecimal(unidadesPorPack) ?? 5));
                           if (precioPack > 0) {
                             const base = Math.round(precioPack / porPack);

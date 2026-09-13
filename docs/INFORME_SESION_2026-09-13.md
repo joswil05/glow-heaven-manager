@@ -4,7 +4,7 @@
 > **Repo**: `herramienta_de_gestion_interna/` (Electron escritorio + PWA móvil + Firestore).
 > **Rama**: `refactor/precios-bugs-ui`. Los releases se cortan desde acá, no desde `master`.
 > **Estado al cerrar**: árbol limpio, todo pusheado. Último commit `a9430de`.
-> **Versión publicada de escritorio**: `v2.2.20`. **PWA móvil**: desplegada después de v2.2.20 (lleva cambios que el instalador de escritorio no necesita).
+> **Versión publicada de escritorio**: `v2.2.21`. **PWA móvil**: desplegada en v2.2.21.
 > **Verificación**: 142/142 unitarias · 13/13 contra el emulador · typecheck 0 errores en escritorio y móvil.
 
 > **Antes que nada**: esta sesión encontró que **un arreglo de seguridad anterior había abierto un agujero peor que el original**, y que **producción no tenía ningún índice de Firestore desplegado**. Ambas cosas están corregidas y verificadas contra producción. Leé las secciones 1 y 2 antes de tocar nada.
@@ -192,19 +192,17 @@ Para que no gastes tiempo ni rompas decisiones deliberadas:
 
 ## 7. Pendientes, por orden
 
-### 7.1 Parseo de dinero incoherente entre las apps (lo más importante)
+### 7.1 Parseo de dinero incoherente entre las apps — [RESUELTO ✅]
 
-El core expone `parsearACentavos(texto, {min, max})`, que devuelve **`null`** si el texto no es válido. **El celular la usa.** **El escritorio no**: define su propia `aCentavos` local en **tres archivos** (`ProductoModal.tsx:71`, `PaqueteEditor.tsx:21`, `VentaEditor.tsx:72`), y las tres **convierten lo inválido en 0** en vez de rechazarlo.
+Se unificó todo el parseo numérico y monetario contra `@core/numeros` (`parsearDecimal` y `parsearACentavos`) tanto en escritorio como en móvil:
 
-Caso concreto en `PaqueteEditor`:
-
-```js
-if (pesoTotalMlb === 0 && envioCents === 0)  // solo falla si AMBOS son cero
-```
-
-Con un peso válido y algo inválido en el campo de envío, **el envío se guarda como $0.00 sin avisar**. Y el envío se reparte por peso sobre cada producto del paquete, así que alimenta el costo aterrizado y, a través de él, los precios de venta.
-
-**Arreglo propuesto**: unificar los tres contra `parsearACentavos` y que lo inválido se rechace con mensaje. Merece su propia pasada con pruebas. **La dueña lo postergó explícitamente** ("lo corregiremos después") — no lo hagas sin avisarle.
+- **`src/core/numeros.ts`**: se extendió `parsearDecimal` para soportar opciones de límite `{ min, max }` al igual que `parsearACentavos`, aceptando tanto coma como punto decimal y rechazando texto no numérico.
+- **`PaqueteEditor.tsx`**: eliminadas las funciones locales `aCentavos` y `aMlb`. Se validan estrictamente `pesoTotalTexto`, `envioTexto` y `otrosTexto`, rechazando entradas no numéricas o negativas con mensajes claros antes de guardar.
+- **`ProductoModal.tsx`**: eliminada la función local `aCentavos`. Se valida estrictamente el costo inicial, el precio manual y el costo del pack de USA en el paso 3 y en `manejarGuardar`, evitando guardar productos con costos o precios en `$0.00` por error de tipeo.
+- **`VentaEditor.tsx`**: `aCentavos` usa ahora `parsearACentavos`. Se agregó validación estricta en el paso 1 (cada línea debe tener cantidad entera >= 1, precio > $0.00, y costo estimado >= $0.00 si es encargo), en el paso 2 (anticipo 0-100%, cuotas >= 2 y días >= 1, descuento porcentual 0-100% o monto fijo válido) y en `guardar()`.
+- **`ConfigView.tsx`**: se validan estrictamente tasa de cambio (> 0), tax USA (0-100%), tarifa de flete/lb (>= 0), margen por defecto y por categoría (>= 0), anticipo (0-100%) y stock mínimo antes de persistir parámetros.
+- **`CobranzaView.tsx` y `ClientesView.tsx`**: los abonos de clientes ahora usan `parsearACentavos`, rechazando montos vacíos o no numéricos y manejando comas decimales limpiamente.
+- **`ventas.repo.ts` y `QuickSaleView.tsx` (Bug crítico corregido)**: se corrigió el cálculo de descuento `MONTO_FIJO` en `ventas.repo.ts` (`input.descuento_valor * 100`), pues anteriormente `Math.round(input.descuento_valor)` interpretaba dólares como centavos ($5 de descuento se guardaba como $0.05). Ahora se sincroniza y calcula en centavos idénticamente en móvil y escritorio.
 
 ### 7.2 "En camino" es interfaz muerta, pero cuesta una consulta
 

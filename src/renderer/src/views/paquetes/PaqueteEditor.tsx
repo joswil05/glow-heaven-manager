@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Package, AlertTriangle } from 'lucide-react';
 import type { CompraCompleta, ParametrosSistema, Venta } from '../../../../shared/types';
 import { Button, Field, Input, Textarea, Money, Portal } from '../../components/ui';
-import { parsearDecimal } from '@core/numeros';
+import { parsearDecimal, parsearACentavos } from '@core/numeros';
 import { formatearMoneda, formatearPeso } from '@core/moneda';
 import { useToast } from '../../context/ToastContext';
 import { cn } from '../../lib/cn';
@@ -18,8 +18,6 @@ interface PaqueteEditorProps {
 }
 
 const num = (t: string): number => parsearDecimal(t) ?? 0;
-const aCentavos = (t: string): number => Math.round(num(t) * 100);
-const aMlb = (t: string): number => Math.round(num(t) * 1000);
 
 export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
   abierto,
@@ -78,12 +76,45 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
 
   if (!abierto) return null;
 
-  const pesoTotalMlb = aMlb(pesoTotalTexto);
-  const envioCents = aCentavos(envioTexto);
-  const otrosCents = aCentavos(otrosTexto);
-  const totalCents = envioCents + otrosCents;
+  const pesoTotalMlbPreview = Math.round((parsearDecimal(pesoTotalTexto, { min: 0 }) ?? 0) * 1000);
+  const envioCentsPreview = parsearACentavos(envioTexto, { min: 0 }) ?? 0;
+  const otrosCentsPreview = parsearACentavos(otrosTexto, { min: 0 }) ?? 0;
+  const totalCents = envioCentsPreview + otrosCentsPreview;
 
   const guardar = async () => {
+    // 1. Validar peso si fue escrito
+    let pesoTotalMlb = 0;
+    if (pesoTotalTexto.trim()) {
+      const pesoDec = parsearDecimal(pesoTotalTexto);
+      if (pesoDec === null || pesoDec < 0) {
+        setError('El peso del paquete no es un número válido mayor o igual a 0.');
+        return;
+      }
+      pesoTotalMlb = Math.round(pesoDec * 1000);
+    }
+
+    // 2. Validar costo de envío si fue escrito
+    let envioCents = 0;
+    if (envioTexto.trim()) {
+      const parsedEnvio = parsearACentavos(envioTexto, { min: 0 });
+      if (parsedEnvio === null) {
+        setError('El costo de envío no es un monto válido mayor o igual a $0.00.');
+        return;
+      }
+      envioCents = parsedEnvio;
+    }
+
+    // 3. Validar otros gastos si fueron escritos
+    let otrosCents = 0;
+    if (otrosTexto.trim()) {
+      const parsedOtros = parsearACentavos(otrosTexto, { min: 0 });
+      if (parsedOtros === null) {
+        setError('El costo de otros gastos no es un monto válido mayor o igual a $0.00.');
+        return;
+      }
+      otrosCents = parsedOtros;
+    }
+
     if (pesoTotalMlb === 0 && envioCents === 0) {
       setError('Escribí cuánto pesó el paquete o cuánto pagaste de envío.');
       return;
@@ -268,13 +299,13 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
               </span>
             </div>
 
-            {pesoTotalMlb > 0 && (
+            {pesoTotalMlbPreview > 0 && (
               <div className="flex justify-between text-caption text-texto-3 pt-2 border-t border-borde/60 font-mono">
-                <span>Peso registrado: {formatearPeso(pesoTotalMlb)}</span>
+                <span>Peso registrado: {formatearPeso(pesoTotalMlbPreview)}</span>
                 <span>
                   Tarifa efectiva:{' '}
-                  {pesoTotalMlb > 0
-                    ? formatearMoneda(Math.round((envioCents * 1000) / pesoTotalMlb), 'USD')
+                  {pesoTotalMlbPreview > 0
+                    ? formatearMoneda(Math.round((envioCentsPreview * 1000) / pesoTotalMlbPreview), 'USD')
                     : '$0.00'}
                   /lb
                 </span>

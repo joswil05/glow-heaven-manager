@@ -26,7 +26,7 @@ import type {
   TipoDescuento,
 } from '../../../../shared/types';
 import { Button, Field, Input, Select, Textarea, Badge, Money, Portal } from '../../components/ui';
-import { parsearDecimal } from '@core/numeros';
+import { parsearDecimal, parsearACentavos } from '@core/numeros';
 import { formatearMoneda } from '@core/moneda';
 import { useToast } from '../../context/ToastContext';
 import { cn } from '../../lib/cn';
@@ -69,7 +69,7 @@ const nuevaLinea = (): LineaBorrador => ({
 });
 
 const num = (t: string): number => parsearDecimal(t) ?? 0;
-const aCentavos = (t: string): number => Math.round(num(t) * 100);
+const aCentavos = (t: string): number => parsearACentavos(t, { min: 0 }) ?? 0;
 
 export const VentaEditor: React.FC<VentaEditorProps> = ({
   abierto,
@@ -178,12 +178,14 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
     }, 0);
 
     let descuentoCents = 0;
-    const dv = num(descuentoValorTexto);
-    if (dv > 0) {
+    if (descuentoValorTexto.trim()) {
       if (descuentoTipo === 'PORCENTAJE') {
-        descuentoCents = Math.round((subtotal * dv) / 100);
+        const dv = parsearDecimal(descuentoValorTexto, { min: 0, max: 100 }) ?? 0;
+        if (dv > 0) {
+          descuentoCents = Math.round((subtotal * dv) / 100);
+        }
       } else {
-        descuentoCents = Math.round(dv * 100);
+        descuentoCents = parsearACentavos(descuentoValorTexto, { min: 0 }) ?? 0;
       }
     }
     descuentoCents = Math.min(subtotal, Math.max(0, descuentoCents));
@@ -337,9 +339,24 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
         setError('Cada línea necesita un producto del inventario o una descripción.');
         return false;
       }
-      if (lineas.some((l) => aCentavos(l.precio) <= 0)) {
-        setError('Poné el precio de venta de cada producto.');
-        return false;
+      for (const l of lineas) {
+        const cant = parsearDecimal(l.cantidad, { min: 1 });
+        if (cant === null) {
+          setError('La cantidad de cada producto debe ser un número entero mayor o igual a 1.');
+          return false;
+        }
+        const precioCents = parsearACentavos(l.precio, { min: 0.01 });
+        if (precioCents === null) {
+          setError('El precio de venta de cada producto debe ser un monto válido mayor a cero.');
+          return false;
+        }
+        if (esEncargo && l.costo_estimado.trim()) {
+          const costoCents = parsearACentavos(l.costo_estimado, { min: 0 });
+          if (costoCents === null) {
+            setError('El costo estimado debe ser un monto válido (mayor o igual a cero).');
+            return false;
+          }
+        }
       }
 
       for (const l of lineas) {
@@ -356,6 +373,40 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
       if (esEncargo && !clienteId) {
         setError('Un encargo necesita una clienta asignada.');
         return false;
+      }
+      if (esEncargo) {
+        const ant = parsearDecimal(anticipoTexto, { min: 0, max: 100 });
+        if (ant === null) {
+          setError('El porcentaje de anticipo debe ser un número válido entre 0 y 100.');
+          return false;
+        }
+      }
+      if (!esEncargo && formaCobro === 'CREDITO' && conCuotas) {
+        const cuotas = parsearDecimal(cuotasCantidad, { min: 2 });
+        if (cuotas === null) {
+          setError('El número de cuotas debe ser al menos 2.');
+          return false;
+        }
+        const cada = parsearDecimal(cuotasCada, { min: 1 });
+        if (cada === null) {
+          setError('Los días entre cuotas deben ser un número mayor o igual a 1.');
+          return false;
+        }
+      }
+      if (descuentoValorTexto.trim()) {
+        if (descuentoTipo === 'PORCENTAJE') {
+          const dv = parsearDecimal(descuentoValorTexto, { min: 0, max: 100 });
+          if (dv === null) {
+            setError('El porcentaje de descuento debe ser un número válido entre 0 y 100.');
+            return false;
+          }
+        } else {
+          const dv = parsearACentavos(descuentoValorTexto, { min: 0 });
+          if (dv === null) {
+            setError('El monto del descuento debe ser un valor monetario válido.');
+            return false;
+          }
+        }
       }
     }
 
@@ -431,12 +482,12 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
         tipo,
         notas: notas.trim() || undefined,
         entregar_ahora: esEncargo ? false : entregarAhora,
-        anticipo_bp: esEncargo ? Math.round(num(anticipoTexto) * 100) : undefined,
+        anticipo_bp: esEncargo ? Math.round((parsearDecimal(anticipoTexto, { min: 0, max: 100 }) ?? 50) * 100) : undefined,
         plan_cuotas:
           !esEncargo && formaCobro === 'CREDITO' && conCuotas
             ? {
-                cantidad: Math.max(2, Math.round(num(cuotasCantidad))),
-                cada_dias: Math.max(1, Math.round(num(cuotasCada))),
+                cantidad: Math.max(2, Math.round(parsearDecimal(cuotasCantidad) ?? 2)),
+                cada_dias: Math.max(1, Math.round(parsearDecimal(cuotasCada) ?? 15)),
               }
             : undefined,
         pago_inicial:
@@ -448,16 +499,24 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
               }
             : undefined,
         descuento_tipo: totales.descuentoCents > 0 ? descuentoTipo : undefined,
-        descuento_valor: totales.descuentoCents > 0 ? num(descuentoValorTexto) : undefined,
+        descuento_valor:
+          totales.descuentoCents > 0
+            ? descuentoTipo === 'PORCENTAJE'
+              ? (parsearDecimal(descuentoValorTexto, { min: 0, max: 100 }) ?? 0)
+              : ((parsearACentavos(descuentoValorTexto, { min: 0 }) ?? 0) / 100)
+            : undefined,
         descuento_motivo: descuentoMotivo.trim() || undefined,
         lineas: lineas.map((l) => ({
           producto_id: l.producto_id,
           variante_id: l.variante_id,
           descripcion: l.descripcion.trim() || undefined,
-          cantidad: Math.max(1, Math.round(num(l.cantidad))),
-          precio_unitario_usd_cents: aCentavos(l.precio),
+          cantidad: Math.max(1, Math.round(parsearDecimal(l.cantidad) ?? 1)),
+          precio_unitario_usd_cents: parsearACentavos(l.precio, { min: 0 }) ?? 0,
           es_paquete: l.es_paquete,
-          costo_estimado_unitario_usd_cents: esEncargo ? aCentavos(l.costo_estimado) : undefined,
+          costo_estimado_unitario_usd_cents:
+            esEncargo && l.costo_estimado.trim()
+              ? (parsearACentavos(l.costo_estimado, { min: 0 }) ?? undefined)
+              : undefined,
         })),
       });
 

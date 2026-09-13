@@ -34,7 +34,7 @@ import {
   Select,
   Badge,
 } from '../components/ui';
-import { parsearDecimal } from '@core/numeros';
+import { parsearDecimal, parsearACentavos } from '@core/numeros';
 import { calcularPrecio } from '@core/precios';
 import { useToast } from '../context/ToastContext';
 import { NubeSection } from './config/NubeSection';
@@ -237,16 +237,47 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
       }
     }
 
+    const tasaCents = parsearACentavos(tasa, { min: 0.01 });
+    if (tasaCents === null) {
+      showToast({ message: 'La tasa de cambio (C$ por USD) debe ser un número válido mayor a cero.', type: 'error' });
+      return;
+    }
+    const taxBp = parsearDecimal(tax, { min: 0, max: 100 });
+    if (taxBp === null) {
+      showToast({ message: 'El impuesto tax de USA (%) debe ser un número válido entre 0 y 100.', type: 'error' });
+      return;
+    }
+    const tarifaEnvioCents = parsearACentavos(tarifaEnvio, { min: 0 });
+    if (tarifaEnvioCents === null) {
+      showToast({ message: 'La tarifa de envío por libra ($) debe ser un monto válido mayor o igual a cero.', type: 'error' });
+      return;
+    }
+    const margenBp = parsearDecimal(margen, { min: 0 });
+    if (margenBp === null) {
+      showToast({ message: 'El margen de ganancia (%) debe ser un número válido mayor o igual a cero.', type: 'error' });
+      return;
+    }
+    const anticipoBp = parsearDecimal(anticipo, { min: 0, max: 100 });
+    if (anticipoBp === null) {
+      showToast({ message: 'El anticipo por defecto para encargos (%) debe ser un número entre 0 y 100.', type: 'error' });
+      return;
+    }
+    const stockMin = parsearDecimal(stockMinimo, { min: 0 });
+    if (stockMin === null) {
+      showToast({ message: 'El stock mínimo por defecto debe ser un número mayor o igual a cero.', type: 'error' });
+      return;
+    }
+
     setGuardando(true);
     try {
       const r = await window.api.parametros.update({
-        tasa_cambio_cents: Math.round(num(tasa) * 100),
-        tax_bp: Math.round(num(tax) * 100),
-        tarifa_envio_cents_lb: Math.round(num(tarifaEnvio) * 100),
-        margen_defecto_bp: Math.round(num(margen) * 100),
+        tasa_cambio_cents: tasaCents,
+        tax_bp: Math.round(taxBp * 100),
+        tarifa_envio_cents_lb: tarifaEnvioCents,
+        margen_defecto_bp: Math.round(margenBp * 100),
         paso_redondeo_usd_cents: paso,
-        anticipo_defecto_bp: Math.round(num(anticipo) * 100),
-        stock_minimo_defecto: Math.round(num(stockMinimo)),
+        anticipo_defecto_bp: Math.round(anticipoBp * 100),
+        stock_minimo_defecto: Math.round(stockMin),
         mostrar_cordobas: mostrarCordobas,
         nombre_negocio: nombreNegocio.trim(),
         telefono_negocio: telefono.trim(),
@@ -1071,10 +1102,16 @@ const CategoriasSection: React.FC<{
     const texto = editando[c.id];
     if (texto === undefined) return;
 
+    const margenParsed = parsearDecimal(texto, { min: 0 });
+    if (margenParsed === null) {
+      showToast({ message: 'El margen de ganancia (%) debe ser un porcentaje válido mayor o igual a cero.', type: 'error' });
+      return;
+    }
+
     const r = await window.api.categorias.guardar({
       id: c.id,
       nombre: c.nombre,
-      margen_defecto_bp: Math.round(num(texto) * 100),
+      margen_defecto_bp: Math.round(margenParsed * 100),
     });
 
     if (!r.success) {

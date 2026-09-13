@@ -20,6 +20,7 @@ import { EmptyState } from '../components/shared/EmptyState';
 import { useClickOutside } from '../lib/useClickOutside';
 import { useToast } from '../context/ToastContext';
 import { formatearMoneda, formatearFecha } from '@core/moneda';
+import { parsearACentavos } from '@core/numeros';
 import { cn } from '../lib/cn';
 import { formatearNombreEntidad } from '@shared/formatoTexto';
 
@@ -146,8 +147,8 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 
   const registrarAbono = async () => {
     if (!detalle) return;
-    const montoNum = parseFloat(abonoMontoTexto.replace(',', '.'));
-    if (isNaN(montoNum) || montoNum <= 0) {
+    const montoCents = parsearACentavos(abonoMontoTexto, { min: 0.01 });
+    if (montoCents === null) {
       showToast({ message: 'Ingresá un monto válido mayor a cero.', type: 'error' });
       return;
     }
@@ -156,7 +157,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
       const input: AbonoClienteInput = {
         cliente_id: detalle.id,
         fecha: abonoFecha,
-        monto_cents: Math.round(montoNum * 100),
+        monto_cents: montoCents,
         moneda: abonoMoneda,
         metodo: abonoMetodo,
         referencia: abonoReferencia.trim() || undefined,
@@ -166,7 +167,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
         showToast({ message: r.error, type: 'error' });
         return;
       }
-      showToast({ message: `Abono de ${abonoMoneda === 'USD' ? '$' : 'C$'}${montoNum.toFixed(2)} registrado`, type: 'success' });
+      showToast({ message: `Abono de ${abonoMoneda === 'USD' ? '$' : 'C$'}${(montoCents / 100).toFixed(2)} registrado`, type: 'success' });
       setAbonoMontoTexto('');
       setAbonoReferencia('');
       setAbonoAbierto(false);
