@@ -148,7 +148,7 @@ export function AbonoSelectorSheet({
                     <div className="flex items-center gap-1.5">
                       <p className="truncate text-xs font-bold text-slate-900 dark:text-white">{c.cliente_nombre}</p>
                       {vencida && (
-                        <span className="inline-flex items-center gap-0.5 rounded-md bg-rose-100 dark:bg-rose-950/80 px-1.5 py-0.2 text-[10px] font-bold text-rose-700 dark:text-rose-400">
+                        <span className="inline-flex items-center gap-0.5 rounded-md bg-rose-100 dark:bg-rose-950/80 px-1.5 py-0.5 text-[10px] font-bold text-rose-700 dark:text-rose-400">
                           <AlertTriangle size={10} />
                           Vencida
                         </span>

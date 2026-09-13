@@ -28,7 +28,6 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { PullToRefresh } from '../components/PullToRefresh';
 import { haptics } from '../lib/haptics';
-import { useScrollReveal } from '../lib/useScrollReveal';
 
 const DIAS_CORTOS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
 
@@ -62,7 +61,6 @@ export function DashboardView({
   // Confirmación antes de cerrar sesión: es un botón destructivo que vive a
   // un dedo del de actualizar, en la esquina que más pulgar recibe.
   const [confirmandoSalida, setConfirmandoSalida] = useState(false);
-  const scrollRevealRef = useScrollReveal<HTMLElement>({ threshold: 0.05, staggerMs: 30 });
 
   const cargar = useCallback(async (forzar = false) => {
     if (!cacheDashboardGlobal.panel) {
@@ -186,7 +184,6 @@ export function DashboardView({
       {/* Contenido con Pull-to-Refresh nativo */}
       <PullToRefresh onRefresh={() => cargar(true)}>
         <main
-          ref={scrollRevealRef}
           className="flex flex-col gap-2.5 px-3.5 pt-2 pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))]"
         >
           {error && (
@@ -198,7 +195,7 @@ export function DashboardView({
 
           {/* Tarjeta Hero: Ventas de Hoy (Diseño Prominente y Claro) */}
           <section
-            className="scroll-reveal relative overflow-hidden rounded-[20px] p-3.5 sm:p-4 shadow-md shadow-emerald-900/10 shrink-0 flex flex-col justify-between"
+            className="relative overflow-hidden rounded-[20px] p-3.5 sm:p-4 shadow-md shadow-emerald-900/10 shrink-0 flex flex-col justify-between"
             style={{
               background: 'linear-gradient(135deg, #059669 0%, #047857 55%, #0f766e 100%)',
               color: '#ffffff',
@@ -265,7 +262,7 @@ export function DashboardView({
           </section>
 
           {/* Tarjetas métricas de Por Cobrar e Inventario */}
-          <section className="scroll-reveal grid grid-cols-2 gap-2.5 shrink-0">
+          <section className="grid grid-cols-2 gap-2.5 shrink-0">
             <div
               onClick={() => {
                 haptics.impact('light');
@@ -280,7 +277,7 @@ export function DashboardView({
                     <p className="text-caption sm:text-label font-semibold text-slate-500 dark:text-slate-400 truncate">Por cobrar</p>
                   </div>
                   {cuotasVencidas.length > 0 && (
-                    <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900 shrink-0">
+                    <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900 shrink-0">
                       {cuotasVencidas.length} ven.
                     </span>
                   )}
@@ -307,7 +304,7 @@ export function DashboardView({
                     <p className="text-caption sm:text-label font-semibold text-slate-500 dark:text-slate-400 truncate">Inventario</p>
                   </div>
                   {(panel?.bajo_stock.length ?? 0) > 0 && (
-                    <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-900 shrink-0 flex items-center gap-0.5">
+                    <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-900 shrink-0 flex items-center gap-0.5">
                       <PackageX size={10} />
                       {panel!.bajo_stock.length} bajo
                     </span>
@@ -323,7 +320,7 @@ export function DashboardView({
           </section>
 
           {/* Gráfico 7 días interactivo (Altura balanceada, sin estiramiento) */}
-          <section className="scroll-reveal m3-card p-3 sm:p-3.5 shrink-0 flex flex-col gap-2">
+          <section className="m3-card p-3 sm:p-3.5 shrink-0 flex flex-col gap-2">
             <div className="flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2 text-body font-bold text-slate-800 dark:text-slate-100">
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 shrink-0">
@@ -409,7 +406,7 @@ export function DashboardView({
                 onIrAInventario?.();
               }
             }}
-            className={`scroll-reveal m3-card px-3.5 py-2 h-16 max-h-16 shrink-0 overflow-hidden flex items-center justify-between gap-3 border transition-colors ${
+            className={`m3-card px-3.5 py-2 h-16 max-h-16 shrink-0 overflow-hidden flex items-center justify-between gap-3 border transition-colors ${
               (panel?.bajo_stock?.length ?? 0) > 0
                 ? 'bg-rose-50/50 dark:bg-rose-950/20 border-rose-200/60 dark:border-rose-900/40 cursor-pointer active:scale-[0.99]'
                 : 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200/50 dark:border-emerald-900/30'

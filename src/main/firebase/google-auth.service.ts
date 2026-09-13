@@ -1,7 +1,8 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
-import { app, shell, BrowserWindow } from 'electron';
+import crypto from 'node:crypto';
+import { app, shell, BrowserWindow, safeStorage } from 'electron';
 import { FIREBASE_CONFIG } from '../../shared/firebase-config';
 import type { UsuarioGoogle } from '../../shared/ipc-contracts';
 
@@ -29,8 +30,19 @@ export class GoogleAuthService {
     const ruta = getSessionPath();
     if (fs.existsSync(ruta)) {
       try {
-        const raw = fs.readFileSync(ruta, 'utf-8');
-        this.usuarioActivo = JSON.parse(raw) as UsuarioGoogle;
+        const raw = fs.readFileSync(ruta);
+        let contenidoStr = '';
+        if (safeStorage && safeStorage.isEncryptionAvailable()) {
+          try {
+            contenidoStr = safeStorage.decryptString(raw);
+          } catch {
+            // Si el archivo estaba en texto plano antes de la actualización
+            contenidoStr = raw.toString('utf-8');
+          }
+        } else {
+          contenidoStr = raw.toString('utf-8');
+        }
+        this.usuarioActivo = JSON.parse(contenidoStr) as UsuarioGoogle;
         return this.usuarioActivo;
       } catch (err) {
         console.error('Error al leer sesión guardada:', err);
@@ -64,6 +76,7 @@ export class GoogleAuthService {
     return new Promise((resolve, reject) => {
       let server: http.Server | null = null;
       let terminado = false;
+      const csrfState = crypto.randomBytes(24).toString('hex');
 
       const limpiar = () => {
         if (!terminado) {
@@ -90,7 +103,7 @@ export class GoogleAuthService {
         // 1. Ruta de servicio de la página de login
         if (url.pathname === '/' || url.pathname === '/auth') {
           res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-          res.end(GoogleAuthService.generarPaginaHtml());
+          res.end(GoogleAuthService.generarPaginaHtml(csrfState));
           return;
         }
 
@@ -103,6 +116,17 @@ export class GoogleAuthService {
           req.on('end', async () => {
             try {
               const data = JSON.parse(body);
+
+              // Validación CSRF de State (M-2)
+              if (!data.state || data.state !== csrfState) {
+                res.writeHead(403, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Validación CSRF fallida: state mismatch' }));
+                clearTimeout(timeout);
+                limpiar();
+                reject(new Error('Token de estado CSRF inválido en autenticación Google.'));
+                return;
+              }
+
               if (!data.email || !data.uid) {
                 res.writeHead(400, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ error: 'Datos de usuario inválidos' }));
@@ -116,7 +140,7 @@ export class GoogleAuthService {
                 foto: data.foto || undefined,
               };
 
-              // Sincronizar credencial con la instancia Firebase Auth en Node si viene token
+              // Sincronizar credencial con la instancia Firebase Auth en Node si viene token (M-1)
               if (data.idToken) {
                 try {
                   const { getAuth, GoogleAuthProvider, signInWithCredential } = await import('firebase/auth');
@@ -127,13 +151,26 @@ export class GoogleAuthService {
                   await signInWithCredential(auth, cred);
                   console.log('[GoogleAuthService] Sesión de Firebase sincronizada en proceso principal.');
                 } catch (authErr) {
-                  console.warn('[GoogleAuthService] Advertencia al sincronizar credencial con Auth principal:', authErr);
+                  console.error('[GoogleAuthService] Error al sincronizar credencial con Auth principal:', authErr);
+                  res.writeHead(401, { 'Content-Type': 'application/json' });
+                  res.end(JSON.stringify({ error: 'No se pudo sincronizar la credencial con Firebase.' }));
+                  clearTimeout(timeout);
+                  limpiar();
+                  reject(authErr instanceof Error ? authErr : new Error(String(authErr)));
+                  return;
                 }
               }
 
-              // Guardar sesión persistente
+              // Guardar sesión persistente cifrada con safeStorage (A-1)
               GoogleAuthService.usuarioActivo = usuario;
-              fs.writeFileSync(getSessionPath(), JSON.stringify({ ...usuario, idToken: data.idToken }, null, 2), 'utf-8');
+              const sessionRaw = JSON.stringify({ ...usuario, idToken: data.idToken }, null, 2);
+              const sessionPath = getSessionPath();
+              if (safeStorage && safeStorage.isEncryptionAvailable()) {
+                const encrypted = safeStorage.encryptString(sessionRaw);
+                fs.writeFileSync(sessionPath, encrypted);
+              } else {
+                fs.writeFileSync(sessionPath, sessionRaw, 'utf-8');
+              }
 
               res.writeHead(200, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify({ ok: true }));
@@ -182,7 +219,7 @@ export class GoogleAuthService {
     });
   }
 
-  private static generarPaginaHtml(): string {
+  private static generarPaginaHtml(csrfState: string): string {
     return `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -296,7 +333,8 @@ export class GoogleAuthService {
             email: user.email,
             nombre: user.displayName,
             foto: user.photoURL,
-            idToken: idToken
+            idToken: idToken,
+            state: '${csrfState}'
           })
         });
 

@@ -248,7 +248,7 @@ export function KardexClienteSheet({
                           {esEfectivo ? 'Efectivo' : esTransferencia ? 'Transferencia' : 'Otro'}
                         </span>
                         {p.es_anticipo && (
-                          <span className="text-[10px] font-extrabold bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 px-1.5 py-0.2 rounded-md">
+                          <span className="text-[10px] font-extrabold bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded-md">
                             Anticipo
                           </span>
                         )}

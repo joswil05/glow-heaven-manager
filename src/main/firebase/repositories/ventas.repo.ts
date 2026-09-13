@@ -249,184 +249,224 @@ export class VentasRepoFirestore {
     let total = 0;
     let costoTotal = 0;
     const lineasGuardadas: VentaLinea[] = [];
+    const salidasRealizadas: Array<{
+      producto_id: number;
+      variante_id?: number;
+      cantidad: number;
+      costo_salida_usd_cents: number;
+    }> = [];
 
-    for (let i = 0; i < input.lineas.length; i++) {
-      const linea = input.lineas[i];
-      const cantidad = Math.max(1, Math.round(linea.cantidad));
-      const prod = linea.producto_id ? productos.get(String(linea.producto_id)) : undefined;
+    try {
+      for (let i = 0; i < input.lineas.length; i++) {
+        const linea = input.lineas[i];
+        const cantidad = Math.max(1, Math.round(linea.cantidad));
+        const prod = linea.producto_id ? productos.get(String(linea.producto_id)) : undefined;
 
-      let descripcion = linea.descripcion?.trim() || prod?.nombre || '';
-      let precioUnitario =
-        linea.precio_unitario_usd_cents ?? prod?.precio_venta_usd_cents ?? 0;
-      let costoUnitario = linea.costo_estimado_unitario_usd_cents ?? 0;
-      let costoLinea = costoUnitario * cantidad;
+        let descripcion = linea.descripcion?.trim() || prod?.nombre || '';
+        let precioUnitario =
+          linea.precio_unitario_usd_cents ?? prod?.precio_venta_usd_cents ?? 0;
+        let costoUnitario = linea.costo_estimado_unitario_usd_cents ?? 0;
+        let costoLinea = costoUnitario * cantidad;
 
-      if (prod && !esEncargo) {
-        const salida = await ProductosRepoFirestore.salida({
-          producto_id: linea.producto_id!,
-          variante_id: linea.variante_id,
-          cantidad,
-          referencia_tipo: 'VENTA',
-          referencia_id: ventaId,
-          detalle: `Venta ${codigo}`,
-        });
-        costoLinea = salida.costo_salida_usd_cents;
-        costoUnitario = Math.round(costoLinea / cantidad);
-      }
+        if (prod && !esEncargo) {
+          const salida = await ProductosRepoFirestore.salida({
+            producto_id: linea.producto_id!,
+            variante_id: linea.variante_id,
+            cantidad,
+            referencia_tipo: 'VENTA',
+            referencia_id: ventaId,
+            detalle: `Venta ${codigo}`,
+          });
+          salidasRealizadas.push({
+            producto_id: linea.producto_id!,
+            variante_id: linea.variante_id,
+            cantidad,
+            costo_salida_usd_cents: salida.costo_salida_usd_cents,
+          });
+          costoLinea = salida.costo_salida_usd_cents;
+          costoUnitario = Math.round(costoLinea / cantidad);
+        }
 
-      const subtotal = precioUnitario * cantidad;
-      total += subtotal;
-      costoTotal += costoLinea;
+        const subtotal = precioUnitario * cantidad;
+        total += subtotal;
+        costoTotal += costoLinea;
 
-      lineasGuardadas.push({
-        id: i + 1,
-        venta_id: ventaId,
-        producto_id: linea.producto_id,
-        variante_id: linea.variante_id,
-        descripcion,
-        cantidad,
-        precio_unitario_usd_cents: precioUnitario,
-        costo_unitario_usd_cents: costoUnitario,
-        subtotal_usd_cents: subtotal,
-        costo_total_usd_cents: costoLinea,
-        es_paquete: Boolean(linea.es_paquete),
-        orden: i,
-      });
-    }
-
-    // Aplicar descuento sobre el subtotal si fue especificado
-    const subtotalVenta = total;
-    let descuentoUsdCents = 0;
-    if (input.descuento_tipo === 'PORCENTAJE' && input.descuento_valor && input.descuento_valor > 0) {
-      descuentoUsdCents = Math.round((subtotalVenta * input.descuento_valor) / 100);
-    } else if (input.descuento_tipo === 'MONTO_FIJO' && input.descuento_valor && input.descuento_valor > 0) {
-      descuentoUsdCents = Math.round(input.descuento_valor);
-    }
-    descuentoUsdCents = Math.min(subtotalVenta, Math.max(0, descuentoUsdCents));
-    total = Math.max(0, subtotalVenta - descuentoUsdCents);
-
-    const anticipoBp = esEncargo
-      ? (input.anticipo_bp ?? params.anticipo_defecto_bp ?? 5000)
-      : 0;
-
-    let pagadoUsdCents = 0;
-    let pagoDoc: Pago | null = null;
-
-    if (input.pago_inicial) {
-      const montoInput =
-        input.pago_inicial.monto_cents ??
-        (input.pago_inicial.moneda === 'COR'
-          ? Math.round((total * tasa) / 100)
-          : total);
-      const montoUsd =
-        input.pago_inicial.moneda === 'COR'
-          ? Math.round((montoInput * 100) / tasa)
-          : montoInput;
-      const montoCor =
-        input.pago_inicial.moneda === 'COR'
-          ? montoInput
-          : Math.round((montoUsd * tasa) / 100);
-
-      pagadoUsdCents = Math.min(total, Math.max(0, montoUsd));
-
-      if (pagadoUsdCents > 0) {
-        const pagoId = await siguienteId('pagos');
-        pagoDoc = {
-          id: pagoId,
+        lineasGuardadas.push({
+          id: i + 1,
           venta_id: ventaId,
-          cliente_id: input.cliente_id,
-          fecha: input.fecha,
-          monto_usd_cents: pagadoUsdCents,
-          monto_cor_cents: montoCor,
-          moneda: input.pago_inicial.moneda,
-          tasa_cambio_cents: tasa,
-          metodo: input.pago_inicial.metodo,
-          referencia: input.pago_inicial.referencia,
-          notas: input.pago_inicial.notas,
-          es_anticipo: esEncargo,
-          activo: true,
-        };
+          producto_id: linea.producto_id,
+          variante_id: linea.variante_id,
+          descripcion,
+          cantidad,
+          precio_unitario_usd_cents: precioUnitario,
+          costo_unitario_usd_cents: costoUnitario,
+          subtotal_usd_cents: subtotal,
+          costo_total_usd_cents: costoLinea,
+          es_paquete: Boolean(linea.es_paquete),
+          orden: i,
+        });
       }
-    }
 
-    const saldoUsdCents = Math.max(0, total - pagadoUsdCents);
+      // Aplicar descuento sobre el subtotal si fue especificado
+      const subtotalVenta = total;
+      let descuentoUsdCents = 0;
+      if (input.descuento_tipo === 'PORCENTAJE' && input.descuento_valor && input.descuento_valor > 0) {
+        descuentoUsdCents = Math.round((subtotalVenta * input.descuento_valor) / 100);
+      } else if (input.descuento_tipo === 'MONTO_FIJO' && input.descuento_valor && input.descuento_valor > 0) {
+        descuentoUsdCents = Math.round(input.descuento_valor);
+      }
+      descuentoUsdCents = Math.min(subtotalVenta, Math.max(0, descuentoUsdCents));
+      total = Math.max(0, subtotalVenta - descuentoUsdCents);
 
-    const nuevaVenta: VentaDoc = {
-      id: ventaId,
-      codigo,
-      cliente_id: input.cliente_id,
-      fecha: input.fecha,
-      tipo: input.tipo,
-      estado: esEncargo
-        ? (saldoUsdCents === 0 ? 'PENDIENTE' : 'COTIZADA')
-        : input.entregar_ahora === false
-          ? 'PENDIENTE'
-          : 'ENTREGADA',
-      tasa_cambio_cents: tasa,
-      subtotal_usd_cents: subtotalVenta,
-      descuento_usd_cents: descuentoUsdCents,
-      descuento_tipo: input.descuento_tipo,
-      descuento_valor: input.descuento_valor,
-      descuento_motivo: input.descuento_motivo?.trim() || undefined,
-      total_usd_cents: total,
-      costo_total_usd_cents: costoTotal,
-      ganancia_usd_cents: total - costoTotal,
-      pagado_usd_cents: pagadoUsdCents,
-      saldo_usd_cents: saldoUsdCents,
-      anticipo_esperado_usd_cents: Math.round((total * anticipoBp) / 10000),
-      notas: input.notas?.trim() || undefined,
-      lineas: lineasGuardadas,
-      cuotas:
-        input.plan_cuotas && input.plan_cuotas.cantidad > 1
-          ? this.generarPlanCuotas(ventaId, saldoUsdCents > 0 ? saldoUsdCents : total, input.plan_cuotas, input.fecha)
-          : [],
-      activo: true,
-      creado_en: new Date().toISOString(),
-    };
+      const anticipoBp = esEncargo
+        ? (input.anticipo_bp ?? params.anticipo_defecto_bp ?? 5000)
+        : 0;
 
-    const operacionesLote: OperacionLote[] = [
-      {
-        coleccion: 'ventas',
+      let pagadoUsdCents = 0;
+      let pagoDoc: Pago | null = null;
+
+      if (input.pago_inicial) {
+        const montoInput =
+          input.pago_inicial.monto_cents ??
+          (input.pago_inicial.moneda === 'COR'
+            ? Math.round((total * tasa) / 100)
+            : total);
+        const montoUsd =
+          input.pago_inicial.moneda === 'COR'
+            ? Math.round((montoInput * 100) / tasa)
+            : montoInput;
+        const montoCor =
+          input.pago_inicial.moneda === 'COR'
+            ? montoInput
+            : Math.round((montoUsd * tasa) / 100);
+
+        pagadoUsdCents = Math.min(total, Math.max(0, montoUsd));
+
+        if (pagadoUsdCents > 0) {
+          const pagoId = await siguienteId('pagos');
+          pagoDoc = {
+            id: pagoId,
+            venta_id: ventaId,
+            cliente_id: input.cliente_id,
+            fecha: input.fecha,
+            monto_usd_cents: pagadoUsdCents,
+            monto_cor_cents: montoCor,
+            moneda: input.pago_inicial.moneda,
+            tasa_cambio_cents: tasa,
+            metodo: input.pago_inicial.metodo,
+            referencia: input.pago_inicial.referencia,
+            notas: input.pago_inicial.notas,
+            es_anticipo: esEncargo,
+            activo: true,
+          };
+        }
+      }
+
+      const saldoUsdCents = Math.max(0, total - pagadoUsdCents);
+
+      const nuevaVenta: VentaDoc = {
         id: ventaId,
-        merge: false,
-        datos: sinUndefined(nuevaVenta as unknown as Record<string, unknown>),
-      },
-    ];
+        codigo,
+        cliente_id: input.cliente_id,
+        fecha: input.fecha,
+        tipo: input.tipo,
+        estado: esEncargo
+          ? (saldoUsdCents === 0 ? 'PENDIENTE' : 'COTIZADA')
+          : input.entregar_ahora === false
+            ? 'PENDIENTE'
+            : 'ENTREGADA',
+        tasa_cambio_cents: tasa,
+        subtotal_usd_cents: subtotalVenta,
+        descuento_usd_cents: descuentoUsdCents,
+        descuento_tipo: input.descuento_tipo,
+        descuento_valor: input.descuento_valor,
+        descuento_motivo: input.descuento_motivo?.trim() || undefined,
+        total_usd_cents: total,
+        costo_total_usd_cents: costoTotal,
+        ganancia_usd_cents: total - costoTotal,
+        pagado_usd_cents: pagadoUsdCents,
+        saldo_usd_cents: saldoUsdCents,
+        anticipo_esperado_usd_cents: Math.round((total * anticipoBp) / 10000),
+        notas: input.notas?.trim() || undefined,
+        lineas: lineasGuardadas,
+        cuotas:
+          input.plan_cuotas && input.plan_cuotas.cantidad > 1
+            ? this.generarPlanCuotas(ventaId, saldoUsdCents > 0 ? saldoUsdCents : total, input.plan_cuotas, input.fecha)
+            : [],
+        activo: true,
+        creado_en: new Date().toISOString(),
+      };
 
-    if (pagoDoc) {
-      operacionesLote.push({
-        coleccion: 'pagos',
-        id: pagoDoc.id,
-        merge: false,
-        datos: sinUndefined(pagoDoc as unknown as Record<string, unknown>),
-      });
-    }
+      const operacionesLote: OperacionLote[] = [
+        {
+          coleccion: 'ventas',
+          id: ventaId,
+          merge: false,
+          datos: sinUndefined(nuevaVenta as unknown as Record<string, unknown>),
+        },
+      ];
 
-    await aplicarLote(operacionesLote);
+      if (pagoDoc) {
+        operacionesLote.push({
+          coleccion: 'pagos',
+          id: pagoDoc.id,
+          merge: false,
+          datos: sinUndefined(pagoDoc as unknown as Record<string, unknown>),
+        });
+      }
 
-    if (pagoDoc) {
+      await aplicarLote(operacionesLote);
+
+      if (pagoDoc) {
+        await EventosRepoFirestore.registrarEvento({
+          evento_grupo_id,
+          entidad_tipo: 'pagos',
+          entidad_id: pagoDoc.id,
+          tipo_evento: 'CREACION',
+          detalle: `Pago inicial de $${(pagoDoc.monto_usd_cents / 100).toFixed(2)} registrado en venta ${codigo}`,
+        });
+      }
+
+      // Los totales del cliente se derivan de sus ventas; en Firestore hay que
+      // refrescarlos a mano después de cada una.
+      await ClientesRepoFirestore.refrescarTotales(input.cliente_id);
+
       await EventosRepoFirestore.registrarEvento({
         evento_grupo_id,
-        entidad_tipo: 'pagos',
-        entidad_id: pagoDoc.id,
+        entidad_tipo: 'ventas',
+        entidad_id: ventaId,
         tipo_evento: 'CREACION',
-        detalle: `Pago inicial de $${(pagoDoc.monto_usd_cents / 100).toFixed(2)} registrado en venta ${codigo}`,
+        detalle: `${esEncargo ? 'Encargo' : 'Venta'} ${codigo} registrada`,
       });
+
+      return ventaId;
+    } catch (err) {
+      if (salidasRealizadas.length > 0) {
+        console.warn(
+          `[VentasRepo] Revirtiendo ${salidasRealizadas.length} salidas de inventario debido a fallo en creación de venta #${ventaId}:`,
+          err
+        );
+        for (const s of salidasRealizadas) {
+          try {
+            await ProductosRepoFirestore.entrada({
+              producto_id: s.producto_id,
+              variante_id: s.variante_id,
+              cantidad: s.cantidad,
+              costo_total_usd_cents: s.costo_salida_usd_cents,
+              referencia_tipo: 'VENTA',
+              referencia_id: ventaId,
+              detalle: `Reversión automática por venta fallida ${codigo}`,
+            });
+          } catch (revertErr) {
+            console.error(
+              `[VentasRepo] Error crítico al revertir salida de producto #${s.producto_id}:`,
+              revertErr
+            );
+          }
+        }
+      }
+      throw err;
     }
-
-    // Los totales del cliente se derivan de sus ventas; en Firestore hay que
-    // refrescarlos a mano después de cada una.
-    await ClientesRepoFirestore.refrescarTotales(input.cliente_id);
-
-    await EventosRepoFirestore.registrarEvento({
-      evento_grupo_id,
-      entidad_tipo: 'ventas',
-      entidad_id: ventaId,
-      tipo_evento: 'CREACION',
-      detalle: `${esEncargo ? 'Encargo' : 'Venta'} ${codigo} registrada`,
-    });
-
-    return ventaId;
   }
 
   /**

@@ -743,7 +743,14 @@ export class ProductosRepoFirestore {
         );
       }
 
-      const retiradas = Math.min(variantes[idx].existencias || 0, resultado.unidades_retiradas);
+      const existenciasVariante = variantes[idx].existencias || 0;
+      if (params.cantidad > existenciasVariante && !params.permitirNegativo) {
+        throw new Error(
+          `No hay suficientes existencias de la variante seleccionada en '${p.nombre}'. Disponibles: ${existenciasVariante}, pedidas: ${params.cantidad}.`
+        );
+      }
+
+      const retiradas = params.permitirNegativo ? params.cantidad : Math.min(existenciasVariante, resultado.unidades_retiradas);
       variantes[idx] = {
         ...variantes[idx],
         existencias: (variantes[idx].existencias || 0) - retiradas,

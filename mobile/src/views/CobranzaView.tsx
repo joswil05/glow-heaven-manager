@@ -178,7 +178,7 @@ export function CobranzaView() {
             }`}
           >
             <span>Todas</span>
-            <span className="text-[10px] py-0.2 px-1.5 rounded-full bg-slate-200/60 dark:bg-slate-700/60 font-semibold">
+            <span className="text-[10px] py-0.5 px-1.5 rounded-full bg-slate-200/60 dark:bg-slate-700/60 font-semibold">
               {cuentas.length}
             </span>
           </button>
@@ -200,7 +200,7 @@ export function CobranzaView() {
             <span>Vencidas</span>
             {cuentasVencidas.length > 0 && (
               <span
-                className={`text-[10px] py-0.2 px-1.5 rounded-full font-bold ${
+                className={`text-[10px] py-0.5 px-1.5 rounded-full font-bold ${
                   filtro === 'vencidas'
                     ? 'bg-white/20 text-white'
                     : 'bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300'
@@ -225,7 +225,7 @@ export function CobranzaView() {
           >
             <span>Al día</span>
             <span
-              className={`text-[10px] py-0.2 px-1.5 rounded-full font-semibold ${
+              className={`text-[10px] py-0.5 px-1.5 rounded-full font-semibold ${
                 filtro === 'al_dia'
                   ? 'bg-white/20 text-white'
                   : 'bg-slate-200/60 dark:bg-slate-700/60'

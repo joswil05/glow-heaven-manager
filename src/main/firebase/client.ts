@@ -1,6 +1,9 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import {
   getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
   connectFirestoreEmulator,
   Firestore,
   doc,
@@ -20,7 +23,21 @@ let firestoreInstance: Firestore | null = null;
 export function getFirestoreDb(): Firestore {
   if (!firestoreInstance) {
     const app = getApps().length === 0 ? initializeApp(FIREBASE_CONFIG) : getApp();
-    firestoreInstance = getFirestore(app);
+
+    // En navegador/PWA móvil, habilitar caché local persistente con IndexedDB (M-6)
+    if (typeof window !== 'undefined') {
+      try {
+        firestoreInstance = initializeFirestore(app, {
+          localCache: persistentLocalCache({
+            tabManager: persistentMultipleTabManager(),
+          }),
+        });
+      } catch {
+        firestoreInstance = getFirestore(app);
+      }
+    } else {
+      firestoreInstance = getFirestore(app);
+    }
 
     // `FIRESTORE_EMULATOR_HOST` redirige al emulador local. Es la variable
     // que ya usan las herramientas de Firebase, y permite probar contra el

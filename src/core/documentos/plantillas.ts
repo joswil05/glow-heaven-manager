@@ -2,6 +2,19 @@ import type { VentaCompleta, ParametrosSistema, CuentaBancaria } from '../../sha
 import { formatearMoneda, formatearFecha } from '../moneda';
 
 /**
+ * Escapa caracteres especiales para evitar inyección de HTML en documentos generados.
+ */
+export function escaparHtml(texto: unknown): string {
+  if (texto === null || texto === undefined) return '';
+  return String(texto)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+/**
  * Genera el documento HTML completo de una Factura Comercial de Venta.
  */
 export function generarHtmlFactura(venta: VentaCompleta, parametros: ParametrosSistema): string {
@@ -271,10 +284,10 @@ export function generarHtmlFactura(venta: VentaCompleta, parametros: ParametrosS
 <body>
   <div class="header">
     <div>
-      <div class="brand-title">${parametros.nombre_negocio || 'GLOW HEAVEN'}</div>
+      <div class="brand-title">${escaparHtml(parametros.nombre_negocio || 'GLOW HEAVEN')}</div>
       <div class="brand-subtitle">Moda & Accesorios Exclusivos</div>
       <div class="brand-contact">
-        ${parametros.telefono_negocio ? `Tel: ${parametros.telefono_negocio} · ` : ''}Managua, Nicaragua
+        ${parametros.telefono_negocio ? `Tel: ${escaparHtml(parametros.telefono_negocio)} · ` : ''}Managua, Nicaragua
       </div>
     </div>
     <div class="doc-meta">
@@ -287,21 +300,21 @@ export function generarHtmlFactura(venta: VentaCompleta, parametros: ParametrosS
   <div class="client-card">
     <div>
       <div class="client-label">Cliente</div>
-      <div class="client-value">${venta.cliente_nombre || venta.cliente?.nombre || 'Cliente Mostrador'}</div>
+      <div class="client-value">${escaparHtml(venta.cliente_nombre || venta.cliente?.nombre || 'Cliente Mostrador')}</div>
     </div>
     <div>
       <div class="client-label">Teléfono / WhatsApp</div>
-      <div class="client-value">${venta.cliente?.telefono || 'No registrado'}</div>
+      <div class="client-value">${escaparHtml(venta.cliente?.telefono || 'No registrado')}</div>
     </div>
     ${venta.cliente?.ciudad ? `
     <div>
       <div class="client-label">Ciudad</div>
-      <div class="client-value">${venta.cliente.ciudad}</div>
+      <div class="client-value">${escaparHtml(venta.cliente.ciudad)}</div>
     </div>` : ''}
     ${venta.cliente?.direccion ? `
     <div>
       <div class="client-label">Dirección</div>
-      <div class="client-value">${venta.cliente.direccion}</div>
+      <div class="client-value">${escaparHtml(venta.cliente.direccion)}</div>
     </div>` : ''}
   </div>
 
@@ -316,11 +329,11 @@ export function generarHtmlFactura(venta: VentaCompleta, parametros: ParametrosS
     </thead>
     <tbody>
       ${venta.lineas.map((l) => {
-        const variantes = [l.talla, l.color].filter(Boolean).join(' · ');
+        const variantes = [l.talla, l.color].filter(Boolean).map(escaparHtml).join(' · ');
         return `
         <tr>
           <td>
-            <div class="item-desc">${l.descripcion}</div>
+            <div class="item-desc">${escaparHtml(l.descripcion)}</div>
             ${variantes ? `<div class="item-variant">${variantes}</div>` : ''}
           </td>
           <td style="text-align: center; font-weight: 600;">${l.cantidad}</td>
@@ -351,7 +364,7 @@ export function generarHtmlFactura(venta: VentaCompleta, parametros: ParametrosS
         <td class="value">${formatearMoneda(subtotal, 'USD')}</td>
       </tr>
       <tr class="discount-row">
-        <td class="label">Descuento${venta.descuento_motivo ? ` (${venta.descuento_motivo})` : ''}:</td>
+        <td class="label">Descuento${venta.descuento_motivo ? ` (${escaparHtml(venta.descuento_motivo)})` : ''}:</td>
         <td class="value">-${formatearMoneda(descuento, 'USD')}</td>
       </tr>
       ` : ''}
@@ -380,13 +393,13 @@ export function generarHtmlFactura(venta: VentaCompleta, parametros: ParametrosS
   <div class="bank-accounts">
     <div class="bank-title">💳 Cuentas bancarias para transferencias</div>
     <ul class="bank-list">
-      ${cuentas.map((c: CuentaBancaria) => `<li><strong>${c.banco} (${c.moneda}):</strong> ${c.numero}${c.titular ? ` · ${c.titular}` : ''}</li>`).join('')}
+      ${cuentas.map((c: CuentaBancaria) => `<li><strong>${escaparHtml(c.banco)} (${escaparHtml(c.moneda)}):</strong> ${escaparHtml(c.numero)}${c.titular ? ` · ${escaparHtml(c.titular)}` : ''}</li>`).join('')}
     </ul>
   </div>
   ` : ''}
 
   <div class="footer">
-    <p>¡Gracias por elegir <strong>${parametros.nombre_negocio || 'Glow Heaven'}</strong>! 💖</p>
+    <p>¡Gracias por elegir <strong>${escaparHtml(parametros.nombre_negocio || 'Glow Heaven')}</strong>! 💖</p>
     <p>Cambios válidos dentro de los primeros 5 días presentando este comprobante. Las prendas deben conservar sus etiquetas intactas.</p>
   </div>
 </body>
@@ -689,10 +702,10 @@ export function generarHtmlProforma(venta: VentaCompleta, parametros: Parametros
 <body>
   <div class="header">
     <div>
-      <div class="brand-title">${parametros.nombre_negocio || 'GLOW HEAVEN'}</div>
+      <div class="brand-title">${escaparHtml(parametros.nombre_negocio || 'GLOW HEAVEN')}</div>
       <div class="brand-subtitle">Servicio de Encargos & Importación</div>
       <div class="brand-contact">
-        ${parametros.telefono_negocio ? `Tel: ${parametros.telefono_negocio} · ` : ''}Managua, Nicaragua
+        ${parametros.telefono_negocio ? `Tel: ${escaparHtml(parametros.telefono_negocio)} · ` : ''}Managua, Nicaragua
       </div>
     </div>
     <div class="doc-meta">
@@ -705,21 +718,21 @@ export function generarHtmlProforma(venta: VentaCompleta, parametros: Parametros
   <div class="client-card">
     <div>
       <div class="client-label">Clienta</div>
-      <div class="client-value">${venta.cliente_nombre || venta.cliente?.nombre || 'Clienta'}</div>
+      <div class="client-value">${escaparHtml(venta.cliente_nombre || venta.cliente?.nombre || 'Clienta')}</div>
     </div>
     <div>
       <div class="client-label">Teléfono / WhatsApp</div>
-      <div class="client-value">${venta.cliente?.telefono || 'No registrado'}</div>
+      <div class="client-value">${escaparHtml(venta.cliente?.telefono || 'No registrado')}</div>
     </div>
     ${venta.cliente?.ciudad ? `
     <div>
       <div class="client-label">Ciudad de Entrega</div>
-      <div class="client-value">${venta.cliente.ciudad}</div>
+      <div class="client-value">${escaparHtml(venta.cliente.ciudad)}</div>
     </div>` : ''}
     ${venta.cliente?.direccion ? `
     <div>
       <div class="client-label">Dirección</div>
-      <div class="client-value">${venta.cliente.direccion}</div>
+      <div class="client-value">${escaparHtml(venta.cliente.direccion)}</div>
     </div>` : ''}
   </div>
 
@@ -734,11 +747,11 @@ export function generarHtmlProforma(venta: VentaCompleta, parametros: Parametros
     </thead>
     <tbody>
       ${venta.lineas.map((l) => {
-        const variantes = [l.talla, l.color].filter(Boolean).join(' · ');
+        const variantes = [l.talla, l.color].filter(Boolean).map(escaparHtml).join(' · ');
         return `
         <tr>
           <td>
-            <div class="item-desc">${l.descripcion}</div>
+            <div class="item-desc">${escaparHtml(l.descripcion)}</div>
             ${variantes ? `<div class="item-variant">${variantes}</div>` : ''}
           </td>
           <td style="text-align: center; font-weight: 600;">${l.cantidad}</td>
@@ -799,13 +812,13 @@ export function generarHtmlProforma(venta: VentaCompleta, parametros: Parametros
   <div class="bank-accounts">
     <div class="bank-title">💳 Cuentas bancarias para depósito del anticipo</div>
     <ul class="bank-list">
-      ${cuentas.map((c: CuentaBancaria) => `<li><strong>${c.banco} (${c.moneda}):</strong> ${c.numero}${c.titular ? ` · ${c.titular}` : ''}</li>`).join('')}
+      ${cuentas.map((c: CuentaBancaria) => `<li><strong>${escaparHtml(c.banco)} (${escaparHtml(c.moneda)}):</strong> ${escaparHtml(c.numero)}${c.titular ? ` · ${escaparHtml(c.titular)}` : ''}</li>`).join('')}
     </ul>
   </div>
   ` : ''}
 
   <div class="footer">
-    <p>¡Gracias por confiar en <strong>${parametros.nombre_negocio || 'Glow Heaven'}</strong> para tus prendas favoritas! ✈️🛍️</p>
+    <p>¡Gracias por confiar en <strong>${escaparHtml(parametros.nombre_negocio || 'Glow Heaven')}</strong> para tus prendas favoritas! ✈️🛍️</p>
     <p>Por favor compártenos la captura de tu transferencia bancaria para colocar tu pedido de inmediato.</p>
   </div>
 </body>

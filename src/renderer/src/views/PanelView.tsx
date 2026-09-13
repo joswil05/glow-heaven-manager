@@ -510,14 +510,16 @@ export const PanelView: React.FC<PanelViewProps> = ({
                             Por cobrar ({pctCobrar}%)
                           </span>
                         </div>
-                        <div className="h-2 w-full rounded-full bg-superficie-2 border border-borde/70 p-0.5 flex overflow-hidden gap-0.5">
+                        <div className="h-3.5 w-full rounded-lg bg-superficie-2 border border-borde/80 p-0.5 flex overflow-hidden gap-1 shadow-inner">
                           <div
-                            className="h-full bg-emerald-600 rounded-full transition-all duration-500"
+                            className="h-full bg-emerald-600 dark:bg-emerald-500 rounded-md transition-all duration-500 shadow-xs"
                             style={{ width: `${Math.max(pctBodega > 0 ? 5 : 0, pctBodega)}%` }}
+                            title={`Bodega: ${pctBodega}%`}
                           />
                           <div
-                            className="h-full bg-amber-500 rounded-full transition-all duration-500"
+                            className="h-full bg-amber-500 dark:bg-amber-400 rounded-md transition-all duration-500 shadow-xs"
                             style={{ width: `${Math.max(pctCobrar > 0 ? 5 : 0, pctCobrar)}%` }}
+                            title={`Por cobrar: ${pctCobrar}%`}
                           />
                         </div>
                       </div>
@@ -622,7 +624,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
                               <div className="text-body font-semibold text-texto truncate group-hover:text-acento transition-colors flex items-center gap-1.5">
                                 <span className="truncate">{p.cliente_nombre}</span>
                                 {p.cuotas_vencidas > 0 && (
-                                  <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-rose-50 text-rose-700 dark:bg-rose-950/80 dark:text-rose-400 border border-rose-200 dark:border-rose-900 shrink-0">
+                                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 dark:bg-rose-950/80 dark:text-rose-400 border border-rose-200 dark:border-rose-900 shrink-0">
                                     {p.cuotas_vencidas} vencida{p.cuotas_vencidas > 1 ? 's' : ''}
                                   </span>
                                 )}

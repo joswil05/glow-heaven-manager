@@ -13,8 +13,16 @@ import { SnackbarProvider } from './components/Snackbar';
 
 export type Vista = 'panel' | 'vender' | 'cobranza' | 'inventario';
 
+import { ShieldAlert } from 'lucide-react';
+
+const UIDS_AUTORIZADOS = new Set([
+  'PLCUbpheiAhjelGqcZznVypc3O72', // espinozajoswill@gmail.com
+  'XZkENJAvXceHtTLgtQZPzaeyrSC3', // joswillespinoza08@gmail.com
+  'ZdM86RTlEEQLYWHSBZPvsKq2YgJ3', // angierlinartej2020@gmail.com
+]);
+
 function AppContenido() {
-  const { usuario, cargando } = useAuth();
+  const { usuario, cargando, salir } = useAuth();
   const [vista, setVista] = useState<Vista>('panel');
 
   if (cargando) {
@@ -32,6 +40,31 @@ function AppContenido() {
 
   if (!usuario) {
     return <LoginView />;
+  }
+
+  if (!UIDS_AUTORIZADOS.has(usuario.uid)) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-fondo dark:bg-slate-950 p-6">
+        <div className="flex flex-col items-center gap-4 text-center max-w-sm bg-white dark:bg-slate-900 p-6 rounded-2xl border border-rose-200 dark:border-rose-900 shadow-lg">
+          <div className="h-12 w-12 rounded-full bg-rose-100 dark:bg-rose-950/80 flex items-center justify-center text-rose-600 dark:text-rose-400">
+            <ShieldAlert size={28} />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">Acceso no autorizado</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              La cuenta <strong className="text-slate-700 dark:text-slate-200">{usuario.email}</strong> no tiene permisos de acceso al sistema de Glow Heaven.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => salir()}
+            className="w-full mt-2 py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white dark:text-slate-900 text-white font-semibold text-sm transition-colors cursor-pointer"
+          >
+            Cerrar sesión e ingresar con otra cuenta
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
