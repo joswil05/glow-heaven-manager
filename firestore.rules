@@ -32,7 +32,6 @@ service cloud.firestore {
           && (
             request.auth.uid in [
               'PLCUbpheiAhjelGqcZznVypc3O72',
-              'XZkENJAvXceHtTLgtQZPzaeyrSC3',
               'ZdM86RTlEEQLYWHSBZPvsKq2YgJ3'
             ]
             || exists(/databases/$(database)/documents/usuarios_autorizados/$(request.auth.uid))

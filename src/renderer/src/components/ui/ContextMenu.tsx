@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '../../lib/cn';
 
 export interface ContextMenuItem {
@@ -21,30 +22,52 @@ export interface ContextMenuProps {
 
 export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose }) => {
   const menuRef = useRef<HTMLDivElement>(null);
-  const [coords, setCoords] = useState({ left: x, top: y });
+  const [coords, setCoords] = useState<{ left: number; top: number; maxHeight: number }>({
+    left: Math.min(x, typeof window !== 'undefined' ? Math.max(12, window.innerWidth - 230) : x),
+    top: Math.min(y, typeof window !== 'undefined' ? Math.max(12, window.innerHeight - 250) : y),
+    maxHeight: typeof window !== 'undefined' ? window.innerHeight - 24 : 400,
+  });
+  const [isPositioned, setIsPositioned] = useState(false);
 
-  useEffect(() => {
-    setCoords({ left: x, top: y });
-    // Ajustar posición si se desborda de la ventana visible
-    const timer = setTimeout(() => {
-      if (menuRef.current) {
-        const rect = menuRef.current.getBoundingClientRect();
-        const padding = 12;
-        let left = x;
-        let top = y;
+  useLayoutEffect(() => {
+    if (!menuRef.current) return;
 
-        if (left + rect.width > window.innerWidth - padding) {
-          left = Math.max(padding, window.innerWidth - rect.width - padding);
-        }
-        if (top + rect.height > window.innerHeight - padding) {
-          top = Math.max(padding, window.innerHeight - rect.height - padding);
-        }
+    const rect = menuRef.current.getBoundingClientRect();
+    const padding = 12;
+    const winWidth = window.innerWidth;
+    const winHeight = window.innerHeight;
 
-        setCoords({ left, top });
+    // Altura máxima disponible dentro de la pantalla
+    const maxHeight = Math.max(120, winHeight - padding * 2);
+
+    let left = x;
+    let top = y;
+
+    // Si se desborda horizontalmente hacia la derecha, intentar voltear a la izquierda del cursor
+    if (left + rect.width > winWidth - padding) {
+      if (x - rect.width >= padding) {
+        left = x - rect.width;
+      } else {
+        left = Math.max(padding, winWidth - rect.width - padding);
       }
-    }, 0);
-    return () => clearTimeout(timer);
-  }, [x, y]);
+    }
+
+    // Si se desborda verticalmente hacia abajo, intentar abrir hacia arriba del cursor
+    if (top + rect.height > winHeight - padding) {
+      if (y - rect.height >= padding) {
+        top = y - rect.height;
+      } else {
+        top = Math.max(padding, winHeight - rect.height - padding);
+      }
+    }
+
+    // Garantizar que quede siempre dentro de los márgenes visibles de la pantalla
+    left = Math.max(padding, Math.min(left, winWidth - rect.width - padding));
+    top = Math.max(padding, Math.min(top, winHeight - rect.height - padding));
+
+    setCoords({ left, top, maxHeight });
+    setIsPositioned(true);
+  }, [x, y, items]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -65,7 +88,13 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose }
       }
     };
 
+    const handleWindowChange = () => {
+      onClose();
+    };
+
     window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('resize', handleWindowChange);
+    window.addEventListener('scroll', handleWindowChange, true);
 
     // Retardo breve para evitar que el mismo click de apertura dispare el cierre involuntario
     const timer = setTimeout(() => {
@@ -76,20 +105,30 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose }
     return () => {
       clearTimeout(timer);
       window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('resize', handleWindowChange);
+      window.removeEventListener('scroll', handleWindowChange, true);
       window.removeEventListener('mousedown', handleClickOutside);
       window.removeEventListener('contextmenu', handleContextMenu);
     };
   }, [onClose]);
 
-  return (
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
     <div
       ref={menuRef}
       role="menu"
       aria-orientation="vertical"
-      style={{ left: `${coords.left}px`, top: `${coords.top}px` }}
+      style={{
+        left: `${coords.left}px`,
+        top: `${coords.top}px`,
+        maxHeight: `${coords.maxHeight}px`,
+        visibility: isPositioned ? 'visible' : 'hidden',
+      }}
       className={cn(
-        'fixed z-50 min-w-[210px] py-1.5 px-1',
-        'bg-superficie/95 backdrop-blur-md border border-borde/90 rounded-2xl shadow-xl shadow-black/10',
+        'fixed z-[9999] min-w-[210px] max-w-[320px] py-1.5 px-1',
+        'overflow-y-auto overflow-x-hidden custom-scrollbar',
+        'bg-superficie/95 backdrop-blur-md border border-borde/90 rounded-2xl shadow-2xl shadow-black/20',
         'text-texto select-none outline-none animate-in fade-in-0 zoom-in-95 duration-100'
       )}
       onClick={(e) => e.stopPropagation()}
@@ -146,6 +185,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose }
           </button>
         );
       })}
-    </div>
+    </div>,
+    document.body
   );
 };

@@ -17,7 +17,6 @@ import { ShieldAlert } from 'lucide-react';
 
 const UIDS_AUTORIZADOS = new Set([
   'PLCUbpheiAhjelGqcZznVypc3O72', // espinozajoswill@gmail.com
-  'XZkENJAvXceHtTLgtQZPzaeyrSC3', // joswillespinoza08@gmail.com
   'ZdM86RTlEEQLYWHSBZPvsKq2YgJ3', // angierlinartej2020@gmail.com
 ]);
 
