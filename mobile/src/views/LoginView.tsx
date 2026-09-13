@@ -89,7 +89,7 @@ export function LoginView() {
         {esIOS && esInterno && (
           <div className="w-full rounded-2xl border border-alerta-suave bg-gradient-to-br from-alerta-suave to-alerta-suave p-4 text-left shadow-sm">
             <div className="flex items-start gap-2.5">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-alerta text-alerta">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-alerta-suave text-alerta-fuerte">
                 <Smartphone size={18} />
               </div>
               <div className="flex-1">
@@ -124,7 +124,7 @@ export function LoginView() {
         {dominioSinLogin && (
           <div className="w-full rounded-2xl border border-alerta-suave bg-gradient-to-br from-alerta-suave to-alerta-suave p-4 text-left shadow-sm">
             <div className="flex items-start gap-2.5">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-alerta text-alerta">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-alerta-suave text-alerta-fuerte">
                 <AlertCircle size={18} />
               </div>
               <div className="flex-1">

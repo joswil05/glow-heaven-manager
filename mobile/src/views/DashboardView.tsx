@@ -441,7 +441,7 @@ export function DashboardView({
             {(panel?.bajo_stock?.length ?? 0) > 0 ? (
               <div className="flex flex-col justify-between h-full w-full gap-3 min-w-0">
                 <div className="flex items-start gap-2.5 min-w-0">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-peligro text-peligro shrink-0 border border-peligro-suave">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-peligro-suave text-peligro-fuerte shrink-0 border border-peligro-suave">
                     <PackageX size={20} />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -469,7 +469,7 @@ export function DashboardView({
             ) : (
               <div className="flex flex-col justify-between h-full w-full gap-3 min-w-0">
                 <div className="flex items-start gap-2.5 min-w-0">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-acento text-acento shrink-0 border border-acento-suave">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-acento-suave text-acento-fuerte shrink-0 border border-acento-suave">
                     <CheckCircle2 size={20} />
                   </div>
                   <div className="min-w-0 flex-1">

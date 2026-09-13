@@ -661,7 +661,7 @@ export function QuickSaleView() {
         >
           <div
             onClick={() => setSheetCarritoAbierto(true)}
-            className="pointer-events-auto m3-press flex items-center justify-between gap-3 w-full max-w-md rounded-2xl bg-inverso text-inverso-texto px-4 py-3.5 shadow-2xl shadow-m3-3 border border-borde cursor-pointer"
+            className="pointer-events-auto m3-press flex items-center justify-between gap-3 w-full max-w-md rounded-2xl bg-superficie-3 text-texto px-4 py-3.5 shadow-2xl shadow-m3-3 border border-borde cursor-pointer"
           >
             <div className="flex items-center gap-3">
               <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-acento text-acento-texto font-bold">
