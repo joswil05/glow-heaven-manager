@@ -71,7 +71,7 @@ export function AbonoSelectorSheet({
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar por clienta o código de venta…"
-            className="w-full h-11 rounded-full bg-slate-100 dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-emerald-500/30 border border-transparent dark:border-slate-700 transition-all"
+            className="w-full h-11 rounded-full bg-superficie-2 text-xs font-semibold text-texto placeholder:text-texto-3 outline-none focus:bg-superficie focus:ring-2 focus:ring-emerald-500/30 border border-transparent dark:border-slate-700 transition-all"
             style={{
               paddingLeft: '44px',
               paddingRight: '40px',
@@ -86,7 +86,7 @@ export function AbonoSelectorSheet({
                 haptics.impact('light');
                 setBusqueda('');
               }}
-              className="absolute right-3 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-full"
+              className="absolute right-3 p-1 text-slate-400 hover:text-texto-2 rounded-full"
               style={{ position: 'absolute', right: '12px' }}
             >
               <X size={16} />
@@ -96,14 +96,14 @@ export function AbonoSelectorSheet({
 
         {/* Resumen Total Pendiente */}
         {cuentasPorCobrar.length > 0 && (
-          <div className="flex items-center justify-between rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 dark:from-emerald-950/40 dark:via-teal-950/30 dark:to-emerald-950/40 border border-emerald-200/70 dark:border-emerald-800/60 p-3 shadow-sm shrink-0">
+          <div className="flex items-center justify-between rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 dark:from-emerald-950/40 dark:via-teal-950/30 dark:to-emerald-950/40 border border-acento-suave p-3 shadow-sm shrink-0">
             <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-acento">
                 Total por cobrar en el negocio
               </span>
               <p className="text-sm font-black text-emerald-900 dark:text-emerald-100">
                 {formatearMoneda(totalPendienteUsd, 'USD')}{' '}
-                <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                <span className="text-xs font-semibold text-acento">
                   (≈ {formatearMoneda(totalPendienteCor, 'COR')})
                 </span>
               </p>
@@ -118,13 +118,13 @@ export function AbonoSelectorSheet({
         <div className="flex flex-col gap-2">
           {filtradas.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center gap-2">
-              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-superficie-2 text-texto-3">
                 <User size={20} />
               </div>
-              <p className="text-xs font-bold text-slate-700 dark:text-slate-200">
+              <p className="text-xs font-bold text-texto-2">
                 {busqueda ? 'No se encontraron cuentas con esa búsqueda' : '¡Excelente! No hay cuentas pendientes por cobrar'}
               </p>
-              <p className="text-[11px] text-slate-400 dark:text-slate-500 max-w-xs">
+              <p className="text-[11px] text-texto-3 max-w-xs">
                 {busqueda
                   ? 'Verifica el nombre o número de comprobante.'
                   : 'Todas las ventas están al día y pagadas en su totalidad.'}
@@ -141,25 +141,25 @@ export function AbonoSelectorSheet({
                   className={`flex items-center justify-between gap-3 rounded-2xl border p-3 transition-transform active:scale-[0.99] ${
                     vencida
                       ? 'border-rose-200/80 bg-rose-50/50 dark:border-rose-900/60 dark:bg-rose-950/30'
-                      : 'border-slate-200/80 bg-white dark:bg-slate-800/80 dark:border-slate-700/80 hover:bg-slate-50 dark:hover:bg-slate-800'
+                      : 'border-slate-200/80 bg-superficie/80 dark:border-slate-700/80 hover:bg-superficie-2'
                   }`}
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
-                      <p className="truncate text-xs font-bold text-slate-900 dark:text-white">{c.cliente_nombre}</p>
+                      <p className="truncate text-xs font-bold text-texto">{c.cliente_nombre}</p>
                       {vencida && (
-                        <span className="inline-flex items-center gap-0.5 rounded-md bg-rose-100 dark:bg-rose-950/80 px-1.5 py-0.5 text-[10px] font-bold text-rose-700 dark:text-rose-400">
+                        <span className="inline-flex items-center gap-0.5 rounded-md bg-rose-100 dark:bg-rose-950/80 px-1.5 py-0.5 text-[10px] font-bold text-peligro">
                           <AlertTriangle size={10} />
                           Vencida
                         </span>
                       )}
                     </div>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                    <p className="text-[11px] text-texto-3 font-medium">
                       {c.codigo} · {c.fecha}
                     </p>
-                    <p className="text-xs font-black text-emerald-800 dark:text-emerald-400 mt-0.5 tabular-nums">
+                    <p className="text-xs font-black text-acento mt-0.5 tabular-nums">
                       {formatearMoneda(c.saldo_usd_cents, 'USD')}{' '}
-                      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                      <span className="text-[11px] font-semibold text-texto-3">
                         (≈ {formatearMoneda(saldoCor, 'COR')})
                       </span>
                     </p>

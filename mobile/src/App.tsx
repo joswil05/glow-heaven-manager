@@ -28,10 +28,10 @@ function AppContenido() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-fondo dark:bg-slate-950 transition-colors duration-200">
         <div className="flex flex-col items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white dark:bg-slate-900 shadow-md border border-slate-100 dark:border-slate-800">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-superficie shadow-md border border-borde">
             <Loader2 size={24} className="animate-spin text-emerald-600" />
           </div>
-          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Cargando Glow Heaven…</span>
+          <span className="text-xs font-semibold text-texto-3">Cargando Glow Heaven…</span>
         </div>
       </div>
     );
@@ -44,14 +44,14 @@ function AppContenido() {
   if (!UIDS_AUTORIZADOS.has(usuario.uid)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-fondo dark:bg-slate-950 p-6">
-        <div className="flex flex-col items-center gap-4 text-center max-w-sm bg-white dark:bg-slate-900 p-6 rounded-2xl border border-rose-200 dark:border-rose-900 shadow-lg">
-          <div className="h-12 w-12 rounded-full bg-rose-100 dark:bg-rose-950/80 flex items-center justify-center text-rose-600 dark:text-rose-400">
+        <div className="flex flex-col items-center gap-4 text-center max-w-sm bg-superficie p-6 rounded-2xl border border-rose-200 dark:border-rose-900 shadow-lg">
+          <div className="h-12 w-12 rounded-full bg-rose-100 dark:bg-rose-950/80 flex items-center justify-center text-peligro">
             <ShieldAlert size={28} />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">Acceso no autorizado</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              La cuenta <strong className="text-slate-700 dark:text-slate-200">{usuario.email}</strong> no tiene permisos de acceso al sistema de Glow Heaven.
+            <h2 className="text-lg font-bold text-texto">Acceso no autorizado</h2>
+            <p className="text-sm text-texto-3 mt-1">
+              La cuenta <strong className="text-texto-2">{usuario.email}</strong> no tiene permisos de acceso al sistema de Glow Heaven.
             </p>
           </div>
           <button
@@ -69,7 +69,7 @@ function AppContenido() {
   return (
     <SnackbarProvider>
       <DataProvider>
-        <div className="flex flex-col h-[100dvh] overflow-hidden bg-fondo dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors duration-200">
+        <div className="flex flex-col h-[100dvh] overflow-hidden bg-fondo dark:bg-slate-950 text-texto transition-colors duration-200">
           <div className="flex-1 min-h-0 relative">
             <div className={`h-full w-full overflow-hidden ${vista === 'panel' ? 'block animate-vista' : 'hidden'}`}>
               <DashboardView

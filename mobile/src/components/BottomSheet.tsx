@@ -219,7 +219,7 @@ export function BottomSheet({
         style={{
           maxHeight: alturaMaximaEfectiva,
         }}
-        className="relative z-10 w-full flex flex-col rounded-t-[28px] shadow-2xl animate-m3-slide-up overflow-hidden border-t border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#161f30] text-slate-900 dark:text-slate-100 transition-[background-color,border-color] duration-200"
+        className="relative z-10 w-full flex flex-col rounded-t-[28px] shadow-2xl animate-m3-slide-up overflow-hidden border-t border-borde bg-superficie text-texto transition-[background-color,border-color] duration-200"
       >
         {/* Barra de arrastre. `touch-none` es necesario: sin eso el navegador
             se queda el gesto vertical para hacer scroll y nunca llegan los
@@ -236,18 +236,18 @@ export function BottomSheet({
             elementos interactivos, la que el pulgar encuentra sin mirar. */}
         {(titulo || subtitulo) && (
           <div
-            className="flex items-start justify-between px-5 pt-1 pb-2.5 border-b border-slate-100 dark:border-slate-800/80 shrink-0 touch-none"
+            className="flex items-start justify-between px-5 pt-1 pb-2.5 border-b border-borde shrink-0 touch-none"
             {...manejadoresArrastre}
           >
             <div>
-              {titulo && <h2 className="text-base font-extrabold text-slate-900 dark:text-slate-100 leading-tight">{titulo}</h2>}
-              {subtitulo && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-medium">{subtitulo}</p>}
+              {titulo && <h2 className="text-base font-extrabold text-texto leading-tight">{titulo}</h2>}
+              {subtitulo && <p className="text-xs text-texto-3 mt-0.5 font-medium">{subtitulo}</p>}
             </div>
             <button
               type="button"
               onClick={onCerrar}
               aria-label="Cerrar"
-              className="m3-press flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              className="m3-press flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:text-texto-2 hover:bg-superficie-2 cursor-pointer"
             >
               <X size={18} />
             </button>
@@ -279,7 +279,7 @@ export function BottomSheet({
         {/* Pie de página fijo opcional */}
         {footer && (
           <div
-            className="shrink-0 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-[#161f30] px-5 pt-2.5"
+            className="shrink-0 border-t border-borde bg-superficie px-5 pt-2.5"
             style={{
               paddingBottom: tecladoActivo ? '0.75rem' : 'max(env(safe-area-inset-bottom, 0px), 1rem)',
             }}

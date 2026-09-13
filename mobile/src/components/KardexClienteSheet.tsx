@@ -104,14 +104,14 @@ export function KardexClienteSheet({
     >
       <div className="flex flex-col gap-3 pb-3">
         {/* Resumen de Cuenta del Cliente */}
-        <div className="rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-[#1b253b] dark:to-[#161f30] border border-slate-200/80 dark:border-slate-700/80 p-3.5 flex flex-col gap-2.5 shadow-xs">
+        <div className="rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-[#1b253b] dark:to-[#161f30] border border-borde p-3.5 flex flex-col gap-2.5 shadow-xs">
           <div className="flex items-center justify-between">
             <div className="min-w-0 flex-1">
-              <h3 className="text-sm font-extrabold text-slate-900 dark:text-white truncate">
+              <h3 className="text-sm font-extrabold text-texto truncate">
                 {cliente.cliente_nombre}
               </h3>
               {cliente.cliente_telefono && (
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                <p className="text-[11px] text-texto-3 font-medium">
                   {cliente.cliente_telefono}
                 </p>
               )}
@@ -132,7 +132,7 @@ export function KardexClienteSheet({
                 onClick={() => haptics.impact('light')}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center gap-1.5 min-h-[36px] px-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800 text-[11px] font-bold active:scale-95 transition-all shrink-0"
+                className="flex items-center gap-1.5 min-h-[36px] px-3 rounded-xl bg-acento-suave text-acento border border-acento-suave text-[11px] font-bold active:scale-95 transition-all shrink-0"
               >
                 <MessageCircle size={14} />
                 <span>WhatsApp</span>
@@ -140,16 +140,16 @@ export function KardexClienteSheet({
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
+          <div className="grid grid-cols-2 gap-2 pt-2 border-t border-borde">
             <div className="flex flex-col">
-              <span className="text-caption font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <span className="text-caption font-bold uppercase tracking-wider text-texto-3">
                 Saldo pendiente
               </span>
               <p
                 className={`text-sm font-black tabular-nums ${
                   saldoUsd > 0
-                    ? 'text-rose-600 dark:text-rose-400'
-                    : 'text-emerald-600 dark:text-emerald-400'
+                    ? 'text-peligro'
+                    : 'text-acento'
                 }`}
               >
                 {formatearMoneda(saldoUsd, 'USD')}
@@ -160,10 +160,10 @@ export function KardexClienteSheet({
             </div>
 
             <div className="flex flex-col text-right">
-              <span className="text-caption font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <span className="text-caption font-bold uppercase tracking-wider text-texto-3">
                 Total abonado
               </span>
-              <p className="text-sm font-black text-emerald-600 dark:text-emerald-400 tabular-nums">
+              <p className="text-sm font-black text-acento tabular-nums">
                 {formatearMoneda(totalAbonadoUsd, 'USD')}
               </p>
               <p className="text-caption text-slate-400 font-medium">
@@ -190,7 +190,7 @@ export function KardexClienteSheet({
           className={`flex items-center justify-center gap-2 h-11 px-4 rounded-xl font-extrabold text-xs shadow-xs transition-all active:scale-[0.98] cursor-pointer ${
             saldoUsd > 0
               ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
-              : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700'
+              : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-texto-2 border border-borde'
           }`}
         >
           <DollarSign size={16} className={saldoUsd > 0 ? 'text-white' : 'text-emerald-500'} />
@@ -200,7 +200,7 @@ export function KardexClienteSheet({
         {/* Lista de Abonos */}
         <div className="flex flex-col gap-2 pt-1">
           <div className="flex items-center justify-between px-1">
-            <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+            <span className="text-xs font-bold text-texto-2 flex items-center gap-1.5">
               <Clock size={13} className="text-slate-400" />
               Historial de Pagos ({pagos.length})
             </span>
@@ -212,19 +212,19 @@ export function KardexClienteSheet({
               <span className="text-xs text-slate-500 font-medium">Cargando pagos...</span>
             </div>
           ) : error ? (
-            <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-xs">
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-peligro-suave border border-rose-200 dark:border-rose-900 text-peligro text-xs">
               <AlertCircle size={15} className="shrink-0" />
               <span>{error}</span>
             </div>
           ) : pagos.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-8 px-4 text-center rounded-2xl bg-white dark:bg-[#161f30] border border-slate-200/80 dark:border-slate-800">
-              <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mb-2">
+            <div className="flex flex-col items-center justify-center py-8 px-4 text-center rounded-2xl bg-superficie border border-borde">
+              <div className="w-10 h-10 rounded-full bg-superficie-2 text-slate-400 flex items-center justify-center mb-2">
                 <Receipt size={20} />
               </div>
-              <p className="text-xs font-bold text-slate-700 dark:text-slate-200">
+              <p className="text-xs font-bold text-texto-2">
                 Aún no hay abonos registrados
               </p>
-              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+              <p className="text-[11px] text-texto-3 mt-0.5">
                 Los pagos y amortizaciones que reciba esta clienta aparecerán aquí.
               </p>
             </div>
@@ -237,11 +237,11 @@ export function KardexClienteSheet({
                 return (
                   <div
                     key={p.id}
-                    className="flex flex-col gap-1.5 p-3 rounded-2xl bg-white dark:bg-[#161f30] border border-slate-200/80 dark:border-slate-800 shadow-2xs"
+                    className="flex flex-col gap-1.5 p-3 rounded-2xl bg-superficie border border-borde shadow-2xs"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5">
-                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-400">
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/70 text-acento">
                           {esEfectivo ? <Banknote size={11} /> : <CreditCard size={11} />}
                         </span>
                         <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
@@ -253,14 +253,14 @@ export function KardexClienteSheet({
                           </span>
                         )}
                         {p.venta_codigo && (
-                          <span className="text-[10px] font-mono font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-md">
+                          <span className="text-[10px] font-mono font-semibold text-texto-3 bg-superficie-2 px-1.5 py-0.5 rounded-md">
                             {p.venta_codigo}
                           </span>
                         )}
                       </div>
 
                       <div className="text-right">
-                        <span className="text-xs font-black text-slate-900 dark:text-white tabular-nums">
+                        <span className="text-xs font-black text-texto tabular-nums">
                           {formatearMoneda(p.monto_usd_cents, 'USD')}
                         </span>
                         {p.moneda === 'COR' && (
@@ -271,13 +271,13 @@ export function KardexClienteSheet({
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between text-[11px] text-slate-400 dark:text-slate-500 pt-0.5">
+                    <div className="flex items-center justify-between text-[11px] text-texto-3 pt-0.5">
                       <span className="flex items-center gap-1">
                         <Calendar size={11} />
                         {p.fecha}
                       </span>
                       {p.referencia && (
-                        <span className="truncate max-w-[160px] font-medium text-slate-500 dark:text-slate-400">
+                        <span className="truncate max-w-[160px] font-medium text-texto-3">
                           Ref: {p.referencia}
                         </span>
                       )}

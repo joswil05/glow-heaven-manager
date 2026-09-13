@@ -14,9 +14,18 @@
  *
  * Cada rol de color tiene tres tokens, y confundirlos es el error típico:
  *
- *   --x          RELLENO. Fondo de un botón sólido. Lleva --x-texto encima.
- *   --x-fuerte   TEXTO. El color usado como letra o ícono sobre --x-suave.
- *   --x-suave    TINTE. Fondo suave de un badge. Lleva --x-fuerte encima.
+ *   --x          El color. Sirve como TEXTO/ícono sobre una superficie
+ *                normal y como RELLENO de un botón sólido (con --x-texto
+ *                encima). Los valores están elegidos para pasar contraste en
+ *                los dos usos y en los dos temas: por eso el verde claro es
+ *                más oscuro que el "emerald-500" de catálogo y el ámbar claro
+ *                es un ámbar quemado.
+ *   --x-fuerte   El color como TEXTO SOBRE --x-suave, y para estados hover.
+ *   --x-suave    TINTE. Fondo de un badge. Lleva --x-fuerte encima.
+ *
+ * Regla práctica: sobre superficie normal, --x. Dentro de un badge,
+ * --x-fuerte sobre --x-suave. Nunca --x sobre --x-suave: ese era justamente
+ * el par que fallaba.
  *
  * Contraste verificado (WCAG) en los dos temas. Los pares que antes fallaban:
  *   - blanco sobre el verde de relleno: 3.18 en claro, 2.05 en oscuro.
@@ -49,7 +58,9 @@
   --exito: 5 128 90;
   --exito-fuerte: 4 108 74;
   --exito-suave: 228 250 240;
-  --alerta: 234 130 0;
+  /* El naranja sobre blanco es el color más difícil de hacer legible: el
+     ámbar anterior (234 130 0) daba 2.73 como texto. Este da 5.02. */
+  --alerta: 180 83 9;
   --alerta-fuerte: 146 78 0;
   --alerta-suave: 255 242 215;
   --peligro: 225 29 72;

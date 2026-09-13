@@ -92,9 +92,9 @@ export function DashboardView({
   const maxSerie = Math.max(1, ...serie.map((d) => d.total_usd_cents));
 
   return (
-    <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#f8fafc] dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 transition-colors">
+    <div className="flex flex-col h-full min-h-0 overflow-hidden bg-fondo text-texto transition-colors">
       {/* Top App Bar fija y limpia */}
-      <header className="shrink-0 z-20 bg-white/95 dark:bg-[#121826]/95 backdrop-blur-md border-b border-slate-200/60 dark:border-slate-800/80 pt-safe-t px-4 pb-2 shadow-[0_1px_3px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.3)] transition-colors">
+      <header className="shrink-0 z-20 bg-superficie/95 backdrop-blur-md border-b border-borde pt-safe-t px-4 pb-2 shadow-[0_1px_3px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.3)] transition-colors">
         <div className="flex items-center justify-between gap-2 py-1.5">
           <div className="flex min-w-0 items-center gap-2.5">
             {/* Avatar: mismo tamaño (36px) que el ícono de sección de las
@@ -102,7 +102,7 @@ export function DashboardView({
                 persona, no una categoría — para que el encabezado se sienta
                 de la misma familia sin perder la identidad de "inicio". */}
             <div
-              className="relative shrink-0 overflow-hidden rounded-full border border-slate-200/80 dark:border-slate-700 shadow-xs"
+              className="relative shrink-0 overflow-hidden rounded-full border border-borde shadow-xs"
               style={{ width: '36px', height: '36px', minWidth: '36px', minHeight: '36px' }}
             >
               {usuario?.photoURL ? (
@@ -118,10 +118,10 @@ export function DashboardView({
               )}
             </div>
             <div className="min-w-0">
-              <span className="text-caption font-bold tracking-widest uppercase text-emerald-700 dark:text-emerald-400 block leading-none mb-0.5">
+              <span className="text-caption font-bold tracking-widest uppercase text-acento block leading-none mb-0.5">
                 Glow Heaven
               </span>
-              <h1 className="text-title font-extrabold text-slate-900 dark:text-white leading-tight truncate">
+              <h1 className="text-title font-extrabold text-texto leading-tight truncate">
                 {usuario?.displayName?.split(' ')[0] || 'Mi Negocio'}
               </h1>
             </div>
@@ -137,10 +137,10 @@ export function DashboardView({
               }}
               aria-label="Cambiar tema de apariencia"
               title={`Tema: ${theme === 'system' ? 'Automático' : theme === 'dark' ? 'Oscuro' : 'Claro'}`}
-              className="m3-press group flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100/90 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-90 transition-all border border-slate-200/50 dark:border-slate-700/60 cursor-pointer"
+              className="m3-press group flex h-9 w-9 items-center justify-center rounded-xl bg-superficie-2/90 text-texto-2 hover:bg-superficie-2 active:scale-90 transition-all border border-borde cursor-pointer"
             >
               {theme === 'system' ? (
-                <Monitor size={16} className="text-slate-500 dark:text-slate-400 transition-transform duration-200 group-hover:scale-110" />
+                <Monitor size={16} className="text-texto-3 transition-transform duration-200 group-hover:scale-110" />
               ) : effectiveTheme === 'dark' ? (
                 <Moon size={16} className="text-emerald-400 transition-transform duration-300 group-hover:-rotate-12 group-hover:scale-110" />
               ) : (
@@ -155,9 +155,9 @@ export function DashboardView({
                 cargar(true);
               }}
               aria-label="Actualizar datos"
-              className="m3-press group flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100/90 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-90 transition-all border border-slate-200/50 dark:border-slate-700/60 cursor-pointer"
+              className="m3-press group flex h-9 w-9 items-center justify-center rounded-xl bg-superficie-2/90 text-texto-2 hover:bg-superficie-2 active:scale-90 transition-all border border-borde cursor-pointer"
             >
-              <RefreshCw size={16} className={cargando ? 'animate-spin text-emerald-600 dark:text-emerald-400' : 'transition-transform duration-500 group-hover:rotate-180'} />
+              <RefreshCw size={16} className={cargando ? 'animate-spin text-acento' : 'transition-transform duration-500 group-hover:rotate-180'} />
             </button>
 
             {/* Separador deliberado: cerrar sesión es la única acción
@@ -172,7 +172,7 @@ export function DashboardView({
                 setConfirmandoSalida(true);
               }}
               aria-label="Cerrar sesión"
-              className="m3-press group flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100/90 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 active:scale-90 transition-all border border-slate-200/50 dark:border-slate-700/60 cursor-pointer"
+              className="m3-press group flex h-9 w-9 items-center justify-center rounded-xl bg-superficie-2/90 text-texto-2 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 active:scale-90 transition-all border border-borde cursor-pointer"
             >
               <LogOut size={16} className="transition-transform duration-150 group-hover:translate-x-0.5" />
             </button>
@@ -273,17 +273,17 @@ export function DashboardView({
                 <div className="flex items-center justify-between gap-1 mb-1">
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="h-2 w-2 rounded-full bg-amber-500 shrink-0" />
-                    <p className="text-caption sm:text-label font-semibold text-slate-500 dark:text-slate-400 truncate">Por cobrar</p>
+                    <p className="text-caption sm:text-label font-semibold text-texto-3 truncate">Por cobrar</p>
                   </div>
                   {cuotasVencidas.length > 0 && (
-                    <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900 shrink-0">
+                    <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950 text-peligro border border-rose-200 dark:border-rose-900 shrink-0">
                       {cuotasVencidas.length} ven.
                     </span>
                   )}
                 </div>
                 <MoneyDual usdCents={panel?.resumen.por_cobrar_usd_cents ?? 0} size="md" soloUsd />
               </div>
-              <span className="text-[11px] sm:text-caption text-slate-400 dark:text-slate-500 mt-1.5 font-semibold flex items-center justify-between">
+              <span className="text-[11px] sm:text-caption text-texto-3 mt-1.5 font-semibold flex items-center justify-between">
                 <span>Gestionar cobros</span>
                 <ChevronRight size={13} />
               </span>
@@ -300,10 +300,10 @@ export function DashboardView({
                 <div className="flex items-center justify-between gap-1 mb-1">
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="h-2 w-2 rounded-full bg-blue-500 shrink-0" />
-                    <p className="text-caption sm:text-label font-semibold text-slate-500 dark:text-slate-400 truncate">Inventario</p>
+                    <p className="text-caption sm:text-label font-semibold text-texto-3 truncate">Inventario</p>
                   </div>
                   {(panel?.bajo_stock.length ?? 0) > 0 && (
-                    <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-900 shrink-0 flex items-center gap-0.5">
+                    <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-alerta border border-amber-200 dark:border-amber-900 shrink-0 flex items-center gap-0.5">
                       <PackageX size={10} />
                       {panel!.bajo_stock.length} bajo
                     </span>
@@ -311,7 +311,7 @@ export function DashboardView({
                 </div>
                 <MoneyDual usdCents={panel?.resumen.inversion_inventario_usd_cents ?? 0} size="md" soloUsd />
               </div>
-              <span className="text-[11px] sm:text-caption text-slate-400 dark:text-slate-500 mt-1.5 font-semibold flex items-center justify-between">
+              <span className="text-[11px] sm:text-caption text-texto-3 mt-1.5 font-semibold flex items-center justify-between">
                 <span>{panel?.resumen.unidades_en_inventario ?? 0} unid. disponibles</span>
                 <ChevronRight size={13} />
               </span>
@@ -321,22 +321,22 @@ export function DashboardView({
           {/* Gráfico 7 días interactivo (Altura balanceada, sin estiramiento) */}
           <section className="m3-card p-3 sm:p-3.5 shrink-0 flex flex-col gap-2">
             <div className="flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2 text-body font-bold text-slate-800 dark:text-slate-100">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 shrink-0">
+              <div className="flex items-center gap-2 text-body font-bold text-texto">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-acento-suave text-acento shrink-0">
                   <TrendingUp size={16} />
                 </div>
-                <span className="text-caption sm:text-label font-bold text-slate-800 dark:text-slate-100">Ventas últimos 7 días</span>
+                <span className="text-caption sm:text-label font-bold text-texto">Ventas últimos 7 días</span>
               </div>
-              <span className="text-[11px] sm:text-caption font-semibold text-slate-400 dark:text-slate-500">USD</span>
+              <span className="text-[11px] sm:text-caption font-semibold text-texto-3">USD</span>
             </div>
 
             {/* Detalle flotante si se toca una barra */}
             {diaSeleccionado && (
-              <div className="my-0.5 flex items-center justify-between rounded-xl bg-slate-50 dark:bg-slate-800/90 border border-slate-200/70 dark:border-slate-700 px-2.5 py-1 text-caption sm:text-label animate-m3-fade shrink-0">
-                <span className="font-semibold text-slate-700 dark:text-slate-200 capitalize">
+              <div className="my-0.5 flex items-center justify-between rounded-xl bg-superficie-2/90 border border-borde px-2.5 py-1 text-caption sm:text-label animate-m3-fade shrink-0">
+                <span className="font-semibold text-texto-2 capitalize">
                   {nombreDia(diaSeleccionado.fecha)} {diaSeleccionado.fecha.slice(5)}:
                 </span>
-                <span className="font-bold text-emerald-700 dark:text-emerald-400">
+                <span className="font-bold text-acento">
                   {formatearMoneda(diaSeleccionado.total_usd_cents, 'USD')} ({diaSeleccionado.cantidad} vtas.)
                 </span>
               </div>
@@ -417,7 +417,7 @@ export function DashboardView({
             className={`m3-card p-3 sm:p-3.5 flex-1 min-h-[76px] flex flex-col border transition-colors cursor-pointer active:scale-[0.985] ${
               (panel?.bajo_stock?.length ?? 0) > 0
                 ? 'bg-rose-50/60 dark:bg-rose-950/25 border-rose-200/70 dark:border-rose-900/50 hover:border-rose-300 dark:hover:border-rose-800'
-                : 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200/50 dark:border-emerald-900/30'
+                : 'bg-emerald-50/40 dark:bg-emerald-950/20 border-acento-suave'
             }`}
           >
             {/* El contenido se reparte con `justify-between`: la información
@@ -429,7 +429,7 @@ export function DashboardView({
             {(panel?.bajo_stock?.length ?? 0) > 0 ? (
               <div className="flex flex-col justify-between h-full w-full gap-3 min-w-0">
                 <div className="flex items-start gap-2.5 min-w-0">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-500/15 text-rose-700 dark:text-rose-400 shrink-0 border border-rose-500/20">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-500/15 text-peligro shrink-0 border border-rose-500/20">
                     <PackageX size={20} />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -449,7 +449,7 @@ export function DashboardView({
                   </div>
                 </div>
 
-                <div className="flex w-full items-center justify-center gap-1.5 text-label font-bold text-rose-700 dark:text-rose-300 bg-rose-100/90 dark:bg-rose-900/40 px-3 py-2.5 rounded-xl border border-rose-200/60 dark:border-rose-800/60 shrink-0">
+                <div className="flex w-full items-center justify-center gap-1.5 text-label font-bold text-peligro bg-rose-100/90 dark:bg-rose-900/40 px-3 py-2.5 rounded-xl border border-rose-200/60 dark:border-rose-800/60 shrink-0">
                   <span>Revisar inventario</span>
                   <ChevronRight size={15} />
                 </div>
@@ -457,20 +457,20 @@ export function DashboardView({
             ) : (
               <div className="flex flex-col justify-between h-full w-full gap-3 min-w-0">
                 <div className="flex items-start gap-2.5 min-w-0">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 shrink-0 border border-emerald-500/20">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/15 text-acento shrink-0 border border-emerald-500/20">
                     <CheckCircle2 size={20} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <span className="text-label sm:text-body font-bold text-emerald-800 dark:text-emerald-300 block leading-tight">
+                    <span className="text-label sm:text-body font-bold text-acento block leading-tight">
                       Inventario en orden
                     </span>
-                    <span className="text-caption text-slate-500 dark:text-slate-400 block mt-0.5 leading-tight">
+                    <span className="text-caption text-texto-3 block mt-0.5 leading-tight">
                       Existencias óptimas en todos los artículos
                     </span>
                   </div>
                 </div>
 
-                <div className="flex w-full items-center justify-center gap-1.5 text-label font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100/80 dark:bg-emerald-950/80 px-3 py-2.5 rounded-xl border border-emerald-200/60 dark:border-emerald-800/60 shrink-0">
+                <div className="flex w-full items-center justify-center gap-1.5 text-label font-bold text-acento bg-emerald-100/80 dark:bg-emerald-950/80 px-3 py-2.5 rounded-xl border border-acento-suave shrink-0">
                   <span>Ver inventario</span>
                   <ChevronRight size={15} />
                 </div>
@@ -496,7 +496,7 @@ export function DashboardView({
             <button
               type="button"
               onClick={() => setMostrarStockSheet(false)}
-              className="m3-press flex-1 rounded-xl bg-slate-100 dark:bg-slate-800 py-3 text-label font-bold text-slate-700 dark:text-slate-300 cursor-pointer"
+              className="m3-press flex-1 rounded-xl bg-superficie-2 py-3 text-label font-bold text-texto-2 cursor-pointer"
             >
               Cerrar
             </button>
@@ -531,7 +531,7 @@ export function DashboardView({
                       onIrAInventario();
                     }
                   }}
-                  className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-slate-50/90 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60 active:scale-[0.985] transition-all cursor-pointer"
+                  className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-slate-50/90 dark:bg-slate-800/60 border border-borde active:scale-[0.985] transition-all cursor-pointer"
                 >
                   <div className="flex items-center gap-2.5 min-w-0 flex-1">
                     <span
@@ -540,10 +540,10 @@ export function DashboardView({
                       }`}
                     />
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate leading-tight">
+                      <p className="text-sm font-bold text-texto truncate leading-tight">
                         {item.nombre}
                       </p>
-                      <p className="text-xs text-slate-400 dark:text-slate-500 font-medium truncate mt-0.5">
+                      <p className="text-xs text-texto-3 font-medium truncate mt-0.5">
                         {item.codigo ? `#${item.codigo}` : 'Sin código'} · Mínimo sugerido: {item.stock_minimo} unid.
                       </p>
                     </div>
@@ -559,7 +559,7 @@ export function DashboardView({
                       {estaAgotado ? 'Agotado (0)' : `Quedan ${item.existencias}`}
                     </span>
                     {item.precio_venta_usd_cents > 0 && (
-                      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 tabular-nums">
+                      <span className="text-[11px] font-semibold text-texto-3 tabular-nums">
                         {formatearMoneda(item.precio_venta_usd_cents, 'USD')}
                       </span>
                     )}
@@ -570,7 +570,7 @@ export function DashboardView({
           ) : (
             <div className="py-8 text-center text-slate-400">
               <CheckCircle2 size={36} className="mx-auto text-emerald-500 mb-2" />
-              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
+              <p className="text-sm font-bold text-texto-2">
                 Todo el inventario está en orden
               </p>
               <p className="text-xs text-slate-400 mt-1">
@@ -593,7 +593,7 @@ export function DashboardView({
             <button
               type="button"
               onClick={() => setConfirmandoSalida(false)}
-              className="m3-press flex-1 rounded-xl bg-slate-100 dark:bg-slate-800 py-3 text-label font-bold text-slate-700 dark:text-slate-300 cursor-pointer"
+              className="m3-press flex-1 rounded-xl bg-superficie-2 py-3 text-label font-bold text-texto-2 cursor-pointer"
             >
               Cancelar
             </button>
@@ -611,7 +611,7 @@ export function DashboardView({
           </div>
         }
       >
-        <p className="text-label text-slate-500 dark:text-slate-400">
+        <p className="text-label text-texto-3">
           Vas a tener que volver a iniciar sesión con Google para entrar de nuevo.
         </p>
       </BottomSheet>

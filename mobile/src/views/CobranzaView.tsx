@@ -104,23 +104,23 @@ export function CobranzaView() {
   const scrollRevealRef = useScrollReveal<HTMLElement>({ deps: [cuentasFiltradas] });
 
   return (
-    <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#f8fafc] dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 transition-colors">
+    <div className="flex flex-col h-full min-h-0 overflow-hidden bg-fondo text-texto transition-colors">
       {/* Top App Bar fija */}
-      <header className="shrink-0 z-20 bg-white/95 dark:bg-[#121826]/95 backdrop-blur-md border-b border-slate-200/60 dark:border-slate-800/80 pt-safe-t px-4 pb-2 shadow-[0_1px_3px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.3)] transition-colors">
+      <header className="shrink-0 z-20 bg-superficie/95 backdrop-blur-md border-b border-borde pt-safe-t px-4 pb-2 shadow-[0_1px_3px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.3)] transition-colors">
         <div className="flex items-center justify-between gap-2 py-1.5">
           {/* Mismo molde que las otras 3 pantallas: ícono + "Glow Heaven" +
               título en una sola línea. Antes esta pantalla era la única sin
               el eyebrow de marca, y repetía el conteo de cuentas dos veces
               (aquí y en el tab "Todas" de abajo) — se quitó la duplicación. */}
           <div className="flex min-w-0 items-center gap-2.5">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-200/60 dark:border-amber-800/50">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-alerta-suave text-alerta border border-amber-200/60 dark:border-amber-800/50">
               <HandCoins size={18} />
             </span>
             <div className="min-w-0">
-              <span className="text-caption font-bold tracking-widest uppercase text-emerald-700 dark:text-emerald-400 block leading-none mb-0.5">
+              <span className="text-caption font-bold tracking-widest uppercase text-acento block leading-none mb-0.5">
                 Glow Heaven
               </span>
-              <h1 className="text-title font-extrabold text-slate-900 dark:text-white leading-tight truncate">
+              <h1 className="text-title font-extrabold text-texto leading-tight truncate">
                 Cobranza y Abonos
               </h1>
             </div>
@@ -135,7 +135,7 @@ export function CobranzaView() {
               }}
               disabled={cargando}
               aria-label="Refrescar cuentas"
-              className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100/90 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 transition-all border border-slate-200/50 dark:border-slate-700/60 cursor-pointer disabled:opacity-50"
+              className="flex h-9 w-9 items-center justify-center rounded-xl bg-superficie-2/90 text-texto-2 hover:bg-superficie-2 active:scale-95 transition-all border border-borde cursor-pointer disabled:opacity-50"
             >
               <RefreshCw size={15} className={cargando ? 'animate-spin text-emerald-600' : ''} />
             </button>
@@ -144,13 +144,13 @@ export function CobranzaView() {
 
         {/* Buscador Rápido de Clientas */}
         <div className="relative mt-2">
-          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none" />
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-texto-3 pointer-events-none" />
           <input
             type="text"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar por cliente, venta o teléfono…"
-            className="w-full h-10 pl-9 pr-9 rounded-xl bg-slate-100/80 dark:bg-slate-800/70 border border-slate-200/80 dark:border-slate-700/80 text-xs font-semibold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
+            className="w-full h-10 pl-9 pr-9 rounded-xl bg-slate-100/80 dark:bg-slate-800/70 border border-borde text-xs font-semibold text-texto placeholder:text-texto-3 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
           />
           {busqueda && (
             <button
@@ -173,8 +173,8 @@ export function CobranzaView() {
             }}
             className={`m3-press shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
               filtro === 'todas'
-                ? 'bg-emerald-700 dark:bg-emerald-600 text-white shadow-xs ring-1 ring-emerald-800 dark:ring-emerald-500'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200/70 dark:hover:bg-slate-700 border border-slate-200/60 dark:border-slate-700'
+                ? 'bg-acento text-white shadow-xs ring-1 ring-emerald-800 dark:ring-emerald-500'
+                : 'bg-superficie-2 text-texto-2 hover:bg-slate-200/70 dark:hover:bg-slate-700 border border-borde'
             }`}
           >
             <span>Todas</span>
@@ -182,7 +182,7 @@ export function CobranzaView() {
               className={`text-[10px] py-0.2 px-1.5 rounded-full font-semibold ${
                 filtro === 'todas'
                   ? 'bg-white/20 text-white'
-                  : 'bg-slate-200/70 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                  : 'bg-slate-200/70 dark:bg-slate-700 text-texto-2'
               }`}
             >
               {cuentas.length}
@@ -199,8 +199,8 @@ export function CobranzaView() {
               filtro === 'vencidas'
                 ? 'bg-rose-600 dark:bg-rose-600 text-white shadow-xs ring-1 ring-rose-700 dark:ring-rose-500'
                 : cuentasVencidas.length > 0
-                ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200/70 dark:hover:bg-slate-700 border border-slate-200/60 dark:border-slate-700'
+                ? 'bg-peligro-suave text-peligro border border-rose-200 dark:border-rose-800'
+                : 'bg-superficie-2 text-texto-2 hover:bg-slate-200/70 dark:hover:bg-slate-700 border border-borde'
             }`}
           >
             <span>Vencidas</span>
@@ -225,8 +225,8 @@ export function CobranzaView() {
             }}
             className={`m3-press shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
               filtro === 'al_dia'
-                ? 'bg-emerald-700 dark:bg-emerald-600 text-white shadow-xs ring-1 ring-emerald-800 dark:ring-emerald-500'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200/70 dark:hover:bg-slate-700 border border-slate-200/60 dark:border-slate-700'
+                ? 'bg-acento text-white shadow-xs ring-1 ring-emerald-800 dark:ring-emerald-500'
+                : 'bg-superficie-2 text-texto-2 hover:bg-slate-200/70 dark:hover:bg-slate-700 border border-borde'
             }`}
           >
             <span>Al día</span>
@@ -234,7 +234,7 @@ export function CobranzaView() {
               className={`text-[10px] py-0.2 px-1.5 rounded-full font-semibold ${
                 filtro === 'al_dia'
                   ? 'bg-white/20 text-white'
-                  : 'bg-slate-200/70 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                  : 'bg-slate-200/70 dark:bg-slate-700 text-texto-2'
               }`}
             >
               {cuentasAlDia.length}
@@ -315,14 +315,14 @@ export function CobranzaView() {
               <p className="text-xs font-medium">Sincronizando cuentas por cobrar…</p>
             </div>
           ) : cuentasFiltradas.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 px-4 bg-white dark:bg-[#161f30] rounded-2xl border border-slate-200/80 dark:border-slate-800 text-center shadow-xs">
-              <div className="w-12 h-12 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-2.5">
+            <div className="flex flex-col items-center justify-center py-16 px-4 bg-superficie rounded-2xl border border-borde text-center shadow-xs">
+              <div className="w-12 h-12 rounded-full bg-acento-suave text-acento flex items-center justify-center mb-2.5">
                 <CheckCircle2 size={24} />
               </div>
-              <p className="text-sm font-bold text-slate-800 dark:text-slate-100">
+              <p className="text-sm font-bold text-texto">
                 {busqueda ? 'Sin coincidencias' : '¡Excelente! Sin cuentas en este filtro'}
               </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xs">
+              <p className="text-xs text-texto-3 mt-1 max-w-xs">
                 {busqueda
                   ? `No se encontró ninguna clienta o venta con "${busqueda}".`
                   : 'Todas las cuentas están al día o no hay saldos pendientes en esta sección.'}
@@ -331,7 +331,7 @@ export function CobranzaView() {
                 <button
                   type="button"
                   onClick={() => setBusqueda('')}
-                  className="mt-3 text-xs font-bold text-emerald-600 dark:text-emerald-400 underline"
+                  className="mt-3 text-xs font-bold text-acento underline"
                 >
                   Limpiar búsqueda
                 </button>
@@ -384,24 +384,24 @@ export function CobranzaView() {
                           {inicial}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <h2 className="text-body font-bold text-slate-900 dark:text-white truncate leading-tight group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                          <h2 className="text-body font-bold text-texto truncate leading-tight group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                             {f.cliente_nombre}
                           </h2>
-                          <p className="text-caption text-slate-500 dark:text-slate-400 font-medium truncate mt-0.5 flex items-center gap-1">
+                          <p className="text-caption text-texto-3 font-medium truncate mt-0.5 flex items-center gap-1">
                             <span>{f.codigo} · {f.fecha}</span>
-                            <span className="text-emerald-600 dark:text-emerald-400 font-semibold underline">· Kardex</span>
+                            <span className="text-acento font-semibold underline">· Kardex</span>
                           </p>
                         </div>
                       </button>
 
                       {/* Badge de vencimiento o al día */}
                       {vencida ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 dark:bg-rose-950/80 px-2.5 py-0.5 text-caption font-extrabold text-rose-700 dark:text-rose-400 shrink-0 border border-rose-200 dark:border-rose-800">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 dark:bg-rose-950/80 px-2.5 py-0.5 text-caption font-extrabold text-peligro shrink-0 border border-rose-200 dark:border-rose-800">
                           <AlertTriangle size={11} />
                           {f.cuotas_vencidas} {f.cuotas_vencidas === 1 ? 'vencida' : 'vencidas'}
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-0.5 text-caption font-bold text-emerald-700 dark:text-emerald-400 shrink-0 border border-emerald-200/60 dark:border-emerald-800/80">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-acento-suave px-2.5 py-0.5 text-caption font-bold text-acento shrink-0 border border-acento-suave">
                           Al día
                         </span>
                       )}
@@ -410,25 +410,25 @@ export function CobranzaView() {
                     {/* Fila 2: Saldo pendiente destacado */}
                     <div className="flex items-baseline justify-between px-3 py-2 rounded-xl bg-slate-50/90 border border-slate-100/90 dark:bg-slate-900/60 dark:border-slate-800/80">
                       <div>
-                        <span className="text-caption font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
+                        <span className="text-caption font-bold uppercase tracking-wider text-texto-3 block">
                           Saldo pendiente
                         </span>
-                        <span className="text-caption text-slate-400 dark:text-slate-500 font-medium">
+                        <span className="text-caption text-texto-3 font-medium">
                           Pagado: {porcentaje}% de {formatearMoneda(f.total_usd_cents, 'USD')}
                         </span>
                       </div>
                       <div className="text-right">
-                        <span className="text-base font-black text-slate-900 dark:text-white tabular-nums">
+                        <span className="text-base font-black text-texto tabular-nums">
                           {formatearMoneda(f.saldo_usd_cents, 'USD')}
                         </span>
-                        <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 ml-1.5 block">
+                        <span className="text-xs font-semibold text-texto-3 ml-1.5 block">
                           ≈ {formatearMoneda(saldoCor, 'COR')}
                         </span>
                       </div>
                     </div>
 
                     {/* Barra de progreso de pago */}
-                    <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                    <div className="w-full bg-superficie-2 rounded-full h-1.5 overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all duration-300 ${
                           vencida ? 'bg-rose-500' : 'bg-emerald-500'
@@ -481,7 +481,7 @@ export function CobranzaView() {
                             codigo: f.codigo,
                           });
                         }}
-                        className="m3-press flex items-center justify-center gap-1 h-10 px-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-label font-bold hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 transition-all cursor-pointer shrink-0"
+                        className="m3-press flex items-center justify-center gap-1 h-10 px-2.5 rounded-xl border border-borde bg-superficie-2 text-texto-2 text-label font-bold hover:bg-superficie-2 active:scale-95 transition-all cursor-pointer shrink-0"
                         title="Ver historial de abonos"
                       >
                         <Clock3 size={14} className="shrink-0" />
