@@ -58,14 +58,17 @@
   --exito: 5 128 90;
   --exito-fuerte: 4 108 74;
   --exito-suave: 228 250 240;
+  --exito-texto: 255 255 255;
   /* El naranja sobre blanco es el color más difícil de hacer legible: el
      ámbar anterior (234 130 0) daba 2.73 como texto. Este da 5.02. */
   --alerta: 180 83 9;
   --alerta-fuerte: 146 78 0;
   --alerta-suave: 255 242 215;
+  --alerta-texto: 255 255 255;
   --peligro: 225 29 72;
   --peligro-fuerte: 170 18 52;
   --peligro-suave: 255 228 235;
+  --peligro-texto: 255 255 255;
 
   --inverso: 15 23 42;
   --inverso-2: 30 41 59;
@@ -120,17 +123,22 @@
   --acento: 62 203 157;
   --acento-fuerte: 125 233 193;
   --acento-suave: 6 47 37;
-  --acento-texto: 9 13 22;
+  --acento-texto: 11 10 10;
 
+  /* Igual que con el verde: en oscuro estos colores son claros, así que el
+     texto encima de un relleno tiene que ser oscuro, no blanco. */
   --exito: 62 203 157;
   --exito-fuerte: 125 233 193;
   --exito-suave: 6 47 37;
+  --exito-texto: 11 10 10;
   --alerta: 240 170 60;
   --alerta-fuerte: 252 205 121;
   --alerta-suave: 58 36 6;
+  --alerta-texto: 11 10 10;
   --peligro: 244 98 120;
   --peligro-fuerte: 253 164 175;
   --peligro-suave: 66 12 26;
+  --peligro-texto: 11 10 10;
 
   --inverso: 246 245 244;
   --inverso-2: 224 222 220;
@@ -211,21 +219,18 @@ input, textarea, [contenteditable="true"] {
   transform: scale(0.985);
 }
 
-/* Tarjeta tonal de Android M3 */
+/* Tarjeta tonal de Android M3.
+   Sale de tokens: antes tenía los colores escritos a mano (#161f30 en
+   oscuro), y como la usa casi todo el panel, era la fuente más grande de
+   azul que sobrevivía al cambio de paleta. */
 .m3-card {
-  background-color: #ffffff;
+  background-color: rgb(var(--superficie));
   border-radius: 1.5rem; /* 24px */
-  box-shadow: 0 2px 10px -2px rgba(15, 23, 42, 0.05), 0 1px 3px -1px rgba(15, 23, 42, 0.03);
-  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: var(--sombra-1);
+  border: 1px solid rgb(var(--borde));
   transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
               box-shadow 180ms ease-out,
               border-color 180ms ease-out;
-}
-
-.dark .m3-card {
-  background-color: #161f30;
-  box-shadow: 0 4px 14px -2px rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(51, 65, 85, 0.7);
 }
 
 /* Tiras horizontales sin scrollbar visible pero con swipe suave */
@@ -350,13 +355,10 @@ input, textarea, [contenteditable="true"] {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(100, 116, 139, 0.25);
+  background: rgb(var(--borde-fuerte));
   border-radius: 9999px;
 }
 
-.dark ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-}
 
 /* Scroll reveal suave para listas móviles */
 .scroll-smooth {

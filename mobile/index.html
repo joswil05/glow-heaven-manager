@@ -34,22 +34,27 @@
         }
       })();
     </script>
-    <meta name="theme-color" content="#ffffff" />
+    <meta name="theme-color" content="#0B0A0A" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://apis.google.com https://*.firebaseio.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' https: wss:;" />
     <meta name="description" content="Ventas rápidas y panel del negocio de Glow Heaven, desde el celular." />
     <link rel="icon" type="image/png" href="/icons/icon-192.png" />
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Glow Heaven" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
     <title>Glow Heaven Móvil</title>
   </head>
-  <body class="antialiased" style="background-color: #ffffff; margin: 0;">
+  <!-- Sin `style="background-color"` en el body: un estilo inline le gana a
+       cualquier regla CSS, así que el blanco de antes se imponía sobre el
+       token del tema y asomaba como una franja clara en modo oscuro. El color
+       lo pone `body { background-color: rgb(var(--fondo)) }` en index.css, y
+       la hoja de estilos bloquea el render, así que no hay destello. -->
+  <body class="antialiased" style="margin: 0;">
     <div id="root">
-      <div style="display:flex;min-height:100dvh;align-items:center;justify-content:center;background-color:#ffffff;flex-direction:column;gap:12px;">
+      <div style="display:flex;min-height:100dvh;align-items:center;justify-content:center;flex-direction:column;gap:12px;">
         <img src="/icons/icon-192.png" alt="Glow Heaven" style="width:80px;height:80px;border-radius:22px;box-shadow:0 8px 24px -4px rgba(5,150,105,0.18);" />
       </div>
     </div>

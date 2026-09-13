@@ -63,7 +63,10 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         metaTheme.setAttribute('name', 'theme-color');
         document.head.appendChild(metaTheme);
       }
-      metaTheme.setAttribute('content', isDark ? '#0b0f19' : '#ffffff');
+      // La barra de estado acompana al tema. En la PWA instalada de Android
+      // manda el theme_color del manifiesto (por eso tambien es oscuro alli):
+      // el WebAPK lo fija al instalarse y no escucha este meta.
+      metaTheme.setAttribute('content', isDark ? '#0B0A0A' : '#FFFFFF');
     } catch {
       // Ignorar en entornos sin DOM completo
     }

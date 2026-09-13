@@ -94,7 +94,7 @@ export function DashboardView({
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden bg-fondo text-texto transition-colors">
       {/* Top App Bar fija y limpia */}
-      <header className="shrink-0 z-20 bg-superficie/95 backdrop-blur-md border-b border-borde pt-safe-t px-4 pb-2 shadow-[0_1px_3px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.3)] transition-colors">
+      <header className="shrink-0 z-20 bg-superficie/95 backdrop-blur-md border-b border-borde pt-safe-t px-4 pb-2 shadow-m3-1 transition-colors">
         <div className="flex items-center justify-between gap-2 py-1.5">
           <div className="flex min-w-0 items-center gap-2.5">
             {/* Avatar: mismo tamaño (36px) que el ícono de sección de las
@@ -112,7 +112,7 @@ export function DashboardView({
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center bg-emerald-100 text-emerald-800 font-extrabold text-xs">
+                <div className="w-full h-full flex items-center justify-center bg-acento-suave text-acento font-extrabold text-xs">
                   {(usuario?.displayName || usuario?.email || 'G').charAt(0).toUpperCase()}
                 </div>
               )}
@@ -163,7 +163,7 @@ export function DashboardView({
             {/* Separador deliberado: cerrar sesión es la única acción
                 destructiva de la barra y no debe quedar a un roce del
                 refresco. */}
-            <div className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-0.5" aria-hidden="true" />
+            <div className="w-px h-5 bg-superficie-2 mx-0.5" aria-hidden="true" />
 
             <button
               type="button"
@@ -172,7 +172,7 @@ export function DashboardView({
                 setConfirmandoSalida(true);
               }}
               aria-label="Cerrar sesión"
-              className="m3-press group flex h-9 w-9 items-center justify-center rounded-xl bg-superficie-2/90 text-texto-2 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 active:scale-90 transition-all border border-borde cursor-pointer"
+              className="m3-press group flex h-9 w-9 items-center justify-center rounded-xl bg-superficie-2/90 text-texto-2 hover:text-peligro hover:bg-peligro-suave active:scale-90 transition-all border border-borde cursor-pointer"
             >
               <LogOut size={16} className="transition-transform duration-150 group-hover:translate-x-0.5" />
             </button>
@@ -186,9 +186,9 @@ export function DashboardView({
           className="flex flex-col flex-1 min-h-0 gap-2.5 px-3.5 pt-2 pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))]"
         >
           {error && (
-            <div className="rounded-xl bg-rose-50 border border-rose-200 px-3.5 py-2 text-caption sm:text-label font-semibold text-rose-700 flex items-center justify-between shrink-0">
+            <div className="rounded-xl bg-rose-50 border border-peligro-suave px-3.5 py-2 text-caption sm:text-label font-semibold text-peligro flex items-center justify-between shrink-0">
               <span>{error}</span>
-              <button onClick={() => cargar(true)} className="underline text-rose-800">Reintentar</button>
+              <button onClick={() => cargar(true)} className="underline text-peligro">Reintentar</button>
             </div>
           )}
 
@@ -217,14 +217,14 @@ export function DashboardView({
 
               <div className="flex items-end justify-between gap-2">
                 <div>
-                  <span className="text-[11px] font-medium text-emerald-100 uppercase tracking-wider block mb-0.5">Total generado</span>
+                  <span className="text-[11px] font-medium text-acento-fuerte uppercase tracking-wider block mb-0.5">Total generado</span>
                   <p className="text-2xl sm:text-3xl font-black tracking-tight tabular-nums text-white leading-none">
                     {formatearMoneda(hoy.total_usd_cents, 'USD')}
                   </p>
                 </div>
 
                 <div className="text-right">
-                  <span className="text-[11px] text-emerald-100 block mb-0.5">Ganancia</span>
+                  <span className="text-[11px] text-acento-fuerte block mb-0.5">Ganancia</span>
                   <span className="text-caption sm:text-label font-bold text-white tabular-nums bg-white/20 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg inline-block">
                     +{formatearMoneda(hoy.ganancia_usd_cents, 'USD')}
                   </span>
@@ -239,9 +239,9 @@ export function DashboardView({
                       haptics.impact('medium');
                       onIrAVenta();
                     }}
-                    className="m3-press flex items-center justify-center gap-1.5 rounded-xl bg-white h-10 px-3 text-caption sm:text-label font-bold text-emerald-900 shadow-md active:scale-95 transition-transform cursor-pointer"
+                    className="m3-press flex items-center justify-center gap-1.5 rounded-xl bg-white h-10 px-3 text-caption sm:text-label font-bold text-acento shadow-md active:scale-95 transition-transform cursor-pointer"
                   >
-                    <PlusCircle size={15} className="text-emerald-600" />
+                    <PlusCircle size={15} className="text-acento" />
                     <span>Venta Rápida</span>
                   </button>
                 )}
@@ -253,7 +253,7 @@ export function DashboardView({
                   }}
                   className="m3-press flex items-center justify-center gap-1.5 rounded-xl bg-emerald-800/80 hover:bg-emerald-800 border border-white/20 h-10 px-3 text-caption sm:text-label font-bold text-white shadow-md active:scale-95 transition-transform cursor-pointer backdrop-blur-sm"
                 >
-                  <HandCoins size={15} className="text-emerald-300" />
+                  <HandCoins size={15} className="text-acento-fuerte" />
                   <span>Cobros y Abonos</span>
                 </button>
               </div>
@@ -267,16 +267,16 @@ export function DashboardView({
                 haptics.impact('light');
                 onIrACobranza?.();
               }}
-              className="m3-card p-3 sm:p-3.5 flex flex-col justify-between cursor-pointer hover:border-amber-300 dark:hover:border-amber-500/50 transition-colors active:scale-[0.99]"
+              className="m3-card p-3 sm:p-3.5 flex flex-col justify-between cursor-pointer hover:border-alerta-suave transition-colors active:scale-[0.99]"
             >
               <div>
                 <div className="flex items-center justify-between gap-1 mb-1">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="h-2 w-2 rounded-full bg-amber-500 shrink-0" />
+                    <span className="h-2 w-2 rounded-full bg-alerta shrink-0" />
                     <p className="text-caption sm:text-label font-semibold text-texto-3 truncate">Por cobrar</p>
                   </div>
                   {cuotasVencidas.length > 0 && (
-                    <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950 text-peligro border border-rose-200 dark:border-rose-900 shrink-0">
+                    <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-peligro-suave text-peligro border border-peligro-suave shrink-0">
                       {cuotasVencidas.length} ven.
                     </span>
                   )}
@@ -294,16 +294,16 @@ export function DashboardView({
                 haptics.impact('light');
                 onIrAInventario?.();
               }}
-              className="m3-card p-3 sm:p-3.5 flex flex-col justify-between cursor-pointer hover:border-blue-300 dark:hover:border-blue-500/50 transition-colors active:scale-[0.99]"
+              className="m3-card p-3 sm:p-3.5 flex flex-col justify-between cursor-pointer hover:border-borde-fuerte transition-colors active:scale-[0.99]"
             >
               <div>
                 <div className="flex items-center justify-between gap-1 mb-1">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="h-2 w-2 rounded-full bg-blue-500 shrink-0" />
+                    <span className="h-2 w-2 rounded-full bg-texto-3 shrink-0" />
                     <p className="text-caption sm:text-label font-semibold text-texto-3 truncate">Inventario</p>
                   </div>
                   {(panel?.bajo_stock.length ?? 0) > 0 && (
-                    <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-alerta border border-amber-200 dark:border-amber-900 shrink-0 flex items-center gap-0.5">
+                    <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-alerta-suave text-alerta border border-alerta-suave shrink-0 flex items-center gap-0.5">
                       <PackageX size={10} />
                       {panel!.bajo_stock.length} bajo
                     </span>
@@ -371,7 +371,7 @@ export function DashboardView({
                           borderRadius: '6px',
                           background: tieneVenta
                             ? 'linear-gradient(180deg, #10b981 0%, #059669 100%)'
-                            : (isDark ? '#334155' : '#e2e8f0'),
+                            : (isDark ? '#334155' : 'rgb(var(--borde))'),
                           transform: `scaleY(${tieneVenta ? Math.max(0.18, porcentaje / 100) : 0.05})`,
                           transformOrigin: 'bottom',
                           transition: 'transform 300ms ease-out',
@@ -385,8 +385,8 @@ export function DashboardView({
                         color: estaSeleccionado
                           ? (isDark ? '#34d399' : '#047857')
                           : tieneVenta
-                            ? (isDark ? '#f8fafc' : '#0f172a')
-                            : (isDark ? '#64748b' : '#94a3b8'),
+                            ? (isDark ? '#f8fafc' : 'rgb(var(--texto))')
+                            : (isDark ? 'rgb(var(--texto-3))' : 'rgb(var(--texto-3))'),
                       }}
                     >
                       {nombreDia(d.fecha)}
@@ -416,8 +416,8 @@ export function DashboardView({
                al tocarla. El `pb` del <main> ya reserva la altura del dock. */
             className={`m3-card p-3 sm:p-3.5 flex-1 min-h-[76px] flex flex-col border transition-colors cursor-pointer active:scale-[0.985] ${
               (panel?.bajo_stock?.length ?? 0) > 0
-                ? 'bg-rose-50/60 dark:bg-rose-950/25 border-rose-200/70 dark:border-rose-900/50 hover:border-rose-300 dark:hover:border-rose-800'
-                : 'bg-emerald-50/40 dark:bg-emerald-950/20 border-acento-suave'
+                ? 'bg-peligro-suave border-peligro-suave hover:border-peligro-suave'
+                : 'bg-acento-suave border-acento-suave'
             }`}
           >
             {/* El contenido se reparte con `justify-between`: la información
@@ -429,19 +429,19 @@ export function DashboardView({
             {(panel?.bajo_stock?.length ?? 0) > 0 ? (
               <div className="flex flex-col justify-between h-full w-full gap-3 min-w-0">
                 <div className="flex items-start gap-2.5 min-w-0">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-500/15 text-peligro shrink-0 border border-rose-500/20">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-500/15 text-peligro shrink-0 border border-peligro-suave">
                     <PackageX size={20} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-label sm:text-body font-bold text-rose-900 dark:text-rose-200 truncate leading-tight">
+                      <span className="text-label sm:text-body font-bold text-peligro truncate leading-tight">
                         Stock crítico ({panel!.bajo_stock.length})
                       </span>
                       {panel!.bajo_stock.some((i) => i.existencias === 0) && (
                         <span className="h-2 w-2 rounded-full bg-rose-500 animate-pulse shrink-0" />
                       )}
                     </div>
-                    <p className="text-caption text-rose-700/80 dark:text-rose-400/80 font-medium truncate mt-0.5 leading-tight">
+                    <p className="text-caption text-peligro/80 font-medium truncate mt-0.5 leading-tight">
                       {panel!.bajo_stock.length === 1
                         ? panel!.bajo_stock[0].nombre
                         : `${panel!.bajo_stock.filter((i) => i.existencias === 0).length} agotados`}
@@ -449,7 +449,7 @@ export function DashboardView({
                   </div>
                 </div>
 
-                <div className="flex w-full items-center justify-center gap-1.5 text-label font-bold text-peligro bg-rose-100/90 dark:bg-rose-900/40 px-3 py-2.5 rounded-xl border border-rose-200/60 dark:border-rose-800/60 shrink-0">
+                <div className="flex w-full items-center justify-center gap-1.5 text-label font-bold text-peligro bg-peligro-suave px-3 py-2.5 rounded-xl border border-peligro-suave shrink-0">
                   <span>Revisar inventario</span>
                   <ChevronRight size={15} />
                 </div>
@@ -457,7 +457,7 @@ export function DashboardView({
             ) : (
               <div className="flex flex-col justify-between h-full w-full gap-3 min-w-0">
                 <div className="flex items-start gap-2.5 min-w-0">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/15 text-acento shrink-0 border border-emerald-500/20">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/15 text-acento shrink-0 border border-acento-suave">
                     <CheckCircle2 size={20} />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -470,7 +470,7 @@ export function DashboardView({
                   </div>
                 </div>
 
-                <div className="flex w-full items-center justify-center gap-1.5 text-label font-bold text-acento bg-emerald-100/80 dark:bg-emerald-950/80 px-3 py-2.5 rounded-xl border border-acento-suave shrink-0">
+                <div className="flex w-full items-center justify-center gap-1.5 text-label font-bold text-acento bg-acento-suave px-3 py-2.5 rounded-xl border border-acento-suave shrink-0">
                   <span>Ver inventario</span>
                   <ChevronRight size={15} />
                 </div>
@@ -531,7 +531,7 @@ export function DashboardView({
                       onIrAInventario();
                     }
                   }}
-                  className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-slate-50/90 dark:bg-slate-800/60 border border-borde active:scale-[0.985] transition-all cursor-pointer"
+                  className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-superficie-2 border border-borde active:scale-[0.985] transition-all cursor-pointer"
                 >
                   <div className="flex items-center gap-2.5 min-w-0 flex-1">
                     <span
@@ -552,8 +552,8 @@ export function DashboardView({
                     <span
                       className={`text-xs font-extrabold px-2.5 py-1 rounded-lg tabular-nums ${
                         estaAgotado
-                          ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'
-                          : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                          ? 'bg-peligro-suave text-peligro-fuerte'
+                          : 'bg-alerta-suave text-alerta-fuerte'
                       }`}
                     >
                       {estaAgotado ? 'Agotado (0)' : `Quedan ${item.existencias}`}
@@ -568,12 +568,12 @@ export function DashboardView({
               );
             })
           ) : (
-            <div className="py-8 text-center text-slate-400">
+            <div className="py-8 text-center text-texto-3">
               <CheckCircle2 size={36} className="mx-auto text-emerald-500 mb-2" />
               <p className="text-sm font-bold text-texto-2">
                 Todo el inventario está en orden
               </p>
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-xs text-texto-3 mt-1">
                 No hay productos agotados ni por debajo del stock mínimo.
               </p>
             </div>

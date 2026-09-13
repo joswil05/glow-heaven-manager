@@ -207,7 +207,7 @@ export function BottomSheet({
       <div
         ref={scrimRef}
         onClick={onCerrar}
-        className="fixed inset-0 bg-slate-950/60 backdrop-blur-[3px] animate-m3-fade"
+        className="fixed inset-0 bg-fondo backdrop-blur-[3px] animate-m3-fade"
         aria-hidden="true"
       />
 
@@ -229,7 +229,7 @@ export function BottomSheet({
           onClick={cerrarSiFueToque}
           {...manejadoresArrastre}
         >
-          <div className="h-1.5 w-12 rounded-full bg-slate-300 dark:bg-slate-600 group-hover:bg-slate-400 dark:group-hover:bg-slate-500 group-hover:w-14 transition-[background-color,width] duration-150" />
+          <div className="h-1.5 w-12 rounded-full bg-superficie-2 group-hover:bg-borde-fuerte group-hover:w-14 transition-[background-color,width] duration-150" />
         </div>
 
         {/* Cabecera compacta. También arrastra: es la zona ancha y sin
@@ -247,7 +247,7 @@ export function BottomSheet({
               type="button"
               onClick={onCerrar}
               aria-label="Cerrar"
-              className="m3-press flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:text-texto-2 hover:bg-superficie-2 cursor-pointer"
+              className="m3-press flex h-8 w-8 items-center justify-center rounded-full text-texto-3 hover:text-texto-2 hover:bg-superficie-2 cursor-pointer"
             >
               <X size={18} />
             </button>

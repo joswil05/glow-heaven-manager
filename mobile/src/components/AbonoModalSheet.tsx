@@ -116,7 +116,7 @@ export function AbonoModalSheet({ venta, onCerrar, onAbonoRegistrado }: AbonoMod
     >
       {exito ? (
         <div className="flex flex-col items-center text-center py-4 gap-4 animate-m3-fade">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/70 text-acento shadow-sm">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-acento-suave text-acento shadow-sm">
             <CheckCircle2 size={36} />
           </div>
 
@@ -179,7 +179,7 @@ export function AbonoModalSheet({ venta, onCerrar, onAbonoRegistrado }: AbonoMod
             <button
               type="button"
               onClick={llenarSaldoTotal}
-              className="m3-press rounded-xl bg-acento-suave border border-acento-suave px-3 py-1.5 text-xs font-bold text-acento hover:bg-emerald-100 dark:hover:bg-emerald-900/60"
+              className="m3-press rounded-xl bg-acento-suave border border-acento-suave px-3 py-1.5 text-xs font-bold text-acento hover:bg-acento-suave"
             >
               Pagar todo
             </button>
@@ -197,7 +197,7 @@ export function AbonoModalSheet({ venta, onCerrar, onAbonoRegistrado }: AbonoMod
                     setMoneda('COR');
                   }}
                   className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                    moneda === 'COR' ? 'bg-white dark:bg-slate-700 text-acento shadow-sm' : 'text-texto-3'
+                    moneda === 'COR' ? 'bg-superficie-3 text-acento shadow-sm' : 'text-texto-3'
                   }`}
                 >
                   Córdobas (C$)
@@ -209,7 +209,7 @@ export function AbonoModalSheet({ venta, onCerrar, onAbonoRegistrado }: AbonoMod
                     setMoneda('USD');
                   }}
                   className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                    moneda === 'USD' ? 'bg-white dark:bg-slate-700 text-acento shadow-sm' : 'text-texto-3'
+                    moneda === 'USD' ? 'bg-superficie-3 text-acento shadow-sm' : 'text-texto-3'
                   }`}
                 >
                   Dólares (US$)
@@ -222,11 +222,11 @@ export function AbonoModalSheet({ venta, onCerrar, onAbonoRegistrado }: AbonoMod
               <select
                 value={metodo}
                 onChange={(e) => setMetodo(e.target.value as MetodoPago)}
-                className="w-full h-10 rounded-xl border border-borde bg-superficie px-3 text-xs font-medium text-texto outline-none focus:border-emerald-500"
+                className="w-full h-10 rounded-xl border border-borde bg-superficie px-3 text-xs font-medium text-texto outline-none focus:border-acento-suave"
               >
-                <option value="EFECTIVO" className="dark:bg-slate-800 dark:text-white">Efectivo</option>
-                <option value="TRANSFERENCIA" className="dark:bg-slate-800 dark:text-white">Transferencia</option>
-                <option value="OTRO" className="dark:bg-slate-800 dark:text-white">Otro método</option>
+                <option value="EFECTIVO" className="bg-superficie-3 text-texto">Efectivo</option>
+                <option value="TRANSFERENCIA" className="bg-superficie-3 text-texto">Transferencia</option>
+                <option value="OTRO" className="bg-superficie-3 text-texto">Otro método</option>
               </select>
             </div>
           </div>
@@ -247,7 +247,7 @@ export function AbonoModalSheet({ venta, onCerrar, onAbonoRegistrado }: AbonoMod
                 value={montoTexto}
                 onChange={(e) => setMontoTexto(e.target.value)}
                 placeholder="0.00"
-                className="w-full rounded-2xl border border-borde bg-superficie pl-10 pr-4 py-2.5 text-base font-bold text-texto placeholder:text-texto-3 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                className="w-full rounded-2xl border border-borde bg-superficie pl-10 pr-4 py-2.5 text-base font-bold text-texto placeholder:text-texto-3 outline-none focus:border-acento-suave focus:ring-2 focus:ring-emerald-500/20"
               />
             </div>
           </div>
@@ -262,7 +262,7 @@ export function AbonoModalSheet({ venta, onCerrar, onAbonoRegistrado }: AbonoMod
               value={referencia}
               onChange={(e) => setReferencia(e.target.value)}
               placeholder="Ej. BAC #4829 o billete de 500"
-              className="w-full rounded-xl border border-borde bg-superficie px-3.5 py-2.5 text-xs text-texto placeholder:text-texto-3 outline-none focus:border-emerald-500"
+              className="w-full rounded-xl border border-borde bg-superficie px-3.5 py-2.5 text-xs text-texto placeholder:text-texto-3 outline-none focus:border-acento-suave"
             />
           </div>
 

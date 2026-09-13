@@ -106,14 +106,14 @@ export function CobranzaView() {
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden bg-fondo text-texto transition-colors">
       {/* Top App Bar fija */}
-      <header className="shrink-0 z-20 bg-superficie/95 backdrop-blur-md border-b border-borde pt-safe-t px-4 pb-2 shadow-[0_1px_3px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.3)] transition-colors">
+      <header className="shrink-0 z-20 bg-superficie/95 backdrop-blur-md border-b border-borde pt-safe-t px-4 pb-2 shadow-m3-1 transition-colors">
         <div className="flex items-center justify-between gap-2 py-1.5">
           {/* Mismo molde que las otras 3 pantallas: ícono + "Glow Heaven" +
               título en una sola línea. Antes esta pantalla era la única sin
               el eyebrow de marca, y repetía el conteo de cuentas dos veces
               (aquí y en el tab "Todas" de abajo) — se quitó la duplicación. */}
           <div className="flex min-w-0 items-center gap-2.5">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-alerta-suave text-alerta border border-amber-200/60 dark:border-amber-800/50">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-alerta-suave text-alerta border border-alerta-suave">
               <HandCoins size={18} />
             </span>
             <div className="min-w-0">
@@ -137,7 +137,7 @@ export function CobranzaView() {
               aria-label="Refrescar cuentas"
               className="flex h-9 w-9 items-center justify-center rounded-xl bg-superficie-2/90 text-texto-2 hover:bg-superficie-2 active:scale-95 transition-all border border-borde cursor-pointer disabled:opacity-50"
             >
-              <RefreshCw size={15} className={cargando ? 'animate-spin text-emerald-600' : ''} />
+              <RefreshCw size={15} className={cargando ? 'animate-spin text-acento' : ''} />
             </button>
           </div>
         </div>
@@ -150,13 +150,13 @@ export function CobranzaView() {
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar por cliente, venta o teléfono…"
-            className="w-full h-10 pl-9 pr-9 rounded-xl bg-slate-100/80 dark:bg-slate-800/70 border border-borde text-xs font-semibold text-texto placeholder:text-texto-3 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
+            className="w-full h-10 pl-9 pr-9 rounded-xl bg-superficie-2 border border-borde text-xs font-semibold text-texto placeholder:text-texto-3 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
           />
           {busqueda && (
             <button
               type="button"
               onClick={() => setBusqueda('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-texto-3 hover:text-texto-2 cursor-pointer"
             >
               <X size={14} />
             </button>
@@ -173,8 +173,8 @@ export function CobranzaView() {
             }}
             className={`m3-press shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
               filtro === 'todas'
-                ? 'bg-acento text-white shadow-xs ring-1 ring-emerald-800 dark:ring-emerald-500'
-                : 'bg-superficie-2 text-texto-2 hover:bg-slate-200/70 dark:hover:bg-slate-700 border border-borde'
+                ? 'bg-acento text-white shadow-xs ring-1 ring-acento'
+                : 'bg-superficie-2 text-texto-2 hover:bg-superficie-3 border border-borde'
             }`}
           >
             <span>Todas</span>
@@ -182,7 +182,7 @@ export function CobranzaView() {
               className={`text-[10px] py-0.2 px-1.5 rounded-full font-semibold ${
                 filtro === 'todas'
                   ? 'bg-white/20 text-white'
-                  : 'bg-slate-200/70 dark:bg-slate-700 text-texto-2'
+                  : 'bg-superficie-3 text-texto-2'
               }`}
             >
               {cuentas.length}
@@ -197,10 +197,10 @@ export function CobranzaView() {
             }}
             className={`m3-press shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
               filtro === 'vencidas'
-                ? 'bg-rose-600 dark:bg-rose-600 text-white shadow-xs ring-1 ring-rose-700 dark:ring-rose-500'
+                ? 'bg-peligro text-peligro-texto shadow-xs'
                 : cuentasVencidas.length > 0
-                ? 'bg-peligro-suave text-peligro border border-rose-200 dark:border-rose-800'
-                : 'bg-superficie-2 text-texto-2 hover:bg-slate-200/70 dark:hover:bg-slate-700 border border-borde'
+                ? 'bg-peligro-suave text-peligro border border-peligro-suave'
+                : 'bg-superficie-2 text-texto-2 hover:bg-superficie-3 border border-borde'
             }`}
           >
             <span>Vencidas</span>
@@ -209,7 +209,7 @@ export function CobranzaView() {
                 className={`text-[10px] py-0.2 px-1.5 rounded-full font-bold ${
                   filtro === 'vencidas'
                     ? 'bg-white/20 text-white'
-                    : 'bg-rose-200/80 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200'
+                    : 'bg-peligro-suave text-peligro'
                 }`}
               >
                 {cuentasVencidas.length}
@@ -225,8 +225,8 @@ export function CobranzaView() {
             }}
             className={`m3-press shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
               filtro === 'al_dia'
-                ? 'bg-acento text-white shadow-xs ring-1 ring-emerald-800 dark:ring-emerald-500'
-                : 'bg-superficie-2 text-texto-2 hover:bg-slate-200/70 dark:hover:bg-slate-700 border border-borde'
+                ? 'bg-acento text-white shadow-xs ring-1 ring-acento'
+                : 'bg-superficie-2 text-texto-2 hover:bg-superficie-3 border border-borde'
             }`}
           >
             <span>Al día</span>
@@ -234,7 +234,7 @@ export function CobranzaView() {
               className={`text-[10px] py-0.2 px-1.5 rounded-full font-semibold ${
                 filtro === 'al_dia'
                   ? 'bg-white/20 text-white'
-                  : 'bg-slate-200/70 dark:bg-slate-700 text-texto-2'
+                  : 'bg-superficie-3 text-texto-2'
               }`}
             >
               {cuentasAlDia.length}
@@ -247,9 +247,9 @@ export function CobranzaView() {
       <PullToRefresh onRefresh={() => cargar(true)}>
         <main ref={scrollRevealRef} className="flex flex-col gap-3 px-3.5 pt-3 pb-24 scroll-smooth">
           {error && (
-            <div className="rounded-2xl bg-rose-50 border border-rose-200 px-4 py-3 text-xs font-semibold text-rose-700 flex items-center justify-between">
+            <div className="rounded-2xl bg-rose-50 border border-peligro-suave px-4 py-3 text-xs font-semibold text-peligro flex items-center justify-between">
               <span>{error}</span>
-              <button onClick={() => cargar(true)} className="underline text-rose-800">Reintentar</button>
+              <button onClick={() => cargar(true)} className="underline text-peligro">Reintentar</button>
             </div>
           )}
 
@@ -284,7 +284,7 @@ export function CobranzaView() {
                     <p className="text-2xl sm:text-3xl font-black tracking-tight tabular-nums text-white leading-none">
                       {formatearMoneda(totalPorCobrarUsd, 'USD')}
                     </p>
-                    <span className="text-xs font-semibold text-amber-100 tabular-nums">
+                    <span className="text-xs font-semibold text-alerta-fuerte tabular-nums">
                       ≈ {formatearMoneda(totalPorCobrarCor, 'COR')}
                     </span>
                   </div>
@@ -299,9 +299,9 @@ export function CobranzaView() {
                     haptics.impact('medium');
                     setSheetAbonoSelectorAbierto(true);
                   }}
-                  className="w-full m3-press flex items-center justify-center gap-2 rounded-xl bg-white h-11 px-4 text-body font-bold text-amber-950 shadow-md active:scale-95 transition-transform cursor-pointer"
+                  className="w-full m3-press flex items-center justify-center gap-2 rounded-xl bg-white h-11 px-4 text-body font-bold text-alerta shadow-md active:scale-95 transition-transform cursor-pointer"
                 >
-                  <PlusCircle size={16} className="text-amber-700" />
+                  <PlusCircle size={16} className="text-alerta" />
                   <span>Registrar nuevo abono a clienta</span>
                 </button>
               </div>
@@ -310,8 +310,8 @@ export function CobranzaView() {
 
           {/* Lista de Cuentas por Cobrar */}
           {cargando && cuentas.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 gap-3 text-slate-400">
-              <div className="h-8 w-8 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
+            <div className="flex flex-col items-center justify-center py-16 gap-3 text-texto-3">
+              <div className="h-8 w-8 rounded-full border-2 border-alerta-suave border-t-transparent animate-spin" />
               <p className="text-xs font-medium">Sincronizando cuentas por cobrar…</p>
             </div>
           ) : cuentasFiltradas.length === 0 ? (
@@ -352,8 +352,8 @@ export function CobranzaView() {
                     key={f.venta_id}
                     className={`scroll-reveal flex flex-col gap-2.5 rounded-2xl border p-3.5 shadow-xs transition-all ${
                       vencida
-                        ? 'border-rose-300/80 bg-rose-50/40 dark:border-rose-900/60 dark:bg-rose-950/20'
-                        : 'border-slate-200/90 bg-white dark:border-slate-800 dark:bg-[#161f30] hover:border-slate-300 dark:hover:border-slate-700'
+                        ? 'border-peligro-suave bg-peligro-suave'
+                        : 'border-borde bg-white  hover:border-borde'
                     }`}
                   >
                     {/* Fila 1: Avatar + Nombre + Referencia + Badge de estado */}
@@ -377,14 +377,14 @@ export function CobranzaView() {
                         <div
                           className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-black shrink-0 border ${
                             vencida
-                              ? 'bg-rose-100 text-rose-800 border-rose-200 dark:bg-rose-950/80 dark:text-rose-300 dark:border-rose-800'
-                              : 'bg-emerald-100/90 text-emerald-800 border-emerald-200/70 dark:bg-emerald-950/70 dark:text-emerald-300 dark:border-emerald-800'
+                              ? 'bg-peligro-suave text-peligro-fuerte border-peligro-suave'
+                              : 'bg-acento-suave text-acento-fuerte border-acento-suave'
                           }`}
                         >
                           {inicial}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <h2 className="text-body font-bold text-texto truncate leading-tight group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                          <h2 className="text-body font-bold text-texto truncate leading-tight group-hover:text-acento transition-colors">
                             {f.cliente_nombre}
                           </h2>
                           <p className="text-caption text-texto-3 font-medium truncate mt-0.5 flex items-center gap-1">
@@ -396,7 +396,7 @@ export function CobranzaView() {
 
                       {/* Badge de vencimiento o al día */}
                       {vencida ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 dark:bg-rose-950/80 px-2.5 py-0.5 text-caption font-extrabold text-peligro shrink-0 border border-rose-200 dark:border-rose-800">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-peligro-suave px-2.5 py-0.5 text-caption font-extrabold text-peligro shrink-0 border border-peligro-suave">
                           <AlertTriangle size={11} />
                           {f.cuotas_vencidas} {f.cuotas_vencidas === 1 ? 'vencida' : 'vencidas'}
                         </span>
@@ -408,7 +408,7 @@ export function CobranzaView() {
                     </div>
 
                     {/* Fila 2: Saldo pendiente destacado */}
-                    <div className="flex items-baseline justify-between px-3 py-2 rounded-xl bg-slate-50/90 border border-slate-100/90 dark:bg-slate-900/60 dark:border-slate-800/80">
+                    <div className="flex items-baseline justify-between px-3 py-2 rounded-xl bg-superficie-2 border border-borde">
                       <div>
                         <span className="text-caption font-bold uppercase tracking-wider text-texto-3 block">
                           Saldo pendiente
@@ -459,8 +459,8 @@ export function CobranzaView() {
                         aria-label={`Escribir a ${f.cliente_nombre} por WhatsApp`}
                         className={`m3-press flex items-center justify-center gap-1.5 h-10 px-3 rounded-xl border text-label font-bold transition-all shrink-0 ${
                           f.cliente_telefono
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/80 hover:bg-emerald-100 dark:hover:bg-emerald-950/60 active:scale-95'
-                            : 'bg-slate-50 text-slate-400 border-slate-200 dark:bg-slate-900/40 dark:text-slate-600 dark:border-slate-800 pointer-events-none'
+                            ? 'bg-acento-suave text-acento-fuerte border-acento-suave hover:bg-acento-suave active:scale-95'
+                            : 'bg-superficie-2 text-texto-3 border-borde-2 pointer-events-none'
                         }`}
                       >
                         <MessageCircle size={15} className="shrink-0" />

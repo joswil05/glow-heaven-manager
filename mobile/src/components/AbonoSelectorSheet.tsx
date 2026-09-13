@@ -62,7 +62,7 @@ export function AbonoSelectorSheet({
               display: 'flex',
               alignItems: 'center',
               pointerEvents: 'none',
-              color: '#64748b',
+              color: 'rgb(var(--texto-3))',
             }}
           >
             <Search size={18} />
@@ -71,7 +71,7 @@ export function AbonoSelectorSheet({
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar por clienta o código de venta…"
-            className="w-full h-11 rounded-full bg-superficie-2 text-xs font-semibold text-texto placeholder:text-texto-3 outline-none focus:bg-superficie focus:ring-2 focus:ring-emerald-500/30 border border-transparent dark:border-slate-700 transition-all"
+            className="w-full h-11 rounded-full bg-superficie-2 text-xs font-semibold text-texto placeholder:text-texto-3 outline-none focus:bg-superficie focus:ring-2 focus:ring-emerald-500/30 border border-transparent transition-all"
             style={{
               paddingLeft: '44px',
               paddingRight: '40px',
@@ -86,7 +86,7 @@ export function AbonoSelectorSheet({
                 haptics.impact('light');
                 setBusqueda('');
               }}
-              className="absolute right-3 p-1 text-slate-400 hover:text-texto-2 rounded-full"
+              className="absolute right-3 p-1 text-texto-3 hover:text-texto-2 rounded-full"
               style={{ position: 'absolute', right: '12px' }}
             >
               <X size={16} />
@@ -96,19 +96,19 @@ export function AbonoSelectorSheet({
 
         {/* Resumen Total Pendiente */}
         {cuentasPorCobrar.length > 0 && (
-          <div className="flex items-center justify-between rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 dark:from-emerald-950/40 dark:via-teal-950/30 dark:to-emerald-950/40 border border-acento-suave p-3 shadow-sm shrink-0">
+          <div className="flex items-center justify-between rounded-2xl bg-acento-suave border border-acento-suave p-3 shadow-sm shrink-0">
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-acento">
                 Total por cobrar en el negocio
               </span>
-              <p className="text-sm font-black text-emerald-900 dark:text-emerald-100">
+              <p className="text-sm font-black text-acento">
                 {formatearMoneda(totalPendienteUsd, 'USD')}{' '}
                 <span className="text-xs font-semibold text-acento">
                   (≈ {formatearMoneda(totalPendienteCor, 'COR')})
                 </span>
               </p>
             </div>
-            <span className="rounded-full bg-emerald-100/90 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 text-xs font-extrabold px-2.5 py-1">
+            <span className="rounded-full bg-acento-suave text-acento text-xs font-extrabold px-2.5 py-1">
               {cuentasPorCobrar.length} cuenta{cuentasPorCobrar.length > 1 ? 's' : ''}
             </span>
           </div>
@@ -140,15 +140,15 @@ export function AbonoSelectorSheet({
                   key={c.venta_id}
                   className={`flex items-center justify-between gap-3 rounded-2xl border p-3 transition-transform active:scale-[0.99] ${
                     vencida
-                      ? 'border-rose-200/80 bg-rose-50/50 dark:border-rose-900/60 dark:bg-rose-950/30'
-                      : 'border-slate-200/80 bg-superficie/80 dark:border-slate-700/80 hover:bg-superficie-2'
+                      ? 'border-peligro-suave bg-peligro-suave'
+                      : 'border-borde bg-superficie/80 hover:bg-superficie-2'
                   }`}
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
                       <p className="truncate text-xs font-bold text-texto">{c.cliente_nombre}</p>
                       {vencida && (
-                        <span className="inline-flex items-center gap-0.5 rounded-md bg-rose-100 dark:bg-rose-950/80 px-1.5 py-0.5 text-[10px] font-bold text-peligro">
+                        <span className="inline-flex items-center gap-0.5 rounded-md bg-peligro-suave px-1.5 py-0.5 text-[10px] font-bold text-peligro">
                           <AlertTriangle size={10} />
                           Vencida
                         </span>

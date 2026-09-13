@@ -63,7 +63,7 @@ export function SnackbarProvider({ children }: { children: ReactNode }) {
             style={{
               backgroundColor:
                 m.tipo === 'success'
-                  ? '#0f172a'
+                  ? 'rgb(var(--texto))'
                   : m.tipo === 'error'
                     ? '#be123c'
                     : '#1e293b',
@@ -72,8 +72,8 @@ export function SnackbarProvider({ children }: { children: ReactNode }) {
             }}
           >
             {m.tipo === 'success' && <CheckCircle2 size={18} className="shrink-0 text-emerald-400" />}
-            {m.tipo === 'error' && <AlertCircle size={18} className="shrink-0 text-rose-300" />}
-            {m.tipo === 'info' && <Info size={18} className="shrink-0 text-sky-400" />}
+            {m.tipo === 'error' && <AlertCircle size={18} className="shrink-0 text-peligro-fuerte" />}
+            {m.tipo === 'info' && <Info size={18} className="shrink-0 text-texto-2" />}
             <span className="flex-1 leading-snug">{m.texto}</span>
             <button
               type="button"

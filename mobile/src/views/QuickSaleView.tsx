@@ -366,7 +366,7 @@ export function QuickSaleView() {
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden bg-fondo text-texto transition-colors">
       {/* Top App Bar de Venta Rápida: mismo molde que el resto de la app */}
-      <header className="shrink-0 z-20 bg-superficie/95 backdrop-blur-md border-b border-borde pt-safe-t px-4 pb-2 shadow-[0_1px_3px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.3)] transition-colors">
+      <header className="shrink-0 z-20 bg-superficie/95 backdrop-blur-md border-b border-borde pt-safe-t px-4 pb-2 shadow-m3-1 transition-colors">
         <div className="flex items-center justify-between gap-2 py-1.5">
           <div className="flex min-w-0 items-center gap-2.5">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-acento-suave text-acento border border-acento-suave">
@@ -390,7 +390,7 @@ export function QuickSaleView() {
             >
               <User size={13} className="text-acento" />
               <span className="max-w-[110px] truncate">{clienteSeleccionado.nombre}</span>
-              <ChevronRight size={12} className="text-emerald-500 dark:text-emerald-400" />
+              <ChevronRight size={12} className="text-acento" />
             </button>
           ) : (
             <button
@@ -399,7 +399,7 @@ export function QuickSaleView() {
                 haptics.impact('light');
                 setSheetClienteAbierto(true);
               }}
-              className="m3-press flex items-center gap-1.5 rounded-xl bg-superficie-2 hover:bg-slate-200/80 dark:hover:bg-slate-700 px-3 py-1.5 text-xs font-bold text-texto-2 border border-borde active:scale-95 transition-transform cursor-pointer"
+              className="m3-press flex items-center gap-1.5 rounded-xl bg-superficie-2 hover:bg-superficie-3 px-3 py-1.5 text-xs font-bold text-texto-2 border border-borde active:scale-95 transition-transform cursor-pointer"
             >
               <User size={13} className="text-texto-3" />
               <span>Mostrador</span>
@@ -417,7 +417,7 @@ export function QuickSaleView() {
               display: 'flex',
               alignItems: 'center',
               pointerEvents: 'none',
-              color: '#64748b',
+              color: 'rgb(var(--texto-3))',
             }}
           >
             <Search size={17} />
@@ -442,7 +442,7 @@ export function QuickSaleView() {
                 haptics.impact('light');
                 setBusqueda('');
               }}
-              className="absolute right-2.5 p-1 text-slate-400 hover:text-texto-2 rounded-full cursor-pointer"
+              className="absolute right-2.5 p-1 text-texto-3 hover:text-texto-2 rounded-full cursor-pointer"
               aria-label="Limpiar búsqueda"
             >
               <X size={15} />
@@ -463,8 +463,8 @@ export function QuickSaleView() {
               }}
               className={`m3-press shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
                 categoriaActiva === null
-                  ? 'bg-acento text-white shadow-sm ring-1 ring-emerald-800 dark:ring-emerald-500'
-                  : 'bg-superficie-2 text-texto-2 hover:bg-slate-200/70 dark:hover:bg-slate-700 border border-borde'
+                  ? 'bg-acento text-white shadow-sm ring-1 ring-acento'
+                  : 'bg-superficie-2 text-texto-2 hover:bg-superficie-3 border border-borde'
               }`}
             >
               Todos
@@ -481,8 +481,8 @@ export function QuickSaleView() {
                   }}
                   className={`m3-press shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
                     activa
-                      ? 'bg-acento text-white shadow-sm ring-1 ring-emerald-800 dark:ring-emerald-500'
-                      : 'bg-superficie-2 text-texto-2 hover:bg-slate-200/70 dark:hover:bg-slate-700 border border-borde'
+                      ? 'bg-acento text-white shadow-sm ring-1 ring-acento'
+                      : 'bg-superficie-2 text-texto-2 hover:bg-superficie-3 border border-borde'
                   }`}
                 >
                   {cat.nombre}
@@ -490,15 +490,15 @@ export function QuickSaleView() {
               );
             })}
           </div>
-          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white dark:from-[#121826] to-transparent" />
+          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent" />
         </div>
       </header>
 
       {/* Catálogo de Productos para Venta Rápida */}
       <main ref={scrollRevealRef} className="flex-1 min-h-0 overflow-y-auto px-3.5 pt-2.5 pb-40 scroll-smooth">
         {cargandoProductos && (
-          <div className="flex flex-col items-center justify-center py-16 gap-3 text-slate-400">
-            <div className="h-8 w-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
+          <div className="flex flex-col items-center justify-center py-16 gap-3 text-texto-3">
+            <div className="h-8 w-8 rounded-full border-2 border-acento-suave border-t-transparent animate-spin" />
             <p className="text-xs font-medium">Cargando catálogo disponible…</p>
           </div>
         )}
@@ -515,7 +515,7 @@ export function QuickSaleView() {
               return (
                 <div
                   key={p.id}
-                  className="scroll-reveal rounded-2xl bg-superficie border border-borde p-3 shadow-xs hover:border-slate-300 dark:hover:border-slate-700 transition-all flex items-center gap-3"
+                  className="scroll-reveal rounded-2xl bg-superficie border border-borde p-3 shadow-xs hover:border-borde transition-all flex items-center gap-3"
                 >
                   {/* Miniatura */}
                   <div
@@ -534,7 +534,7 @@ export function QuickSaleView() {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-emerald-50 via-slate-50 to-slate-100 dark:from-emerald-950/30 dark:via-slate-900/40 dark:to-slate-800 flex items-center justify-center text-texto-3 font-black text-xs uppercase">
+                      <div className="w-full h-full bg-acento-suave flex items-center justify-center text-texto-3 font-black text-xs uppercase">
                         {p.nombre.slice(0, 2)}
                       </div>
                     )}
@@ -568,7 +568,7 @@ export function QuickSaleView() {
                           haptics.impact('medium');
                           setProductoConVariantesAbierto(p);
                         }}
-                        className="m3-press flex items-center gap-1.5 rounded-xl bg-acento-suave hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-acento-suave px-3 py-2 text-xs font-bold text-acento active:scale-95 transition-all cursor-pointer"
+                        className="m3-press flex items-center gap-1.5 rounded-xl bg-acento-suave hover:bg-acento-suave border border-acento-suave px-3 py-2 text-xs font-bold text-acento active:scale-95 transition-all cursor-pointer"
                       >
                         <span>Tonos</span>
                         {cantidadEnCarrito > 0 && (
@@ -598,7 +598,7 @@ export function QuickSaleView() {
                         >
                           <Minus size={13} />
                         </button>
-                        <span className="w-6 text-center text-xs font-black text-emerald-900 dark:text-emerald-200 tabular-nums">
+                        <span className="w-6 text-center text-xs font-black text-acento tabular-nums">
                           {cantidadEnCarrito}
                         </span>
                         <button
@@ -661,17 +661,17 @@ export function QuickSaleView() {
         >
           <div
             onClick={() => setSheetCarritoAbierto(true)}
-            className="pointer-events-auto m3-press flex items-center justify-between gap-3 w-full max-w-md rounded-2xl bg-slate-900 text-white px-4 py-3.5 shadow-2xl shadow-slate-900/30 border border-slate-700 cursor-pointer"
+            className="pointer-events-auto m3-press flex items-center justify-between gap-3 w-full max-w-md rounded-2xl bg-fondo text-white px-4 py-3.5 shadow-2xl shadow-m3-3 border border-borde cursor-pointer"
           >
             <div className="flex items-center gap-3">
               <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500 text-white font-bold">
                 <ShoppingCart size={18} />
-                <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-white text-slate-900 px-0.5 text-[10px] font-black">
+                <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-white text-texto px-0.5 text-[10px] font-black">
                   {cantidadTotalItems}
                 </span>
               </div>
               <div>
-                <span className="text-caption font-medium text-slate-400 leading-none">Total carrito</span>
+                <span className="text-caption font-medium text-texto-3 leading-none">Total carrito</span>
                 <p className="text-base font-extrabold text-white leading-tight">
                   {formatearMoneda(totalUsdCents, 'USD')}
                   <span className="text-xs text-emerald-400 ml-1.5 font-bold">
@@ -681,7 +681,7 @@ export function QuickSaleView() {
               </div>
             </div>
 
-            <div className="flex items-center gap-1 rounded-xl bg-emerald-500 hover:bg-emerald-400 px-3.5 py-2 text-xs font-black text-slate-950 uppercase tracking-wide shadow-sm">
+            <div className="flex items-center gap-1 rounded-xl bg-emerald-500 hover:bg-emerald-400 px-3.5 py-2 text-xs font-black text-texto uppercase tracking-wide shadow-sm">
               <span>Cobrar</span>
               <ChevronRight size={16} />
             </div>
@@ -708,7 +708,7 @@ export function QuickSaleView() {
                 className={`m3-press flex items-center justify-between p-3.5 rounded-2xl border text-left transition-all ${
                   agotado
                     ? 'bg-superficie-2/50 border-borde opacity-40'
-                    : 'bg-superficie border-borde hover:border-emerald-500 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/30 shadow-sm'
+                    : 'bg-superficie border-borde hover:border-acento-suave hover:bg-acento-suave shadow-sm'
                 }`}
               >
                 <div>
@@ -718,7 +718,7 @@ export function QuickSaleView() {
                   </span>
                 </div>
                 {!agotado && (
-                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-100 dark:bg-emerald-950/80 text-acento">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-acento-suave text-acento">
                     <Plus size={16} />
                   </div>
                 )}
@@ -802,7 +802,7 @@ export function QuickSaleView() {
                   <button
                     type="button"
                     onClick={() => cambiarCantidad(l.clave, -1)}
-                    className="m3-press flex h-8 w-8 items-center justify-center rounded-xl bg-white dark:bg-slate-700 border border-borde text-texto-2 shadow-sm cursor-pointer"
+                    className="m3-press flex h-8 w-8 items-center justify-center rounded-xl bg-superficie-3 border border-borde text-texto-2 shadow-sm cursor-pointer"
                     aria-label="Restar una unidad"
                   >
                     <Minus size={14} />
@@ -814,7 +814,7 @@ export function QuickSaleView() {
                     type="button"
                     onClick={() => cambiarCantidad(l.clave, 1)}
                     disabled={l.cantidad >= l.variante.existencias}
-                    className="m3-press flex h-8 w-8 items-center justify-center rounded-xl bg-white dark:bg-slate-700 border border-borde text-texto-2 shadow-sm disabled:opacity-30 cursor-pointer"
+                    className="m3-press flex h-8 w-8 items-center justify-center rounded-xl bg-superficie-3 border border-borde text-texto-2 shadow-sm disabled:opacity-30 cursor-pointer"
                     aria-label="Sumar una unidad"
                   >
                     <Plus size={14} />
@@ -822,7 +822,7 @@ export function QuickSaleView() {
                   <button
                     type="button"
                     onClick={() => quitarLinea(l.clave)}
-                    className="m3-press flex h-8 w-8 items-center justify-center rounded-xl text-peligro hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
+                    className="m3-press flex h-8 w-8 items-center justify-center rounded-xl text-peligro hover:bg-peligro-suave cursor-pointer"
                     aria-label="Quitar producto"
                   >
                     <Trash2 size={15} />
@@ -836,9 +836,9 @@ export function QuickSaleView() {
           <div className="flex flex-col gap-1">
             <span className="text-xs font-bold text-texto-2">Clienta de la venta</span>
             {clienteSeleccionado ? (
-              <div className="flex items-center justify-between rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-acento-suave p-3">
+              <div className="flex items-center justify-between rounded-2xl bg-acento-suave border border-acento-suave p-3">
                 <div className="min-w-0">
-                  <p className="text-xs font-bold text-emerald-950 dark:text-emerald-100">{clienteSeleccionado.nombre}</p>
+                  <p className="text-xs font-bold text-acento">{clienteSeleccionado.nombre}</p>
                   {clienteSeleccionado.telefono && (
                     <p className="text-[11px] text-acento">{clienteSeleccionado.telefono}</p>
                   )}
@@ -855,7 +855,7 @@ export function QuickSaleView() {
               <button
                 type="button"
                 onClick={() => setSheetClienteAbierto(true)}
-                className="m3-press flex items-center justify-center gap-2 rounded-2xl border border-dashed border-borde bg-superficie/80 p-3 text-xs font-bold text-texto-2 hover:bg-slate-50 dark:hover:bg-slate-700/60 cursor-pointer"
+                className="m3-press flex items-center justify-center gap-2 rounded-2xl border border-dashed border-borde bg-superficie/80 p-3 text-xs font-bold text-texto-2 hover:bg-superficie-3 cursor-pointer"
               >
                 <User size={15} />
                 <span>Venta de mostrador (tocar para asignar clienta)</span>
@@ -874,7 +874,7 @@ export function QuickSaleView() {
                 <button
                   type="button"
                   onClick={() => setDescValorTexto('')}
-                  className="text-[11px] text-rose-500 dark:text-rose-400 font-semibold cursor-pointer"
+                  className="text-[11px] text-peligro font-semibold cursor-pointer"
                 >
                   Quitar descuento
                 </button>
@@ -906,8 +906,8 @@ export function QuickSaleView() {
                     }}
                     className={`min-h-[36px] px-3.5 rounded-full text-xs font-bold border transition-all active:scale-95 cursor-pointer flex items-center justify-center ${
                       activa
-                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                        : 'bg-superficie text-texto-2 border-borde hover:border-emerald-500/50'
+                        ? 'bg-emerald-600 text-white border-acento-suave shadow-xs'
+                        : 'bg-superficie text-texto-2 border-borde hover:border-acento-suave'
                     }`}
                   >
                     {p.l}
@@ -920,7 +920,7 @@ export function QuickSaleView() {
               <select
                 value={descTipo}
                 onChange={(e) => setDescTipo(e.target.value as TipoDescuento)}
-                className="h-10 rounded-xl border border-borde bg-superficie px-3 text-xs font-bold text-texto outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 flex-1 transition-all"
+                className="h-10 rounded-xl border border-borde bg-superficie px-3 text-xs font-bold text-texto outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-acento-suave flex-1 transition-all"
               >
                 <option value="PORCENTAJE">% Porcentaje</option>
                 <option value="MONTO_FIJO">$ Monto fijo</option>
@@ -932,7 +932,7 @@ export function QuickSaleView() {
                 value={descValorTexto}
                 onChange={(e) => setDescValorTexto(e.target.value)}
                 placeholder={descTipo === 'PORCENTAJE' ? 'Ej. 10%' : 'Ej. $5.00'}
-                className="h-10 rounded-xl border border-borde bg-superficie px-3.5 text-xs font-extrabold text-texto placeholder:text-texto-3 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 flex-[2] transition-all"
+                className="h-10 rounded-xl border border-borde bg-superficie px-3.5 text-xs font-extrabold text-texto placeholder:text-texto-3 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-acento-suave flex-[2] transition-all"
               />
             </div>
           </div>
@@ -946,7 +946,7 @@ export function QuickSaleView() {
                 onClick={() => setEsCredito(false)}
                 className={`m3-press py-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                   !esCredito
-                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/20'
+                    ? 'bg-emerald-600 text-white border-acento-suave shadow-md shadow-emerald-600/20'
                     : 'bg-superficie text-texto-2 border-borde'
                 }`}
               >
@@ -957,7 +957,7 @@ export function QuickSaleView() {
                 onClick={() => setEsCredito(true)}
                 className={`m3-press py-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                   esCredito
-                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/20'
+                    ? 'bg-emerald-600 text-white border-acento-suave shadow-md shadow-emerald-600/20'
                     : 'bg-superficie text-texto-2 border-borde'
                 }`}
               >
@@ -972,9 +972,9 @@ export function QuickSaleView() {
                 onChange={(e) => setMetodo(e.target.value as MetodoPago)}
                 className="h-10 rounded-xl border border-borde bg-superficie px-3 text-xs font-semibold text-texto outline-none"
               >
-                <option value="EFECTIVO" className="dark:bg-slate-800">Efectivo</option>
-                <option value="TRANSFERENCIA" className="dark:bg-slate-800">Transferencia</option>
-                <option value="OTRO" className="dark:bg-slate-800">Otro método</option>
+                <option value="EFECTIVO" className="bg-superficie-3">Efectivo</option>
+                <option value="TRANSFERENCIA" className="bg-superficie-3">Transferencia</option>
+                <option value="OTRO" className="bg-superficie-3">Otro método</option>
               </select>
 
               <select
@@ -982,8 +982,8 @@ export function QuickSaleView() {
                 onChange={(e) => setMoneda(e.target.value as MonedaPago)}
                 className="h-10 rounded-xl border border-borde bg-superficie px-3 text-xs font-semibold text-texto outline-none"
               >
-                <option value="COR" className="dark:bg-slate-800">C$ Córdobas</option>
-                <option value="USD" className="dark:bg-slate-800">US$ Dólares</option>
+                <option value="COR" className="bg-superficie-3">C$ Córdobas</option>
+                <option value="USD" className="bg-superficie-3">US$ Dólares</option>
               </select>
             </div>
 
@@ -1000,7 +1000,7 @@ export function QuickSaleView() {
                   value={montoAbonoTexto}
                   onChange={(e) => setMontoAbonoTexto(e.target.value)}
                   placeholder="0.00 (dejar en 0 si es fiado completo)"
-                  className="rounded-xl border border-borde bg-superficie px-3 py-2 text-sm font-bold text-texto placeholder:text-texto-3 outline-none focus:border-emerald-500"
+                  className="rounded-xl border border-borde bg-superficie px-3 py-2 text-sm font-bold text-texto placeholder:text-texto-3 outline-none focus:border-acento-suave"
                 />
               </div>
             )}
@@ -1028,14 +1028,14 @@ export function QuickSaleView() {
                 value={clienteQuery}
                 onChange={(e) => setClienteQuery(e.target.value)}
                 placeholder="Buscar clienta por nombre o teléfono…"
-                className="w-full h-11 rounded-full bg-superficie-2 pl-10 pr-4 text-xs font-semibold text-texto placeholder:text-texto-3 border border-transparent dark:border-slate-700 outline-none focus:bg-superficie focus:ring-2 focus:ring-emerald-500/30"
+                className="w-full h-11 rounded-full bg-superficie-2 pl-10 pr-4 text-xs font-semibold text-texto placeholder:text-texto-3 border border-transparent outline-none focus:bg-superficie focus:ring-2 focus:ring-emerald-500/30"
               />
             </div>
 
             <button
               type="button"
               onClick={() => setModoCrearCliente(true)}
-              className="m3-press flex items-center justify-center gap-2 rounded-2xl border border-dashed border-acento-suave bg-emerald-50/60 dark:bg-emerald-950/40 p-3 text-xs font-bold text-acento cursor-pointer"
+              className="m3-press flex items-center justify-center gap-2 rounded-2xl border border-dashed border-acento-suave bg-acento-suave p-3 text-xs font-bold text-acento cursor-pointer"
             >
               <UserPlus size={16} />
               + Crear nueva clienta ahora
@@ -1072,7 +1072,7 @@ export function QuickSaleView() {
                 value={nuevoNombre}
                 onChange={(e) => setNuevoNombre(e.target.value)}
                 placeholder="Ej. Carmen Rodríguez"
-                className="rounded-xl border border-borde bg-superficie px-3.5 py-2.5 text-xs text-texto font-semibold outline-none focus:border-emerald-500"
+                className="rounded-xl border border-borde bg-superficie px-3.5 py-2.5 text-xs text-texto font-semibold outline-none focus:border-acento-suave"
               />
             </div>
 
@@ -1083,7 +1083,7 @@ export function QuickSaleView() {
                 onChange={(e) => setNuevoTelefono(e.target.value)}
                 placeholder="Ej. 8888 1234"
                 inputMode="tel"
-                className="rounded-xl border border-borde bg-superficie px-3.5 py-2.5 text-xs text-texto font-semibold outline-none focus:border-emerald-500"
+                className="rounded-xl border border-borde bg-superficie px-3.5 py-2.5 text-xs text-texto font-semibold outline-none focus:border-acento-suave"
               />
             </div>
 
@@ -1149,7 +1149,7 @@ function PantallaExito({ venta, onNuevaVenta }: { venta: VentaCompleta; onNuevaV
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-5 bg-fondo px-6 pb-safe-b pt-safe-t text-center animate-m3-fade">
-      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/70 text-acento shadow-xl shadow-emerald-600/10 ring-8 ring-emerald-50 dark:ring-emerald-950/40">
+      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-acento-suave text-acento shadow-xl shadow-emerald-600/10 ring-8 ring-acento">
         <CheckCircle2 size={48} />
       </div>
 
@@ -1205,7 +1205,7 @@ function PantallaExito({ venta, onNuevaVenta }: { venta: VentaCompleta; onNuevaV
         </div>
 
         {venta.saldo_usd_cents > 0 && (
-          <div className="mt-2 rounded-xl bg-alerta-suave border border-amber-200 dark:border-amber-800 p-2.5 text-center text-xs font-bold text-alerta">
+          <div className="mt-2 rounded-xl bg-alerta-suave border border-alerta-suave p-2.5 text-center text-xs font-bold text-alerta">
             Saldo pendiente: {formatearMoneda(venta.saldo_usd_cents, 'USD')}
           </div>
         )}
@@ -1225,7 +1225,7 @@ function PantallaExito({ venta, onNuevaVenta }: { venta: VentaCompleta; onNuevaV
         <button
           type="button"
           onClick={onNuevaVenta}
-          className="m3-press tocable w-full rounded-2xl bg-superficie border border-borde px-5 py-3.5 text-sm font-bold text-texto-2 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700"
+          className="m3-press tocable w-full rounded-2xl bg-superficie border border-borde px-5 py-3.5 text-sm font-bold text-texto-2 shadow-sm hover:bg-superficie-3"
         >
           Nueva venta rápida
         </button>

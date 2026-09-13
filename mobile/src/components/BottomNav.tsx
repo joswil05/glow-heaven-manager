@@ -30,7 +30,7 @@ export function BottomNav({ actual, onCambiar, badgeCarrito = 0, badgeCobranza =
       aria-label="Navegación principal flotante"
     >
       <div
-        className="pointer-events-auto flex items-center justify-around w-full max-w-sm sm:max-w-md p-1.5 rounded-[26px] bg-superficie/95 backdrop-blur-2xl border border-borde shadow-[0_12px_36px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.06)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.6),0_0_1px_1px_rgba(255,255,255,0.08)] transition-all duration-300"
+        className="pointer-events-auto flex items-center justify-around w-full max-w-sm sm:max-w-md p-1.5 rounded-[26px] bg-superficie/95 backdrop-blur-2xl border border-borde shadow-m3-3 transition-all duration-300"
       >
         {ITEMS.map(({ vista, etiqueta, Icono }) => {
           const activo = actual === vista;
@@ -67,8 +67,8 @@ export function BottomNav({ actual, onCambiar, badgeCarrito = 0, badgeCobranza =
                         ? '#34d399'
                         : '#059669'
                       : isDark
-                        ? '#94a3b8'
-                        : '#64748b',
+                        ? 'rgb(var(--texto-3))'
+                        : 'rgb(var(--texto-3))',
                   }}
                 />
 
@@ -97,8 +97,8 @@ export function BottomNav({ actual, onCambiar, badgeCarrito = 0, badgeCobranza =
                       ? '#34d399'
                       : '#059669'
                     : isDark
-                      ? '#94a3b8'
-                      : '#64748b',
+                      ? 'rgb(var(--texto-3))'
+                      : 'rgb(var(--texto-3))',
                 }}
               >
                 {etiqueta}
@@ -106,7 +106,7 @@ export function BottomNav({ actual, onCambiar, badgeCarrito = 0, badgeCobranza =
 
               {/* Punto indicador de estado activo */}
               {activo && (
-                <span className="w-1 h-1 rounded-full bg-emerald-600 dark:bg-emerald-400 mt-0.5 transition-all animate-in fade-in-0 zoom-in-50 duration-200" />
+                <span className="w-1 h-1 rounded-full bg-acento mt-0.5 transition-all animate-in fade-in-0 zoom-in-50 duration-200" />
               )}
             </button>
           );

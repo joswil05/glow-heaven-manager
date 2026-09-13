@@ -8,12 +8,14 @@ const c = (nombre) => `rgb(var(--${nombre}) / <alpha-value>)`;
 
 /** @type {import('tailwindcss').Config} */
 export default {
+  // Solo el código del móvil y la lógica compartida. Antes incluía
+  // `./src/**`, que arrastra toda la interfaz de escritorio: el CSS del móvil
+  // terminaba con clases que nunca usa (y con el slate azul del escritorio,
+  // que hacía parecer sucia la auditoría de color). `core`, `shared` y
+  // `main/firebase` son lógica sin JSX, así que no aportan clases.
   content: [
     path.join(__dirname, 'index.html'),
     path.join(__dirname, 'src/**/*.{js,ts,jsx,tsx}'),
-    './mobile/index.html',
-    './mobile/src/**/*.{js,ts,jsx,tsx}',
-    './src/**/*.{js,ts,jsx,tsx}',
   ],
   darkMode: 'class',
   theme: {
@@ -42,12 +44,15 @@ export default {
         exito: c('exito'),
         'exito-fuerte': c('exito-fuerte'),
         'exito-suave': c('exito-suave'),
+        'exito-texto': c('exito-texto'),
         alerta: c('alerta'),
         'alerta-fuerte': c('alerta-fuerte'),
         'alerta-suave': c('alerta-suave'),
+        'alerta-texto': c('alerta-texto'),
         peligro: c('peligro'),
         'peligro-fuerte': c('peligro-fuerte'),
         'peligro-suave': c('peligro-suave'),
+        'peligro-texto': c('peligro-texto'),
         success: { 50: c('exito-suave'), 500: c('exito'), 600: c('exito'), 700: c('exito') },
         warning: { 50: c('alerta-suave'), 500: c('alerta'), 600: c('alerta'), 700: c('alerta') },
         danger: { 50: c('peligro-suave'), 500: c('peligro'), 600: c('peligro'), 700: c('peligro') },
