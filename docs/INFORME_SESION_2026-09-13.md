@@ -288,3 +288,78 @@ f5382f2 perf(movil): dejar de pagar dos consultas por carga para datos que nadie
 ```
 
 Documentos relacionados: `docs/AUDITORIA_2026-09-12.md` (auditoría que originó los arreglos de seguridad), `docs/INFORME_SESION_2026-09-12.md` (sesión anterior; su afirmación sobre C-1 es incorrecta, ver sección 0).
+
+---
+
+## 11. 🔴 El login de Google en el celular, y por qué hay tres dominios
+
+Síntoma: en el celular, tras elegir la cuenta de Google, la app quedaba en
+"Cargando Glow Heaven…" para siempre. Antes de eso fallaba con
+`auth/popup-closed-by-user` sin que nadie cerrara nada.
+
+**Las dos fallas tenían la misma causa.** `getAuth()` instala el resolver de
+popup/redirect por defecto, y en `_initializeWithPersistence` el SDK hace:
+
+```js
+if (this._popupRedirectResolver?._shouldInitProactively) {
+    try { await this._popupRedirectResolver._initialize(this); } catch (e) { /* ignora */ }
+}
+```
+
+`_shouldInitProactively` es `_isMobileBrowser() || _isSafari() || _isIOS()`: en
+celular ocurre **siempre**. Ese `_initialize` carga un iframe oculto en
+`https://<authDomain>/__/auth/iframe`, y `onAuthStateChanged` no dispara hasta
+que termine. El `try/catch` cubre errores, **no** cubre un cuelgue. Y ese mismo
+iframe es el que entrega el resultado del popup, de ahí que fallaran las dos
+vías.
+
+El iframe se colgaba porque era **de tercera parte**: el authDomain no era el
+dominio desde el que se servía la app. iOS Safari lo bloquea siempre (ITP) y
+Chrome le particiona el almacenamiento, así que no puede leer el evento de
+login que escribió el handler.
+
+### Los tres dominios
+
+El proyecto sirve la **misma** PWA en tres direcciones. Dos se las da Firebase
+sola al sitio por defecto; la tercera es un segundo sitio de hosting creado a
+mano. Las dos entradas de `firebase.json` apuntan a la misma carpeta
+(`dist-mobile`) desde el commit `32d1755`, así que la segunda nunca aportó nada
+funcional — pero sí rompía el login.
+
+Verificado contra `accounts.google.com` el 2026-09-13:
+
+| Dominio | `redirect_uri` aceptado por Google |
+|---|---|
+| `glow-heaven-db-app.firebaseapp.com` | ✅ sí (es el authDomain) |
+| `glow-heaven-db-app.web.app` | ❌ `redirect_uri_mismatch` |
+| `glow-heaven-movil.web.app` | ❌ `redirect_uri_mismatch` |
+
+### Qué se hizo
+
+- `initializeAuth()` en vez de `getAuth()`, **sin** `popupRedirectResolver` por
+  defecto: el iframe ya no se carga al arrancar, así que el arranque no puede
+  colgarse en ninguna plataforma. El resolver se pasa a mano solo al iniciar
+  sesión o al resolver una redirección pendiente.
+- `getRedirectResult` solo se llama cuando de verdad venimos de Google (marca
+  en `sessionStorage`), que es la única llamada que levanta el iframe.
+- Persistencia `[indexedDB, localStorage]`, para caer a localStorage si
+  IndexedDB está bloqueada en vez de quedarse sin sesión.
+- Redirección al dominio canónico en el `<head>` de `mobile/index.html`, antes
+  del bundle. Lista explícita de dominios, así `localhost` queda intacto y no
+  hay forma de armar un bucle.
+- El sitio `movil` **no se borró a propósito**: sigue desplegado para que los
+  enlaces ya compartidos y las apps ya instaladas caigan con gracia en la
+  dirección correcta en vez de dar 404.
+
+### Si querés que el canónico sea `glow-heaven-movil.web.app`
+
+Hay que registrar `https://glow-heaven-movil.web.app/__/auth/handler` en los
+URI de redirección autorizados del cliente OAuth
+`423077292727-v127rlrhs7s53ksogr6au76qobtike98` (Google Cloud Console → APIs y
+servicios → Credenciales). Después: sumar el dominio a
+`DOMINIOS_CON_LOGIN_PROPIO` en `mobile/src/lib/firebase-mobile.ts` y cambiar
+`canonico` en `mobile/index.html`. Los dos archivos se referencian entre sí en
+sus comentarios.
+
+**No "simplifiques" `firebase-mobile.ts` volviendo a `getAuth()`.** Es
+exactamente el bug.
