@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 interface BottomSheetProps {
@@ -66,7 +67,19 @@ export function BottomSheet({
     ? `${Math.min(viewportHeight * 0.94, viewportHeight - 8)}px`
     : maxHeight;
 
-  return (
+  /* Se monta en <body> con un portal, no dentro de la vista.
+   *
+   * `position: fixed` y `z-index` sólo valen dentro de su contexto de
+   * apilamiento. Cualquier ancestro con `transform`, `filter` o `opacity`
+   * menor a 1 crea uno nuevo y encierra a la hoja: quedaba por debajo del dock
+   * flotante, que le tapaba justo los botones de acción (confirmar venta,
+   * abonar). Pasó al agregar la animación de cambio de pestaña, que dejaba un
+   * `transform` aplicado en el contenedor de la vista.
+   *
+   * En <body> no hay ancestro que pueda encerrarla, así que el problema no
+   * puede repetirse aunque mañana se le agregue un efecto a las vistas. Es la
+   * misma solución que ya se aplicó en el escritorio con `Portal.tsx`. */
+  return createPortal(
     <div
       className="fixed inset-x-0 top-0 z-[100] flex flex-col justify-end"
       style={{
@@ -139,7 +152,8 @@ export function BottomSheet({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

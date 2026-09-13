@@ -214,8 +214,19 @@ input, textarea, [contenteditable="true"] {
   }
 }
 
+/* Sin `forwards` a propósito.
+ *
+ * Con `forwards` el transform final queda aplicado para siempre, y un
+ * `transform` distinto de `none` crea un contexto de apilamiento: encerraba el
+ * z-index de los bottom sheets dentro de la vista (el dock los tapaba) y
+ * cambiaba el marco de referencia de cualquier `position: fixed` interno, como
+ * la píldora del carrito.
+ *
+ * No hace falta: el estado final de la animación (opacidad 1, sin
+ * desplazamiento) es idéntico al natural del elemento, así que al terminar se
+ * ve igual pero sin dejar rastro. */
 .animate-vista {
-  animation: vistaEntra 160ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: vistaEntra 160ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .animate-m3-fade {
