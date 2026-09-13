@@ -371,7 +371,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
                 type="button"
                 onClick={() => setTheme('light')}
                 className={cn(
-                  'flex flex-col items-center p-3.5 rounded-2xl border text-center transition-all cursor-pointer',
+                  'flex flex-col items-center p-3.5 rounded-2xl border text-center transition-[background-color,border-color,color,box-shadow,transform,opacity] cursor-pointer',
                   theme === 'light'
                     ? 'border-acento bg-acento/10 ring-2 ring-acento/30 shadow-xs'
                     : 'border-borde bg-superficie hover:border-borde-fuerte hover:bg-superficie-2/50'
@@ -394,7 +394,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
                 type="button"
                 onClick={() => setTheme('dark')}
                 className={cn(
-                  'flex flex-col items-center p-3.5 rounded-2xl border text-center transition-all cursor-pointer',
+                  'flex flex-col items-center p-3.5 rounded-2xl border text-center transition-[background-color,border-color,color,box-shadow,transform,opacity] cursor-pointer',
                   theme === 'dark'
                     ? 'border-acento bg-acento/10 ring-2 ring-acento/30 shadow-xs'
                     : 'border-borde bg-superficie hover:border-borde-fuerte hover:bg-superficie-2/50'
@@ -417,7 +417,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
                 type="button"
                 onClick={() => setTheme('system')}
                 className={cn(
-                  'flex flex-col items-center p-3.5 rounded-2xl border text-center transition-all cursor-pointer',
+                  'flex flex-col items-center p-3.5 rounded-2xl border text-center transition-[background-color,border-color,color,box-shadow,transform,opacity] cursor-pointer',
                   theme === 'system'
                     ? 'border-acento bg-acento/10 ring-2 ring-acento/30 shadow-xs'
                     : 'border-borde bg-superficie hover:border-borde-fuerte hover:bg-superficie-2/50'
@@ -601,7 +601,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
                 type="button"
                 onClick={() => setTabPlantillaWA('COBRO')}
                 className={cn(
-                  'flex-1 py-2 px-3 rounded-lg text-label font-bold transition-all cursor-pointer',
+                  'flex-1 py-2 px-3 rounded-lg text-label font-bold transition-[background-color,border-color,color,box-shadow,transform,opacity] cursor-pointer',
                   tabPlantillaWA === 'COBRO'
                     ? 'bg-superficie text-texto shadow-xs border border-borde/70'
                     : 'text-texto-3 hover:text-texto'
@@ -613,7 +613,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
                 type="button"
                 onClick={() => setTabPlantillaWA('FACTURA')}
                 className={cn(
-                  'flex-1 py-2 px-3 rounded-lg text-label font-bold transition-all cursor-pointer',
+                  'flex-1 py-2 px-3 rounded-lg text-label font-bold transition-[background-color,border-color,color,box-shadow,transform,opacity] cursor-pointer',
                   tabPlantillaWA === 'FACTURA'
                     ? 'bg-superficie text-texto shadow-xs border border-borde/70'
                     : 'text-texto-3 hover:text-texto'
@@ -625,7 +625,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
                 type="button"
                 onClick={() => setTabPlantillaWA('PROFORMA')}
                 className={cn(
-                  'flex-1 py-2 px-3 rounded-lg text-label font-bold transition-all cursor-pointer',
+                  'flex-1 py-2 px-3 rounded-lg text-label font-bold transition-[background-color,border-color,color,box-shadow,transform,opacity] cursor-pointer',
                   tabPlantillaWA === 'PROFORMA'
                     ? 'bg-superficie text-texto shadow-xs border border-borde/70'
                     : 'text-texto-3 hover:text-texto'
@@ -660,7 +660,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
                   else setPlantillaProforma(e.target.value);
                 }}
                 rows={4}
-                className="w-full rounded-xl border border-borde bg-superficie px-3.5 py-2.5 text-body text-texto placeholder:text-texto-3 focus:outline-none focus:ring-2 focus:ring-acento transition-all font-sans leading-relaxed"
+                className="w-full rounded-xl border border-borde bg-superficie px-3.5 py-2.5 text-body text-texto placeholder:text-texto-3 focus:outline-none focus:ring-2 focus:ring-acento transition-[background-color,border-color,color,box-shadow,transform,opacity] font-sans leading-relaxed"
                 placeholder="Escribe aquí el texto de tu mensaje..."
               />
             </Field>
@@ -671,7 +671,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
               <button
                 type="button"
                 onClick={() => insertarEtiquetaWhatsApp('{cliente}')}
-                className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie hover:border-acento/40 hover:text-acento border border-borde text-texto-2 pill-interactive active:scale-95 cursor-pointer transition-all"
+                className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie hover:border-acento/40 hover:text-acento border border-borde text-texto-2 pill-interactive active:scale-95 cursor-pointer transition-[background-color,border-color,color,box-shadow,transform,opacity]"
               >
                 + &#123;cliente&#125;
               </button>
@@ -680,7 +680,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
                 <button
                   type="button"
                   onClick={() => insertarEtiquetaWhatsApp('{codigo}')}
-                  className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie hover:border-acento/40 hover:text-acento border border-borde text-texto-2 pill-interactive active:scale-95 cursor-pointer transition-all"
+                  className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie hover:border-acento/40 hover:text-acento border border-borde text-texto-2 pill-interactive active:scale-95 cursor-pointer transition-[background-color,border-color,color,box-shadow,transform,opacity]"
                 >
                   + &#123;codigo&#125;
                 </button>
@@ -691,14 +691,14 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
                   <button
                     type="button"
                     onClick={() => insertarEtiquetaWhatsApp('{saldo_usd}')}
-                    className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie hover:border-acento/40 hover:text-acento border border-borde text-texto-2 pill-interactive active:scale-95 cursor-pointer transition-all"
+                    className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie hover:border-acento/40 hover:text-acento border border-borde text-texto-2 pill-interactive active:scale-95 cursor-pointer transition-[background-color,border-color,color,box-shadow,transform,opacity]"
                   >
                     + &#123;saldo_usd&#125;
                   </button>
                   <button
                     type="button"
                     onClick={() => insertarEtiquetaWhatsApp('{saldo_cs}')}
-                    className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie hover:border-acento/40 hover:text-acento border border-borde text-texto-2 pill-interactive active:scale-95 cursor-pointer transition-all"
+                    className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie hover:border-acento/40 hover:text-acento border border-borde text-texto-2 pill-interactive active:scale-95 cursor-pointer transition-[background-color,border-color,color,box-shadow,transform,opacity]"
                   >
                     + &#123;saldo_cs&#125;
                   </button>
@@ -708,14 +708,14 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
                   <button
                     type="button"
                     onClick={() => insertarEtiquetaWhatsApp('{total_usd}')}
-                    className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie hover:border-acento/40 hover:text-acento border border-borde text-texto-2 pill-interactive active:scale-95 cursor-pointer transition-all"
+                    className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie hover:border-acento/40 hover:text-acento border border-borde text-texto-2 pill-interactive active:scale-95 cursor-pointer transition-[background-color,border-color,color,box-shadow,transform,opacity]"
                   >
                     + &#123;total_usd&#125;
                   </button>
                   <button
                     type="button"
                     onClick={() => insertarEtiquetaWhatsApp('{total_cs}')}
-                    className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie hover:border-acento/40 hover:text-acento border border-borde text-texto-2 pill-interactive active:scale-95 cursor-pointer transition-all"
+                    className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie hover:border-acento/40 hover:text-acento border border-borde text-texto-2 pill-interactive active:scale-95 cursor-pointer transition-[background-color,border-color,color,box-shadow,transform,opacity]"
                   >
                     + &#123;total_cs&#125;
                   </button>
@@ -726,7 +726,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
                 <button
                   type="button"
                   onClick={() => insertarEtiquetaWhatsApp('{estado_pago}')}
-                  className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie hover:border-acento/40 hover:text-acento border border-borde text-texto-2 pill-interactive active:scale-95 cursor-pointer transition-all"
+                  className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie hover:border-acento/40 hover:text-acento border border-borde text-texto-2 pill-interactive active:scale-95 cursor-pointer transition-[background-color,border-color,color,box-shadow,transform,opacity]"
                 >
                   + &#123;estado_pago&#125;
                 </button>
@@ -737,14 +737,14 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
                   <button
                     type="button"
                     onClick={() => insertarEtiquetaWhatsApp('{anticipo}')}
-                    className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie hover:border-acento/40 hover:text-acento border border-borde text-texto-2 pill-interactive active:scale-95 cursor-pointer transition-all"
+                    className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie hover:border-acento/40 hover:text-acento border border-borde text-texto-2 pill-interactive active:scale-95 cursor-pointer transition-[background-color,border-color,color,box-shadow,transform,opacity]"
                   >
                     + &#123;anticipo&#125;
                   </button>
                   <button
                     type="button"
                     onClick={() => insertarEtiquetaWhatsApp('{saldo}')}
-                    className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie hover:border-acento/40 hover:text-acento border border-borde text-texto-2 pill-interactive active:scale-95 cursor-pointer transition-all"
+                    className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie hover:border-acento/40 hover:text-acento border border-borde text-texto-2 pill-interactive active:scale-95 cursor-pointer transition-[background-color,border-color,color,box-shadow,transform,opacity]"
                   >
                     + &#123;saldo&#125;
                   </button>
@@ -754,7 +754,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
               <button
                 type="button"
                 onClick={() => insertarEtiquetaWhatsApp('{cuentas_bancarias}')}
-                className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie hover:border-acento/40 hover:text-acento border border-borde text-texto-2 pill-interactive active:scale-95 cursor-pointer transition-all"
+                className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie hover:border-acento/40 hover:text-acento border border-borde text-texto-2 pill-interactive active:scale-95 cursor-pointer transition-[background-color,border-color,color,box-shadow,transform,opacity]"
               >
                 + &#123;cuentas_bancarias&#125;
               </button>
@@ -763,7 +763,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
             {/* Vista previa en vivo del mensaje */}
             <div className="p-4 rounded-xl bg-acento/5 dark:bg-acento-suave border border-acento-suave text-body text-texto">
               <div className="flex items-center gap-2 text-caption font-bold text-acento mb-2">
-                <span className="w-2 h-2 rounded-full bg-acento animate-pulse" />
+                <span className="w-2 h-2 rounded-full bg-acento" />
                 Vista previa del mensaje ({tabPlantillaWA === 'COBRO' ? 'Cobro' : tabPlantillaWA === 'FACTURA' ? 'Factura' : 'Proforma'}):
               </div>
               <div className="p-3 rounded-lg bg-superficie border border-borde/60 shadow-2xs font-sans text-caption text-texto whitespace-pre-wrap leading-relaxed">
@@ -1065,7 +1065,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
             onClick={guardar}
             disabled={guardando}
             className={cn(
-              'transition-all duration-200 min-w-[190px]',
+              'transition-[background-color,border-color,color,box-shadow,transform,opacity] duration-200 min-w-[190px]',
               guardadoExitoso && 'bg-acento hover:bg-acento text-acento-texto shadow-lg'
             )}
           >

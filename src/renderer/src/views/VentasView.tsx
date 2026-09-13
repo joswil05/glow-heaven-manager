@@ -373,7 +373,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
               {esEncargo ? 'Gestión de Encargos Especiales' : 'Registro de Ventas'}
             </span>
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-acento/10 text-acento border border-acento/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-acento animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-acento" />
               {ventas.filter((v) => v.estado !== 'CANCELADA').length} activas
             </span>
           </div>
@@ -436,7 +436,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
                 onClick={() => setFiltro(f.id)}
                 aria-pressed={filtro === f.id}
                 className={cn(
-                  'px-3.5 py-1.5 rounded-lg transition-all text-label pill-interactive active:scale-95 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento',
+                  'px-3.5 py-1.5 rounded-lg transition-[background-color,border-color,color,box-shadow,transform,opacity] text-label pill-interactive active:scale-95 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento',
                   filtro === f.id
                     ? 'bg-superficie text-texto font-semibold shadow-xs border border-borde/50'
                     : 'text-texto-3 hover:text-texto hover:bg-superficie/50'
@@ -466,7 +466,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
                 onClick={() => setPeriodo(p.id)}
                 aria-pressed={periodo === p.id}
                 className={cn(
-                  'px-2.5 py-1 rounded-lg transition-all text-label pill-interactive active:scale-95 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento text-xs',
+                  'px-2.5 py-1 rounded-lg transition-[background-color,border-color,color,box-shadow,transform,opacity] text-label pill-interactive active:scale-95 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento text-xs',
                   periodo === p.id
                     ? 'bg-superficie text-texto font-semibold shadow-xs border border-borde/50'
                     : 'text-texto-3 hover:text-texto hover:bg-superficie/50'

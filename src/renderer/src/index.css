@@ -444,12 +444,20 @@
 }
 
 /* Respeto estricto a las preferencias del sistema de reducción de movimiento */
+/* Movimiento reducido NO es cero movimiento: quien lo activa necesita menos
+   desplazamiento, no perder las señales que explican que algo cambio. Se
+   eliminan los movimientos y las repeticiones, y se conservan las
+   transiciones de opacidad y color, que son las que hacen comprensible un
+   cambio de estado (Emil Kowalski / WCAG 2.3.3). */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    /* Sin desplazamientos ni escalados. */
+    transition-property: opacity, color, background-color, border-color, fill, stroke !important;
+    transition-duration: 120ms !important;
+    scroll-behavior: auto !important;
   }
 }

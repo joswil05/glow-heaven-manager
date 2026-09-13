@@ -211,7 +211,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onClick={toggleColapso}
           title={colapsada ? 'Expandir barra lateral' : 'Plegar barra lateral'}
           className={cn(
-            'w-full flex items-center rounded-lg text-caption font-medium text-texto-3 hover:text-texto hover:bg-superficie-2/70 transition-colors cursor-pointer py-2',
+            'w-full flex items-center rounded-lg text-caption font-medium text-texto-3 hover:text-texto hover:bg-superficie-2/70 transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.98] cursor-pointer py-2',
             colapsada ? 'justify-center px-0' : 'justify-between px-3'
           )}
         >

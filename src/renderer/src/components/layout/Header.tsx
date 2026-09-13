@@ -50,13 +50,13 @@ export const Header: React.FC<HeaderProps> = ({
               title={cargando ? 'Actualizando datos del sistema...' : 'Actualizar datos ahora'}
               aria-label="Actualizar datos del sistema"
               className={cn(
-                'p-1 rounded-md text-texto-3 hover:text-acento hover:bg-superficie transition-all active:scale-90 cursor-pointer group',
+                'p-1 rounded-md text-texto-3 hover:text-acento hover:bg-superficie transition-[background-color,border-color,color,box-shadow,transform,opacity] active:scale-90 cursor-pointer group',
                 cargando && 'cursor-not-allowed opacity-70'
               )}
             >
               <RefreshCw
                 className={cn(
-                  'w-3 h-3 transition-transform duration-500 ease-out',
+                  'w-3 h-3 transition-transform duration-200 ease-out',
                   cargando ? 'animate-spin text-acento' : 'group-hover:rotate-180'
                 )}
               />

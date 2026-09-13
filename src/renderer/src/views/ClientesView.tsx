@@ -310,7 +310,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
           <div className="flex items-center gap-2">
             <span className="font-bold text-texto text-body">Directorio de Clientas</span>
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-acento/10 text-acento border border-acento/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-acento animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-acento" />
               {clientes.length} clienta{clientes.length === 1 ? '' : 's'}
             </span>
           </div>
@@ -518,7 +518,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
                   )}
                   target="_blank"
                   rel="noreferrer"
-                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-medium text-caption text-acento bg-acento/15 border border-acento/30 hover:bg-acento/25 transition-all shadow-2xs active:scale-[0.98]"
+                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-medium text-caption text-acento bg-acento/15 border border-acento/30 hover:bg-acento/25 transition-[background-color,border-color,color,box-shadow,transform,opacity] shadow-2xs active:scale-[0.98]"
                 >
                   <MessageCircle className="w-4 h-4" />
                   <span>Cobrar saldo pendiente por WhatsApp</span>

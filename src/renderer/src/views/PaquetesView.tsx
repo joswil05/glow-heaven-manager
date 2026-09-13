@@ -278,7 +278,7 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
           <div className="flex items-center gap-2">
             <span className="font-bold text-texto text-body">Envíos y Paquetes USA</span>
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-alerta-suave text-alerta-fuerte border border-alerta-suave">
-              <span className="w-1.5 h-1.5 rounded-full bg-alerta animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-alerta" />
               {compras.length} paquete{compras.length === 1 ? '' : 's'}
             </span>
           </div>

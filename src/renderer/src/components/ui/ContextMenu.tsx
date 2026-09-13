@@ -129,7 +129,9 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose }
         'fixed z-[9999] min-w-[210px] max-w-[320px] py-1.5 px-1',
         'overflow-y-auto overflow-x-hidden custom-scrollbar',
         'bg-superficie/95 backdrop-blur-md border border-borde/90 rounded-2xl shadow-2xl shadow-black/20',
-        'text-texto select-none outline-none animate-in fade-in-0 zoom-in-95 duration-100'
+        // Escala desde la esquina por donde se abrio, no desde el centro: un menu
+        // que crece desde su punto de invocacion se siente anclado a el.
+        'text-texto select-none outline-none animate-in fade-in-0 zoom-in-95 duration-100 origin-top-left'
       )}
       onClick={(e) => e.stopPropagation()}
     >

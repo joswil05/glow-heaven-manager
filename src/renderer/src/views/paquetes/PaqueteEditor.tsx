@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useCerrarConEscape } from '../../lib/useCerrarConEscape';
 import { X, Package, AlertTriangle } from 'lucide-react';
 import type { CompraCompleta, ParametrosSistema, Venta } from '../../../../shared/types';
 import { Button, Field, Input, Textarea, Money, Portal } from '../../components/ui';
@@ -183,6 +184,8 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
       }
     }
   };
+
+  useCerrarConEscape(true, onCerrar);
 
   return (
     <Portal>

@@ -1191,7 +1191,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                           setConCuotas(false);
                         }}
                         className={cn(
-                          'flex-1 rounded-xl border-2 p-3.5 text-label font-medium transition-all flex flex-col gap-1 text-left cursor-pointer',
+                          'flex-1 rounded-xl border-2 p-3.5 text-label font-medium transition-[background-color,border-color,color,box-shadow,transform,opacity] flex flex-col gap-1 text-left cursor-pointer',
                           formaCobro === 'CONTADO'
                             ? 'border-acento bg-acento-suave/30 text-texto shadow-xs'
                             : 'border-borde text-texto-2 hover:bg-superficie-2'
@@ -1212,7 +1212,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                         aria-checked={formaCobro === 'CREDITO'}
                         onClick={() => setFormaCobro('CREDITO')}
                         className={cn(
-                          'flex-1 rounded-xl border-2 p-3.5 text-label font-medium transition-all flex flex-col gap-1 text-left cursor-pointer',
+                          'flex-1 rounded-xl border-2 p-3.5 text-label font-medium transition-[background-color,border-color,color,box-shadow,transform,opacity] flex flex-col gap-1 text-left cursor-pointer',
                           formaCobro === 'CREDITO'
                             ? 'border-acento bg-acento-suave/30 text-texto shadow-xs'
                             : 'border-borde text-texto-2 hover:bg-superficie-2'
@@ -1361,7 +1361,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                               }
                             }}
                             className={cn(
-                              'px-3 py-1 rounded-full text-caption font-medium border transition-all cursor-pointer active:scale-95',
+                              'px-3 py-1 rounded-full text-caption font-medium border transition-[background-color,border-color,color,box-shadow,transform,opacity] cursor-pointer active:scale-95',
                               activa
                                 ? 'bg-acento text-acento-texto border-acento shadow-xs'
                                 : 'border-borde text-texto-2 hover:border-acento/50 hover:text-texto bg-superficie-2/40'

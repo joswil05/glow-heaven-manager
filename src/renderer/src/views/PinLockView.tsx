@@ -137,7 +137,7 @@ export const PinLockView: React.FC<PinLockViewProps> = ({
             return (
               <div
                 key={i}
-                className={`w-5 h-5 rounded-full transition-all duration-200 ${
+                className={`w-5 h-5 rounded-full transition-[background-color,border-color,color,box-shadow,transform,opacity] duration-200 ${
                   error
                     ? 'bg-danger-500 border-2 border-danger-600 scale-110'
                     : desbloqueando

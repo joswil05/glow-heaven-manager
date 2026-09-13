@@ -370,14 +370,14 @@ export const PanelView: React.FC<PanelViewProps> = ({
                 <div className="flex items-center gap-2.5 min-w-0 flex-1">
                   <div
                     key={`icon-${tipoGrafica}`}
-                    className="w-7 h-7 rounded-lg bg-acento/10 text-acento flex items-center justify-center shrink-0 transition-all duration-300 animate-in fade-in-0 zoom-in-95"
+                    className="w-7 h-7 rounded-lg bg-acento/10 text-acento flex items-center justify-center shrink-0 transition-[background-color,border-color,color,box-shadow,transform,opacity] duration-300 animate-in fade-in-0 zoom-in-95"
                   >
                     <IconoActual className="w-4 h-4" />
                   </div>
                   <div className="min-w-0 overflow-hidden">
                     <h3
                       key={`title-${tipoGrafica}`}
-                      className="text-body font-bold text-texto tracking-tight truncate transition-all duration-300 animate-in fade-in-0 slide-in-from-left-1"
+                      className="text-body font-bold text-texto tracking-tight truncate transition-[background-color,border-color,color,box-shadow,transform,opacity] duration-300 animate-in fade-in-0 slide-in-from-left-1"
                     >
                       {infoGraficaActual.titulo}
                     </h3>
@@ -538,25 +538,25 @@ export const PanelView: React.FC<PanelViewProps> = ({
                         <button
                           type="button"
                           onClick={() => onNavegar('inventario')}
-                          className="flex items-center justify-between gap-1.5 rounded-xl border border-borde bg-superficie hover:bg-superficie-2 hover:border-borde-fuerte px-3 py-2 transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento cursor-pointer"
+                          className="flex items-center justify-between gap-1.5 rounded-xl border border-borde bg-superficie hover:bg-superficie-2 hover:border-borde-fuerte px-3 py-2 transition-[background-color,border-color,color,box-shadow,transform,opacity] group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento cursor-pointer"
                         >
                           <div className="flex items-center gap-2 text-caption font-medium text-texto min-w-0">
                             <Boxes className="w-3.5 h-3.5 text-texto-3 group-hover:text-texto transition-colors shrink-0" />
                             <span className="truncate">Ver inventario</span>
                           </div>
-                          <ArrowRight className="w-3.5 h-3.5 text-texto-3 group-hover:text-texto group-hover:translate-x-0.5 transition-all shrink-0" />
+                          <ArrowRight className="w-3.5 h-3.5 text-texto-3 group-hover:text-texto group-hover:translate-x-0.5 transition-[background-color,border-color,color,box-shadow,transform,opacity] shrink-0" />
                         </button>
 
                         <button
                           type="button"
                           onClick={() => onNavegar('cobranza')}
-                          className="flex items-center justify-between gap-1.5 rounded-xl border border-borde bg-superficie hover:bg-superficie-2 hover:border-borde-fuerte px-3 py-2 transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento cursor-pointer"
+                          className="flex items-center justify-between gap-1.5 rounded-xl border border-borde bg-superficie hover:bg-superficie-2 hover:border-borde-fuerte px-3 py-2 transition-[background-color,border-color,color,box-shadow,transform,opacity] group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento cursor-pointer"
                         >
                           <div className="flex items-center gap-2 text-caption font-medium text-texto min-w-0">
                             <Wallet className="w-3.5 h-3.5 text-texto-3 group-hover:text-texto transition-colors shrink-0" />
                             <span className="truncate">Ver cobranza</span>
                           </div>
-                          <ArrowRight className="w-3.5 h-3.5 text-texto-3 group-hover:text-texto group-hover:translate-x-0.5 transition-all shrink-0" />
+                          <ArrowRight className="w-3.5 h-3.5 text-texto-3 group-hover:text-texto group-hover:translate-x-0.5 transition-[background-color,border-color,color,box-shadow,transform,opacity] shrink-0" />
                         </button>
                       </div>
 

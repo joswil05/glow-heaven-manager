@@ -273,7 +273,7 @@ export const App: React.FC = () => {
             <button
               type="button"
               onClick={() => window.api?.actualizador?.reiniciarYAplicar()}
-              className="bg-superficie text-acento px-3.5 py-1 rounded-lg text-xs font-extrabold shadow-sm hover:bg-acento-suave active:scale-95 transition-all cursor-pointer"
+              className="bg-superficie text-acento px-3.5 py-1 rounded-lg text-xs font-extrabold shadow-sm hover:bg-acento-suave active:scale-95 transition-[background-color,border-color,color,box-shadow,transform,opacity] cursor-pointer"
             >
               Reiniciar y actualizar ahora
             </button>

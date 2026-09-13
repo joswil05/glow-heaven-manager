@@ -35,7 +35,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
       <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-acento/20 rounded-full blur-[140px] pointer-events-none" />
       <div className="absolute bottom-10 right-1/4 w-[350px] h-[350px] bg-acento-suave/10 rounded-full blur-[100px] pointer-events-none" />
 
-      <div className="w-full max-w-md bg-inverso-2/95 border border-inverso-texto-2/20 rounded-3xl shadow-2xl p-8 z-10 backdrop-blur-xl transition-all duration-300">
+      <div className="w-full max-w-md bg-inverso-2/95 border border-inverso-texto-2/20 rounded-3xl shadow-2xl p-8 z-10 backdrop-blur-xl transition-[background-color,border-color,color,box-shadow,transform,opacity] duration-300">
         {/* Cabecera con logo oficial */}
         <div className="flex flex-col items-center text-center mb-8">
           <div className="w-20 h-20 rounded-2xl overflow-hidden shadow-2xl shadow-acento/25 mb-4 ring-4 ring-white/15 shrink-0 bg-superficie p-1">
@@ -87,7 +87,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
             <button
               type="button"
               onClick={iniciarConGoogle}
-              className="w-full flex items-center justify-center gap-3 px-5 py-3.5 bg-superficie text-texto hover:bg-superficie-2 active:scale-[0.99] rounded-xl font-medium text-base shadow-md hover:shadow-lg transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-acento cursor-pointer"
+              className="w-full flex items-center justify-center gap-3 px-5 py-3.5 bg-superficie text-texto hover:bg-superficie-2 active:scale-[0.99] rounded-xl font-medium text-base shadow-md hover:shadow-lg transition-[background-color,border-color,color,box-shadow,transform,opacity] duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-acento cursor-pointer"
             >
               {/* Logo Oficial de Google SVG */}
               <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
@@ -116,7 +116,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
             <button
               type="button"
               onClick={iniciarConGoogle}
-              className="w-full flex items-center justify-center gap-2 py-2.5 text-xs font-medium text-texto-3 hover:text-texto transition-colors"
+              className="w-full flex items-center justify-center gap-2 py-2.5 text-xs font-medium text-texto-3 hover:text-texto transition-[color,transform] duration-150 ease-out active:scale-[0.98]"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               <span>Volver a intentar</span>

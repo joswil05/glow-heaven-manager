@@ -91,7 +91,7 @@ export const StatTile: React.FC<StatTileProps> = ({
           {Icon && (
             <div
               className={cn(
-                'w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border transition-all duration-200 group-hover:scale-105',
+                'w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border transition-[background-color,border-color,color,box-shadow,transform,opacity] duration-200 group-hover:scale-105',
                 estilo.iconBox
               )}
             >
@@ -175,7 +175,7 @@ export const StatTile: React.FC<StatTileProps> = ({
 
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} className={clases}>
+      <button type="button" onClick={onClick} className={cn(clases, "active:scale-[0.99]")}>
         {contenido}
       </button>
     );

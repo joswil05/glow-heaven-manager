@@ -231,7 +231,7 @@ export const DocumentoModal: React.FC<DocumentoModalProps> = ({
             <button
               type="button"
               onClick={onCerrar}
-              className="p-1.5 rounded-lg text-texto-3 hover:text-texto hover:bg-superficie-2 transition-colors ml-2 cursor-pointer"
+              className="p-1.5 rounded-lg text-texto-3 hover:text-texto hover:bg-superficie-2 transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.94] ml-2 cursor-pointer"
               aria-label="Cerrar modal"
             >
               <X className="w-5 h-5" />

@@ -547,7 +547,7 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
                   >
                     <span
                       className={cn(
-                        'w-7 h-7 rounded-full flex items-center justify-center text-caption font-semibold transition-all',
+                        'w-7 h-7 rounded-full flex items-center justify-center text-caption font-semibold transition-[background-color,border-color,color,box-shadow,transform,opacity]',
                         activo
                           ? 'bg-acento text-acento-texto ring-4 ring-acento/20 shadow-sm'
                           : completado

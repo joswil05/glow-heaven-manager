@@ -212,7 +212,7 @@ export const LineaCreciente: React.FC<LineaCrecienteProps> = ({
               type="button"
               onClick={() => setModo('ambas')}
               className={cn(
-                'px-2.5 py-1 rounded-lg transition-all duration-150',
+                'px-2.5 py-1 rounded-lg transition-[background-color,border-color,color,box-shadow,transform,opacity] duration-150',
                 modo === 'ambas'
                   ? 'bg-superficie text-texto font-semibold shadow-xs'
                   : 'text-texto-3 hover:text-texto'
@@ -224,7 +224,7 @@ export const LineaCreciente: React.FC<LineaCrecienteProps> = ({
               type="button"
               onClick={() => setModo('ganancias')}
               className={cn(
-                'px-2.5 py-1 rounded-lg transition-all duration-150 flex items-center gap-1.5',
+                'px-2.5 py-1 rounded-lg transition-[background-color,border-color,color,box-shadow,transform,opacity] duration-150 flex items-center gap-1.5',
                 modo === 'ganancias'
                   ? 'bg-acento-suave text-acento font-semibold shadow-xs border border-acento-suave'
                   : 'text-texto-3 hover:text-texto'
@@ -237,7 +237,7 @@ export const LineaCreciente: React.FC<LineaCrecienteProps> = ({
               type="button"
               onClick={() => setModo('ingresos')}
               className={cn(
-                'px-2.5 py-1 rounded-lg transition-all duration-150 flex items-center gap-1.5',
+                'px-2.5 py-1 rounded-lg transition-[background-color,border-color,color,box-shadow,transform,opacity] duration-150 flex items-center gap-1.5',
                 modo === 'ingresos'
                   ? 'bg-serie-2/10 text-serie-2 font-semibold shadow-xs border border-serie-2/25'
                   : 'text-texto-3 hover:text-texto'
@@ -823,7 +823,7 @@ export const Anillo: React.FC<AnilloProps> = ({
           viewBox={`0 0 ${tamano} ${tamano}`}
           role="img"
           aria-labelledby={`${id}-titulo`}
-          className="shrink-0 -rotate-90 transition-all duration-300"
+          className="shrink-0 -rotate-90 transition-[background-color,border-color,color,box-shadow,transform,opacity] duration-300"
         >
           <title id={`${id}-titulo`}>
             {segmentos.map((s) => `${s.etiqueta}: ${formatearMoneda(s.valor, 'USD')}`).join('. ')}
@@ -861,7 +861,7 @@ export const Anillo: React.FC<AnilloProps> = ({
                   strokeDasharray={`${largo} ${circunferencia - largo}`}
                   strokeDashoffset={offset}
                   strokeLinecap="round"
-                  className="animate-ring-segment transition-all duration-200 cursor-pointer"
+                  className="animate-ring-segment transition-[background-color,border-color,color,box-shadow,transform,opacity] duration-200 cursor-pointer"
                   onMouseEnter={() => setHoverIndex(idx)}
                   onMouseLeave={() => setHoverIndex(null)}
                   style={{
@@ -897,7 +897,7 @@ export const Anillo: React.FC<AnilloProps> = ({
               <li
                 key={s.etiqueta}
                 className={cn(
-                  'p-2 rounded-xl border transition-all duration-150 cursor-pointer',
+                  'p-2 rounded-xl border transition-[background-color,border-color,color,box-shadow,transform,opacity] duration-150 cursor-pointer',
                   esHover
                     ? 'bg-superficie-2 border-borde-fuerte shadow-sm'
                     : 'bg-transparent border-transparent hover:bg-superficie-2/50'

@@ -384,7 +384,7 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
               <Button
                 size="sm"
                 variant="outline"
-                className="text-acento bg-acento/10 border-acento/30 hover:bg-acento/20 hover:text-acento transition-all font-medium rounded-lg shadow-2xs h-7 text-xs px-2.5"
+                className="text-acento bg-acento/10 border-acento/30 hover:bg-acento/20 hover:text-acento transition-[background-color,border-color,color,box-shadow,transform,opacity] font-medium rounded-lg shadow-2xs h-7 text-xs px-2.5"
                 onClick={(e) => {
                   e.stopPropagation();
                   reactivar(p);
@@ -486,7 +486,7 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
           <div className="flex items-center gap-2">
             <span className="font-bold text-texto text-body">Catálogo e Inventario</span>
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-acento/10 text-acento border border-acento/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-acento animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-acento" />
               {productos.length} producto{productos.length === 1 ? '' : 's'}
             </span>
           </div>
@@ -614,7 +614,7 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
                 onClick={() => setFiltro(f.id)}
                 aria-pressed={filtro === f.id}
                 className={cn(
-                  'px-3 py-1.5 rounded-lg transition-all text-label pill-interactive active:scale-95 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento',
+                  'px-3 py-1.5 rounded-lg transition-[background-color,border-color,color,box-shadow,transform,opacity] text-label pill-interactive active:scale-95 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento',
                   filtro === f.id
                     ? 'bg-superficie text-texto font-semibold shadow-xs border border-borde/50'
                     : 'text-texto-3 hover:text-texto hover:bg-superficie/50'

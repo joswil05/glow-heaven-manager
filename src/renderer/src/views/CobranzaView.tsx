@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useCerrarConEscape } from '../lib/useCerrarConEscape';
 import {
   HandCoins,
   Search,
@@ -75,6 +76,7 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
 
   // Modal registrar abono
   const [modalAbonoAbierto, setModalAbonoAbierto] = useState(false);
+  useCerrarConEscape(modalAbonoAbierto, () => setModalAbonoAbierto(false));
   const [clienteSeleccionadoId, setClienteSeleccionadoId] = useState<number | undefined>();
   const [abonoMontoTexto, setAbonoMontoTexto] = useState('');
   const [abonoMoneda, setAbonoMoneda] = useState<MonedaPago>('COR');
@@ -505,7 +507,7 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
                       type="button"
                       onClick={() => setFiltroMetodo(m)}
                       className={cn(
-                        'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all',
+                        'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-[background-color,border-color,color,box-shadow,transform,opacity]',
                         filtroMetodo === m
                           ? 'bg-acento/10 text-acento font-bold'
                           : 'text-texto-3 hover:text-texto'
@@ -528,7 +530,7 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
                       type="button"
                       onClick={() => setFiltroCuentas(est)}
                       className={cn(
-                        'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all',
+                        'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-[background-color,border-color,color,box-shadow,transform,opacity]',
                         filtroCuentas === est
                           ? 'bg-acento/10 text-acento font-bold'
                           : 'text-texto-3 hover:text-texto'
@@ -628,7 +630,7 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
                                 )}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-semibold text-caption text-acento bg-acento/15 border border-acento/30 hover:bg-acento/25 transition-all active:scale-95"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-semibold text-caption text-acento bg-acento/15 border border-acento/30 hover:bg-acento/25 transition-[background-color,border-color,color,box-shadow,transform,opacity] active:scale-95"
                                 title="Enviar recordatorio de cobro por WhatsApp"
                               >
                                 <MessageCircle className="w-3.5 h-3.5" />
