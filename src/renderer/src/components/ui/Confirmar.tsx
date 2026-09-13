@@ -55,7 +55,7 @@ export const Confirmar: React.FC<ConfirmarProps> = ({
   return (
     <Portal>
       <div
-        className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fade-in cursor-pointer"
+        className="fixed inset-0 z-[110] flex items-center justify-center bg-velo/60 backdrop-blur-xs p-4 animate-fade-in cursor-pointer"
         role="alertdialog"
       aria-modal="true"
       aria-labelledby="titulo-confirmar"

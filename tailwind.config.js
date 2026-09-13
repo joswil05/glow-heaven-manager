@@ -13,11 +13,11 @@
 const c = (nombre) => `rgb(var(--${nombre}) / <alpha-value>)`;
 
 export default {
+  // Solo el renderer de escritorio. Antes incluia tambien mobile/**, asi que
+  // el CSS de escritorio cargaba clases de la PWA que nunca usa.
   content: [
     './src/renderer/index.html',
     './src/renderer/src/**/*.{js,ts,jsx,tsx}',
-    './mobile/index.html',
-    './mobile/src/**/*.{js,ts,jsx,tsx}',
   ],
   darkMode: 'class',
   theme: {
@@ -29,9 +29,13 @@ export default {
         'inverso-texto': c('inverso-texto'),
         'inverso-texto-2': c('inverso-texto-2'),
         velo: c('velo'),
+        'serie-1': c('serie-1'),
+        'serie-2': c('serie-2'),
+        'serie-3': c('serie-3'),
         fondo: c('fondo'),
         superficie: c('superficie'),
         'superficie-2': c('superficie-2'),
+        'superficie-3': c('superficie-3'),
         borde: c('borde'),
         'borde-fuerte': c('borde-fuerte'),
         texto: c('texto'),
@@ -45,6 +49,21 @@ export default {
         'acento-fuerte': c('acento-fuerte'),
         'acento-suave': c('acento-suave'),
         'acento-texto': c('acento-texto'),
+        // Cada rol trae sus tres tokens: relleno, texto (-fuerte) y tinte
+        // (-suave), mas el texto que va ENCIMA del relleno (-texto). El
+        // detalle de cuando usar cada uno esta en temas.css.
+        exito: c('exito'),
+        'exito-fuerte': c('exito-fuerte'),
+        'exito-suave': c('exito-suave'),
+        'exito-texto': c('exito-texto'),
+        alerta: c('alerta'),
+        'alerta-fuerte': c('alerta-fuerte'),
+        'alerta-suave': c('alerta-suave'),
+        'alerta-texto': c('alerta-texto'),
+        peligro: c('peligro'),
+        'peligro-fuerte': c('peligro-fuerte'),
+        'peligro-suave': c('peligro-suave'),
+        'peligro-texto': c('peligro-texto'),
 
         success: {
           50: c('exito-suave'),
@@ -71,6 +90,17 @@ export default {
           700: c('peligro'),
           800: c('peligro'),
         },
+      },
+      // Las sombras salen de tokens para poder cambiar con el tema: en oscuro
+      // tienen que ser mas opacas y amplias o no se leen. Ver temas.css.
+      boxShadow: {
+        xs: 'var(--sombra-1)',
+        sm: 'var(--sombra-1)',
+        DEFAULT: 'var(--sombra-1)',
+        md: 'var(--sombra-2)',
+        lg: 'var(--sombra-2)',
+        xl: 'var(--sombra-3)',
+        '2xl': 'var(--sombra-3)',
       },
       borderRadius: {
         '2xl': '0.75rem',

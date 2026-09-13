@@ -384,7 +384,7 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
               <Button
                 size="sm"
                 variant="outline"
-                className="text-emerald-700 bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/20 hover:text-emerald-800 transition-all font-medium rounded-lg shadow-2xs h-7 text-xs px-2.5"
+                className="text-acento bg-acento/10 border-acento/30 hover:bg-acento/20 hover:text-acento transition-all font-medium rounded-lg shadow-2xs h-7 text-xs px-2.5"
                 onClick={(e) => {
                   e.stopPropagation();
                   reactivar(p);
@@ -447,13 +447,13 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
                 variant="ghost"
                 aria-label={`Descatalogar ${p.nombre}`}
                 title="Descatalogar del inventario (pasa a descatalogados sin perder historial)"
-                className="h-7 text-xs px-2 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 hover:text-amber-800 font-medium rounded-lg"
+                className="h-7 text-xs px-2 text-alerta hover:bg-alerta/10 hover:text-alerta font-medium rounded-lg"
                 onClick={(e) => {
                   e.stopPropagation();
                   setArchivando(p);
                 }}
               >
-                <Archive className="w-3.5 h-3.5 mr-1 text-amber-600" />
+                <Archive className="w-3.5 h-3.5 mr-1 text-alerta" />
                 <span>Descatalogar</span>
               </Button>
               <Button
@@ -485,8 +485,8 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
         <div className="flex items-center justify-between gap-3 pb-1 border-b border-borde/40 text-caption text-texto-3 shrink-0 flex-wrap">
           <div className="flex items-center gap-2">
             <span className="font-bold text-texto text-body">Catálogo e Inventario</span>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-acento/10 text-acento border border-acento/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-acento animate-pulse" />
               {productos.length} producto{productos.length === 1 ? '' : 's'}
             </span>
           </div>
@@ -711,17 +711,17 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
           </div>
 
           {!detalle.activo && (
-            <div className="mx-5 mt-4 p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center justify-between gap-3 shrink-0">
-              <div className="text-caption text-amber-900 min-w-0">
+            <div className="mx-5 mt-4 p-3.5 bg-alerta/10 border border-alerta/30 rounded-xl flex items-center justify-between gap-3 shrink-0">
+              <div className="text-caption text-alerta min-w-0">
                 <span className="font-semibold block truncate">Producto descatalogado</span>
-                <span className="text-[11px] text-amber-800/90 leading-tight block">
+                <span className="text-[11px] text-alerta/90 leading-tight block">
                   Oculto del inventario activo y protegido en historiales.
                 </span>
               </div>
               <Button
                 size="sm"
                 variant="outline"
-                className="text-emerald-700 bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/20 hover:text-emerald-800 font-medium shrink-0 rounded-lg"
+                className="text-acento bg-acento/10 border-acento/30 hover:bg-acento/20 hover:text-acento font-medium shrink-0 rounded-lg"
                 onClick={() => reactivar(detalle)}
               >
                 <RotateCcw className="w-3.5 h-3.5 mr-1" />
@@ -860,10 +860,10 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
               <Button
                 variant="ghost"
                 size="sm"
-                className="w-full justify-center text-xs font-semibold text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 border border-amber-500/30 rounded-xl"
+                className="w-full justify-center text-xs font-semibold text-alerta hover:bg-alerta/10 border border-alerta/30 rounded-xl"
                 onClick={() => setArchivando(detalle)}
               >
-                <Archive className="w-3.5 h-3.5 mr-1.5 text-amber-600" />
+                <Archive className="w-3.5 h-3.5 mr-1.5 text-alerta" />
                 <span>Descatalogar producto</span>
               </Button>
             ) : (
@@ -871,7 +871,7 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full justify-center text-xs font-semibold text-emerald-700 bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/20 rounded-xl"
+                  className="w-full justify-center text-xs font-semibold text-acento bg-acento/10 border-acento/30 hover:bg-acento/20 rounded-xl"
                   onClick={() => reactivar(detalle)}
                 >
                   <RotateCcw className="w-3.5 h-3.5 mr-1.5" />

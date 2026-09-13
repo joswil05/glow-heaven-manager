@@ -87,8 +87,8 @@ export const Barras: React.FC<BarrasProps> = ({
             >
               <div className="relative w-full flex items-end justify-center h-full">
                 {esActivo && (
-                  <div className="absolute bottom-full mb-1 z-10 whitespace-nowrap rounded-lg bg-inverso px-2.5 py-1.5 text-caption text-white shadow-xl border border-white/10">
-                    <div className="font-semibold text-emerald-300">{formato(d.valor)}</div>
+                  <div className="absolute bottom-full mb-1 z-10 whitespace-nowrap rounded-lg bg-inverso px-2.5 py-1.5 text-caption text-inverso-texto shadow-xl border border-inverso-texto/15">
+                    <div className="font-semibold text-acento-fuerte">{formato(d.valor)}</div>
                     {tieneSecundaria && (
                       <div className="text-inverso-texto-2 text-[11px]">
                         {etiquetaSerieSecundaria}: {formato(d.valorSecundario ?? 0)}
@@ -190,7 +190,7 @@ export const LineaCreciente: React.FC<LineaCrecienteProps> = ({
         <div className="flex items-center gap-3 text-caption text-texto-3">
           {resumen.mejorMes.valor > 0 && (
             <span className="inline-flex items-center gap-1.5">
-              <Award className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <Award className="w-3.5 h-3.5 text-acento" />
               <span>
                 Récord: <strong className="text-texto font-medium">{resumen.mejorMes.etiqueta.toUpperCase()}</strong> ({formato(resumen.mejorMes.valor)})
               </span>
@@ -226,11 +226,11 @@ export const LineaCreciente: React.FC<LineaCrecienteProps> = ({
               className={cn(
                 'px-2.5 py-1 rounded-lg transition-all duration-150 flex items-center gap-1.5',
                 modo === 'ganancias'
-                  ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-semibold shadow-xs border border-emerald-200/50 dark:border-emerald-800'
+                  ? 'bg-acento-suave text-acento font-semibold shadow-xs border border-acento-suave'
                   : 'text-texto-3 hover:text-texto'
               )}
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span className="w-1.5 h-1.5 rounded-full bg-acento" />
               Ganancias
             </button>
             <button
@@ -239,11 +239,11 @@ export const LineaCreciente: React.FC<LineaCrecienteProps> = ({
               className={cn(
                 'px-2.5 py-1 rounded-lg transition-all duration-150 flex items-center gap-1.5',
                 modo === 'ingresos'
-                  ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-semibold shadow-xs border border-indigo-200/50 dark:border-indigo-800'
+                  ? 'bg-serie-2/10 text-serie-2 font-semibold shadow-xs border border-serie-2/25'
                   : 'text-texto-3 hover:text-texto'
               )}
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+              <span className="w-1.5 h-1.5 rounded-full bg-alerta" />
               Ingresos
             </button>
           </div>
@@ -256,14 +256,14 @@ export const LineaCreciente: React.FC<LineaCrecienteProps> = ({
           <AreaChart data={datos} margin={{ top: 8, right: 12, left: 8, bottom: 4 }}>
             <defs>
               <linearGradient id={`area-grad-ganancia-${gradId}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#10b981" stopOpacity={0.22} />
-                <stop offset="70%" stopColor="#10b981" stopOpacity={0.04} />
-                <stop offset="100%" stopColor="#10b981" stopOpacity={0.0} />
+                <stop offset="0%" stopColor="rgb(var(--serie-1))" stopOpacity={0.22} />
+                <stop offset="70%" stopColor="rgb(var(--serie-1))" stopOpacity={0.04} />
+                <stop offset="100%" stopColor="rgb(var(--serie-1))" stopOpacity={0.0} />
               </linearGradient>
               <linearGradient id={`area-grad-ingreso-${gradId}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#6366f1" stopOpacity={0.15} />
-                <stop offset="85%" stopColor="#6366f1" stopOpacity={0.02} />
-                <stop offset="100%" stopColor="#6366f1" stopOpacity={0.0} />
+                <stop offset="0%" stopColor="rgb(var(--serie-2))" stopOpacity={0.15} />
+                <stop offset="85%" stopColor="rgb(var(--serie-2))" stopOpacity={0.02} />
+                <stop offset="100%" stopColor="rgb(var(--serie-2))" stopOpacity={0.0} />
               </linearGradient>
             </defs>
 
@@ -273,14 +273,14 @@ export const LineaCreciente: React.FC<LineaCrecienteProps> = ({
               dataKey="etiqueta"
               tickLine={false}
               axisLine={false}
-              tick={{ fontSize: 11, fill: 'var(--color-texto-3, #94a3b8)', fontWeight: 500 }}
+              tick={{ fontSize: 11, fill: 'rgb(var(--texto-3))', fontWeight: 500 }}
               dy={6}
             />
 
             <YAxis
               tickLine={false}
               axisLine={false}
-              tick={{ fontSize: 10, fill: 'var(--color-texto-3, #94a3b8)', fontWeight: 500 }}
+              tick={{ fontSize: 10, fill: 'rgb(var(--texto-3))', fontWeight: 500 }}
               tickFormatter={(v) => formato(v)}
               width={54}
             />
@@ -294,11 +294,11 @@ export const LineaCreciente: React.FC<LineaCrecienteProps> = ({
                 const margen = valorIngreso > 0 ? Math.round((valorGanancia / valorIngreso) * 100) : null;
 
                 return (
-                  <div className="rounded-xl border border-borde/80 bg-superficie/95 dark:bg-[#121826]/95 backdrop-blur-md px-3.5 py-2.5 text-caption shadow-xl min-w-[175px]">
+                  <div className="rounded-xl border border-borde/80 bg-superficie/95 backdrop-blur-md px-3.5 py-2.5 text-caption shadow-xl min-w-[175px]">
                     <div className="font-bold text-texto uppercase tracking-wider text-xs border-b border-borde/50 pb-1 mb-1.5 flex items-center justify-between">
                       <span>{d.etiqueta}</span>
                       {margen !== null && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-acento-suave text-acento font-bold">
                           {margen}% margen
                         </span>
                       )}
@@ -306,17 +306,17 @@ export const LineaCreciente: React.FC<LineaCrecienteProps> = ({
                     <div className="space-y-1 text-[11px]">
                       <div className="flex items-center justify-between gap-3">
                         <span className="flex items-center gap-1.5 text-texto-2">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                          <span className="w-2 h-2 rounded-full bg-acento" />
                           {etiquetaSerie}:
                         </span>
-                        <span className="font-bold text-emerald-600 dark:text-emerald-400 tabular">
+                        <span className="font-bold text-acento tabular">
                           {formato(valorGanancia)}
                         </span>
                       </div>
                       {tieneSecundaria && (
                         <div className="flex items-center justify-between gap-3">
                           <span className="flex items-center gap-1.5 text-texto-3">
-                            <span className="w-2 h-2 rounded-full bg-indigo-500" />
+                            <span className="w-2 h-2 rounded-full bg-alerta" />
                             {etiquetaSerieSecundaria}:
                           </span>
                           <span className="font-medium text-texto tabular">
@@ -334,11 +334,11 @@ export const LineaCreciente: React.FC<LineaCrecienteProps> = ({
               <Area
                 type="monotone"
                 dataKey="valorSecundario"
-                stroke="#6366f1"
+                stroke="rgb(var(--serie-2))"
                 strokeWidth={2}
                 strokeDasharray="4 4"
                 fill={`url(#area-grad-ingreso-${gradId})`}
-                activeDot={{ r: 4, fill: '#6366f1', stroke: '#ffffff', strokeWidth: 2 }}
+                activeDot={{ r: 4, fill: 'rgb(var(--serie-2))', stroke: 'rgb(var(--superficie))', strokeWidth: 2 }}
                 name={etiquetaSerieSecundaria}
               />
             )}
@@ -350,7 +350,7 @@ export const LineaCreciente: React.FC<LineaCrecienteProps> = ({
                 stroke="#059669"
                 strokeWidth={2.5}
                 fill={`url(#area-grad-ganancia-${gradId})`}
-                activeDot={{ r: 5, fill: '#059669', stroke: '#ffffff', strokeWidth: 2 }}
+                activeDot={{ r: 5, fill: '#059669', stroke: 'rgb(var(--superficie))', strokeWidth: 2 }}
                 name={etiquetaSerie}
               />
             )}
@@ -362,12 +362,12 @@ export const LineaCreciente: React.FC<LineaCrecienteProps> = ({
       <div className="mt-1.5 flex items-center justify-between text-caption text-texto-3 border-t border-borde/40 pt-2 flex-wrap gap-2">
         <div className="flex items-center gap-4">
           <span className="inline-flex items-center gap-1.5 font-semibold text-texto text-[11px]">
-            <span className="w-3 h-1.5 rounded-full bg-emerald-600 shadow-sm" />
+            <span className="w-3 h-1.5 rounded-full bg-acento shadow-sm" />
             {etiquetaSerie}
           </span>
           {tieneSecundaria && (
             <span className="inline-flex items-center gap-1.5 font-medium text-texto-2 text-[11px]">
-              <span className="w-3 h-1.5 rounded-full bg-indigo-500" />
+              <span className="w-3 h-1.5 rounded-full bg-alerta" />
               {etiquetaSerieSecundaria}
             </span>
           )}
@@ -412,13 +412,13 @@ export const GraficaMargen: React.FC<GraficaMargenProps> = ({
       {/* Píldoras de resumen superior */}
       <div className="flex items-center justify-between gap-2 mb-2 text-caption text-texto-3 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-700 dark:text-purple-300 font-semibold border border-purple-500/20 text-[11px]">
-            <Percent className="w-3 h-3 text-purple-600" />
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-serie-3/10 text-serie-3 font-semibold border border-serie-3/25 text-[11px]">
+            <Percent className="w-3 h-3 text-serie-3" />
             <span>Margen Promedio: {margenPromedio}%</span>
           </span>
           {mejorMes && mejorMes.margenPct > 0 && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-superficie-2 text-texto-2 font-medium border border-borde/70 text-[11px]">
-              <Sparkles className="w-3 h-3 text-amber-500" />
+              <Sparkles className="w-3 h-3 text-alerta" />
               <span>Más Rentable: {mejorMes.etiqueta.toUpperCase()} ({mejorMes.margenPct}%)</span>
             </span>
           )}
@@ -426,8 +426,8 @@ export const GraficaMargen: React.FC<GraficaMargenProps> = ({
             className={cn(
               'inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-medium text-[11px] border',
               margenPromedio >= 35
-                ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/25'
-                : 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/25'
+                ? 'bg-acento/10 text-acento border-acento/25'
+                : 'bg-alerta/10 text-alerta border-alerta/25'
             )}
           >
             <span>{margenPromedio >= 35 ? 'Salud Financiera Óptima' : 'Margen Estable'}</span>
@@ -445,14 +445,14 @@ export const GraficaMargen: React.FC<GraficaMargenProps> = ({
               dataKey="etiqueta"
               tickLine={false}
               axisLine={false}
-              tick={{ fontSize: 11, fill: 'var(--color-texto-3, #94a3b8)', fontWeight: 500 }}
+              tick={{ fontSize: 11, fill: 'rgb(var(--texto-3))', fontWeight: 500 }}
               dy={6}
             />
 
             <YAxis
               tickLine={false}
               axisLine={false}
-              tick={{ fontSize: 10, fill: 'var(--color-texto-3, #94a3b8)', fontWeight: 500 }}
+              tick={{ fontSize: 10, fill: 'rgb(var(--texto-3))', fontWeight: 500 }}
               tickFormatter={(v) => `${v}%`}
               domain={[0, (dataMax: number) => Math.max(50, Math.ceil(dataMax / 10) * 10)]}
               width={38}
@@ -460,13 +460,13 @@ export const GraficaMargen: React.FC<GraficaMargenProps> = ({
 
             <ReferenceLine
               y={35}
-              stroke="#10b981"
+              stroke="rgb(var(--serie-1))"
               strokeDasharray="3 3"
               strokeWidth={1.5}
               label={{
                 value: 'Meta 35%',
                 position: 'insideTopLeft',
-                fill: '#10b981',
+                fill: 'rgb(var(--serie-1))',
                 fontSize: 10,
                 fontWeight: 700,
               }}
@@ -477,19 +477,19 @@ export const GraficaMargen: React.FC<GraficaMargenProps> = ({
                 if (!active || !payload || !payload.length) return null;
                 const d = payload[0]?.payload as PuntoMargen;
                 return (
-                  <div className="rounded-xl border border-borde/80 bg-superficie/95 dark:bg-[#121826]/95 backdrop-blur-md px-3 py-2 text-caption shadow-xl min-w-[170px]">
+                  <div className="rounded-xl border border-borde/80 bg-superficie/95 backdrop-blur-md px-3 py-2 text-caption shadow-xl min-w-[170px]">
                     <div className="flex items-center justify-between font-bold border-b border-borde/50 pb-1 mb-1">
-                      <span className="uppercase text-[11px] tracking-wider text-purple-400">
+                      <span className="uppercase text-[11px] tracking-wider text-serie-3">
                         {d.etiqueta}
                       </span>
-                      <span className="text-emerald-500 font-mono font-bold text-sm">
+                      <span className="text-acento font-mono font-bold text-sm">
                         {d.margenPct}% margen
                       </span>
                     </div>
                     <div className="text-[11px] space-y-1">
                       <div className="flex items-center justify-between text-texto-2">
                         <span>Ganancia neta:</span>
-                        <span className="font-bold text-emerald-600 dark:text-emerald-400 font-mono">
+                        <span className="font-bold text-acento font-mono">
                           {formatearMoneda(d.gananciaUsdCents, 'USD')}
                         </span>
                       </div>
@@ -509,7 +509,7 @@ export const GraficaMargen: React.FC<GraficaMargenProps> = ({
               {datos.map((entry, index) => (
                 <Cell
                   key={`cell-${index}`}
-                  fill={entry.margenPct >= 35 ? '#10b981' : '#8b5cf6'}
+                  fill={entry.margenPct >= 35 ? 'rgb(var(--serie-1))' : '#8b5cf6'}
                 />
               ))}
             </Bar>
@@ -520,11 +520,11 @@ export const GraficaMargen: React.FC<GraficaMargenProps> = ({
       {/* Pie informativo */}
       <div className="mt-1 flex items-center justify-between text-[11px] text-texto-3 border-t border-borde/40 pt-1.5">
         <span className="inline-flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-emerald-500" />
+          <span className="w-2 h-2 rounded-full bg-acento" />
           Verde: &ge; 35% margen saludable
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-purple-500" />
+          <span className="w-2 h-2 rounded-full bg-serie-3" />
           Morado: &lt; 35% margen
         </span>
       </div>
@@ -564,12 +564,12 @@ export const GraficaCostosIngresos: React.FC<GraficaCostosIngresosProps> = ({
       {/* Píldoras de resumen superior */}
       <div className="flex items-center justify-between gap-2 mb-2 text-caption text-texto-3 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-semibold border border-emerald-500/20 text-[11px]">
-            <DollarSign className="w-3 h-3 text-emerald-600" />
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-acento/10 text-acento font-semibold border border-acento/20 text-[11px]">
+            <DollarSign className="w-3 h-3 text-acento" />
             <span>Facturación: {formatearMoneda(totalIngresos, 'USD')}</span>
           </span>
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 font-semibold border border-indigo-500/20 text-[11px]">
-            <Layers className="w-3 h-3 text-indigo-600" />
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-serie-2/10 text-serie-2 font-semibold border border-serie-2/25 text-[11px]">
+            <Layers className="w-3 h-3 text-serie-2" />
             <span>Costo Mercancía: {formatearMoneda(totalCostos, 'USD')}</span>
           </span>
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-superficie-2 text-texto-2 font-medium border border-borde/70 text-[11px]">
@@ -588,14 +588,14 @@ export const GraficaCostosIngresos: React.FC<GraficaCostosIngresosProps> = ({
               dataKey="etiqueta"
               tickLine={false}
               axisLine={false}
-              tick={{ fontSize: 11, fill: 'var(--color-texto-3, #94a3b8)', fontWeight: 500 }}
+              tick={{ fontSize: 11, fill: 'rgb(var(--texto-3))', fontWeight: 500 }}
               dy={6}
             />
 
             <YAxis
               tickLine={false}
               axisLine={false}
-              tick={{ fontSize: 10, fill: 'var(--color-texto-3, #94a3b8)', fontWeight: 500 }}
+              tick={{ fontSize: 10, fill: 'rgb(var(--texto-3))', fontWeight: 500 }}
               tickFormatter={(v) => formatearMoneda(v, 'USD')}
               width={54}
             />
@@ -605,19 +605,19 @@ export const GraficaCostosIngresos: React.FC<GraficaCostosIngresosProps> = ({
                 if (!active || !payload || !payload.length) return null;
                 const d = payload[0]?.payload as PuntoCostosIngresos;
                 return (
-                  <div className="rounded-xl border border-borde/80 bg-superficie/95 dark:bg-[#121826]/95 backdrop-blur-md px-3.5 py-2 text-caption shadow-xl min-w-[185px]">
+                  <div className="rounded-xl border border-borde/80 bg-superficie/95 backdrop-blur-md px-3.5 py-2 text-caption shadow-xl min-w-[185px]">
                     <div className="flex items-center justify-between font-bold border-b border-borde/50 pb-1 mb-1.5">
-                      <span className="uppercase text-[11px] tracking-wider text-emerald-500">
+                      <span className="uppercase text-[11px] tracking-wider text-acento">
                         {d.etiqueta}
                       </span>
-                      <span className="text-emerald-600 dark:text-emerald-400 font-mono font-bold">
+                      <span className="text-acento font-mono font-bold">
                         +{formatearMoneda(d.gananciaUsdCents, 'USD')} ganancia
                       </span>
                     </div>
                     <div className="space-y-1 text-[11px]">
                       <div className="flex items-center justify-between text-texto-2">
                         <span className="flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-xs bg-emerald-500" />
+                          <span className="w-2 h-2 rounded-xs bg-acento" />
                           Facturación:
                         </span>
                         <span className="font-bold text-texto font-mono">
@@ -626,7 +626,7 @@ export const GraficaCostosIngresos: React.FC<GraficaCostosIngresosProps> = ({
                       </div>
                       <div className="flex items-center justify-between text-texto-3">
                         <span className="flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-xs bg-indigo-500" />
+                          <span className="w-2 h-2 rounded-xs bg-alerta" />
                           Costo mercancía:
                         </span>
                         <span className="font-medium text-texto-2 font-mono">
@@ -639,8 +639,8 @@ export const GraficaCostosIngresos: React.FC<GraficaCostosIngresosProps> = ({
               }}
             />
 
-            <Bar dataKey="costosUsdCents" name="Costo Mercancía" fill="#6366f1" radius={[4, 4, 0, 0]} maxBarSize={24} />
-            <Bar dataKey="ingresosUsdCents" name="Facturación" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={24} />
+            <Bar dataKey="costosUsdCents" name="Costo Mercancía" fill="rgb(var(--serie-2))" radius={[4, 4, 0, 0]} maxBarSize={24} />
+            <Bar dataKey="ingresosUsdCents" name="Facturación" fill="rgb(var(--serie-1))" radius={[4, 4, 0, 0]} maxBarSize={24} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -649,11 +649,11 @@ export const GraficaCostosIngresos: React.FC<GraficaCostosIngresosProps> = ({
       <div className="mt-1.5 flex items-center justify-between text-caption text-texto-3 border-t border-borde/40 pt-1.5 flex-wrap gap-2">
         <div className="flex items-center gap-4">
           <span className="inline-flex items-center gap-1.5 font-semibold text-texto text-[11px]">
-            <span className="w-2.5 h-2.5 rounded-xs bg-emerald-500 shadow-xs" />
+            <span className="w-2.5 h-2.5 rounded-xs bg-acento shadow-xs" />
             Facturación Bruta (Ventas)
           </span>
           <span className="inline-flex items-center gap-1.5 font-medium text-texto-2 text-[11px]">
-            <span className="w-2.5 h-2.5 rounded-xs bg-indigo-500 shadow-xs" />
+            <span className="w-2.5 h-2.5 rounded-xs bg-alerta shadow-xs" />
             Costo Mercancía + Envíos
           </span>
         </div>
@@ -697,8 +697,8 @@ export const GraficaVolumen: React.FC<GraficaVolumenProps> = ({
       <div className="flex items-center justify-between gap-2 mb-2 text-caption text-texto-3 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
           {mesRecord && mesRecord.ordenes > 0 && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-300 font-semibold border border-blue-500/20 text-[11px]">
-              <Sparkles className="w-3 h-3 text-blue-600" />
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-serie-2/10 text-serie-2 font-semibold border border-serie-2/25 text-[11px]">
+              <Sparkles className="w-3 h-3 text-serie-2" />
               <span>Récord: {mesRecord.etiqueta.toUpperCase()} ({mesRecord.ordenes} pedidos)</span>
             </span>
           )}
@@ -722,14 +722,14 @@ export const GraficaVolumen: React.FC<GraficaVolumenProps> = ({
               dataKey="etiqueta"
               tickLine={false}
               axisLine={false}
-              tick={{ fontSize: 11, fill: 'var(--color-texto-3, #94a3b8)', fontWeight: 500 }}
+              tick={{ fontSize: 11, fill: 'rgb(var(--texto-3))', fontWeight: 500 }}
               dy={6}
             />
 
             <YAxis
               tickLine={false}
               axisLine={false}
-              tick={{ fontSize: 10, fill: 'var(--color-texto-3, #94a3b8)', fontWeight: 500 }}
+              tick={{ fontSize: 10, fill: 'rgb(var(--texto-3))', fontWeight: 500 }}
               domain={[0, 'auto']}
               width={34}
             />
@@ -740,9 +740,9 @@ export const GraficaVolumen: React.FC<GraficaVolumenProps> = ({
                 const d = payload[0]?.payload as PuntoVolumen;
                 const ticket = d.ordenes > 0 ? Math.round(d.ingresosUsdCents / d.ordenes) : 0;
                 return (
-                  <div className="rounded-xl border border-borde/80 bg-superficie/95 dark:bg-[#121826]/95 backdrop-blur-md px-3.5 py-2 text-caption shadow-xl min-w-[170px]">
+                  <div className="rounded-xl border border-borde/80 bg-superficie/95 backdrop-blur-md px-3.5 py-2 text-caption shadow-xl min-w-[170px]">
                     <div className="flex items-center justify-between font-bold border-b border-borde/50 pb-1 mb-1.5">
-                      <span className="uppercase text-[11px] tracking-wider text-blue-500">
+                      <span className="uppercase text-[11px] tracking-wider text-serie-2">
                         {d.etiqueta}
                       </span>
                       <span className="text-texto font-mono">{d.ordenes} pedidos</span>
@@ -756,7 +756,7 @@ export const GraficaVolumen: React.FC<GraficaVolumenProps> = ({
                       </div>
                       <div className="flex items-center justify-between text-texto-3">
                         <span>Ticket promedio:</span>
-                        <span className="font-bold text-emerald-600 dark:text-emerald-400 font-mono">
+                        <span className="font-bold text-acento font-mono">
                           {formatearMoneda(ticket, 'USD')}
                         </span>
                       </div>
@@ -774,7 +774,7 @@ export const GraficaVolumen: React.FC<GraficaVolumenProps> = ({
       {/* Pie de leyenda */}
       <div className="mt-1.5 flex items-center justify-between text-caption text-texto-3 border-t border-borde/40 pt-1.5 flex-wrap gap-2">
         <span className="inline-flex items-center gap-1.5 font-semibold text-texto text-[11px]">
-          <span className="w-2.5 h-2.5 rounded-xs bg-blue-500 shadow-xs" />
+          <span className="w-2.5 h-2.5 rounded-xs bg-serie-2 shadow-xs" />
           Órdenes completadas por mes
         </span>
         <span className="text-[11px] text-texto-3">
@@ -962,9 +962,9 @@ export const BarraProgreso: React.FC<BarraProgresoProps> = ({
   const pct = total > 0 ? Math.min(100, Math.max(0, (actual / total) * 100)) : 0;
   const colores = {
     brand: 'bg-acento shadow-sm shadow-acento/30',
-    success: 'bg-emerald-500 shadow-sm shadow-emerald-500/30',
-    warning: 'bg-amber-500 shadow-sm shadow-amber-500/30',
-    danger: 'bg-rose-500 shadow-sm shadow-rose-500/30',
+    success: 'bg-acento shadow-sm shadow-lg',
+    warning: 'bg-alerta shadow-sm shadow-lg',
+    danger: 'bg-peligro shadow-sm shadow-lg',
   };
 
   return (
@@ -1031,8 +1031,8 @@ export const GraficaTopProductos: React.FC<GraficaTopProductosProps> = ({
     <div className={cn('w-full select-none flex flex-col', className)}>
       <div className="flex items-center justify-between gap-2 mb-3 text-caption text-texto-3 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 font-semibold border border-amber-500/20 text-[11px]">
-            <Award className="w-3 h-3 text-amber-600" />
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-alerta/10 text-alerta font-semibold border border-alerta/20 text-[11px]">
+            <Award className="w-3 h-3 text-alerta" />
             <span>Top #1: {top5[0]?.nombre}</span>
           </span>
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-superficie-2 text-texto-2 font-medium border border-borde/70 text-[11px]">
@@ -1059,11 +1059,11 @@ export const GraficaTopProductos: React.FC<GraficaTopProductosProps> = ({
                 className={cn(
                   'w-6 h-6 rounded-lg flex items-center justify-center font-bold text-[11px] shrink-0 border shadow-2xs',
                   esPrimero
-                    ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/30'
+                    ? 'bg-alerta/20 text-alerta border-alerta/30'
                     : idx === 1
-                    ? 'bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-400/30'
+                    ? 'bg-superficie-2/15 text-texto-2 border-borde'
                     : idx === 2
-                    ? 'bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-400/30'
+                    ? 'bg-alerta/15 text-alerta border-alerta/30'
                     : 'bg-superficie-2 text-texto-3 border-borde/60'
                 )}
               >
@@ -1079,7 +1079,7 @@ export const GraficaTopProductos: React.FC<GraficaTopProductosProps> = ({
                     <span className="font-bold text-texto font-mono">
                       {p.unidadesVendidas} uds
                     </span>
-                    <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 font-mono">
+                    <span className="text-[11px] font-bold text-acento font-mono">
                       +{formatearMoneda(p.gananciaUsdCents, 'USD')}
                     </span>
                   </div>
@@ -1090,8 +1090,8 @@ export const GraficaTopProductos: React.FC<GraficaTopProductosProps> = ({
                     className={cn(
                       'h-full rounded-full transition-[width] duration-500 ease-out',
                       esPrimero
-                        ? 'bg-gradient-to-r from-amber-500 to-amber-400'
-                        : 'bg-gradient-to-r from-acento to-indigo-400'
+                        ? 'bg-gradient-to-r from-alerta to-alerta'
+                        : 'bg-gradient-to-r from-serie-1 to-serie-2'
                     )}
                     style={{ width: `${ratio * 100}%` }}
                   />
@@ -1104,7 +1104,7 @@ export const GraficaTopProductos: React.FC<GraficaTopProductosProps> = ({
                     'text-[10px] px-2 py-0.5 rounded-md font-semibold border',
                     p.existencias > 0
                       ? 'bg-superficie-2 text-texto-2 border-borde/60'
-                      : 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/20'
+                      : 'bg-peligro/10 text-peligro border-peligro/20'
                   )}
                 >
                   {p.existencias > 0 ? `${p.existencias} en stock` : 'Agotado'}

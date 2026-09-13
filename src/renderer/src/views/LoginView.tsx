@@ -38,7 +38,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
       <div className="w-full max-w-md bg-inverso-2/95 border border-inverso-texto-2/20 rounded-3xl shadow-2xl p-8 z-10 backdrop-blur-xl transition-all duration-300">
         {/* Cabecera con logo oficial */}
         <div className="flex flex-col items-center text-center mb-8">
-          <div className="w-20 h-20 rounded-2xl overflow-hidden shadow-2xl shadow-acento/25 mb-4 ring-4 ring-white/15 shrink-0 bg-white p-1">
+          <div className="w-20 h-20 rounded-2xl overflow-hidden shadow-2xl shadow-acento/25 mb-4 ring-4 ring-white/15 shrink-0 bg-superficie p-1">
             <img src={logoImg} alt="Glow Heaven" className="w-full h-full object-contain" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-inverso-texto">
@@ -87,7 +87,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
             <button
               type="button"
               onClick={iniciarConGoogle}
-              className="w-full flex items-center justify-center gap-3 px-5 py-3.5 bg-white text-gray-800 hover:bg-gray-50 active:scale-[0.99] rounded-xl font-medium text-base shadow-md hover:shadow-lg transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-acento cursor-pointer"
+              className="w-full flex items-center justify-center gap-3 px-5 py-3.5 bg-superficie text-texto hover:bg-superficie-2 active:scale-[0.99] rounded-xl font-medium text-base shadow-md hover:shadow-lg transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-acento cursor-pointer"
             >
               {/* Logo Oficial de Google SVG */}
               <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
@@ -116,7 +116,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
             <button
               type="button"
               onClick={iniciarConGoogle}
-              className="w-full flex items-center justify-center gap-2 py-2.5 text-xs font-medium text-acento-suave hover:text-white transition-colors"
+              className="w-full flex items-center justify-center gap-2 py-2.5 text-xs font-medium text-texto-3 hover:text-texto transition-colors"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               <span>Volver a intentar</span>
@@ -127,7 +127,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
         {/* Nota al pie de seguridad */}
         <div className="mt-8 pt-6 border-t border-inverso-texto-2/15 flex flex-col items-center text-center space-y-2">
           <p className="flex items-center gap-1.5 text-xs text-inverso-texto-2">
-            <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+            <ShieldCheck className="w-4 h-4 text-acento shrink-0" />
             <span>Autenticación oficial Firebase Cloud de Google</span>
           </p>
           <p className="text-[11px] text-inverso-texto-2/70 max-w-xs">

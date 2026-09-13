@@ -177,10 +177,10 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
             className={cn(
               'w-1.5 h-1.5 rounded-full shrink-0',
               c.estado === 'RECIBIDA'
-                ? 'bg-emerald-500'
+                ? 'bg-acento'
                 : c.estado === 'EN_CAMINO'
-                  ? 'bg-amber-500 animate-pulse'
-                  : 'bg-slate-400'
+                  ? 'bg-alerta animate-pulse'
+                  : 'bg-superficie-2'
             )}
           />
           {ESTADO_TEXTO[c.estado]}
@@ -247,7 +247,7 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
             </>
           ) : (
             <span className="text-caption text-texto-3 mr-1 inline-flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+              <CheckCircle2 className="w-3.5 h-3.5 text-acento" />
               Recibido
             </span>
           )}
@@ -277,8 +277,8 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
         <div className="flex items-center justify-between gap-3 pb-1 border-b border-borde/40 text-caption text-texto-3 shrink-0 flex-wrap">
           <div className="flex items-center gap-2">
             <span className="font-bold text-texto text-body">Envíos y Paquetes USA</span>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-500/10 text-indigo-700 border border-indigo-500/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-alerta-suave text-alerta-fuerte border border-alerta-suave">
+              <span className="w-1.5 h-1.5 rounded-full bg-alerta animate-pulse" />
               {compras.length} paquete{compras.length === 1 ? '' : 's'}
             </span>
           </div>
@@ -363,9 +363,9 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
           />
         ) : (
           <div className="space-y-3.5">
-            <div className="p-3.5 rounded-xl border border-borde/80 bg-gradient-to-r from-superficie via-superficie to-indigo-500/5 shadow-2xs flex items-center justify-between gap-4 flex-wrap">
+            <div className="p-3.5 rounded-xl border border-borde/80 bg-gradient-to-r from-superficie via-superficie to-alerta/5 shadow-2xs flex items-center justify-between gap-4 flex-wrap">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-700 flex items-center justify-center shrink-0">
+                <div className="w-8 h-8 rounded-lg bg-alerta-suave text-alerta-fuerte flex items-center justify-center shrink-0">
                   <Truck className="w-4 h-4" />
                 </div>
                 <div>
@@ -386,7 +386,7 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
                 <div className="h-6 w-px bg-borde/70" />
                 <div>
                   <span className="text-texto-3 block text-[11px]">Promedio por libra</span>
-                  <span className="font-bold text-indigo-700 font-mono">{formatearMoneda(historicoCourier.costoPromedioPorLb, 'USD')}/lb</span>
+                  <span className="font-bold text-alerta-fuerte font-mono">{formatearMoneda(historicoCourier.costoPromedioPorLb, 'USD')}/lb</span>
                 </div>
               </div>
             </div>
@@ -422,10 +422,10 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
                       className={cn(
                         'w-1.5 h-1.5 rounded-full shrink-0',
                         detalle.estado === 'RECIBIDA'
-                          ? 'bg-emerald-500'
+                          ? 'bg-acento'
                           : detalle.estado === 'EN_CAMINO'
-                            ? 'bg-amber-500 animate-pulse'
-                            : 'bg-slate-400'
+                            ? 'bg-alerta animate-pulse'
+                            : 'bg-superficie-2'
                       )}
                     />
                     {ESTADO_TEXTO[detalle.estado]}
@@ -451,10 +451,10 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
             {/* Banner de acción rápida para paquetes en camino */}
             {detalle.estado !== 'RECIBIDA' && (
-              <div className="p-3.5 rounded-xl border border-amber-200 bg-amber-50/80 flex items-center justify-between gap-3 shadow-xs">
+              <div className="p-3.5 rounded-xl border border-alerta-suave bg-alerta-suave flex items-center justify-between gap-3 shadow-xs">
                 <div className="min-w-0">
-                  <p className="text-label font-semibold text-amber-900">¿Ya llegó a tus manos?</p>
-                  <p className="text-caption text-amber-700 leading-tight">
+                  <p className="text-label font-semibold text-alerta">¿Ya llegó a tus manos?</p>
+                  <p className="text-caption text-alerta leading-tight">
                     Mete las unidades directo a tu inventario activo.
                   </p>
                 </div>

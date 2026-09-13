@@ -1,11 +1,27 @@
 /**
- * Paleta: Vivid Emerald & Clean Slate.
+ * LA PALETA. Es la misma que usa la PWA móvil (mobile/src/index.css), y esa
+ * es la idea: las dos apps son el mismo negocio y tienen que verse como tal.
+ * Si cambiás un valor acá, cambialo allá.
  *
- * Los colores viven como variables CSS en canales RGB sueltos, que es el
- * formato que Tailwind necesita para poder aplicarles opacidad
- * (`bg-superficie/60`, `border-borde/50`).
+ * Los colores viven como canales RGB sueltos porque es el formato que Tailwind
+ * necesita para aplicarles opacidad (`bg-superficie/60`, `border-borde/50`).
  *
- * Cumple con contraste WCAG AA en todas las combinaciones de texto y fondos.
+ * Cada rol de color tiene tres tokens, y confundirlos es el error típico:
+ *
+ *   --x          El color. Sirve como TEXTO/ícono sobre una superficie normal
+ *                y como RELLENO de un botón sólido (con --x-texto encima).
+ *   --x-fuerte   El color como TEXTO SOBRE --x-suave, y para estados hover.
+ *   --x-suave    TINTE. Fondo de un badge. Lleva --x-fuerte encima.
+ *
+ * Regla práctica: sobre superficie normal, --x. Dentro de un badge,
+ * --x-fuerte sobre --x-suave. Nunca --x sobre --x-suave.
+ *
+ * Contraste medido, no supuesto. El comentario anterior afirmaba cumplir AA
+ * "en todas las combinaciones" y no era cierto: con los valores viejos, el
+ * blanco sobre el verde de relleno daba 3.18 en claro y 2.05 en oscuro, el
+ * texto terciario en oscuro daba 3.47 (estaba copiado tal cual del tema
+ * claro), y los tres badges fallaban. Verificar con:
+ *     npm run auditar:colores
  */
 
 :root {
@@ -15,84 +31,130 @@
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 
-  /* Fondo y superficies */
-  --fondo: 245 247 250;
+  /* En claro la elevación se expresa con SOMBRA, así que las superficies
+     elevadas siguen siendo blancas. */
+  --fondo: 244 246 249;
   --superficie: 255 255 255;
-  --superficie-2: 237 241 247;
-  --borde: 218 225 236;
-  --borde-fuerte: 190 200 215;
+  --superficie-2: 238 242 248;
+  --superficie-3: 255 255 255;
+  --borde: 222 229 238;
+  --borde-fuerte: 195 205 218;
 
-  /* Texto */
-  --texto: 12 20 38;
-  --texto-2: 55 70 95;
-  --texto-3: 130 145 170;
+  --texto: 15 23 42;
+  --texto-2: 51 65 85;
+  --texto-3: 90 105 130;
 
-  /* Barra lateral */
+  /* Barra lateral: es el marco de la app, no una tarjeta. */
   --barra: 255 255 255;
-  --barra-2: 237 241 247;
-  --barra-texto: 40 55 75;
+  --barra-2: 238 242 248;
+  --barra-texto: 51 65 85;
   --barra-texto-2: 90 105 130;
 
-  /* Acento: Esmeralda vibrante */
-  --acento: 5 165 110;
-  --acento-fuerte: 2 130 88;
+  --acento: 5 128 90;
+  --acento-fuerte: 4 108 74;
   --acento-suave: 230 252 243;
   --acento-texto: 255 255 255;
 
-  /* Estados con tonos más ricos */
-  --exito: 5 165 110;
+  --exito: 5 128 90;
+  --exito-fuerte: 4 108 74;
   --exito-suave: 228 250 240;
-  --alerta: 234 130 0;
-  --alerta-suave: 255 240 210;
-  --peligro: 235 30 60;
-  --peligro-suave: 255 225 230;
+  --exito-texto: 255 255 255;
+  /* El naranja sobre blanco es el color más difícil de hacer legible: el
+     ámbar anterior (234 130 0) daba 2.73 como texto. Este da 5.02. */
+  --alerta: 180 83 9;
+  --alerta-fuerte: 146 78 0;
+  --alerta-suave: 255 242 215;
+  --alerta-texto: 255 255 255;
+  --peligro: 225 29 72;
+  --peligro-fuerte: 170 18 52;
+  --peligro-suave: 255 228 235;
+  --peligro-texto: 255 255 255;
 
-  /* Superficie oscura */
-  --inverso: 12 20 38;
-  --inverso-2: 26 36 55;
-  --inverso-texto: 245 247 250;
-  --inverso-texto-2: 140 155 180;
-  --velo: 12 20 38;
+  /* Series de datos de las graficas. Necesitan ser distinguibles entre si,
+     asi que son un rol propio y no "el verde de marca" reutilizado. La
+     segunda era indigo (#6366f1), escrito a mano y ajeno a la paleta. */
+  --serie-1: 5 128 90;
+  --serie-2: 180 83 9;
+  --serie-3: 190 24 93;
+
+  --inverso: 15 23 42;
+  --inverso-2: 30 41 59;
+  --inverso-texto: 248 250 252;
+  --inverso-texto-2: 148 163 184;
+  --velo: 15 23 42;
+
+  /* Las sombras son tokens porque tienen que cambiar con el tema. */
+  --sombra-1: 0 1px 3px 1px rgb(0 0 0 / 0.08), 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --sombra-2: 0 2px 6px 2px rgb(0 0 0 / 0.08), 0 1px 2px 0 rgb(0 0 0 / 0.04);
+  --sombra-3: 0 4px 12px 3px rgb(0 0 0 / 0.08), 0 2px 4px 0 rgb(0 0 0 / 0.04);
+  --sombra-inferior: 0 -4px 16px rgb(0 0 0 / 0.06);
 }
 
 .dark {
-  /* Fondo y superficies oscuras */
-  --fondo: 11 15 25;
-  --superficie: 22 31 48;
-  --superficie-2: 30 41 59;
-  --borde: 51 65 85;
-  --borde-fuerte: 71 85 105;
+  /* Los neutros son GRISES, no azules. El "slate" de Tailwind que había antes
+     traía 13 a 16 puntos de azul dentro de cada gris, y eso enfriaba toda la
+     app y peleaba con una marca de maquillaje cuyo logo es cálido. Acá el
+     desvío es de 1 a 3 puntos, y hacia lo cálido: imperceptible como color,
+     pero evita el gris de morgue.
 
-  /* Texto */
-  --texto: 248 250 252;
-  --texto-2: 148 163 184;
-  --texto-3: 100 116 139;
+     Que los neutros no tengan cromacidad es lo que hace sonar al verde: si es
+     el único color saturado de la pantalla, no necesita gritar.
 
-  /* Barra lateral */
-  --barra: 18 24 38;
-  --barra-2: 25 34 52;
-  --barra-texto: 241 245 249;
-  --barra-texto-2: 148 163 184;
+     En oscuro la sombra no eleva (una tarjeta con sombra sobre fondo oscuro es
+     una tarjeta plana): la elevación sube con LUZ, en escalones de menos de 2
+     puntos de luminancia — perceptibles, no contrastantes. */
+  --fondo: 11 10 10;
+  --superficie: 22 21 21;
+  --superficie-2: 32 31 30;
+  --superficie-3: 44 42 41;
+  /* Sin sombras, el borde es lo único que define una superficie: pesa más. */
+  --borde: 48 46 45;
+  --borde-fuerte: 73 70 68;
 
-  /* Acento: Esmeralda vibrante en oscuridad */
-  --acento: 16 185 129;
-  --acento-fuerte: 5 150 105;
-  --acento-suave: 6 78 59;
-  --acento-texto: 255 255 255;
+  /* Blanco puro sobre casi negro produce halo y cansa: se baja un punto. */
+  --texto: 246 245 244;
+  --texto-2: 172 169 166;
+  --texto-3: 142 139 136;
 
-  /* Estados con contraste optimizado */
-  --exito: 16 185 129;
-  --exito-suave: 6 78 59;
-  --alerta: 245 158 11;
-  --alerta-suave: 120 53 15;
-  --peligro: 244 63 94;
-  --peligro-suave: 136 19 55;
+  --barra: 17 16 16;
+  --barra-2: 32 31 30;
+  --barra-texto: 246 245 244;
+  --barra-texto-2: 172 169 166;
 
-  /* Superficie inversa */
-  --inverso: 248 250 252;
-  --inverso-2: 241 245 249;
-  --inverso-texto: 15 23 42;
-  --inverso-texto-2: 71 85 105;
+  /* Un verde saturado sobre casi negro vibra y el ojo no lo enfoca: en oscuro
+     el acento sube en luz y baja en saturación. Y al ser claro, su texto
+     encima pasa a ser oscuro, no blanco. */
+  --acento: 62 203 157;
+  --acento-fuerte: 125 233 193;
+  --acento-suave: 6 47 37;
+  --acento-texto: 11 10 10;
+
+  --exito: 62 203 157;
+  --exito-fuerte: 125 233 193;
+  --exito-suave: 6 47 37;
+  --exito-texto: 11 10 10;
+  --alerta: 240 170 60;
+  --alerta-fuerte: 252 205 121;
+  --alerta-suave: 58 36 6;
+  --alerta-texto: 11 10 10;
+  --peligro: 244 98 120;
+  --peligro-fuerte: 253 164 175;
+  --peligro-suave: 66 12 26;
+  --peligro-texto: 11 10 10;
+
+  --serie-1: 62 203 157;
+  --serie-2: 240 170 60;
+  --serie-3: 244 114 182;
+
+  --inverso: 246 245 244;
+  --inverso-2: 224 222 220;
+  --inverso-texto: 11 10 10;
+  --inverso-texto-2: 90 87 84;
   --velo: 0 0 0;
-}
 
+  /* Para leerse sobre fondo oscuro tiene que ser más opaca y más amplia. */
+  --sombra-1: 0 1px 3px 0 rgb(0 0 0 / 0.5);
+  --sombra-2: 0 3px 10px -1px rgb(0 0 0 / 0.6);
+  --sombra-3: 0 8px 24px -4px rgb(0 0 0 / 0.7);
+  --sombra-inferior: 0 -6px 20px rgb(0 0 0 / 0.5);
+}

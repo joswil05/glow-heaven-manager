@@ -323,8 +323,8 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
               className={cn(
                 'inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold border',
                 p.metodo === 'EFECTIVO'
-                  ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/25'
-                  : 'bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/25'
+                  ? 'bg-acento/10 text-acento border-acento/25'
+                  : 'bg-superficie-3 text-texto-2 border-borde'
               )}
             >
               {p.metodo === 'EFECTIVO' ? 'Efectivo' : p.metodo === 'TRANSFERENCIA' ? 'Transferencia' : 'Otro'}
@@ -344,7 +344,7 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
       align: 'right',
       render: (p) => (
         <div className="flex flex-col items-end">
-          <span className="font-extrabold text-body text-emerald-600 dark:text-emerald-400 font-mono">
+          <span className="font-extrabold text-body text-acento font-mono">
             {formatearMoneda(p.monto_usd_cents, 'USD')}
           </span>
           <span className="text-caption text-texto-3 font-mono">
@@ -407,7 +407,7 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
                     'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-label font-bold cursor-pointer',
                     'transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97]',
                     tabActiva === 'por_cobrar'
-                      ? 'bg-acento text-white shadow-xs'
+                      ? 'bg-acento text-acento-texto shadow-xs'
                       : 'text-texto-3 hover:text-texto'
                   )}
                 >
@@ -421,7 +421,7 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
                     'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-label font-bold cursor-pointer',
                     'transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97]',
                     tabActiva === 'historial'
-                      ? 'bg-acento text-white shadow-xs'
+                      ? 'bg-acento text-acento-texto shadow-xs'
                       : 'text-texto-3 hover:text-texto'
                   )}
                 >
@@ -577,7 +577,7 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
                         className="p-4 flex items-center justify-between gap-4 hover:bg-superficie-2/25 transition-colors"
                       >
                         <div className="flex items-center gap-3.5 min-w-0">
-                          <div className="w-10 h-10 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 font-bold flex items-center justify-center shrink-0 border border-amber-500/20">
+                          <div className="w-10 h-10 rounded-full bg-alerta/10 text-alerta font-bold flex items-center justify-center shrink-0 border border-alerta/20">
                             {c.cliente_nombre.charAt(0).toUpperCase()}
                           </div>
                           <div className="flex flex-col min-w-0">
@@ -609,7 +609,7 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
 
                         <div className="flex items-center gap-4 shrink-0">
                           <div className="text-right">
-                            <span className="block font-extrabold text-body text-amber-600 dark:text-amber-400 font-mono">
+                            <span className="block font-extrabold text-body text-alerta font-mono">
                               Debe {formatearMoneda(c.saldo_usd_cents, 'USD')}
                             </span>
                             <span className="block text-[11px] text-texto-3 font-mono">
@@ -628,7 +628,7 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
                                 )}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-semibold text-caption text-emerald-800 dark:text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 hover:bg-emerald-500/25 transition-all active:scale-95"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-semibold text-caption text-acento bg-acento/15 border border-acento/30 hover:bg-acento/25 transition-all active:scale-95"
                                 title="Enviar recordatorio de cobro por WhatsApp"
                               >
                                 <MessageCircle className="w-3.5 h-3.5" />
@@ -645,7 +645,7 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
                                 setModalAbonoAbierto(true);
                               }}
                             >
-                              <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
+                              <DollarSign className="w-3.5 h-3.5 text-acento" />
                               <span>Abonar</span>
                             </Button>
                           </div>
@@ -656,7 +656,7 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
                 </div>
               ) : (
                 <div className="py-12 px-4 text-center">
-                  <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-2 opacity-80" />
+                  <CheckCircle2 className="w-10 h-10 text-acento mx-auto mb-2 opacity-80" />
                   <p className="text-body font-bold text-texto">Cartera 100% al día</p>
                   <p className="text-caption text-texto-3 mt-0.5">
                     No hay cuentas con saldo pendiente bajo el filtro seleccionado.
@@ -673,7 +673,7 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
       {/* Modal para Registrar Abono */}
       {modalAbonoAbierto && (
         <Portal>
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 animate-fade-in backdrop-blur-xs">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-velo/60 p-4 animate-fade-in backdrop-blur-xs">
             <div className="bg-superficie rounded-2xl border border-borde shadow-xl max-w-md w-full p-5 space-y-4 animate-scale-in">
             <div className="flex items-center justify-between pb-2 border-b border-borde">
               <div className="flex items-center gap-2">

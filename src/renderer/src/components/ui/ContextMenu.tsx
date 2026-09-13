@@ -158,7 +158,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose }
               isDanger &&
                 'text-danger hover:bg-danger/10 hover:text-danger-600 focus:bg-danger/10 focus:text-danger-600',
               isSuccess &&
-                'text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950/30',
+                'text-acento hover:bg-acento-suave hover:text-acento dark:hover:bg-acento-suave',
               !isDanger && !isSuccess && 'text-texto hover:text-texto',
               item.disabled && 'opacity-40 cursor-not-allowed hover:bg-transparent'
             )}
@@ -168,7 +168,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose }
                 <span
                   className={cn(
                     'w-4 h-4 shrink-0 flex items-center justify-center transition-transform duration-100 group-hover:scale-110',
-                    isDanger ? 'text-danger' : isSuccess ? 'text-emerald-600' : 'text-texto-3'
+                    isDanger ? 'text-danger' : isSuccess ? 'text-acento' : 'text-texto-3'
                   )}
                 >
                   {item.icon}

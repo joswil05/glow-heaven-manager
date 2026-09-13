@@ -245,7 +245,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
       width: '150px',
       render: (c) =>
         c.saldo_pendiente_usd_cents > 0 ? (
-          <span className="font-bold text-amber-700">
+          <span className="font-bold text-alerta">
             <Money usd_cents={c.saldo_pendiente_usd_cents} size="sm" soloUsd />
           </span>
         ) : (
@@ -309,8 +309,8 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
         <div className="flex items-center justify-between gap-3 pb-1 border-b border-borde/40 text-caption text-texto-3 shrink-0 flex-wrap">
           <div className="flex items-center gap-2">
             <span className="font-bold text-texto text-body">Directorio de Clientas</span>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-acento/10 text-acento border border-acento/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-acento animate-pulse" />
               {clientes.length} clienta{clientes.length === 1 ? '' : 's'}
             </span>
           </div>
@@ -451,7 +451,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
                     )}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-caption font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100/80 dark:hover:bg-emerald-950 px-2 py-0.5 rounded-full border border-emerald-200/70 dark:border-emerald-800 transition-colors mt-1"
+                    className="inline-flex items-center gap-1.5 text-caption font-semibold text-acento bg-acento-suave hover:bg-acento-suave dark:hover:bg-acento-suave px-2 py-0.5 rounded-full border border-acento-suave transition-colors mt-1"
                   >
                     <MessageCircle className="w-3 h-3 shrink-0" />
                     <span>WhatsApp</span>
@@ -498,7 +498,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
               <div className="flex justify-between items-center gap-2 pt-2 border-t border-borde/70">
                 <span className="text-body font-bold text-texto">Debe actualmente</span>
                 {detalle.saldo_pendiente_usd_cents > 0 ? (
-                  <span className="font-bold text-amber-700 dark:text-amber-400">
+                  <span className="font-bold text-alerta">
                     <Money usd_cents={detalle.saldo_pendiente_usd_cents} size="md" soloUsd />
                   </span>
                 ) : (
@@ -518,7 +518,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
                   )}
                   target="_blank"
                   rel="noreferrer"
-                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-medium text-caption text-emerald-800 dark:text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 hover:bg-emerald-500/25 transition-all shadow-2xs active:scale-[0.98]"
+                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-medium text-caption text-acento bg-acento/15 border border-acento/30 hover:bg-acento/25 transition-all shadow-2xs active:scale-[0.98]"
                 >
                   <MessageCircle className="w-4 h-4" />
                   <span>Cobrar saldo pendiente por WhatsApp</span>
@@ -650,11 +650,11 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
                         <div className="flex items-center justify-between gap-2 mt-1">
                           <span className="text-caption text-texto-3 font-mono">{formatearFecha(v.fecha)}</span>
                           {v.saldo_usd_cents > 0 ? (
-                            <span className="text-caption font-semibold text-amber-700">
+                            <span className="text-caption font-semibold text-alerta">
                               Debe {formatearMoneda(v.saldo_usd_cents, 'USD')}
                             </span>
                           ) : (
-                            <span className="text-caption font-medium text-emerald-700">Saldada</span>
+                            <span className="text-caption font-medium text-acento">Saldada</span>
                           )}
                         </div>
                       </button>
@@ -968,7 +968,7 @@ const ClienteModal: React.FC<{
   return (
     <Portal>
       <div
-        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 cursor-pointer"
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-velo/60 backdrop-blur-xs p-4 cursor-pointer"
         role="dialog"
         aria-modal="true"
       aria-labelledby="titulo-cliente"

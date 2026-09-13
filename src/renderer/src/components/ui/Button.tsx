@@ -8,7 +8,7 @@ const VARIANTES: Record<ButtonVariant, string> = {
   primary: 'bg-acento text-acento-texto border-transparent hover:bg-acento-fuerte shadow-xs',
   secondary: 'bg-superficie text-texto-2 border-borde-fuerte hover:bg-superficie-2 shadow-2xs',
   ghost: 'bg-transparent text-texto-2 border-transparent hover:bg-superficie-2',
-  danger: 'bg-danger-600 text-white border-transparent hover:bg-danger-700 shadow-xs',
+  danger: 'bg-peligro text-peligro-texto border-transparent hover:bg-danger-700 shadow-xs',
   outline: 'bg-transparent text-texto border-borde hover:bg-superficie-2',
 };
 

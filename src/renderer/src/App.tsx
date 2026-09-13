@@ -265,25 +265,25 @@ export const App: React.FC = () => {
     <MonedaProvider valor={monedaConfig}>
       <div className="flex flex-col h-screen w-screen bg-superficie-2 overflow-hidden select-none">
         {actualizacionLista && (
-          <div className="bg-emerald-600 text-white px-5 py-2 flex items-center justify-between text-xs font-bold shadow-md shrink-0 z-50">
+          <div className="bg-acento text-acento-texto px-5 py-2 flex items-center justify-between text-xs font-bold shadow-md shrink-0 z-50">
             <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-emerald-200 animate-pulse" />
+              <span className="h-2 w-2 rounded-full bg-acento" />
               <span>Nueva actualización v{actualizacionLista.version} lista para instalar.</span>
             </div>
             <button
               type="button"
               onClick={() => window.api?.actualizador?.reiniciarYAplicar()}
-              className="bg-white text-emerald-800 px-3.5 py-1 rounded-lg text-xs font-extrabold shadow-sm hover:bg-emerald-50 active:scale-95 transition-all cursor-pointer"
+              className="bg-superficie text-acento px-3.5 py-1 rounded-lg text-xs font-extrabold shadow-sm hover:bg-acento-suave active:scale-95 transition-all cursor-pointer"
             >
               Reiniciar y actualizar ahora
             </button>
           </div>
         )}
         {descargandoUpdate !== null && (
-          <div className="bg-slate-800 text-white px-5 py-1.5 flex items-center justify-between text-xs shrink-0 z-50">
+          <div className="bg-superficie-3 text-texto px-5 py-1.5 flex items-center justify-between text-xs shrink-0 z-50">
             <span>Descargando actualización en segundo plano: {descargandoUpdate.toFixed(0)}%</span>
-            <div className="w-32 bg-slate-700 h-1.5 rounded-full overflow-hidden">
-              <div className="bg-emerald-400 h-full transition-[width] duration-300 ease-out" style={{ width: `${descargandoUpdate}%` }} />
+            <div className="w-32 bg-superficie-3 h-1.5 rounded-full overflow-hidden">
+              <div className="bg-acento h-full transition-[width] duration-300 ease-out" style={{ width: `${descargandoUpdate}%` }} />
             </div>
           </div>
         )}

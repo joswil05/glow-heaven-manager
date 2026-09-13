@@ -562,7 +562,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
   return (
     <Portal>
       <div
-        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 cursor-pointer"
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-velo/60 backdrop-blur-xs p-4 cursor-pointer"
         role="dialog"
         aria-modal="true"
       aria-labelledby="titulo-venta"
@@ -1363,7 +1363,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                             className={cn(
                               'px-3 py-1 rounded-full text-caption font-medium border transition-all cursor-pointer active:scale-95',
                               activa
-                                ? 'bg-acento text-white border-acento shadow-xs'
+                                ? 'bg-acento text-acento-texto border-acento shadow-xs'
                                 : 'border-borde text-texto-2 hover:border-acento/50 hover:text-texto bg-superficie-2/40'
                             )}
                           >

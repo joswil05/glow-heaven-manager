@@ -377,7 +377,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
                     : 'border-borde bg-superficie hover:border-borde-fuerte hover:bg-superficie-2/50'
                 )}
               >
-                <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center mb-2 shadow-xs">
+                <div className="w-10 h-10 rounded-xl bg-alerta-suave text-alerta flex items-center justify-center mb-2 shadow-xs">
                   <Sun size={20} />
                 </div>
                 <span className="text-sm font-bold text-texto">Modo Claro</span>
@@ -400,7 +400,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
                     : 'border-borde bg-superficie hover:border-borde-fuerte hover:bg-superficie-2/50'
                 )}
               >
-                <div className="w-10 h-10 rounded-xl bg-slate-800 text-emerald-400 flex items-center justify-center mb-2 shadow-xs border border-slate-700">
+                <div className="w-10 h-10 rounded-xl bg-superficie-3 text-acento flex items-center justify-center mb-2 shadow-xs border border-borde">
                   <Moon size={20} />
                 </div>
                 <span className="text-sm font-bold text-texto">Modo Oscuro</span>
@@ -423,7 +423,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
                     : 'border-borde bg-superficie hover:border-borde-fuerte hover:bg-superficie-2/50'
                 )}
               >
-                <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center mb-2 shadow-xs border border-borde">
+                <div className="w-10 h-10 rounded-xl bg-superficie-2 text-texto-2 flex items-center justify-center mb-2 shadow-xs border border-borde">
                   <Monitor size={20} />
                 </div>
                 <span className="text-sm font-bold text-texto">Automático</span>
@@ -761,9 +761,9 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
             </div>
 
             {/* Vista previa en vivo del mensaje */}
-            <div className="p-4 rounded-xl bg-emerald-500/5 dark:bg-emerald-950/20 border border-emerald-500/20 dark:border-emerald-800/50 text-body text-texto">
-              <div className="flex items-center gap-2 text-caption font-bold text-emerald-700 dark:text-emerald-400 mb-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <div className="p-4 rounded-xl bg-acento/5 dark:bg-acento-suave border border-acento-suave text-body text-texto">
+              <div className="flex items-center gap-2 text-caption font-bold text-acento mb-2">
+                <span className="w-2 h-2 rounded-full bg-acento animate-pulse" />
                 Vista previa del mensaje ({tabPlantillaWA === 'COBRO' ? 'Cobro' : tabPlantillaWA === 'FACTURA' ? 'Factura' : 'Proforma'}):
               </div>
               <div className="p-3 rounded-lg bg-superficie border border-borde/60 shadow-2xs font-sans text-caption text-texto whitespace-pre-wrap leading-relaxed">
@@ -1066,12 +1066,12 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
             disabled={guardando}
             className={cn(
               'transition-all duration-200 min-w-[190px]',
-              guardadoExitoso && 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20'
+              guardadoExitoso && 'bg-acento hover:bg-acento text-acento-texto shadow-lg'
             )}
           >
             {guardadoExitoso ? (
               <>
-                <Check className="w-4 h-4 animate-check-pop text-white" />
+                <Check className="w-4 h-4 animate-check-pop text-acento-texto" />
                 <span>¡Guardado con éxito!</span>
               </>
             ) : (

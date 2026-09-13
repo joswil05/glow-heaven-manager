@@ -112,7 +112,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       >
         <div
           className={cn(
-            'rounded-xl overflow-hidden ring-1 ring-borde/80 shadow-2xs shrink-0 bg-white p-1 transition-[width,height] duration-200 ease-out',
+            'rounded-xl overflow-hidden ring-1 ring-borde/80 shadow-2xs shrink-0 bg-superficie p-1 transition-[width,height] duration-200 ease-out',
             colapsada ? 'w-9 h-9' : 'w-10 h-10'
           )}
           title={colapsada ? nombreNegocio : undefined}
@@ -193,7 +193,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <span
                       className={cn(
                         'absolute top-1.5 right-2 w-2 h-2 rounded-full ring-2 ring-barra',
-                        item.tono === 'warning' ? 'bg-amber-500' : 'bg-rose-500'
+                        item.tono === 'warning' ? 'bg-alerta' : 'bg-peligro'
                       )}
                     />
                   )}

@@ -258,12 +258,12 @@ export const VentasView: React.FC<VentasViewProps> = ({
             className={cn(
               'w-1.5 h-1.5 rounded-full shrink-0',
               v.estado === 'ENTREGADA'
-                ? 'bg-emerald-500'
+                ? 'bg-acento'
                 : v.estado === 'PENDIENTE'
-                  ? 'bg-amber-500 animate-pulse'
+                  ? 'bg-alerta animate-pulse'
                   : v.estado === 'CANCELADA'
-                    ? 'bg-rose-500'
-                    : 'bg-slate-400'
+                    ? 'bg-peligro'
+                    : 'bg-superficie-2'
             )}
           />
           {ESTADO_TEXTO[v.estado]}
@@ -302,7 +302,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
       width: '130px',
       render: (v) =>
         v.saldo_usd_cents > 0 ? (
-          <span className="font-semibold text-amber-700">
+          <span className="font-semibold text-alerta">
             <Money usd_cents={v.saldo_usd_cents} size="sm" soloUsd />
           </span>
         ) : (
@@ -372,8 +372,8 @@ export const VentasView: React.FC<VentasViewProps> = ({
             <span className="font-bold text-texto text-body">
               {esEncargo ? 'Gestión de Encargos Especiales' : 'Registro de Ventas'}
             </span>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-acento/10 text-acento border border-acento/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-acento animate-pulse" />
               {ventas.filter((v) => v.estado !== 'CANCELADA').length} activas
             </span>
           </div>
@@ -423,7 +423,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
                   : 'Sin saldos pendientes'
             }
             onClick={() => setFiltro(filtro === 'CON_SALDO' ? 'TODAS' : 'CON_SALDO')}
-            className={filtro === 'CON_SALDO' ? 'ring-2 ring-amber-500/50' : undefined}
+            className={filtro === 'CON_SALDO' ? 'ring-2 ring-alerta/50' : undefined}
           />
         </div>
 
@@ -541,12 +541,12 @@ export const VentasView: React.FC<VentasViewProps> = ({
                       className={cn(
                         'w-1.5 h-1.5 rounded-full shrink-0',
                         ventaDetalle.estado === 'ENTREGADA'
-                          ? 'bg-emerald-500'
+                          ? 'bg-acento'
                           : ventaDetalle.estado === 'PENDIENTE'
-                            ? 'bg-amber-500 animate-pulse'
+                            ? 'bg-alerta animate-pulse'
                             : ventaDetalle.estado === 'CANCELADA'
-                              ? 'bg-rose-500'
-                              : 'bg-slate-400'
+                              ? 'bg-peligro'
+                              : 'bg-superficie-2'
                       )}
                     />
                     {ESTADO_TEXTO[ventaDetalle.estado]}
@@ -607,7 +607,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
               <div className="flex justify-between items-center gap-2 pt-2 border-t border-borde/70">
                 <span className="text-body font-bold text-texto">Debe</span>
                 {ventaDetalle.saldo_usd_cents > 0 ? (
-                  <span className="font-bold text-amber-700">
+                  <span className="font-bold text-alerta">
                     <Money usd_cents={ventaDetalle.saldo_usd_cents} size="md" soloUsd />
                   </span>
                 ) : (
@@ -735,7 +735,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
 
                   <Button
                     variant="outline"
-                    className="w-full text-emerald-700 bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/20 hover:text-emerald-800 font-medium"
+                    className="w-full text-acento bg-acento/10 border-acento/30 hover:bg-acento/20 hover:text-acento font-medium"
                     onClick={() => enviarCobroWhatsApp(ventaDetalle)}
                     title="Enviar recordatorio con cuentas bancarias por WhatsApp"
                   >
@@ -751,7 +751,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
                   className="w-full"
                   onClick={() => cambiarEstado(ventaDetalle, 'ENTREGADA')}
                 >
-                  <PackageCheck className="w-4 h-4 text-emerald-600" />
+                  <PackageCheck className="w-4 h-4 text-acento" />
                   <span>Marcar como entregada</span>
                 </Button>
               )}

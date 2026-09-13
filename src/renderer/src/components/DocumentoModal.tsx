@@ -160,7 +160,7 @@ export const DocumentoModal: React.FC<DocumentoModalProps> = ({
   return (
     <Portal>
       <div
-        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 cursor-pointer"
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-velo/60 backdrop-blur-xs p-4 cursor-pointer"
         role="dialog"
       aria-modal="true"
       onClick={(e) => {
@@ -192,7 +192,7 @@ export const DocumentoModal: React.FC<DocumentoModalProps> = ({
               variant="outline"
               size="sm"
               onClick={handleEnviarWhatsApp}
-              className="text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/20"
+              className="text-acento bg-acento/10 border-acento/30 hover:bg-acento/20"
             >
               <MessageCircle className="w-4 h-4 mr-1.5" />
               <span>WhatsApp</span>
@@ -240,8 +240,8 @@ export const DocumentoModal: React.FC<DocumentoModalProps> = ({
         </div>
 
         {/* Visor de Documento */}
-        <div className="flex-1 overflow-y-auto p-6 bg-slate-100 dark:bg-slate-900 flex justify-center">
-          <div className="w-full max-w-[800px] bg-white rounded-xl shadow-md border border-slate-200 dark:border-slate-800 overflow-hidden">
+        <div className="flex-1 overflow-y-auto p-6 bg-superficie-2 dark:bg-superficie-3 flex justify-center">
+          <div className="w-full max-w-[800px] bg-superficie rounded-xl shadow-md border border-borde overflow-hidden">
             <iframe
               srcDoc={html}
               title={`Vista previa ${venta.codigo}`}

@@ -8,7 +8,7 @@ const PUNTOS: Record<Tone, string> = {
   warning: 'bg-warning-500',
   danger: 'bg-danger-500',
   info: 'bg-acento',
-  purple: 'bg-indigo-500',
+  purple: 'bg-alerta',
 };
 
 const DESCRIPCION_POR_TONO: Record<Tone, string> = {

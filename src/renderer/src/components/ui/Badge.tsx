@@ -5,11 +5,11 @@ export type Tone = 'neutral' | 'success' | 'warning' | 'danger' | 'info' | 'purp
 
 const TONOS: Record<Tone, string> = {
   neutral: 'bg-superficie-2 text-texto-2 border border-borde/80',
-  success: 'bg-emerald-50 text-emerald-700 border border-emerald-200/70',
-  warning: 'bg-amber-50 text-amber-700 border border-amber-200/70',
-  danger: 'bg-rose-50 text-rose-700 border border-rose-200/70',
-  info: 'bg-sky-50 text-sky-700 border border-sky-200/70',
-  purple: 'bg-indigo-50 text-indigo-700 border border-indigo-200/70',
+  success: 'bg-acento-suave text-acento border border-acento-suave',
+  warning: 'bg-alerta-suave text-alerta border border-alerta-suave',
+  danger: 'bg-peligro-suave text-peligro border border-peligro-suave',
+  info: 'bg-superficie-3 text-texto-2 border border-borde',
+  purple: 'bg-alerta-suave text-alerta-fuerte border border-alerta-suave',
 };
 
 export interface BadgeProps {

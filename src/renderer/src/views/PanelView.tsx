@@ -101,8 +101,8 @@ function etiquetaMes(clave: string): string {
 }
 
 const ESTILO_ALERTA: Record<SeveridadAlerta, { punto: string; badge: 'danger' | 'warning' | 'info'; texto: string }> = {
-  urgente: { punto: 'bg-rose-500', badge: 'danger', texto: 'Urgente' },
-  atencion: { punto: 'bg-amber-500', badge: 'warning', texto: 'Atención' },
+  urgente: { punto: 'bg-peligro', badge: 'danger', texto: 'Urgente' },
+  atencion: { punto: 'bg-alerta', badge: 'warning', texto: 'Atención' },
   info: { punto: 'bg-acento', badge: 'info', texto: 'Aviso' },
 };
 
@@ -338,18 +338,18 @@ export const PanelView: React.FC<PanelViewProps> = ({
 
         {/* Nivel 2: Centro de alertas urgentes */}
         {urgentes.length > 0 && (
-          <div className="rounded-xl border border-rose-200/80 bg-rose-50/50 p-3 shadow-2xs shrink-0 animate-slide-up">
+          <div className="rounded-xl border border-peligro-suave bg-peligro-suave p-3 shadow-2xs shrink-0 animate-slide-up">
             <div className="flex items-start gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-rose-500/10 text-rose-700 flex items-center justify-center shrink-0 border border-rose-200/80">
+              <div className="w-7 h-7 rounded-lg bg-peligro/10 text-peligro flex items-center justify-center shrink-0 border border-peligro-suave">
                 <AlertTriangle className="w-3.5 h-3.5" />
               </div>
               <div className="flex-1 min-w-0 space-y-1">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-rose-800">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-peligro">
                     Atención requerida ({urgentes.length})
                   </span>
                 </div>
-                <div className="space-y-1 divide-y divide-rose-200/50">
+                <div className="space-y-1 divide-y divide-peligro-suave">
                   {urgentes.map((a) => (
                     <div key={a.id} className="pt-1 first:pt-0">
                       <FilaAlerta alerta={a} onNavegar={onNavegar} compacta />
@@ -465,7 +465,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
                 <CardHeader className="px-4 py-2.5 border-b border-borde/40 shrink-0">
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
+                      <div className="w-7 h-7 rounded-lg bg-acento/10 text-acento flex items-center justify-center shrink-0">
                         <Wallet className="w-4 h-4" />
                       </div>
                       <h3 className="text-body font-bold text-texto tracking-tight truncate">
@@ -491,7 +491,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
                           <span
                             className={cn(
                               'w-2 h-2 rounded-full shrink-0',
-                              pctCobrar > 50 ? 'bg-amber-500' : 'bg-emerald-500'
+                              pctCobrar > 50 ? 'bg-alerta' : 'bg-acento'
                             )}
                           />
                           <span className="text-texto-2 font-medium">
@@ -510,23 +510,23 @@ export const PanelView: React.FC<PanelViewProps> = ({
                       {/* Barra segmentada proporcional con etiquetas limpias */}
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between text-[11px] font-medium">
-                          <span className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-semibold">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                          <span className="flex items-center gap-1.5 text-acento font-semibold">
+                            <span className="w-2 h-2 rounded-full bg-acento" />
                             Bodega ({pctBodega}%)
                           </span>
-                          <span className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400 font-semibold">
-                            <span className="w-2 h-2 rounded-full bg-amber-500" />
+                          <span className="flex items-center gap-1.5 text-alerta font-semibold">
+                            <span className="w-2 h-2 rounded-full bg-alerta" />
                             Por cobrar ({pctCobrar}%)
                           </span>
                         </div>
                         <div className="h-2.5 w-full rounded-full bg-superficie-2 flex overflow-hidden gap-1">
                           <div
-                            className="h-full bg-emerald-600 dark:bg-emerald-500 rounded-full transition-[width] duration-500 ease-out"
+                            className="h-full bg-acento dark:bg-acento rounded-full transition-[width] duration-500 ease-out"
                             style={{ width: `${Math.max(pctBodega > 0 ? 4 : 0, pctBodega)}%` }}
                             title={`Bodega: ${pctBodega}%`}
                           />
                           <div
-                            className="h-full bg-amber-500 dark:bg-amber-400 rounded-full transition-[width] duration-500 ease-out"
+                            className="h-full bg-alerta rounded-full transition-[width] duration-500 ease-out"
                             style={{ width: `${Math.max(pctCobrar > 0 ? 4 : 0, pctCobrar)}%` }}
                             title={`Por cobrar: ${pctCobrar}%`}
                           />
@@ -562,9 +562,9 @@ export const PanelView: React.FC<PanelViewProps> = ({
 
                       {/* Anticipos por entregar si existen */}
                       {resumen.anticipos_por_entregar_usd_cents > 0 && (
-                        <div className="px-3 py-1.5 rounded-lg border border-amber-200/60 bg-amber-50/70 dark:bg-amber-950/30 flex items-center justify-between text-[11px]">
-                          <span className="font-medium text-amber-900 dark:text-amber-300">Anticipos por entregar:</span>
-                          <Money usd_cents={resumen.anticipos_por_entregar_usd_cents} size="sm" soloUsd className="font-bold text-amber-950 dark:text-amber-200 font-mono" />
+                        <div className="px-3 py-1.5 rounded-lg border border-alerta-suave bg-alerta-suave flex items-center justify-between text-[11px]">
+                          <span className="font-medium text-alerta">Anticipos por entregar:</span>
+                          <Money usd_cents={resumen.anticipos_por_entregar_usd_cents} size="sm" soloUsd className="font-bold text-alerta font-mono" />
                         </div>
                       )}
                     </>
@@ -591,7 +591,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
               <CardHeader className="px-4 py-2.5 border-b border-borde/40 shrink-0">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
-                    <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
+                    <div className="w-7 h-7 rounded-lg bg-alerta/10 text-alerta flex items-center justify-center shrink-0">
                       <Users className="w-4 h-4" />
                     </div>
                     <h3 className="text-body font-bold text-texto truncate">Quién te debe</h3>
@@ -633,7 +633,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
                               <div className="text-body font-semibold text-texto truncate group-hover:text-acento transition-colors flex items-center gap-1.5">
                                 <span className="truncate">{p.cliente_nombre}</span>
                                 {p.cuotas_vencidas > 0 && (
-                                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 dark:bg-rose-950/80 dark:text-rose-400 border border-rose-200 dark:border-rose-900 shrink-0">
+                                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-peligro-suave text-peligro dark:bg-peligro-suave dark:text-peligro border border-peligro-suave shrink-0">
                                     {p.cuotas_vencidas} vencida{p.cuotas_vencidas > 1 ? 's' : ''}
                                   </span>
                                 )}
@@ -646,7 +646,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
 
                           <div className="text-right shrink-0 flex items-center gap-2">
                             <div>
-                              <Money usd_cents={p.saldo_usd_cents} size="sm" soloUsd className="font-extrabold text-amber-700 dark:text-amber-400 tabular" />
+                              <Money usd_cents={p.saldo_usd_cents} size="sm" soloUsd className="font-extrabold text-alerta tabular" />
                               <div className="text-[10px] text-texto-3 font-medium">saldo</div>
                             </div>
                             <button
@@ -656,7 +656,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
                                 enviarCobroWhatsApp(p);
                               }}
                               title="Cobrar por WhatsApp"
-                              className="w-7 h-7 rounded-lg flex items-center justify-center text-texto-3 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                              className="w-7 h-7 rounded-lg flex items-center justify-center text-texto-3 hover:text-acento hover:bg-acento-suave dark:hover:bg-acento-suave transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
                             >
                               <MessageCircle className="w-3.5 h-3.5" />
                             </button>
@@ -667,7 +667,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
                   </ul>
                 ) : (
                   <div className="py-6 px-4 flex flex-col items-center justify-center text-center gap-1.5">
-                    <div className="w-7 h-7 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                    <div className="w-7 h-7 rounded-full bg-acento/10 text-acento flex items-center justify-center">
                       <CheckCircle2 className="w-4 h-4" />
                     </div>
                     <span className="text-body font-semibold text-texto">Cuentas al día</span>
@@ -684,7 +684,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
               <CardHeader className="px-4 py-2.5 border-b border-borde/40 shrink-0">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
-                    <div className="w-7 h-7 rounded-lg bg-rose-500/10 text-rose-600 flex items-center justify-center shrink-0">
+                    <div className="w-7 h-7 rounded-lg bg-peligro/10 text-peligro flex items-center justify-center shrink-0">
                       <PackageX className="w-4 h-4" />
                     </div>
                     <h3 className="text-body font-bold text-texto truncate">Stock crítico</h3>
@@ -730,8 +730,8 @@ export const PanelView: React.FC<PanelViewProps> = ({
                             className={cn(
                               'text-[11px] font-bold px-2 py-0.5 rounded-md border shrink-0',
                               p.existencias === 0
-                                ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-400 dark:border-rose-900'
-                                : 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/60 dark:text-amber-400 dark:border-amber-900'
+                                ? 'bg-peligro-suave text-peligro border-peligro-suave dark:bg-peligro-suave dark:text-peligro dark:border-peligro-suave'
+                                : 'bg-alerta-suave text-alerta border-alerta-suave dark:bg-alerta-suave dark:text-alerta dark:border-alerta-suave'
                             )}
                           >
                             {p.existencias === 0 ? 'Agotado (0)' : `${p.existencias} en stock`}
@@ -742,7 +742,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
                   </ul>
                 ) : (
                   <div className="py-6 px-4 flex flex-col items-center justify-center text-center gap-1.5">
-                    <div className="w-7 h-7 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                    <div className="w-7 h-7 rounded-full bg-acento/10 text-acento flex items-center justify-center">
                       <CheckCircle2 className="w-4 h-4" />
                     </div>
                     <span className="text-body font-semibold text-texto">Stock saludable</span>
@@ -803,7 +803,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
                         </div>
 
                         <div className="text-right shrink-0">
-                          <Money usd_cents={p.ganancia_90d_usd_cents} size="sm" soloUsd className="font-extrabold text-emerald-700 dark:text-emerald-400 tabular" />
+                          <Money usd_cents={p.ganancia_90d_usd_cents} size="sm" soloUsd className="font-extrabold text-acento tabular" />
                           <div className="text-[10px] text-texto-3 font-medium">ganancia</div>
                         </div>
                       </li>
@@ -987,12 +987,12 @@ const FilaAlerta: React.FC<{
           <div
             className={cn(
               'text-body truncate',
-              compacta ? 'text-rose-900 font-bold' : 'text-texto font-medium'
+              compacta ? 'text-peligro font-bold' : 'text-texto font-medium'
             )}
           >
             {alerta.titulo}
           </div>
-          <div className={cn('text-caption', compacta ? 'text-rose-700' : 'text-texto-3')}>
+          <div className={cn('text-caption', compacta ? 'text-peligro' : 'text-texto-3')}>
             {alerta.detalle}
           </div>
         </div>

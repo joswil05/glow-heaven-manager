@@ -41,24 +41,24 @@ const ESTILOS_TONO: Record<
     glowBg: 'hover:shadow-superficie-2/50',
   },
   success: {
-    borde: 'border-borde hover:border-emerald-500/40',
-    iconBox: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20 shadow-2xs',
-    glowBg: 'hover:shadow-emerald-500/5',
+    borde: 'border-borde hover:border-acento/40',
+    iconBox: 'bg-acento/10 text-acento border-acento/20 shadow-2xs',
+    glowBg: 'hover:shadow-lg',
   },
   warning: {
-    borde: 'border-borde hover:border-amber-500/40',
-    iconBox: 'bg-amber-500/10 text-amber-700 border-amber-500/20 shadow-2xs',
-    glowBg: 'hover:shadow-amber-500/5',
+    borde: 'border-borde hover:border-alerta/40',
+    iconBox: 'bg-alerta/10 text-alerta border-alerta/20 shadow-2xs',
+    glowBg: 'hover:shadow-lg',
   },
   danger: {
-    borde: 'border-borde hover:border-rose-500/40',
-    iconBox: 'bg-rose-500/10 text-rose-700 border-rose-500/20 shadow-2xs',
-    glowBg: 'hover:shadow-rose-500/5',
+    borde: 'border-borde hover:border-peligro/40',
+    iconBox: 'bg-peligro/10 text-peligro border-peligro/20 shadow-2xs',
+    glowBg: 'hover:shadow-lg',
   },
   info: {
-    borde: 'border-borde hover:border-sky-500/40',
-    iconBox: 'bg-sky-500/10 text-sky-700 border-sky-500/20 shadow-2xs',
-    glowBg: 'hover:shadow-sky-500/5',
+    borde: 'border-borde hover:border-borde-fuerte',
+    iconBox: 'bg-superficie-3 text-texto-2 border-borde shadow-2xs',
+    glowBg: 'hover:shadow-md',
   },
   purple: {
     borde: 'border-borde hover:border-borde-fuerte',
@@ -107,14 +107,14 @@ export const StatTile: React.FC<StatTileProps> = ({
               className={cn(
                 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold tabular border shrink-0 shadow-2xs',
                 delta.positivo
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200/70'
-                  : 'bg-rose-50 text-rose-700 border-rose-200/70'
+                  ? 'bg-acento-suave text-acento border-acento-suave'
+                  : 'bg-peligro-suave text-peligro border-peligro-suave'
               )}
             >
               {delta.positivo ? (
-                <TrendingUp className="w-3 h-3 text-emerald-600" />
+                <TrendingUp className="w-3 h-3 text-acento" />
               ) : (
-                <TrendingDown className="w-3 h-3 text-rose-600" />
+                <TrendingDown className="w-3 h-3 text-peligro" />
               )}
               {delta.texto}
             </span>

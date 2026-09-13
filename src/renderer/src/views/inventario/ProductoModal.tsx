@@ -504,7 +504,7 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
   return (
     <Portal>
       <div
-        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 cursor-pointer"
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-velo/60 backdrop-blur-xs p-4 cursor-pointer"
         role="dialog"
         aria-modal="true"
       aria-labelledby="titulo-producto"
@@ -549,7 +549,7 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
                       className={cn(
                         'w-7 h-7 rounded-full flex items-center justify-center text-caption font-semibold transition-all',
                         activo
-                          ? 'bg-acento text-white ring-4 ring-acento/20 shadow-sm'
+                          ? 'bg-acento text-acento-texto ring-4 ring-acento/20 shadow-sm'
                           : completado
                           ? 'bg-acento/20 text-acento-fuerte'
                           : 'bg-superficie border border-borde text-texto-3 group-hover:border-borde-fuerte'

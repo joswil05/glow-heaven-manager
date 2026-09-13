@@ -58,7 +58,7 @@ export const AjustarStockModal: React.FC<Props> = ({ ajuste, onCerrar, onConfirm
   return (
     <Portal>
       <div
-        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fade-in cursor-pointer"
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-velo/60 backdrop-blur-xs p-4 animate-fade-in cursor-pointer"
         role="dialog"
       aria-modal="true"
       aria-labelledby="titulo-ajuste"
@@ -99,16 +99,16 @@ export const AjustarStockModal: React.FC<Props> = ({ ajuste, onCerrar, onConfirm
               className={cn(
                 'rounded-xl border p-3 text-caption flex items-center gap-2.5 transition-colors',
                 diferencia > 0
-                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200/80'
-                  : 'bg-rose-50 text-rose-800 border-rose-200/80'
+                  ? 'bg-acento-suave text-acento border-acento-suave'
+                  : 'bg-peligro-suave text-peligro border-peligro-suave'
               )}
             >
               <span
                 className={cn(
                   'px-2 py-0.5 rounded-full text-xs font-bold shrink-0',
                   diferencia > 0
-                    ? 'bg-emerald-200/80 text-emerald-900'
-                    : 'bg-rose-200/80 text-rose-900'
+                    ? 'bg-acento-suave text-acento-fuerte'
+                    : 'bg-peligro-suave text-peligro-fuerte'
                 )}
               >
                 {diferencia > 0 ? `+${diferencia}` : diferencia}

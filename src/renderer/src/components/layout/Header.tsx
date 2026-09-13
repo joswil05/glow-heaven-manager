@@ -38,7 +38,7 @@ export const Header: React.FC<HeaderProps> = ({
         
         {/* Badge estilizado para la tasa de cambio con botón de recarga interactivo */}
         <div className="hidden sm:inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-superficie-2/80 border border-borde/80 text-caption font-medium text-texto-2 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+          <span className="w-1.5 h-1.5 rounded-full bg-acento" />
           <span className="tabular font-semibold text-texto">
             1 USD = {formatearMoneda(tasaCambioCents, 'COR')}
           </span>
@@ -74,7 +74,7 @@ export const Header: React.FC<HeaderProps> = ({
         <Button variant="primary" size="sm" onClick={onNuevaVenta} className="rounded-xl shadow-sm shadow-acento/20 font-semibold">
           <Plus className="w-3.5 h-3.5 transition-transform duration-150 group-hover:rotate-90" />
           <span>Nueva venta</span>
-          <kbd className="hidden lg:inline-flex ml-1 px-1.5 py-0.5 rounded bg-white/20 text-[10px] font-mono font-medium text-white leading-none">
+          <kbd className="hidden lg:inline-flex ml-1 px-1.5 py-0.5 rounded bg-superficie/20 text-[10px] font-mono font-medium text-texto-2 leading-none">
             Ctrl+N
           </kbd>
         </Button>
@@ -93,9 +93,9 @@ export const Header: React.FC<HeaderProps> = ({
           {theme === 'system' ? (
             <Monitor className="w-4 h-4 text-texto-2 transition-transform duration-200 group-hover:scale-110" />
           ) : effectiveTheme === 'dark' ? (
-            <Moon className="w-4 h-4 text-emerald-400 transition-transform duration-300 group-hover:-rotate-12 group-hover:scale-110" />
+            <Moon className="w-4 h-4 text-acento transition-transform duration-300 group-hover:-rotate-12 group-hover:scale-110" />
           ) : (
-            <Sun className="w-4 h-4 text-amber-500 transition-transform duration-300 group-hover:rotate-45 group-hover:scale-110" />
+            <Sun className="w-4 h-4 text-alerta transition-transform duration-300 group-hover:rotate-45 group-hover:scale-110" />
           )}
         </Button>
 
