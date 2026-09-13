@@ -30,6 +30,7 @@ import { parsearDecimal } from '@core/numeros';
 import { formatearMoneda } from '@core/moneda';
 import { useToast } from '../../context/ToastContext';
 import { cn } from '../../lib/cn';
+import { formatearNombreEntidad } from '@shared/formatoTexto';
 
 interface LineaBorrador {
   clave: string;
@@ -222,8 +223,9 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
     }
     setGuardandoCliente(true);
     try {
+      const nombreLimpio = formatearNombreEntidad(nuevoNombreCliente);
       const r = await window.api.clientes.guardar({
-        nombre: nuevoNombreCliente.trim(),
+        nombre: nombreLimpio,
         telefono: nuevoTelefonoCliente.trim() || undefined,
         direccion: nuevaDireccionCliente.trim() || undefined,
       });
@@ -233,7 +235,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
       }
       const nuevo: ClienteDetalle = {
         id: r.data.id,
-        nombre: nuevoNombreCliente.trim(),
+        nombre: nombreLimpio,
         telefono: nuevoTelefonoCliente.trim() || undefined,
         direccion: nuevaDireccionCliente.trim() || undefined,
         activo: true,
@@ -713,6 +715,13 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                               onChange={(e) =>
                                 actualizarLinea(l.clave, 'descripcion', e.target.value)
                               }
+                              onBlur={() =>
+                                actualizarLinea(
+                                  l.clave,
+                                  'descripcion',
+                                  formatearNombreEntidad(l.descripcion)
+                                )
+                              }
                               placeholder={
                                 esEncargo ? 'Ej. Vestido floral pedido por clienta' : 'Producto sin registrar en inventario'
                               }
@@ -943,6 +952,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                           <Input
                             value={nuevoNombreCliente}
                             onChange={(e) => setNuevoNombreCliente(e.target.value)}
+                            onBlur={() => setNuevoNombreCliente((prev) => formatearNombreEntidad(prev))}
                             placeholder="Nombre de la clienta"
                             autoFocus
                           />

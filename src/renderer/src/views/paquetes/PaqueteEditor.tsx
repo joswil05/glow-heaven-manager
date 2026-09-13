@@ -6,6 +6,7 @@ import { parsearDecimal } from '@core/numeros';
 import { formatearMoneda, formatearPeso } from '@core/moneda';
 import { useToast } from '../../context/ToastContext';
 import { cn } from '../../lib/cn';
+import { formatearTextoGeneral } from '../../../../shared/formatoTexto';
 
 interface PaqueteEditorProps {
   abierto: boolean;
@@ -99,7 +100,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
         envio_total_usd_cents: envioCents,
         otros_costos_usd_cents: otrosCents,
         tax_total_override_usd_cents: 0,
-        notas: notas.trim() || undefined,
+        notas: formatearTextoGeneral(notas) || undefined,
         lineas: [],
         estado: 'RECIBIDA',
       });
@@ -252,6 +253,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
               rows={2}
               value={notas}
               onChange={(e) => setNotas(e.target.value)}
+              onBlur={() => setNotas((prev) => formatearTextoGeneral(prev))}
               placeholder="Número de tracking, agencia courier, descripción de la caja..."
             />
           </Field>

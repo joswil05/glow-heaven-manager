@@ -20,6 +20,7 @@ import { useClickOutside } from '../lib/useClickOutside';
 import { useToast } from '../context/ToastContext';
 import { formatearMoneda, formatearFecha } from '@core/moneda';
 import { cn } from '../lib/cn';
+import { formatearNombreEntidad } from '@shared/formatoTexto';
 
 interface ClientesViewProps {
   parametros?: ParametrosSistema | null;
@@ -914,11 +915,11 @@ const ClienteModal: React.FC<{
     try {
       const r = await window.api.clientes.guardar({
         id: cliente?.id,
-        nombre: nombre.trim(),
-        alias: alias.trim() || undefined,
+        nombre: formatearNombreEntidad(nombre),
+        alias: alias.trim() ? formatearNombreEntidad(alias) : undefined,
         telefono: telefono.trim() || undefined,
         direccion: direccion.trim() || undefined,
-        ciudad: ciudad.trim() || undefined,
+        ciudad: ciudad.trim() ? formatearNombreEntidad(ciudad) : undefined,
         notas: notas.trim() || undefined,
       });
 
@@ -995,10 +996,19 @@ const ClienteModal: React.FC<{
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="Nombre">
-              <Input value={nombre} onChange={(e) => setNombre(e.target.value)} autoFocus />
+              <Input
+                value={nombre}
+                onChange={(e) => setNombre(e.target.value)}
+                onBlur={() => setNombre((prev) => formatearNombreEntidad(prev))}
+                autoFocus
+              />
             </Field>
             <Field label="Cómo le decís" hint="Opcional">
-              <Input value={alias} onChange={(e) => setAlias(e.target.value)} />
+              <Input
+                value={alias}
+                onChange={(e) => setAlias(e.target.value)}
+                onBlur={() => setAlias((prev) => formatearNombreEntidad(prev))}
+              />
             </Field>
             <Field label="Teléfono">
               <Input
@@ -1008,7 +1018,11 @@ const ClienteModal: React.FC<{
               />
             </Field>
             <Field label="Ciudad">
-              <Input value={ciudad} onChange={(e) => setCiudad(e.target.value)} />
+              <Input
+                value={ciudad}
+                onChange={(e) => setCiudad(e.target.value)}
+                onBlur={() => setCiudad((prev) => formatearNombreEntidad(prev))}
+              />
             </Field>
           </div>
 

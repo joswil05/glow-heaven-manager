@@ -17,7 +17,6 @@ import {
   Copy,
   BarChart3,
   Percent,
-  Award,
   Layers,
 } from 'lucide-react';
 import type { PanelData, Alerta, SeveridadAlerta } from '../../../shared/types';
@@ -33,12 +32,10 @@ import {
   LineaCreciente,
   GraficaVolumen,
   GraficaMargen,
-  GraficaTopProductos,
   GraficaCostosIngresos,
   ContextMenu,
   type PuntoVolumen,
   type PuntoMargen,
-  type PuntoTopProducto,
   type PuntoCostosIngresos,
 } from '../components/ui';
 import { useToast } from '../context/ToastContext';
@@ -46,7 +43,7 @@ import { cn } from '../lib/cn';
 import { useScrollReveal } from '../lib/useScrollReveal';
 
 export type DestinoPanel = 'inventario' | 'paquetes' | 'ventas' | 'clientes' | 'cobranza';
-export type TipoGraficaPanel = 'rentabilidad' | 'volumen' | 'margen' | 'top_productos' | 'costos';
+export type TipoGraficaPanel = 'rentabilidad' | 'volumen' | 'margen' | 'costos';
 
 const OPCIONES_GRAFICA: {
   id: TipoGraficaPanel;
@@ -75,13 +72,6 @@ const OPCIONES_GRAFICA: {
     subtitulo: 'Porcentaje de utilidad operativa mes a mes vs meta',
     icono: Percent,
     etiquetaCorta: 'Margen %',
-  },
-  {
-    id: 'top_productos',
-    titulo: 'Top 5 Artículos Más Vendidos',
-    subtitulo: 'Rotación, unidades vendidas y ganancia en 90 días',
-    icono: Award,
-    etiquetaCorta: 'Top Artículos',
   },
   {
     id: 'costos',
@@ -134,12 +124,12 @@ export const PanelView: React.FC<PanelViewProps> = ({
     );
   }
 
-  const { resumen, ganancia_mes_actual, ganancia_mes_anterior, historico, alertas, mas_vendidos } = data;
+  const { resumen, ganancia_mes_actual, ganancia_mes_anterior, historico, alertas } = data;
 
   const [tipoGrafica, setTipoGrafica] = useState<TipoGraficaPanel>(() => {
     try {
       const guardada = localStorage.getItem('glow_panel_grafica_tipo') as TipoGraficaPanel;
-      if (['rentabilidad', 'volumen', 'margen', 'top_productos', 'costos'].includes(guardada)) {
+      if (['rentabilidad', 'volumen', 'margen', 'costos'].includes(guardada)) {
         return guardada;
       }
     } catch {
@@ -207,12 +197,6 @@ export const PanelView: React.FC<PanelViewProps> = ({
     ingresosUsdCents: h.ingresos_usd_cents,
   }));
 
-  const datosTopProductos: PuntoTopProducto[] = (mas_vendidos ?? []).map((m) => ({
-    nombre: m.nombre,
-    unidadesVendidas: m.unidades_vendidas_90d,
-    gananciaUsdCents: m.ganancia_90d_usd_cents,
-    existencias: m.existencias,
-  }));
 
   const datosCostosIngresos: PuntoCostosIngresos[] = historico.map((h) => ({
     etiqueta: etiquetaMes(h.mes),
@@ -424,14 +408,13 @@ export const PanelView: React.FC<PanelViewProps> = ({
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="p-3 pt-2 flex-1 flex flex-col justify-center min-h-[160px]">
-              {serie.some((s) => s.valor > 0 || (s.valorSecundario ?? 0) > 0) || (tipoGrafica === 'top_productos' && datosTopProductos.length > 0) ? (
+            <CardContent className="p-3 pt-2 flex-1 flex flex-col justify-center min-h-[220px]">
+              {serie.some((s) => s.valor > 0 || (s.valorSecundario ?? 0) > 0) ? (
                 <>
-                  {tipoGrafica === 'rentabilidad' && <LineaCreciente datos={serie} alto={98} />}
-                  {tipoGrafica === 'volumen' && <GraficaVolumen datos={datosVolumen} alto={98} />}
-                  {tipoGrafica === 'margen' && <GraficaMargen datos={datosMargen} alto={98} />}
-                  {tipoGrafica === 'top_productos' && <GraficaTopProductos productos={datosTopProductos} />}
-                  {tipoGrafica === 'costos' && <GraficaCostosIngresos datos={datosCostosIngresos} alto={98} />}
+                  {tipoGrafica === 'rentabilidad' && <LineaCreciente datos={serie} alto={160} />}
+                  {tipoGrafica === 'volumen' && <GraficaVolumen datos={datosVolumen} alto={160} />}
+                  {tipoGrafica === 'margen' && <GraficaMargen datos={datosMargen} alto={160} />}
+                  {tipoGrafica === 'costos' && <GraficaCostosIngresos datos={datosCostosIngresos} alto={160} />}
                 </>
               ) : (
                 <div className="relative h-[145px] rounded-xl overflow-hidden flex items-center justify-between p-4 bg-gradient-to-r from-superficie to-superficie-2/40 border border-dashed border-borde/80">
@@ -620,7 +603,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
               <CardContent className="p-0">
                 {data.por_cobrar.length > 0 ? (
                   <ul className="divide-y divide-borde/40">
-                    {data.por_cobrar.slice(0, 3).map((p) => (
+                    {data.por_cobrar.slice(0, 4).map((p) => (
                       <li key={p.venta_id}>
                         <div
                           onClick={() => onNavegar('ventas', p.venta_id)}
@@ -713,7 +696,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
               <CardContent className="p-0">
                 {data.bajo_stock.length > 0 ? (
                   <ul className="divide-y divide-borde/40">
-                    {data.bajo_stock.slice(0, 3).map((p) => (
+                    {data.bajo_stock.slice(0, 4).map((p) => (
                       <li key={p.producto_id}>
                         <button
                           onClick={() => onNavegar('inventario', p.producto_id)}
@@ -783,7 +766,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
               <CardContent className="p-0">
                 {data.mas_vendidos.length > 0 ? (
                   <ul className="divide-y divide-borde/40">
-                    {data.mas_vendidos.slice(0, 3).map((p, idx) => {
+                    {data.mas_vendidos.slice(0, 4).map((p, idx) => {
                       const podioEstilos = [
                         'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-700',
                         'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',

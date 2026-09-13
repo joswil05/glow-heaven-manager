@@ -26,6 +26,7 @@ import { parsearDecimal } from '@core/numeros';
 import { formatearMoneda, formatearPeso, formatearFecha } from '@core/moneda';
 import { aMiniatura } from '../../lib/foto';
 import { cn } from '../../lib/cn';
+import { formatearNombreEntidad } from '@shared/formatoTexto';
 
 interface VarianteBorrador {
   talla: string;
@@ -429,7 +430,7 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
 
       await onGuardar({
         id: producto?.id,
-        nombre: nombre.trim(),
+        nombre: formatearNombreEntidad(nombre),
         categoria_id: categoriaId,
         tiene_variantes: tieneVariantes,
         variantes: tieneVariantes
@@ -620,6 +621,7 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
                     <Input
                       value={nombre}
                       onChange={(e) => setNombre(e.target.value)}
+                      onBlur={() => setNombre((prev) => formatearNombreEntidad(prev))}
                       placeholder="Nombre descriptivo"
                       autoFocus
                     />

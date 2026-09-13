@@ -11,6 +11,7 @@ import {
   Sun,
   Moon,
   Monitor,
+  CheckCircle2,
 } from 'lucide-react';
 import type { PanelData } from '@shared/types';
 import { formatearMoneda } from '@core/moneda';
@@ -186,7 +187,7 @@ export function DashboardView({
       <PullToRefresh onRefresh={() => cargar(true)}>
         <main
           ref={scrollRevealRef}
-          className="flex flex-col gap-3 px-3.5 pt-2.5 pb-[calc(5rem+env(safe-area-inset-bottom,0px))]"
+          className="flex flex-col gap-2.5 px-3.5 pt-2 pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))]"
         >
           {error && (
             <div className="rounded-xl bg-rose-50 border border-rose-200 px-3.5 py-2 text-caption sm:text-label font-semibold text-rose-700 flex items-center justify-between shrink-0">
@@ -398,6 +399,72 @@ export function DashboardView({
                 );
               })}
             </div>
+          </section>
+
+          {/* Widget de Estado Operativo / Stock Crítico con altura congelada (64px) - Cero crecimiento, cero scroll */}
+          <section
+            onClick={() => {
+              if (panel?.bajo_stock && panel.bajo_stock.length > 0) {
+                haptics.impact('light');
+                onIrAInventario?.();
+              }
+            }}
+            className={`scroll-reveal m3-card px-3.5 py-2 h-16 max-h-16 shrink-0 overflow-hidden flex items-center justify-between gap-3 border transition-colors ${
+              (panel?.bajo_stock?.length ?? 0) > 0
+                ? 'bg-rose-50/50 dark:bg-rose-950/20 border-rose-200/60 dark:border-rose-900/40 cursor-pointer active:scale-[0.99]'
+                : 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200/50 dark:border-emerald-900/30'
+            }`}
+          >
+            {(panel?.bajo_stock?.length ?? 0) > 0 ? (
+              <>
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-rose-500/15 text-rose-700 dark:text-rose-400 shrink-0 border border-rose-500/20">
+                    <PackageX size={16} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 leading-tight">
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-rose-700 dark:text-rose-400">
+                        Stock crítico ({panel!.bajo_stock.length})
+                      </span>
+                    </div>
+                    {/* Chips de los top 2 más urgentes */}
+                    <div className="flex items-center gap-1.5 mt-1 overflow-hidden">
+                      {panel!.bajo_stock.slice(0, 2).map((item) => (
+                        <span
+                          key={item.producto_id}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white dark:bg-slate-800 text-[11px] font-semibold text-slate-700 dark:text-slate-200 border border-rose-200/70 dark:border-rose-900/60 truncate max-w-[130px]"
+                        >
+                          <span className="truncate">{item.nombre}</span>
+                          <span className="text-rose-600 dark:text-rose-400 font-bold tabular-nums shrink-0">
+                            ({item.existencias})
+                          </span>
+                        </span>
+                      ))}
+                      {panel!.bajo_stock.length > 2 && (
+                        <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 shrink-0">
+                          +{panel!.bajo_stock.length - 2} más
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <ChevronRight size={15} className="text-rose-400 shrink-0" />
+              </>
+            ) : (
+              <div className="flex items-center gap-2.5 w-full">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 shrink-0 border border-emerald-500/20">
+                  <CheckCircle2 size={16} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <span className="text-[11px] font-bold text-emerald-800 dark:text-emerald-300 block leading-tight">
+                    Inventario en orden
+                  </span>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                    Sin productos agotados ni con bajo stock
+                  </span>
+                </div>
+              </div>
+            )}
           </section>
         </main>
       </PullToRefresh>
