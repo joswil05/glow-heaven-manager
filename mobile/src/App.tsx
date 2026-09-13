@@ -43,6 +43,7 @@ function AppContenido() {
               <DashboardView
                 onIrAVenta={() => setVista('vender')}
                 onIrACobranza={() => setVista('cobranza')}
+                onIrAInventario={() => setVista('inventario')}
               />
             </div>
             <div className={`h-full w-full overflow-hidden ${vista === 'vender' ? 'block' : 'hidden'}`}>

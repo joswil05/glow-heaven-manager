@@ -4,9 +4,10 @@ import { Loader2 } from 'lucide-react';
 interface PullToRefreshProps {
   onRefresh: () => Promise<void> | void;
   children: ReactNode;
+  className?: string;
 }
 
-export function PullToRefresh({ onRefresh, children }: PullToRefreshProps) {
+export function PullToRefresh({ onRefresh, children, className }: PullToRefreshProps) {
   const [pullDistance, setPullDistance] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const startY = useRef<number | null>(null);
@@ -94,7 +95,7 @@ export function PullToRefresh({ onRefresh, children }: PullToRefreshProps) {
         touchAction: 'pan-y',
         WebkitOverflowScrolling: 'touch',
       }}
-      className="relative flex-1 min-h-0 w-full overflow-y-auto overscroll-y-contain"
+      className={`relative flex-1 min-h-0 w-full overscroll-y-contain ${className || 'overflow-y-auto'}`}
     >
       {/* Indicador circular nativo Material 3 */}
       <div
@@ -116,6 +117,7 @@ export function PullToRefresh({ onRefresh, children }: PullToRefreshProps) {
       </div>
 
       <div
+        className="h-full flex flex-col"
         style={
           pullDistance > 0
             ? {
