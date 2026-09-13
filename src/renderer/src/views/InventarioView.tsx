@@ -201,11 +201,11 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
     onCambio();
   };
 
-  const ajustarStock = async (ajuste: AjusteStock, nuevas: number) => {
+  const ajustarStock = async (ajuste: AjusteStock, nuevas: number, motivo: string) => {
     const r = await window.api.productos.ajustarStock(
       ajuste.variante_id,
       nuevas,
-      'Conteo manual',
+      motivo,
       ajuste.producto_id
     );
     if (!r.success) {

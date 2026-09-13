@@ -10,6 +10,20 @@ import { cn } from '../../lib/cn';
  * como cero. Acá el número de ahora está a la vista y el cambio se anuncia
  * antes de aplicarlo.
  */
+/**
+ * El repositorio guarda un `motivo` en el movimiento de inventario, pero el
+ * formulario nunca lo pedia: la interfaz mandaba "Conteo manual" fijo, asi que
+ * TODO ajuste quedaba registrado igual — una rotura, un robo, un regalo y una
+ * correccion eran indistinguibles en el historial. Para un negocio que sigue
+ * su capital en mercaderia, saber por que desaparecieron cinco unidades es
+ * justamente el motivo de tener historial.
+ *
+ * Los motivos dependen de la direccion del ajuste, porque no son los mismos:
+ * un producto no se "daña" hacia arriba ni una clienta devuelve hacia abajo.
+ */
+const MOTIVOS_BAJA = ['Conteo físico', 'Producto dañado', 'Producto perdido', 'Regalo o muestra'];
+const MOTIVOS_ALTA = ['Conteo físico', 'Devolución de clienta', 'Corrección de carga'];
+
 export interface AjusteStock {
   variante_id: number;
   producto_id: number;
@@ -20,11 +34,12 @@ export interface AjusteStock {
 interface Props {
   ajuste: AjusteStock | null;
   onCerrar: () => void;
-  onConfirmar: (ajuste: AjusteStock, nuevas: number) => void;
+  onConfirmar: (ajuste: AjusteStock, nuevas: number, motivo: string) => void;
 }
 
 export const AjustarStockModal: React.FC<Props> = ({ ajuste, onCerrar, onConfirmar }) => {
   const [texto, setTexto] = useState('');
+  const [motivo, setMotivo] = useState('Conteo físico');
   const campoRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -48,10 +63,15 @@ export const AjustarStockModal: React.FC<Props> = ({ ajuste, onCerrar, onConfirm
   const valido = Number.isFinite(nuevas) && nuevas >= 0;
   const diferencia = valido ? nuevas - ajuste.actual : 0;
 
+  // Si el ajuste cambia de direccion, un motivo de la lista anterior puede
+  // quedar fuera de la nueva: se vuelve al valor por defecto.
+  const motivosVigentes = diferencia < 0 ? MOTIVOS_BAJA : MOTIVOS_ALTA;
+  const motivoAEnviar = motivosVigentes.includes(motivo) ? motivo : 'Conteo físico';
+
   const enviar = (e: React.FormEvent) => {
     e.preventDefault();
     if (!valido) return;
-    onConfirmar(ajuste, nuevas);
+    onConfirmar(ajuste, nuevas, motivoAEnviar);
     onCerrar();
   };
 
@@ -93,6 +113,32 @@ export const AjustarStockModal: React.FC<Props> = ({ ajuste, onCerrar, onConfirm
               className="text-right font-bold text-base"
             />
           </Field>
+
+          {valido && diferencia !== 0 && (
+            <div>
+              <span className="text-caption font-semibold text-texto-2 block mb-1.5">
+                ¿Por qué cambió?
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {(diferencia < 0 ? MOTIVOS_BAJA : MOTIVOS_ALTA).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setMotivo(m)}
+                    className={cn(
+                      'px-2.5 py-1 rounded-full text-caption font-semibold border cursor-pointer',
+                      'transition-[background-color,border-color,color,transform] duration-150 ease-out active:scale-[0.97]',
+                      motivo === m
+                        ? 'bg-acento text-acento-texto border-acento'
+                        : 'bg-superficie-2 text-texto-2 border-borde hover:border-borde-fuerte'
+                    )}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {valido && diferencia !== 0 && (
             <div
