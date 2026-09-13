@@ -183,10 +183,10 @@ export function DashboardView({
       </header>
 
       {/* Contenido con Pull-to-Refresh nativo */}
-      <PullToRefresh onRefresh={() => cargar(true)} className="overflow-hidden h-full flex flex-col flex-1 min-h-0">
+      <PullToRefresh onRefresh={() => cargar(true)}>
         <main
           ref={scrollRevealRef}
-          className="flex-1 min-h-0 flex flex-col justify-between gap-3 px-3.5 pt-2.5 pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))] overflow-hidden"
+          className="flex flex-col gap-3 px-3.5 pt-2.5 pb-[calc(5rem+env(safe-area-inset-bottom,0px))]"
         >
           {error && (
             <div className="rounded-xl bg-rose-50 border border-rose-200 px-3.5 py-2 text-caption sm:text-label font-semibold text-rose-700 flex items-center justify-between shrink-0">
