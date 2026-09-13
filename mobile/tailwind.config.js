@@ -27,15 +27,27 @@ export default {
         fondo: c('fondo'),
         superficie: c('superficie'),
         'superficie-2': c('superficie-2'),
+        'superficie-3': c('superficie-3'),
         borde: c('borde'),
         'borde-fuerte': c('borde-fuerte'),
         texto: c('texto'),
         'texto-2': c('texto-2'),
         'texto-3': c('texto-3'),
+        // Cada rol trae sus tres tokens: relleno, texto (-fuerte) y tinte
+        // (-suave). El detalle de cuándo usar cada uno está en index.css.
         acento: c('acento'),
         'acento-fuerte': c('acento-fuerte'),
         'acento-suave': c('acento-suave'),
         'acento-texto': c('acento-texto'),
+        exito: c('exito'),
+        'exito-fuerte': c('exito-fuerte'),
+        'exito-suave': c('exito-suave'),
+        alerta: c('alerta'),
+        'alerta-fuerte': c('alerta-fuerte'),
+        'alerta-suave': c('alerta-suave'),
+        peligro: c('peligro'),
+        'peligro-fuerte': c('peligro-fuerte'),
+        'peligro-suave': c('peligro-suave'),
         success: { 50: c('exito-suave'), 500: c('exito'), 600: c('exito'), 700: c('exito') },
         warning: { 50: c('alerta-suave'), 500: c('alerta'), 600: c('alerta'), 700: c('alerta') },
         danger: { 50: c('peligro-suave'), 500: c('peligro'), 600: c('peligro'), 700: c('peligro') },
@@ -56,11 +68,22 @@ export default {
       fontFamily: {
         sans: ['"Plus Jakarta Sans"', 'Roboto', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],
       },
+      // Las sombras salen de tokens para poder cambiar con el tema: en oscuro
+      // tienen que ser más opacas y amplias o no se leen. Ver index.css.
+      // `shadow-xs/sm/md/lg/xl` se redefinen contra los mismos tokens para
+      // que no queden dos escalas de sombra conviviendo.
       boxShadow: {
-        'm3-1': '0 1px 3px 1px rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-        'm3-2': '0 2px 6px 2px rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(0, 0, 0, 0.04)',
-        'm3-3': '0 4px 12px 3px rgba(0, 0, 0, 0.08), 0 2px 4px 0 rgba(0, 0, 0, 0.04)',
-        'm3-bottom': '0 -4px 16px rgba(0, 0, 0, 0.06)',
+        'm3-1': 'var(--sombra-1)',
+        'm3-2': 'var(--sombra-2)',
+        'm3-3': 'var(--sombra-3)',
+        'm3-bottom': 'var(--sombra-inferior)',
+        xs: 'var(--sombra-1)',
+        sm: 'var(--sombra-1)',
+        DEFAULT: 'var(--sombra-1)',
+        md: 'var(--sombra-2)',
+        lg: 'var(--sombra-2)',
+        xl: 'var(--sombra-3)',
+        '2xl': 'var(--sombra-3)',
       },
       spacing: {
         'safe-t': 'env(safe-area-inset-top)',
