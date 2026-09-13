@@ -61,6 +61,8 @@ export function DashboardView({
   // Confirmación antes de cerrar sesión: es un botón destructivo que vive a
   // un dedo del de actualizar, en la esquina que más pulgar recibe.
   const [confirmandoSalida, setConfirmandoSalida] = useState(false);
+  // Cajón deslizable (Bottom Sheet) de stock crítico
+  const [mostrarStockSheet, setMostrarStockSheet] = useState(false);
 
   const cargar = useCallback(async (forzar = false) => {
     if (!cacheDashboardGlobal.panel) {
@@ -398,92 +400,175 @@ export function DashboardView({
             </div>
           </section>
 
-          {/* Widget de Estado Operativo / Stock Crítico extendido para aprovechar la pantalla completa sin scroll */}
+          {/* Banner de Estado Operativo / Stock Crítico (Altura fija compacta, cero layout shift) */}
           <section
             onClick={() => {
               if (panel?.bajo_stock && panel.bajo_stock.length > 0) {
                 haptics.impact('light');
+                setMostrarStockSheet(true);
+              } else {
+                haptics.impact('light');
                 onIrAInventario?.();
               }
             }}
-            className={`m3-card p-3 flex-1 min-h-[85px] flex flex-col justify-between border transition-all ${
+            className={`m3-card p-3 sm:p-3.5 shrink-0 flex items-center justify-between border transition-all cursor-pointer active:scale-[0.985] ${
               (panel?.bajo_stock?.length ?? 0) > 0
-                ? 'bg-rose-50/50 dark:bg-rose-950/20 border-rose-200/60 dark:border-rose-900/40 cursor-pointer active:scale-[0.995]'
+                ? 'bg-rose-50/60 dark:bg-rose-950/25 border-rose-200/70 dark:border-rose-900/50 hover:border-rose-300 dark:hover:border-rose-800'
                 : 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200/50 dark:border-emerald-900/30'
             }`}
           >
             {(panel?.bajo_stock?.length ?? 0) > 0 ? (
-              <div className="flex flex-col justify-between h-full gap-2">
-                <div className="flex items-center justify-between gap-2 shrink-0">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-500/15 text-rose-700 dark:text-rose-400 shrink-0 border border-rose-500/20">
-                      <PackageX size={15} />
-                    </div>
-                    <div className="min-w-0">
-                      <span className="text-caption sm:text-label font-bold text-rose-800 dark:text-rose-300 block truncate leading-tight">
+              <div className="flex items-center justify-between w-full gap-2.5 min-w-0">
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-500/15 text-rose-700 dark:text-rose-400 shrink-0 border border-rose-500/20">
+                    <PackageX size={17} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-caption sm:text-label font-bold text-rose-900 dark:text-rose-200 truncate leading-tight">
                         Stock crítico ({panel!.bajo_stock.length})
                       </span>
-                      <span className="text-[10.5px] text-rose-600/80 dark:text-rose-400/80 block truncate leading-tight">
-                        Agotados o bajo el mínimo
-                      </span>
+                      {panel!.bajo_stock.some((i) => i.existencias === 0) && (
+                        <span className="h-2 w-2 rounded-full bg-rose-500 animate-pulse shrink-0" />
+                      )}
                     </div>
-                  </div>
-                  <div className="flex items-center gap-1 text-[11px] font-semibold text-rose-700 dark:text-rose-400 shrink-0 pl-1">
-                    <span>Gestionar</span>
-                    <ChevronRight size={14} />
+                    <p className="text-[11px] sm:text-caption text-rose-700/80 dark:text-rose-400/80 font-medium truncate mt-0.5 leading-tight">
+                      {panel!.bajo_stock.length === 1
+                        ? panel!.bajo_stock[0].nombre
+                        : `${panel!.bajo_stock.filter((i) => i.existencias === 0).length} agotados · Toca para ver lista`}
+                    </p>
                   </div>
                 </div>
 
-                {/* Lista de productos críticos con presentación espaciosa y adaptable */}
-                <div className="flex flex-col gap-1.5 min-h-0 overflow-hidden flex-1 justify-center py-0.5">
-                  {panel!.bajo_stock.slice(0, 3).map((item) => (
-                    <div
-                      key={item.producto_id}
-                      className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl bg-white/80 dark:bg-slate-800/80 border border-rose-200/50 dark:border-rose-900/40 shadow-xs"
-                    >
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <span className={`w-2 h-2 rounded-full shrink-0 ${item.existencias === 0 ? 'bg-rose-500 animate-pulse' : 'bg-amber-500'}`} />
-                        <span className="text-[11.5px] font-semibold text-slate-800 dark:text-slate-200 truncate">
-                          {item.nombre}
-                        </span>
-                      </div>
-                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md tabular-nums shrink-0 ${
-                        item.existencias === 0
-                          ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300 font-extrabold'
-                          : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
-                      }`}>
-                        {item.existencias === 0 ? 'Agotado (0)' : `Quedan ${item.existencias}`}
-                      </span>
-                    </div>
-                  ))}
-                  {panel!.bajo_stock.length > 3 && (
-                    <p className="text-[10.5px] font-medium text-rose-600 dark:text-rose-400 text-center pt-0.5 leading-none">
-                      +{panel!.bajo_stock.length - 3} producto{panel!.bajo_stock.length - 3 > 1 ? 's' : ''} más en nivel crítico
-                    </p>
-                  )}
+                <div className="flex items-center gap-1 text-xs font-bold text-rose-700 dark:text-rose-300 bg-rose-100/90 dark:bg-rose-900/40 px-2.5 py-1.5 rounded-xl shrink-0 border border-rose-200/60 dark:border-rose-800/60 group-hover:bg-rose-200/80 transition-colors">
+                  <span>Revisar</span>
+                  <ChevronRight size={14} />
                 </div>
               </div>
             ) : (
-              <div className="flex items-center justify-between gap-3 h-full py-1">
+              <div className="flex items-center justify-between w-full gap-2.5 min-w-0">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 shrink-0 border border-emerald-500/20">
-                    <CheckCircle2 size={16} />
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 shrink-0 border border-emerald-500/20">
+                    <CheckCircle2 size={17} />
                   </div>
                   <div className="min-w-0">
                     <span className="text-caption sm:text-label font-bold text-emerald-800 dark:text-emerald-300 block leading-tight">
                       Inventario en orden
                     </span>
-                    <span className="text-[10.5px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
                       Existencias óptimas en todos los artículos
                     </span>
                   </div>
                 </div>
-                <ChevronRight size={15} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-100/80 dark:bg-emerald-950/80 px-2.5 py-1 rounded-full shrink-0 border border-emerald-200/60 dark:border-emerald-800/60">
+                  Al día
+                </span>
               </div>
             )}
           </section>
         </main>
       </PullToRefresh>
+
+      {/* Bottom Sheet de Stock Crítico (Solución Emil Kowalski: holgura nativa sin layout shift) */}
+      <BottomSheet
+        abierto={mostrarStockSheet}
+        onCerrar={() => setMostrarStockSheet(false)}
+        titulo="Stock Crítico"
+        subtitulo={
+          panel?.bajo_stock && panel.bajo_stock.length > 0
+            ? `${panel.bajo_stock.length} producto${panel.bajo_stock.length === 1 ? '' : 's'} que requiere${panel.bajo_stock.length === 1 ? '' : 'n'} atención`
+            : undefined
+        }
+        maxHeight="85vh"
+        footer={
+          <div className="flex gap-2.5">
+            <button
+              type="button"
+              onClick={() => setMostrarStockSheet(false)}
+              className="m3-press flex-1 rounded-xl bg-slate-100 dark:bg-slate-800 py-3 text-label font-bold text-slate-700 dark:text-slate-300 cursor-pointer"
+            >
+              Cerrar
+            </button>
+            {onIrAInventario && (
+              <button
+                type="button"
+                onClick={() => {
+                  haptics.impact('medium');
+                  setMostrarStockSheet(false);
+                  onIrAInventario();
+                }}
+                className="m3-press flex-1 rounded-xl bg-emerald-700 hover:bg-emerald-800 py-3 text-label font-bold text-white shadow-md shadow-emerald-700/20 cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <span>Ir al Inventario</span>
+                <ChevronRight size={16} />
+              </button>
+            )}
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-2 py-1">
+          {panel?.bajo_stock && panel.bajo_stock.length > 0 ? (
+            panel.bajo_stock.map((item) => {
+              const estaAgotado = item.existencias === 0;
+              return (
+                <div
+                  key={item.producto_id}
+                  onClick={() => {
+                    if (onIrAInventario) {
+                      haptics.selection();
+                      setMostrarStockSheet(false);
+                      onIrAInventario();
+                    }
+                  }}
+                  className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-slate-50/90 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60 active:scale-[0.985] transition-all cursor-pointer"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <span
+                      className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                        estaAgotado ? 'bg-rose-500 animate-pulse' : 'bg-amber-500'
+                      }`}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate leading-tight">
+                        {item.nombre}
+                      </p>
+                      <p className="text-xs text-slate-400 dark:text-slate-500 font-medium truncate mt-0.5">
+                        {item.codigo ? `#${item.codigo}` : 'Sin código'} · Mínimo sugerido: {item.stock_minimo} unid.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end shrink-0 gap-1">
+                    <span
+                      className={`text-xs font-extrabold px-2.5 py-1 rounded-lg tabular-nums ${
+                        estaAgotado
+                          ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'
+                          : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                      }`}
+                    >
+                      {estaAgotado ? 'Agotado (0)' : `Quedan ${item.existencias}`}
+                    </span>
+                    {item.precio_venta_usd_cents > 0 && (
+                      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 tabular-nums">
+                        {formatearMoneda(item.precio_venta_usd_cents, 'USD')}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="py-8 text-center text-slate-400">
+              <CheckCircle2 size={36} className="mx-auto text-emerald-500 mb-2" />
+              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                Todo el inventario está en orden
+              </p>
+              <p className="text-xs text-slate-400 mt-1">
+                No hay productos agotados ni por debajo del stock mínimo.
+              </p>
+            </div>
+          )}
+        </div>
+      </BottomSheet>
 
       {/* Confirmación de cierre de sesión: es la única acción destructiva de
           esta pantalla y merece un paso extra, sin usar window.confirm. */}
