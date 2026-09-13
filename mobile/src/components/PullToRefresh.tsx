@@ -117,7 +117,7 @@ export function PullToRefresh({ onRefresh, children, className }: PullToRefreshP
       </div>
 
       <div
-        className="w-full flex flex-col"
+        className="w-full flex-1 flex flex-col"
         style={
           pullDistance > 0
             ? {

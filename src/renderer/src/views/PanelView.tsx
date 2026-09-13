@@ -363,22 +363,30 @@ export const PanelView: React.FC<PanelViewProps> = ({
 
         {/* Nivel 3: Gráfica interactiva animada + Dónde está la plata */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-2.5 shrink-0">
-          {/* Gráfica principal con selector ergonómico y animaciones */}
+          {/* Gráfica principal con selector ergonómico y animaciones fluidas */}
           <Card className="xl:col-span-2 shadow-2xs flex flex-col">
             <CardHeader className="px-4 py-2.5 shrink-0 border-b border-borde/40">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-7 h-7 rounded-lg bg-acento/10 text-acento flex items-center justify-center shrink-0">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 min-w-0">
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  <div
+                    key={`icon-${tipoGrafica}`}
+                    className="w-7 h-7 rounded-lg bg-acento/10 text-acento flex items-center justify-center shrink-0 transition-all duration-300 animate-in fade-in-0 zoom-in-95"
+                  >
                     <IconoActual className="w-4 h-4" />
                   </div>
-                  <h3 className="text-body font-bold text-texto tracking-tight truncate">
-                    {infoGraficaActual.titulo}
-                  </h3>
+                  <div className="min-w-0 overflow-hidden">
+                    <h3
+                      key={`title-${tipoGrafica}`}
+                      className="text-body font-bold text-texto tracking-tight truncate transition-all duration-300 animate-in fade-in-0 slide-in-from-left-1"
+                    >
+                      {infoGraficaActual.titulo}
+                    </h3>
+                  </div>
                 </div>
 
-                {/* Selector Segmentado de Gráfica (Pills Switcher) */}
+                {/* Selector Segmentado de Gráfica (Pills Switcher estable y suave) */}
                 <div
-                  className="flex items-center p-0.5 rounded-xl bg-superficie-2/90 border border-borde/70 shadow-2xs gap-0.5 overflow-x-auto max-w-full"
+                  className="flex items-center p-0.5 rounded-xl bg-superficie-2/90 border border-borde/70 shadow-2xs gap-0.5 overflow-x-auto max-w-full shrink-0"
                   role="tablist"
                   aria-label="Seleccionar perspectiva de gráfica"
                 >
@@ -393,14 +401,15 @@ export const PanelView: React.FC<PanelViewProps> = ({
                         aria-selected={activa}
                         onClick={() => cambiarTipoGrafica(opc.id)}
                         className={cn(
-                          'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-caption font-semibold transition-all duration-150 whitespace-nowrap cursor-pointer shrink-0',
+                          'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-caption font-semibold whitespace-nowrap cursor-pointer shrink-0',
+                          'transition-[background-color,color,border-color,box-shadow] duration-200 ease-out active:scale-[0.98]',
                           activa
-                            ? 'bg-superficie text-texto shadow-xs border border-borde/80 scale-[1.02]'
+                            ? 'bg-superficie text-texto shadow-xs border border-borde/80 font-bold'
                             : 'text-texto-3 hover:text-texto hover:bg-superficie/60'
                         )}
                         title={opc.subtitulo}
                       >
-                        <Icono className={cn('w-3.5 h-3.5', activa ? 'text-acento' : 'text-texto-3')} />
+                        <Icono className={cn('w-3.5 h-3.5 transition-colors duration-200', activa ? 'text-acento' : 'text-texto-3')} />
                         <span>{opc.etiquetaCorta}</span>
                       </button>
                     );
@@ -410,12 +419,12 @@ export const PanelView: React.FC<PanelViewProps> = ({
             </CardHeader>
             <CardContent className="p-3 pt-2 flex-1 flex flex-col justify-center min-h-[220px]">
               {serie.some((s) => s.valor > 0 || (s.valorSecundario ?? 0) > 0) ? (
-                <>
+                <div key={`chart-view-${tipoGrafica}`} className="animate-in fade-in-0 duration-300 ease-out flex-1 flex flex-col justify-center">
                   {tipoGrafica === 'rentabilidad' && <LineaCreciente datos={serie} alto={160} />}
                   {tipoGrafica === 'volumen' && <GraficaVolumen datos={datosVolumen} alto={160} />}
                   {tipoGrafica === 'margen' && <GraficaMargen datos={datosMargen} alto={160} />}
                   {tipoGrafica === 'costos' && <GraficaCostosIngresos datos={datosCostosIngresos} alto={160} />}
-                </>
+                </div>
               ) : (
                 <div className="relative h-[145px] rounded-xl overflow-hidden flex items-center justify-between p-4 bg-gradient-to-r from-superficie to-superficie-2/40 border border-dashed border-borde/80">
                   <div className="relative z-10 flex items-center gap-3">

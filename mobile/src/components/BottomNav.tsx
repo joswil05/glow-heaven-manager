@@ -23,14 +23,14 @@ export function BottomNav({ actual, onCambiar, badgeCarrito = 0, badgeCobranza =
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 w-full z-40 bg-white dark:bg-[#121826] border-t border-slate-200/80 dark:border-slate-800/80 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_-4px_25px_rgba(0,0,0,0.5)] transition-colors duration-200"
+      className="fixed inset-x-0 z-40 flex justify-center pointer-events-none px-3"
       style={{
-        paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 0.5rem)',
+        bottom: 'calc(0.65rem + env(safe-area-inset-bottom, 0px))',
       }}
-      aria-label="Navegación principal Android"
+      aria-label="Navegación principal flotante"
     >
       <div
-        className="mx-auto flex w-full max-w-lg items-center justify-around px-2 pt-2 pb-1"
+        className="pointer-events-auto flex items-center justify-around w-full max-w-sm sm:max-w-md p-1.5 rounded-[26px] bg-white/92 dark:bg-[#111827]/92 backdrop-blur-2xl border border-slate-200/90 dark:border-white/10 shadow-[0_12px_36px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.06)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.6),0_0_1px_1px_rgba(255,255,255,0.08)] transition-all duration-300"
       >
         {ITEMS.map(({ vista, etiqueta, Icono }) => {
           const activo = actual === vista;
@@ -42,108 +42,60 @@ export function BottomNav({ actual, onCambiar, badgeCarrito = 0, badgeCobranza =
                 if (actual !== vista) haptics.selection();
                 onCambiar(vista);
               }}
-              className="flex flex-1 flex-col items-center justify-center py-1 px-1 tocable outline-none transition-transform duration-140 active:scale-[0.93] cursor-pointer"
+              className="group relative flex flex-1 flex-col items-center justify-center py-1 px-1.5 rounded-2xl transition-transform duration-150 active:scale-[0.92] cursor-pointer outline-none select-none"
               aria-current={activo ? 'page' : undefined}
             >
-              {/* Contenedor Pill de Material 3 */}
-              <div className="relative">
-                <div
-                  className="flex items-center justify-center rounded-full transition-all duration-200"
+              {/* Contenedor del icono con pill suave al estar activo */}
+              <div
+                className="relative flex items-center justify-center px-4 py-1 rounded-full transition-all duration-250 ease-out"
+                style={{
+                  backgroundColor: activo
+                    ? isDark
+                      ? 'rgba(16, 185, 129, 0.20)'
+                      : '#dcfce7'
+                    : 'transparent',
+                }}
+              >
+                <Icono
+                  size={20}
+                  className="transition-all duration-200"
                   style={{
-                    // `w-15` no existe en la escala de Tailwind (ni la
-                    // default ni la personalizada de este proyecto): quedaba
-                    // sin ancho aplicado y la burbuja se encogía al tamaño
-                    // del ícono. Ancho explícito para que sea una píldora
-                    // Material 3 real, no un círculo apretado.
-                    width: '56px',
-                    height: '32px',
-                    transform: activo ? 'scale(1.04)' : 'scale(1)',
-                    backgroundColor: activo
+                    transform: activo ? 'scale(1.08)' : 'scale(1)',
+                    strokeWidth: activo ? 2.4 : 1.9,
+                    color: activo
                       ? isDark
-                        ? 'rgba(16, 185, 129, 0.22)'
-                        : '#d1fae5'
-                      : 'transparent',
+                        ? '#34d399'
+                        : '#059669'
+                      : isDark
+                        ? '#94a3b8'
+                        : '#64748b',
                   }}
-                >
-                  <Icono
-                    size={20}
-                    className="transition-transform duration-200"
-                    style={{
-                      transform: activo ? 'scale(1.06)' : 'scale(1)',
-                      strokeWidth: activo ? 2.5 : 1.8,
-                      color: activo
-                        ? isDark
-                          ? '#34d399'
-                          : '#047857'
-                        : isDark
-                          ? '#94a3b8'
-                          : '#64748b',
-                    }}
-                  />
-                </div>
+                />
 
                 {/* Badge de carrito */}
                 {vista === 'vender' && badgeCarrito > 0 && (
-                  <span
-                    style={{
-                      position: 'absolute',
-                      top: '-4px',
-                      right: '-4px',
-                      display: 'flex',
-                      height: '18px',
-                      minWidth: '18px',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderRadius: '9999px',
-                      backgroundColor: '#059669',
-                      padding: '0 4px',
-                      fontSize: '10px',
-                      fontWeight: 700,
-                      color: '#ffffff',
-                      boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
-                    }}
-                  >
+                  <span className="absolute -top-1 -right-1.5 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-emerald-600 text-[9.5px] font-black text-white shadow-xs animate-in zoom-in-75">
                     {badgeCarrito}
                   </span>
                 )}
 
-                {/* Badge de cobranza (cuotas pendientes/vencidas) */}
+                {/* Badge de cobranza */}
                 {vista === 'cobranza' && badgeCobranza > 0 && (
-                  <span
-                    style={{
-                      position: 'absolute',
-                      top: '-4px',
-                      right: '-4px',
-                      display: 'flex',
-                      height: '18px',
-                      minWidth: '18px',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderRadius: '9999px',
-                      backgroundColor: '#dc2626',
-                      padding: '0 4px',
-                      fontSize: '10px',
-                      fontWeight: 700,
-                      color: '#ffffff',
-                      boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
-                    }}
-                  >
+                  <span className="absolute -top-1 -right-1.5 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-rose-600 text-[9.5px] font-black text-white shadow-xs animate-in zoom-in-75">
                     {badgeCobranza}
                   </span>
                 )}
               </div>
 
-              {/* Etiqueta de texto M3 */}
+              {/* Etiqueta de texto */}
               <span
+                className="text-[10.5px] tracking-tight transition-colors duration-200 mt-0.5 leading-none"
                 style={{
-                  fontSize: '11px',
-                  marginTop: '4px',
-                  letterSpacing: '-0.01em',
                   fontWeight: activo ? 700 : 500,
                   color: activo
                     ? isDark
                       ? '#34d399'
-                      : '#047857'
+                      : '#059669'
                     : isDark
                       ? '#94a3b8'
                       : '#64748b',
@@ -151,6 +103,11 @@ export function BottomNav({ actual, onCambiar, badgeCarrito = 0, badgeCobranza =
               >
                 {etiqueta}
               </span>
+
+              {/* Punto indicador de estado activo */}
+              {activo && (
+                <span className="w-1 h-1 rounded-full bg-emerald-600 dark:bg-emerald-400 mt-0.5 transition-all animate-in fade-in-0 zoom-in-50 duration-200" />
+              )}
             </button>
           );
         })}
@@ -158,3 +115,4 @@ export function BottomNav({ actual, onCambiar, badgeCarrito = 0, badgeCobranza =
     </nav>
   );
 }
+

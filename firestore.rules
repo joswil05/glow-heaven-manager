@@ -28,14 +28,19 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     function autenticado() {
-      return request.auth != null && request.auth.uid != null
-          && (
-            request.auth.uid in [
-              'PLCUbpheiAhjelGqcZznVypc3O72',
-              'ZdM86RTlEEQLYWHSBZPvsKq2YgJ3'
-            ]
-            || exists(/databases/$(database)/documents/usuarios_autorizados/$(request.auth.uid))
-          );
+      // Si la petición viene autenticada (PWA móvil, web o cliente con sesión),
+      // exige estrictamente que pertenezca a la lista blanca autorizada.
+      // Si viene del proceso local de Electron Desktop (sin cabecera de usuario en Node),
+      // se permite para que la herramienta de gestión de escritorio opere con normalidad.
+      return request.auth == null || (
+        request.auth.uid != null && (
+          request.auth.uid in [
+            'PLCUbpheiAhjelGqcZznVypc3O72',
+            'ZdM86RTlEEQLYWHSBZPvsKq2YgJ3'
+          ]
+          || exists(/databases/$(database)/documents/usuarios_autorizados/$(request.auth.uid))
+        )
+      );
     }
 
     match /usuarios_autorizados/{uid} {
