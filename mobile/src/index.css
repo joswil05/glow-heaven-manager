@@ -233,8 +233,12 @@ input, textarea, [contenteditable="true"] {
   animation: m3FadeIn 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* Sin `forwards`: con él, el `transform` final de la animación se queda
+ * aplicado con prioridad de animación y le gana al `transform` en línea que
+ * usa el arrastre para cerrar, así que la hoja no seguiría al dedo. El estado
+ * final ya es el natural del elemento, así que no hace falta. */
 .animate-m3-slide-up {
-  animation: m3SlideUp 280ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  animation: m3SlideUp 280ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .animate-m3-snackbar {
