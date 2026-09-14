@@ -1,5 +1,12 @@
 import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
-import { getFirestoreDb, idOrdenable, leerDoc, aplicarLote, type OperacionLote } from '../client';
+import {
+  getFirestoreDb,
+  idOrdenable,
+  leerDoc,
+  leerVarios,
+  aplicarLote,
+  type OperacionLote,
+} from '../client';
 import { ParametrosRepoFirestore } from './parametros.repo';
 import type { EventoAuditoria } from '../../../shared/types';
 
@@ -38,6 +45,8 @@ export interface RegistrarEventoInput {
   valor_anterior?: Record<string, unknown> | null;
   valor_nuevo?: Record<string, unknown> | null;
   detalle?: string;
+  /** Ver `EventoAuditoria.reversible`. Por omisión, true. */
+  reversible?: boolean;
 }
 
 export interface ResultadoDeshacer {
@@ -84,6 +93,7 @@ export class EventosRepoFirestore {
         valor_anterior: evento.valor_anterior ? JSON.stringify(evento.valor_anterior) : null,
         valor_nuevo: evento.valor_nuevo ? JSON.stringify(evento.valor_nuevo) : null,
         detalle: evento.detalle ?? null,
+        reversible: evento.reversible ?? true,
         timestamp: now,
       },
       };
@@ -128,8 +138,66 @@ export class EventosRepoFirestore {
       .sort((a, b) => b.id.localeCompare(a.id));
 
     const descripcion = eventos.find((e) => e.detalle)?.detalle ?? 'Acción deshecha';
+
+    // 1. Lo que no se puede revertir entero no se revierte a medias.
+    //
+    // Este motor sabe reponer documentos, no mover mercadería. Si la acción
+    // además movió existencias, restaurar el documento dejaría la venta viva
+    // y las unidades contadas dos veces. Antes se hacía igual y el inventario
+    // quedaba inflado sin que nadie se enterara.
+    if (eventos.some((ev) => ev.reversible === false)) {
+      return {
+        revertido: false,
+        descripcion:
+          'Esta acción movió mercadería y no se puede deshacer automáticamente. ' +
+          'Para revertirla, anulá la venta desde su detalle.',
+      };
+    }
+
+    // 2. Si alguien tocó el documento después, la instantánea ya no sirve.
+    //
+    // La reversión escribe el documento ENTERO como estaba (merge:false), así
+    // que aplicarla sobre algo que cambió en el medio pisa ese cambio. Caso
+    // real: se edita un producto, desde el celular se vende, y deshacer la
+    // edición resucita las unidades vendidas.
+    const aRestaurar = eventos.filter(
+      (ev) =>
+        ev.tipo_evento !== 'CREACION' &&
+        ev.valor_anterior &&
+        COLECCIONES_REVERSIBLES.has(ev.entidad_tipo)
+    );
+
+    for (const ev of aRestaurar) {
+      const actual = await leerDoc<{ actualizado_en?: string }>(ev.entidad_tipo, ev.entidad_id);
+      const tocadoDespues =
+        actual?.actualizado_en && ev.timestamp && actual.actualizado_en > ev.timestamp;
+      if (tocadoDespues) {
+        return {
+          revertido: false,
+          descripcion:
+            'No se puede deshacer: hubo cambios posteriores sobre lo mismo. ' +
+            'Deshacer ahora borraría esos cambios.',
+        };
+      }
+    }
+
     const operaciones: OperacionLote[] = [];
     let algoRevertido = false;
+
+    // Los abonos que se van a revertir: después hay que recalcular el saldo
+    // de su venta con los pagos que queden, porque el documento de la venta
+    // no se restaura por instantánea (lo tocan varias acciones a la vez).
+    const pagosAfectados = await leerVarios<{ venta_id?: number; cliente_id?: number }>(
+      'pagos',
+      eventos.filter((ev) => ev.entidad_tipo === 'pagos').map((ev) => ev.entidad_id)
+    );
+    const ventasARecalcular = new Set<number>();
+    const clientesARefrescar = new Set<number>();
+
+    for (const pago of pagosAfectados.values()) {
+      if (pago.venta_id) ventasARecalcular.add(Number(pago.venta_id));
+      if (pago.cliente_id) clientesARefrescar.add(Number(pago.cliente_id));
+    }
 
     for (const ev of eventos) {
       const anterior = ev.valor_anterior
@@ -149,6 +217,15 @@ export class EventosRepoFirestore {
       }
 
       if (!COLECCIONES_REVERSIBLES.has(ev.entidad_tipo)) continue;
+
+      if (ev.entidad_tipo === 'ventas') {
+        const cliente = Number(
+          (anterior?.cliente_id as number | undefined) ??
+            (await leerDoc<{ cliente_id?: number }>('ventas', ev.entidad_id))?.cliente_id ??
+            0
+        );
+        if (cliente) clientesARefrescar.add(cliente);
+      }
 
       if (ev.tipo_evento === 'CREACION') {
         operaciones.push({ coleccion: ev.entidad_tipo, id: ev.entidad_id, borrar: true });
@@ -183,6 +260,30 @@ export class EventosRepoFirestore {
     }
 
     await aplicarLote(operaciones);
+
+    // 3. Lo derivado se RECALCULA, no se restaura.
+    //
+    // Al revertir un abono sólo desaparecía su documento: el `pagado` y el
+    // `saldo` de la venta seguían contándolo, y la venta quedaba mostrando un
+    // saldo que ningún pago respaldaba. Se recalcula desde los pagos que
+    // quedan activos, que es la única fuente de verdad.
+    for (const ventaId of ventasARecalcular) {
+      try {
+        const { VentasRepoFirestore } = await import('./ventas.repo');
+        await VentasRepoFirestore.recalcularSaldo(ventaId);
+      } catch (err) {
+        console.warn(`[eventos.repo] No se pudo recalcular el saldo de la venta #${ventaId}:`, err);
+      }
+    }
+
+    for (const clienteId of clientesARefrescar) {
+      try {
+        const { ClientesRepoFirestore } = await import('./clientes.repo');
+        await ClientesRepoFirestore.refrescarTotales(clienteId);
+      } catch (err) {
+        console.warn(`[eventos.repo] No se pudieron refrescar los totales del cliente #${clienteId}:`, err);
+      }
+    }
 
     // La configuración se cachea en memoria; sin esto, deshacer un cambio de
     // ajustes dejaba la pantalla mostrando el valor que se acababa de revertir.

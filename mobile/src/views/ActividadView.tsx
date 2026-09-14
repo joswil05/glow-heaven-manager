@@ -11,6 +11,7 @@ import { PullToRefresh } from '../components/PullToRefresh';
 import { nuevoGrupoEvento } from '../lib/util';
 import { DocumentoSheet } from '../components/DocumentoSheet';
 import { haptics } from '../lib/haptics';
+import { hoyISO } from '@core/fechas';
 
 /**
  * Actividad: qué pasó.
@@ -337,6 +338,6 @@ export function ActividadView({ onVolver }: { onVolver: () => void }) {
 
 /** Una anulación de otro día mueve cifras de un período ya pasado: se avisa. */
 function esDeOtroDia(fecha: string): boolean {
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = hoyISO();
   return fecha.slice(0, 10) !== hoy;
 }

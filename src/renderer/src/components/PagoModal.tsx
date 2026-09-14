@@ -22,6 +22,7 @@ import {
 } from '@core/moneda';
 import { useToast } from '../context/ToastContext';
 import { cn } from '../lib/cn';
+import { hoyISO } from '@core/fechas';
 
 interface PagoModalProps {
   abierto: boolean;
@@ -49,7 +50,7 @@ export const PagoModal: React.FC<PagoModalProps> = ({
   const [metodo, setMetodo] = useState<MetodoPago>('EFECTIVO');
   const [referencia, setReferencia] = useState('');
   const [notas, setNotas] = useState('');
-  const [fecha, setFecha] = useState(() => new Date().toISOString().slice(0, 10));
+  const [fecha, setFecha] = useState(() => hoyISO());
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [anulandoId, setAnulandoId] = useState<number | null>(null);
@@ -61,7 +62,7 @@ export const PagoModal: React.FC<PagoModalProps> = ({
     setMetodo('EFECTIVO');
     setReferencia('');
     setNotas('');
-    setFecha(new Date().toISOString().slice(0, 10));
+    setFecha(hoyISO());
 
     // La cuota pendiente más vieja es lo que el cliente viene a pagar casi
     // siempre. Si no hay plan, el saldo completo.

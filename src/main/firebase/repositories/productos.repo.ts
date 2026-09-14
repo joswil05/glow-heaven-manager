@@ -186,6 +186,12 @@ export class ProductosRepoFirestore {
   }
 
   static async crear(input: CrearProductoInput, evento_grupo_id: string): Promise<number> {
+    // Un producto sin nombre no se puede buscar, ni listar, ni poner en una
+    // factura: aparece como una fila en blanco que nadie sabe qué es.
+    if (!input.nombre?.trim()) {
+      throw new Error('El producto necesita un nombre.');
+    }
+
     const [nuevoId, parametros, categorias] = await Promise.all([
       siguienteId('productos'),
       ParametrosRepoFirestore.getParametros(),
@@ -212,7 +218,10 @@ export class ProductosRepoFirestore {
             {
               id: 1,
               producto_id: nuevoId,
-              existencias: stockInicial?.cantidad ?? 0,
+              // Clamp igual que en la rama de variantes. Sin esto un producto
+              // podía nacer con existencias negativas, y esa cifra se arrastra
+              // a la valuación de la bodega y a los totales del panel.
+              existencias: Math.max(0, Math.round(stockInicial?.cantidad ?? 0)),
               activo: true,
             },
           ];

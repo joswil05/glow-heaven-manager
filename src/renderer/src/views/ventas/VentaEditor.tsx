@@ -31,6 +31,7 @@ import { formatearMoneda } from '@core/moneda';
 import { useToast } from '../../context/ToastContext';
 import { cn } from '../../lib/cn';
 import { formatearNombreEntidad } from '@shared/formatoTexto';
+import { hoyISO } from '@core/fechas';
 
 interface LineaBorrador {
   clave: string;
@@ -93,7 +94,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
   const [nuevaDireccionCliente, setNuevaDireccionCliente] = useState('');
   const [guardandoCliente, setGuardandoCliente] = useState(false);
 
-  const [fecha, setFecha] = useState(() => new Date().toISOString().slice(0, 10));
+  const [fecha, setFecha] = useState(() => hoyISO());
   const [lineas, setLineas] = useState<LineaBorrador[]>([nuevaLinea()]);
   const [notas, setNotas] = useState('');
   const [entregarAhora, setEntregarAhora] = useState(true);
@@ -130,7 +131,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
     setNuevoNombreCliente('');
     setNuevoTelefonoCliente('');
     setNuevaDireccionCliente('');
-    setFecha(new Date().toISOString().slice(0, 10));
+    setFecha(hoyISO());
     const primera = nuevaLinea();
     setLineas([primera]);
     setLineaBuscando(esEncargo ? null : primera.clave);

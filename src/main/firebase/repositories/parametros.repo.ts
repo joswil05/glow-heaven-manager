@@ -13,7 +13,8 @@ import type { ParametrosSistema, Categoria, ModoPrecio, CuentaBancaria } from '.
 export interface CategoriaInput {
   id?: number;
   nombre: string;
-  margen_defecto_bp: number;
+  /** Si no viene, la categoría hereda el margen global. */
+  margen_defecto_bp?: number;
 }
 
 const DEFECTOS: Record<string, string> = {
@@ -206,7 +207,17 @@ export class ParametrosRepoFirestore {
     if (!nombreLimpio) {
       throw new Error('El nombre de la categoría es obligatorio.');
     }
-    if (input.margen_defecto_bp < 0 || input.margen_defecto_bp > 50000) {
+
+    // Una categoría sin margen propio hereda el global. Antes esto escribía
+    // `undefined` en el documento: la comparación `undefined < 0` es false,
+    // así que pasaba la validación y reventaba recién contra Firestore, con
+    // un error que no decía nada de categorías ni de márgenes.
+    const margen =
+      input.margen_defecto_bp === undefined || input.margen_defecto_bp === null
+        ? (await this.getParametros()).margen_defecto_bp
+        : Math.round(Number(input.margen_defecto_bp));
+
+    if (!Number.isFinite(margen) || margen < 0 || margen > 50000) {
       throw new Error('El margen debe estar entre 0% y 500%.');
     }
 
@@ -220,7 +231,7 @@ export class ParametrosRepoFirestore {
           id: input.id,
           datos: {
             nombre: nombreLimpio,
-            margen_defecto_bp: input.margen_defecto_bp,
+            margen_defecto_bp: margen,
             actualizado_en: new Date().toISOString(),
           },
           merge: true,
@@ -251,7 +262,7 @@ export class ParametrosRepoFirestore {
         datos: {
           id: nuevoId,
           nombre: nombreLimpio,
-          margen_defecto_bp: input.margen_defecto_bp,
+          margen_defecto_bp: margen,
           activa: true,
         },
       },

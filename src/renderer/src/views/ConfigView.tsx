@@ -39,6 +39,7 @@ import { calcularPrecio } from '@core/precios';
 import { useToast } from '../context/ToastContext';
 import { NubeSection } from './config/NubeSection';
 import { formatearMoneda } from '@core/moneda';
+import { hoyISO } from '@core/fechas';
 
 interface ConfigViewProps {
   parametros: ParametrosSistema | null;
@@ -176,7 +177,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `Glow_Heaven_Inventario_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.download = `Glow_Heaven_Inventario_${hoyISO()}.csv`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

@@ -46,6 +46,7 @@ import { useClickOutside } from '../lib/useClickOutside';
 import { useToast } from '../context/ToastContext';
 import { cn } from '../lib/cn';
 import { formatearMoneda, formatearFecha } from '@core/moneda';
+import { mesISO } from '@core/fechas';
 
 interface VentasViewProps {
   tipo: TipoVenta;
@@ -144,11 +145,13 @@ export const VentasView: React.FC<VentasViewProps> = ({
 
   const ventasPeriodo = useMemo(() => {
     if (periodo === 'TODOS') return ventas;
-    const now = new Date();
-    const esteMes = now.toISOString().slice(0, 7);
-    const mesPasadoDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const mesPasado = `${mesPasadoDate.getFullYear()}-${String(mesPasadoDate.getMonth() + 1).padStart(2, '0')}`;
-    const esteAno = String(now.getFullYear());
+    const esteMes = mesISO();
+    const [anioActual, numeroMes] = esteMes.split('-').map(Number);
+    const mesPasado =
+      numeroMes === 1
+        ? `${anioActual - 1}-12`
+        : `${anioActual}-${String(numeroMes - 1).padStart(2, '0')}`;
+    const esteAno = String(anioActual);
 
     return ventas.filter((v) => {
       const fecha = (v.fecha || '').slice(0, 10);
@@ -208,14 +211,24 @@ export const VentasView: React.FC<VentasViewProps> = ({
       showToast({ message: r.error, type: 'error' });
       return;
     }
-    showUndoToast(
-      `${v.codigo}: ${ESTADO_TEXTO[estado].toLowerCase()}`,
-      async () => {
-        await cargar();
-        onCambio();
-      },
-      r.data.evento_grupo_id
-    );
+    const mensaje = `${v.codigo}: ${ESTADO_TEXTO[estado].toLowerCase()}`;
+
+    // Anular una venta devuelve su mercadería al inventario, y entregar un
+    // encargo la saca. Eso no se revierte restaurando el documento, así que
+    // no se ofrece "Deshacer": la vuelta correcta es cambiar el estado otra
+    // vez desde el detalle.
+    if (r.data.reversible) {
+      showUndoToast(
+        mensaje,
+        async () => {
+          await cargar();
+          onCambio();
+        },
+        r.data.evento_grupo_id
+      );
+    } else {
+      showToast({ message: mensaje, type: 'success' });
+    }
     await cargar();
     if (ventaDetalle?.id === v.id) await abrirDetalle(v.id);
     onCambio();

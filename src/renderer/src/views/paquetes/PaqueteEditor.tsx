@@ -8,6 +8,7 @@ import { formatearMoneda, formatearPeso } from '@core/moneda';
 import { useToast } from '../../context/ToastContext';
 import { cn } from '../../lib/cn';
 import { formatearTextoGeneral } from '../../../../shared/formatoTexto';
+import { hoyISO } from '@core/fechas';
 
 interface PaqueteEditorProps {
   abierto: boolean;
@@ -31,7 +32,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
   const esNuevo = compra === null;
   const tarifaLb = parametros?.tarifa_envio_cents_lb ?? 700;
 
-  const [fecha, setFecha] = useState(() => new Date().toISOString().slice(0, 10));
+  const [fecha, setFecha] = useState(() => hoyISO());
   const [pesoTotalTexto, setPesoTotalTexto] = useState('');
   const [envioTexto, setEnvioTexto] = useState('');
   const [envioManual, setEnvioManual] = useState(false);
@@ -54,7 +55,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
       );
       setNotas(compra.notas ?? '');
     } else {
-      setFecha(new Date().toISOString().slice(0, 10));
+      setFecha(hoyISO());
       setPesoTotalTexto('');
       setEnvioTexto('');
       setEnvioManual(false);

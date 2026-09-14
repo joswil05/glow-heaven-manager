@@ -345,7 +345,13 @@ const api: ApiPuente = {
         return ok({ ...grupo(), id: input.id });
       }
       const id = db.siguienteId++;
-      db.categorias.push({ id, nombre: input.nombre, margen_defecto_bp: input.margen_defecto_bp, activa: true });
+      db.categorias.push({
+        id,
+        nombre: input.nombre,
+        // Sin margen propio hereda el global, igual que el repositorio real.
+        margen_defecto_bp: input.margen_defecto_bp ?? db.parametros.margen_defecto_bp,
+        activa: true,
+      });
       return ok({ ...grupo(), id });
     },
     archivar: (id) => {
@@ -765,8 +771,13 @@ const api: ApiPuente = {
       return ok({ ...grupo(), id });
     },
     cambiarEstado: (id, estado) => {
+      const venta = db.ventas.find((v) => v.id === id);
+      // El mock no mueve inventario, pero imita el contrato: una venta con
+      // productos que se anula movería mercadería y no sería reversible.
+      const movioMercaderia =
+        estado === 'CANCELADA' && (venta?.lineas ?? []).some((l) => l.producto_id);
       db.ventas = db.ventas.map((v) => (v.id === id ? { ...v, estado } : v));
-      return ok(grupo());
+      return ok({ ...grupo(), reversible: !movioMercaderia });
     },
   },
   pagos: {

@@ -3,6 +3,7 @@ import { getFirestoreDb } from '@firebase-client';
 import type { Venta, PanelData } from '@shared/types';
 import { PanelRepoFirestore } from '@repos/panel.repo';
 import { hoyISO } from './util';
+import { haceDias } from '@core/fechas';
 
 export interface DiaVentas {
   fecha: string;
@@ -18,30 +19,26 @@ export interface ResumenHoy {
 }
 
 /**
- * Trae las ventas activas de los últimos `dias` días en una sola lectura y
- * las agrupa por fecha. `PanelRepoFirestore` ya agrega por mes para el
- * historial largo; el panel móvil necesita el detalle diario de la semana,
- * que no vale la pena sumar al panel de escritorio.
+ * Agrupa por fecha las ventas de los últimos `dias` días.
+ *
+ * Las ventas NO se vuelven a consultar: se piden a la instantánea que el
+ * panel ya cargó. Antes esta función hacía su propia lectura de la colección
+ * entera y filtraba por fecha en memoria, así que abrir el panel del celular
+ * costaba dos veces todas las ventas del negocio, y esa cuenta crece para
+ * siempre.
  */
 export async function cargarTendenciaDiaria(dias = 7): Promise<{
   serie: DiaVentas[];
   hoy: ResumenHoy;
 }> {
-  const db = getFirestoreDb();
-  const corte = new Date();
-  corte.setDate(corte.getDate() - (dias - 1));
-  const desde = corte.toISOString().slice(0, 10);
-
-  const snap = await getDocs(
-    query(collection(db, 'ventas'), where('activo', '==', true))
-  );
+  const ventas = await PanelRepoFirestore.ventasActivas();
+  const desde = haceDias(dias - 1);
 
   const porDia = new Map<string, DiaVentas>();
   const hoy = hoyISO();
   const resumenHoy: ResumenHoy = { total_usd_cents: 0, ganancia_usd_cents: 0, ventas_count: 0 };
 
-  for (const d of snap.docs) {
-    const v = d.data() as Venta;
+  for (const v of ventas) {
     if (v.estado === 'CANCELADA') continue;
     const fecha = (v.fecha || '').slice(0, 10);
     if (!fecha || fecha < desde) continue;
@@ -60,11 +57,8 @@ export async function cargarTendenciaDiaria(dias = 7): Promise<{
   }
 
   const serie: DiaVentas[] = [];
-  const cursor = new Date();
   for (let i = dias - 1; i >= 0; i--) {
-    const f = new Date(cursor);
-    f.setDate(cursor.getDate() - i);
-    const clave = f.toISOString().slice(0, 10);
+    const clave = haceDias(i);
     serie.push(porDia.get(clave) ?? { fecha: clave, total_usd_cents: 0, ganancia_usd_cents: 0, cantidad: 0 });
   }
 
@@ -91,9 +85,9 @@ export interface EncargoPendiente {
  */
 export async function cargarEncargosPendientes(): Promise<EncargoPendiente[]> {
   const db = getFirestoreDb();
-  const snap = await getDocs(
-    query(collection(db, 'ventas'), where('activo', '==', true), where('tipo', '==', 'ENCARGO'))
-  );
+  // Las ventas salen de la instantánea del panel; sólo los clientes se leen
+  // acá, y esa colección es chica.
+  const ventas = await PanelRepoFirestore.ventasActivas();
 
   const clientesSnap = await getDocs(query(collection(db, 'clientes'), where('activo', '==', true)));
   const clientes = new Map(
@@ -103,8 +97,8 @@ export async function cargarEncargosPendientes(): Promise<EncargoPendiente[]> {
     })
   );
 
-  return snap.docs
-    .map((d) => d.data() as Venta)
+  return ventas
+    .filter((v) => v.tipo === 'ENCARGO')
     .filter((v) => v.estado === 'COTIZADA' || v.estado === 'PENDIENTE')
     .map((v) => {
       const cliente = v.cliente_id ? clientes.get(v.cliente_id) : undefined;
@@ -141,10 +135,11 @@ export async function obtenerDatosDashboard(forzar = false): Promise<CacheDashbo
   if (!forzar && cacheDashboardGlobal.panel && ahora - cacheDashboardGlobal.tiempo < 45000) {
     return cacheDashboardGlobal;
   }
-  const [panelData, tendencia] = await Promise.all([
-    PanelRepoFirestore.cargar(),
-    cargarTendenciaDiaria(7),
-  ]);
+  // En serie a propósito: `cargarTendenciaDiaria` reutiliza la instantánea
+  // que deja `cargar()`. En paralelo las dos fallarían el caché y volveríamos
+  // a pagar la colección de ventas dos veces.
+  const panelData = await PanelRepoFirestore.cargar();
+  const tendencia = await cargarTendenciaDiaria(7);
   cacheDashboardGlobal.panel = panelData;
   cacheDashboardGlobal.serie = tendencia.serie;
   cacheDashboardGlobal.hoy = tendencia.hoy;

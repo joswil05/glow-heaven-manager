@@ -36,6 +36,7 @@ export interface LineaVentaInput {
 }
 
 import type { PagoInicialInput } from '../../../shared/ipc-contracts';
+import { hoyISO, sumarDiasAFecha } from '../../../core/fechas';
 
 export interface CrearVentaInput {
   cliente_id?: number;
@@ -183,7 +184,7 @@ export class VentasRepoFirestore {
         return cmp !== 0 ? cmp : a.id - b.id;
       });
 
-    const hoy = new Date().toISOString().slice(0, 10);
+    const hoy = hoyISO();
     const cuotas = (data.cuotas || []).map((c) => ({
       ...c,
       vencida: (c.pagado_usd_cents || 0) < c.monto_usd_cents && c.fecha_vencimiento < hoy,
@@ -467,6 +468,9 @@ export class VentasRepoFirestore {
 
       await EventosRepoFirestore.registrarEvento({
         evento_grupo_id,
+        // Una venta que sacó mercadería no se deshace borrando el documento:
+        // las unidades no volverían solas. Se anula, que sí las devuelve.
+        reversible: salidasRealizadas.length === 0,
         entidad_tipo: 'ventas',
         entidad_id: ventaId,
         tipo_evento: 'CREACION',
@@ -519,17 +523,15 @@ export class VentasRepoFirestore {
     const base = Math.floor(total_usd_cents / cantidad);
     const residuo = total_usd_cents - base * cantidad;
 
-    const inicio = new Date(`${plan.primera_fecha ?? fecha_venta}T00:00:00`);
+    const inicio = plan.primera_fecha ?? fecha_venta;
     const cuotas: Cuota[] = [];
 
     for (let i = 0; i < cantidad; i++) {
-      const vence = new Date(inicio);
-      vence.setDate(vence.getDate() + cadaDias * i);
       cuotas.push({
         id: i + 1,
         venta_id,
         numero: i + 1,
-        fecha_vencimiento: vence.toISOString().slice(0, 10),
+        fecha_vencimiento: sumarDiasAFecha(inicio, cadaDias * i),
         monto_usd_cents: i === 0 ? base + residuo : base,
         pagado_usd_cents: 0,
       });
@@ -542,12 +544,16 @@ export class VentasRepoFirestore {
     venta_id: number,
     estado: EstadoVenta,
     evento_grupo_id: string
-  ): Promise<void> {
+  ): Promise<{ reversible: boolean }> {
     const venta = await leerDoc<VentaDoc>('ventas', venta_id);
     if (!venta) throw new Error(`La venta #${venta_id} no existe.`);
-    if (venta.estado === estado) return;
+    if (venta.estado === estado) return { reversible: false };
 
     const anterior = { ...venta } as unknown as Record<string, unknown>;
+
+    // Se enciende si la operación toca existencias: define si "Deshacer"
+    // puede revertirla o no.
+    let movioMercaderia = false;
 
     // Cancelar una venta tiene que anular tambien sus abonos. Sin esto la
     // plata seguia contada como cobrada para una venta que ya no existe: el
@@ -577,11 +583,21 @@ export class VentasRepoFirestore {
       }
     }
 
-    // Cancelar una venta de inventario devuelve la mercadería. Sin esto las
-    // existencias quedan cortas para siempre.
-    if (estado === 'CANCELADA' && venta.tipo === 'INVENTARIO') {
+    // Cancelar devuelve la mercadería, pero sólo la que de verdad salió.
+    //
+    // Una venta de inventario descuenta al crearse: siempre hay que
+    // devolverla. Un encargo NO descuenta al crearse, descuenta al
+    // ENTREGARSE; así que se devuelve únicamente si ya estaba entregado.
+    // Antes la condición era sólo `tipo === 'INVENTARIO'` y cada encargo
+    // entregado que después se anulaba se comía su mercadería para siempre.
+    const salioDelInventario =
+      venta.tipo === 'INVENTARIO' ||
+      (venta.tipo === 'ENCARGO' && venta.estado === 'ENTREGADA');
+
+    if (estado === 'CANCELADA' && salioDelInventario) {
       for (const l of venta.lineas || []) {
         if (!l.producto_id) continue;
+        movioMercaderia = true;
         try {
           await ProductosRepoFirestore.entrada({
             producto_id: l.producto_id,
@@ -615,6 +631,7 @@ export class VentasRepoFirestore {
           .filter((v) => v.activo !== false)
           .reduce((s, v) => s + (v.existencias || 0), 0);
         if (disponibles <= 0) continue;
+        movioMercaderia = true;
 
         await ProductosRepoFirestore.salida({
           producto_id: l.producto_id,
@@ -645,8 +662,14 @@ export class VentasRepoFirestore {
       entidad_id: venta_id,
       tipo_evento: 'ACTUALIZACION',
       valor_anterior: anterior,
+      // Si este cambio de estado movió mercadería, restaurar la instantánea
+      // no alcanza para revertirlo: la venta volvería a estar viva y sus
+      // unidades se quedarían en la bodega, contadas dos veces.
+      reversible: !movioMercaderia,
       detalle: `${venta.codigo}: ${String(venta.estado).toLowerCase()} a ${estado.toLowerCase()}`,
     });
+
+    return { reversible: !movioMercaderia };
   }
 
   /**

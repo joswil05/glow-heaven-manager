@@ -7,6 +7,7 @@ import { formatearMoneda } from '@core/moneda';
 import { useDatosNegocio } from '../context/DataContext';
 import { haptics } from '../lib/haptics';
 import { useScrollReveal } from '../lib/useScrollReveal';
+import { useSnackbar } from '../components/Snackbar';
 
 /** `null` representa "Todos". El resto son los `id` reales de `categorias`,
  * las mismas que la dueña administra en Windows > Configuración > Ganancia
@@ -16,6 +17,7 @@ import { useScrollReveal } from '../lib/useScrollReveal';
 export function InventoryQuickView() {
   const { parametros, categorias, productos, cargandoProductos, recargarProductos } = useDatosNegocio();
 
+  const { mostrar } = useSnackbar();
   const [busqueda, setBusqueda] = useState('');
   const [categoriaActiva, setCategoriaActiva] = useState<number | null>(null);
   const [fichaAbierta, setFichaAbierta] = useState<ProductoConStock | null>(null);
@@ -31,6 +33,9 @@ export function InventoryQuickView() {
       await recargarProductos(true);
     } catch (err) {
       console.error('[InventoryQuickView] Error refrescando inventario:', err);
+      // Sin esto, tirar para refrescar no hace nada visible cuando falla: la
+      // lista queda con los datos viejos y parece que ya está al día.
+      mostrar('No se pudo actualizar el inventario.', 'error');
     }
   };
 

@@ -40,6 +40,7 @@ import { parsearACentavos } from '@core/numeros';
 import { enlaceWhatsApp } from '../lib/whatsapp';
 import { useToast } from '../context/ToastContext';
 import { cn } from '../lib/cn';
+import { hoyISO } from '@core/fechas';
 
 interface CobranzaViewProps {
   clientes: ClienteDetalle[];
@@ -81,7 +82,7 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
   const [abonoMontoTexto, setAbonoMontoTexto] = useState('');
   const [abonoMoneda, setAbonoMoneda] = useState<MonedaPago>('COR');
   const [abonoMetodo, setAbonoMetodo] = useState<MetodoPago>('EFECTIVO');
-  const [abonoFecha, setAbonoFecha] = useState(() => new Date().toISOString().slice(0, 10));
+  const [abonoFecha, setAbonoFecha] = useState(() => hoyISO());
   const [abonoReferencia, setAbonoReferencia] = useState('');
   const [abonoNotas, setAbonoNotas] = useState('');
   const [abonoGuardando, setAbonoGuardando] = useState(false);

@@ -198,8 +198,8 @@ export function registrarHandlers(): void {
     IPC.VENTAS_CAMBIAR_ESTADO,
     async (id: number, estado: Parameters<typeof VentasRepo.cambiarEstado>[1]) => {
       const evento_grupo_id = nuevoGrupo();
-      await VentasRepo.cambiarEstado(id, estado, evento_grupo_id);
-      return { evento_grupo_id };
+      const { reversible } = await VentasRepo.cambiarEstado(id, estado, evento_grupo_id);
+      return { evento_grupo_id, reversible };
     }
   );
 

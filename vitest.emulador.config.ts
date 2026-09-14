@@ -11,7 +11,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['tests/emulador.test.ts'],
+    include: ['tests/emulador.test.ts', 'tests/motor-real/**/*.test.ts'],
     testTimeout: 120_000,
     hookTimeout: 60_000,
     // El emulador es un servidor compartido: en paralelo las suites se

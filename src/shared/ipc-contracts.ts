@@ -34,6 +34,17 @@ export interface ConGrupo {
   evento_grupo_id: string;
 }
 
+/**
+ * Como `ConGrupo`, pero además dice si la acción se puede deshacer.
+ *
+ * Una acción que movió mercadería no se revierte restaurando documentos, así
+ * que la pantalla no debe ofrecer "Deshacer": la usuaria lo apretaría y sólo
+ * recibiría una negativa.
+ */
+export interface ConGrupoReversible extends ConGrupo {
+  reversible: boolean;
+}
+
 // ---------------------------------------------------------------------------
 // Inventario
 // ---------------------------------------------------------------------------
@@ -249,7 +260,8 @@ export interface GuardarClienteInput {
 export interface CategoriaInput {
   id?: number;
   nombre: string;
-  margen_defecto_bp: number;
+  /** Si no viene, la categoría hereda el margen global. */
+  margen_defecto_bp?: number;
 }
 
 export interface EstadoNube {
@@ -323,7 +335,7 @@ export interface ApiPuente {
     list(filtros?: FiltrosVenta): Promise<Resultado<Venta[]>>;
     get(id: number): Promise<Resultado<VentaCompleta | null>>;
     crear(input: CrearVentaInput): Promise<Resultado<ConGrupo & { id: number }>>;
-    cambiarEstado(id: number, estado: EstadoVenta): Promise<Resultado<ConGrupo>>;
+    cambiarEstado(id: number, estado: EstadoVenta): Promise<Resultado<ConGrupoReversible>>;
   };
   pagos: {
     registrar(input: RegistrarPagoInput): Promise<Resultado<ResultadoPago>>;

@@ -425,4 +425,14 @@ export interface EventoAuditoria {
   valor_nuevo?: string;
   detalle?: string;
   timestamp?: string;
+  /**
+   * Si esta acción se puede deshacer restaurando documentos.
+   *
+   * `deshacerGrupo` sabe reponer documentos, no mover mercadería. Una acción
+   * que además movió existencias (cancelar una venta que ya había salido del
+   * inventario, entregar un encargo) no se puede revertir así: restaurar el
+   * documento dejaría la venta viva y la mercadería contada dos veces. Esas
+   * se marcan con `false` y se rechazan enteras en vez de revertirse a medias.
+   */
+  reversible?: boolean;
 }

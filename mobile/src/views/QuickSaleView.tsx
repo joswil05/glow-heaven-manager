@@ -181,7 +181,12 @@ export function QuickSaleView() {
       .then((lista) => {
         if (vivo) setClienteResultados(lista.slice(0, 25));
       })
-      .catch((err) => console.error('[QuickSaleView] Error listando clientas:', err));
+      .catch((err) => {
+        console.error('[QuickSaleView] Error listando clientas:', err);
+        // Si esto falla en silencio, la lista queda vacía y parece que la
+        // clienta no existe: se termina creando una repetida.
+        if (vivo) mostrar('No se pudo buscar. Revisá la conexión.', 'error');
+      });
     return () => {
       vivo = false;
     };

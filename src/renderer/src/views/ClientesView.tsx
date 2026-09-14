@@ -23,6 +23,7 @@ import { formatearMoneda, formatearFecha } from '@core/moneda';
 import { parsearACentavos } from '@core/numeros';
 import { cn } from '../lib/cn';
 import { formatearNombreEntidad } from '@shared/formatoTexto';
+import { hoyISO } from '@core/fechas';
 
 interface ClientesViewProps {
   parametros?: ParametrosSistema | null;
@@ -62,7 +63,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
   const [abonoMontoTexto, setAbonoMontoTexto] = useState('');
   const [abonoMetodo, setAbonoMetodo] = useState<MetodoPago>('EFECTIVO');
   const [abonoMoneda, setAbonoMoneda] = useState<MonedaPago>('COR');
-  const [abonoFecha, setAbonoFecha] = useState(() => new Date().toISOString().slice(0, 10));
+  const [abonoFecha, setAbonoFecha] = useState(() => hoyISO());
   const [abonoReferencia, setAbonoReferencia] = useState('');
 
   const cargar = useCallback(async () => {

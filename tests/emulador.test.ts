@@ -272,12 +272,19 @@ describe('contra el emulador oficial de Firestore', () => {
   );
 
   it.skipIf(!disponible)(
-    'las consultas ordenadas funcionan con los índices declarados',
+    'las consultas ordenadas devuelven lo que deben, en orden',
     async () => {
       const { Productos, Pagos, Ventas } = await repos();
 
-      // orderBy + where: si faltara un índice compuesto, el SDK real lanza
-      // "The query requires an index". El motor falso nunca lo detectaría.
+      // Esto comprueba que las consultas ordenadas devuelven lo que deben y
+      // en el orden correcto.
+      //
+      // Lo que NO comprueba es que los índices estén declarados: se verificó
+      // plantando consultas sin índice y el emulador las ejecuta igual, sin
+      // quejarse. Sólo la base de producción rechaza una consulta sin índice,
+      // y lo hace en silencio para el usuario (la pantalla queda vacía).
+      // De eso se encarga `scripts/auditar-indices.mjs`, que contrasta las
+      // consultas del código contra `firestore.indexes.json` sin red.
       const p = await Productos.crear(
         { nombre: 'Movido', stock_inicial: { cantidad: 1, costo_unitario_usd_cents: 100 } },
         g()

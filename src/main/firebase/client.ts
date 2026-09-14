@@ -171,10 +171,20 @@ const MAX_OPERACIONES_LOTE = 500;
  * Aplica un conjunto de escrituras en lotes de 500, que es el máximo de
  * Firestore. Escribir en un bucle de `setDoc` cuesta un viaje de red por
  * documento; un lote cuesta uno por cada 500.
+ *
+ * ATENCIÓN con la atomicidad: UN lote es todo-o-nada, dos lotes NO. Si la
+ * operación pasa de 500 escrituras y falla el segundo trozo, el primero ya
+ * quedó guardado y no hay vuelta atrás. El umbral está medido en
+ * `tests/atomicidad.test.ts`: recibir un paquete se parte alrededor de las
+ * 99 líneas, y cambiar el margen global alrededor de los 498 productos.
+ *
+ * Cuando pasa, el error dice cuánto alcanzó a escribirse. Antes se propagaba
+ * pelado y no había forma de saber si la base había quedado a medias.
  */
 export async function aplicarLote(operaciones: OperacionLote[]): Promise<number> {
   if (operaciones.length === 0) return 0;
   const db = getFirestoreDb();
+  let confirmadas = 0;
 
   for (let i = 0; i < operaciones.length; i += MAX_OPERACIONES_LOTE) {
     const trozo = operaciones.slice(i, i + MAX_OPERACIONES_LOTE);
@@ -189,7 +199,19 @@ export async function aplicarLote(operaciones: OperacionLote[]): Promise<number>
       }
     }
 
-    await lote.commit();
+    try {
+      await lote.commit();
+      confirmadas += trozo.length;
+    } catch (err) {
+      if (confirmadas > 0) {
+        const detalle = err instanceof Error ? err.message : String(err);
+        throw new Error(
+          `La operación quedó a medias: se guardaron ${confirmadas} de ${operaciones.length} ` +
+            `cambios antes de fallar. Volvé a intentarla para completar lo que falta. (${detalle})`
+        );
+      }
+      throw err;
+    }
   }
 
   return operaciones.length;

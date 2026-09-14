@@ -4,6 +4,7 @@ import { ProductosRepoFirestore } from './productos.repo';
 import { type VentaDoc } from './ventas.repo';
 import { ClientesRepoFirestore } from './clientes.repo';
 import { formatearMoneda } from '../../../core/moneda';
+import { hoyISO, mesISO, haceDias } from '../../../core/fechas';
 import type {
   PanelData,
   ResumenFinanciero,
@@ -34,14 +35,15 @@ interface Instantanea {
 }
 
 function mesActual(): string {
-  return new Date().toISOString().slice(0, 7);
+  return mesISO();
 }
 
-function mesAnterior(): string {
-  const d = new Date();
-  d.setDate(1);
-  d.setMonth(d.getMonth() - 1);
-  return d.toISOString().slice(0, 7);
+/** El mes anterior al del calendario del negocio, sin pasar por `Date`. */
+function mesAnterior(mesBase = mesISO()): string {
+  const [anio, mes] = mesBase.split('-').map(Number);
+  return mes === 1
+    ? `${anio - 1}-12`
+    : `${anio}-${String(mes - 1).padStart(2, '0')}`;
 }
 
 function mesVacio(mes: string): GananciaMes {
@@ -152,13 +154,11 @@ function calcularHistorico(s: Instantanea, meses: number): GananciaMes[] {
   }
 
   const serie: GananciaMes[] = [];
-  const cursor = new Date();
-  cursor.setDate(1);
+  let clave = mesActual();
 
   for (let i = 0; i < meses; i++) {
-    const clave = cursor.toISOString().slice(0, 7);
     serie.unshift(porMes.get(clave) ?? mesVacio(clave));
-    cursor.setMonth(cursor.getMonth() - 1);
+    clave = mesAnterior(clave);
   }
 
   return serie;
@@ -166,7 +166,7 @@ function calcularHistorico(s: Instantanea, meses: number): GananciaMes[] {
 
 function calcularPorCobrar(s: Instantanea, limite: number): FilaPorCobrar[] {
   const cliMap = new Map(s.clientes.map((c) => [c.id, c]));
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = hoyISO();
   const lista: FilaPorCobrar[] = [];
 
   for (const v of s.ventas) {
@@ -219,9 +219,7 @@ function calcularBajoStock(s: Instantanea, limite: number): FilaBajoStock[] {
 }
 
 function calcularRotacion(s: Instantanea): FilaRotacion[] {
-  const hace90d = new Date();
-  hace90d.setDate(hace90d.getDate() - 90);
-  const desde = hace90d.toISOString().slice(0, 10);
+  const desde = haceDias(90);
 
   const stats = new Map<number, { unidades: number; ganancia: number }>();
 
@@ -250,7 +248,7 @@ function calcularRotacion(s: Instantanea): FilaRotacion[] {
 
 function calcularAlertas(s: Instantanea): Alerta[] {
   const alertas: Alerta[] = [];
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = hoyISO();
   const cliMap = new Map(s.clientes.map((c) => [c.id, c.nombre]));
 
   // 1. Cuotas vencidas
@@ -277,9 +275,7 @@ function calcularAlertas(s: Instantanea): Alerta[] {
   }
 
   // 2. Encargos con anticipo cobrado que llevan más de una semana
-  const hace7d = new Date();
-  hace7d.setDate(hace7d.getDate() - 7);
-  const limite7d = hace7d.toISOString().slice(0, 10);
+  const limite7d = haceDias(7);
 
   for (const v of s.ventas) {
     if (v.tipo !== 'ENCARGO' || v.estado !== 'PENDIENTE' || v.fecha > limite7d) continue;
@@ -390,6 +386,18 @@ export class PanelRepoFirestore {
 
   // Los métodos sueltos existen para consultas puntuales. Quien necesite
   // varios a la vez debe usar `cargar()`, que comparte la instantánea.
+
+  /**
+   * Las ventas activas de la instantánea, sin volver a leerlas.
+   *
+   * El panel ya trae la colección entera para calcular sus tarjetas. Quien
+   * necesite las mismas ventas para otra cosa (la tendencia diaria del panel
+   * móvil, por ejemplo) tiene que pedirlas por acá: consultarlas de nuevo
+   * cuesta una lectura por venta, y esa cuenta crece con el negocio.
+   */
+  static async ventasActivas(): Promise<VentaDoc[]> {
+    return (await tomarInstantanea()).ventas;
+  }
 
   static async resumen(): Promise<ResumenFinanciero> {
     return calcularResumen(await tomarInstantanea());

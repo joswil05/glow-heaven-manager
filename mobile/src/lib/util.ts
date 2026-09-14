@@ -28,6 +28,6 @@ export function linkWhatsapp(telefono: string | undefined | null, mensaje: strin
   return numero ? `https://wa.me/${numero}?text=${texto}` : `https://wa.me/?text=${texto}`;
 }
 
-export function hoyISO(): string {
-  return new Date().toISOString().slice(0, 10);
-}
+// La fecha del negocio vive en `@core/fechas`, compartida con la app de
+// escritorio: las dos tienen que estar de acuerdo en qué día es hoy.
+export { hoyISO } from '@core/fechas';

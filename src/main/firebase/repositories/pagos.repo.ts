@@ -1,12 +1,15 @@
-import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 import {
-  getFirestoreDb,
-  siguienteId,
-  leerDoc,
-  aplicarLote,
-  sinUndefined,
-  type OperacionLote,
-} from '../client';
+  collection,
+  getDocs,
+  query,
+  where,
+  orderBy,
+  limit,
+  doc,
+  runTransaction,
+} from 'firebase/firestore';
+import { getFirestoreDb, siguienteId, leerDoc, sinUndefined } from '../client';
+
 import { type VentaDoc } from './ventas.repo';
 import { ClientesRepoFirestore } from './clientes.repo';
 import { EventosRepoFirestore } from './eventos.repo';
@@ -75,93 +78,92 @@ export class PagosRepoFirestore {
     const monto = Math.max(0, Math.round(input.monto_cents));
     if (monto === 0) throw new Error('El monto del pago tiene que ser mayor que cero.');
 
-    const [venta, pagosSnap] = await Promise.all([
-      leerDoc<VentaDoc>('ventas', input.venta_id),
-      getDocs(
-        query(
-          collection(db, 'pagos'),
-          where('venta_id', '==', input.venta_id),
-          where('activo', '==', true)
-        )
-      ),
-    ]);
-
-    if (!venta) throw new Error(`La venta #${input.venta_id} no existe.`);
-    if (venta.estado === 'CANCELADA') {
-      throw new Error('No se puede registrar un pago en una venta cancelada.');
-    }
-
-    const pagosPrevios = pagosSnap.docs.map((d) => d.data() as Pago);
-    const totalPrevio = pagosPrevios.reduce((s, p) => s + (p.monto_usd_cents || 0), 0);
-
-    // La tasa congelada de la venta, no la de hoy: si no, un abono de la
-    // semana pasada cambia de valor cada vez que se mueve el tipo de cambio.
-    const tasa = venta.tasa_cambio_cents || 3662;
-    const montoUsd = input.moneda === 'COR' ? Math.round((monto * 100) / tasa) : monto;
-    const montoCor = input.moneda === 'COR' ? monto : Math.round((monto * tasa) / 100);
-
     const pagoId = await siguienteId('pagos');
     const now = new Date().toISOString();
 
-    const nuevoPago: Pago = {
-      id: pagoId,
-      venta_id: input.venta_id,
-      cliente_id: venta.cliente_id,
-      fecha: input.fecha,
-      monto_usd_cents: montoUsd,
-      monto_cor_cents: montoCor,
-      moneda: input.moneda,
-      tasa_cambio_cents: tasa,
-      metodo: input.metodo,
-      referencia: input.referencia?.trim() || undefined,
-      es_anticipo:
-        input.es_anticipo ?? (venta.tipo === 'ENCARGO' && totalPrevio === 0),
-      cuota_id: input.cuota_id,
-      notas: input.notas?.trim() || undefined,
-      activo: true,
-      creado_en: now,
-    };
+    // El pago y el saldo de la venta se escriben en UNA transacción.
+    //
+    // Antes esto era leer-calcular-escribir sin transacción: la misma venta
+    // cobrada al mismo tiempo desde Windows y desde el celular creaba los dos
+    // documentos de pago, pero cada uno escribía el saldo que había leído, y
+    // el último pisaba al otro. La venta quedaba debiendo plata que la clienta
+    // ya había pagado. La transacción reintenta sola si alguien tocó la venta
+    // en el medio.
+    const resultado = await runTransaction(db, async (tx) => {
+      const ventaRef = doc(db, 'ventas', String(input.venta_id));
+      const snap = await tx.get(ventaRef);
+      if (!snap.exists()) throw new Error(`La venta #${input.venta_id} no existe.`);
 
-    const pagado = totalPrevio + montoUsd;
-    const saldo = (venta.total_usd_cents || 0) - pagado;
+      const venta = snap.data() as VentaDoc;
+      if (venta.estado === 'CANCELADA') {
+        throw new Error('No se puede registrar un pago en una venta cancelada.');
+      }
 
-    const anticipoEsperado = venta.anticipo_esperado_usd_cents || 0;
-    const anticipoCubierto = anticipoEsperado > 0 && pagado >= anticipoEsperado;
+      const totalPrevio = venta.pagado_usd_cents || 0;
 
-    const cambiosVenta: Record<string, unknown> = {
-      pagado_usd_cents: pagado,
-      saldo_usd_cents: saldo,
-      actualizado_en: now,
-    };
+      // La tasa congelada de la venta, no la de hoy: si no, un abono de la
+      // semana pasada cambia de valor cada vez que se mueve el tipo de cambio.
+      const tasa = venta.tasa_cambio_cents || 3662;
+      const montoUsd = input.moneda === 'COR' ? Math.round((monto * 100) / tasa) : monto;
+      const montoCor = input.moneda === 'COR' ? monto : Math.round((monto * tasa) / 100);
 
-    if ((venta.cuotas || []).length > 0) {
-      cambiosVenta.cuotas = repartirEnCuotas(venta.cuotas!, pagado);
-    }
-
-    // Un encargo con el anticipo cubierto pasa a PENDIENTE: ya se puede comprar.
-    if (venta.tipo === 'ENCARGO' && venta.estado === 'COTIZADA' && anticipoCubierto) {
-      cambiosVenta.estado = 'PENDIENTE';
-    }
-
-    const operaciones: OperacionLote[] = [
-      {
-        coleccion: 'pagos',
+      const nuevoPago: Pago = {
         id: pagoId,
-        merge: false,
-        datos: sinUndefined(nuevoPago as unknown as Record<string, unknown>),
-      },
-      { coleccion: 'ventas', id: input.venta_id, datos: cambiosVenta, merge: true },
-    ];
+        venta_id: input.venta_id,
+        cliente_id: venta.cliente_id,
+        fecha: input.fecha,
+        monto_usd_cents: montoUsd,
+        monto_cor_cents: montoCor,
+        moneda: input.moneda,
+        tasa_cambio_cents: tasa,
+        metodo: input.metodo,
+        referencia: input.referencia?.trim() || undefined,
+        es_anticipo: input.es_anticipo ?? (venta.tipo === 'ENCARGO' && totalPrevio === 0),
+        cuota_id: input.cuota_id,
+        notas: input.notas?.trim() || undefined,
+        activo: true,
+        creado_en: now,
+      };
 
-    await aplicarLote(operaciones);
-    await ClientesRepoFirestore.refrescarTotales(venta.cliente_id);
+      const pagado = totalPrevio + montoUsd;
+      const saldo = (venta.total_usd_cents || 0) - pagado;
+
+      const anticipoEsperado = venta.anticipo_esperado_usd_cents || 0;
+      const anticipoCubierto = anticipoEsperado > 0 && pagado >= anticipoEsperado;
+
+      const cambiosVenta: Record<string, unknown> = {
+        pagado_usd_cents: pagado,
+        saldo_usd_cents: saldo,
+        actualizado_en: now,
+      };
+
+      if ((venta.cuotas || []).length > 0) {
+        cambiosVenta.cuotas = repartirEnCuotas(venta.cuotas!, pagado);
+      }
+
+      // Un encargo con el anticipo cubierto pasa a PENDIENTE: ya se puede comprar.
+      if (venta.tipo === 'ENCARGO' && venta.estado === 'COTIZADA' && anticipoCubierto) {
+        cambiosVenta.estado = 'PENDIENTE';
+      }
+
+      tx.set(
+        doc(db, 'pagos', String(pagoId)),
+        sinUndefined(nuevoPago as unknown as Record<string, unknown>)
+      );
+      tx.set(ventaRef, cambiosVenta, { merge: true });
+
+      return { pagado, saldo, anticipoCubierto, cliente_id: venta.cliente_id, codigo: venta.codigo };
+    });
+
+    const { pagado, saldo, anticipoCubierto } = resultado;
+    await ClientesRepoFirestore.refrescarTotales(resultado.cliente_id);
 
     await EventosRepoFirestore.registrarEvento({
       evento_grupo_id,
       entidad_tipo: 'pagos',
       entidad_id: pagoId,
       tipo_evento: 'CREACION',
-      detalle: `Abono de ${formatearMoneda(monto, input.moneda === 'COR' ? 'COR' : 'USD')} en ${venta.codigo}`,
+      detalle: `Abono de ${formatearMoneda(monto, input.moneda === 'COR' ? 'COR' : 'USD')} en ${resultado.codigo}`,
     });
 
     return {
@@ -180,55 +182,54 @@ export class PagosRepoFirestore {
 
     const db = getFirestoreDb();
     const ventaId = Number(anterior.venta_id);
-
-    const [venta, pagosSnap] = await Promise.all([
-      leerDoc<VentaDoc>('ventas', ventaId),
-      getDocs(
-        query(
-          collection(db, 'pagos'),
-          where('venta_id', '==', ventaId),
-          where('activo', '==', true)
-        )
-      ),
-    ]);
-
-    if (!venta) throw new Error(`La venta #${ventaId} no existe.`);
-
-    const pagado = pagosSnap.docs
-      .map((d) => d.data() as Pago)
-      .filter((p) => p.id !== pago_id)
-      .reduce((s, p) => s + (p.monto_usd_cents || 0), 0);
-
-    const saldo = (venta.total_usd_cents || 0) - pagado;
     const now = new Date().toISOString();
 
-    const cambiosVenta: Record<string, unknown> = {
-      pagado_usd_cents: pagado,
-      saldo_usd_cents: saldo,
-      actualizado_en: now,
-    };
+    // Igual que al registrar: la baja del pago y el saldo de la venta van en
+    // la misma transacción, para que dos anulaciones simultáneas no se pisen.
+    const cliente_id = await runTransaction(db, async (tx) => {
+      const ventaRef = doc(db, 'ventas', String(ventaId));
+      const pagoRef = doc(db, 'pagos', String(pago_id));
 
-    if ((venta.cuotas || []).length > 0) {
-      cambiosVenta.cuotas = repartirEnCuotas(venta.cuotas!, pagado);
-    }
+      const [ventaSnap, pagoSnap] = await Promise.all([tx.get(ventaRef), tx.get(pagoRef)]);
+      if (!ventaSnap.exists()) throw new Error(`La venta #${ventaId} no existe.`);
 
-    // Si el anticipo deja de estar cubierto, el encargo vuelve a COTIZADA.
-    const anticipoEsperado = venta.anticipo_esperado_usd_cents || 0;
-    if (
-      venta.tipo === 'ENCARGO' &&
-      venta.estado === 'PENDIENTE' &&
-      anticipoEsperado > 0 &&
-      pagado < anticipoEsperado
-    ) {
-      cambiosVenta.estado = 'COTIZADA';
-    }
+      const venta = ventaSnap.data() as VentaDoc;
+      const pago = pagoSnap.exists() ? (pagoSnap.data() as Pago) : null;
 
-    await aplicarLote([
-      { coleccion: 'pagos', id: pago_id, datos: { activo: false, actualizado_en: now }, merge: true },
-      { coleccion: 'ventas', id: ventaId, datos: cambiosVenta, merge: true },
-    ]);
+      // Si otro dispositivo lo anuló mientras tanto, no hay nada que devolver.
+      if (!pago || pago.activo === false) return venta.cliente_id;
 
-    await ClientesRepoFirestore.refrescarTotales(venta.cliente_id);
+      const pagado = Math.max(0, (venta.pagado_usd_cents || 0) - (pago.monto_usd_cents || 0));
+      const saldo = (venta.total_usd_cents || 0) - pagado;
+
+      const cambiosVenta: Record<string, unknown> = {
+        pagado_usd_cents: pagado,
+        saldo_usd_cents: saldo,
+        actualizado_en: now,
+      };
+
+      if ((venta.cuotas || []).length > 0) {
+        cambiosVenta.cuotas = repartirEnCuotas(venta.cuotas!, pagado);
+      }
+
+      // Si el anticipo deja de estar cubierto, el encargo vuelve a COTIZADA.
+      const anticipoEsperado = venta.anticipo_esperado_usd_cents || 0;
+      if (
+        venta.tipo === 'ENCARGO' &&
+        venta.estado === 'PENDIENTE' &&
+        anticipoEsperado > 0 &&
+        pagado < anticipoEsperado
+      ) {
+        cambiosVenta.estado = 'COTIZADA';
+      }
+
+      tx.set(pagoRef, { activo: false, actualizado_en: now }, { merge: true });
+      tx.set(ventaRef, cambiosVenta, { merge: true });
+
+      return venta.cliente_id;
+    });
+
+    await ClientesRepoFirestore.refrescarTotales(cliente_id);
 
     await EventosRepoFirestore.registrarEvento({
       evento_grupo_id,

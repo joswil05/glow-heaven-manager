@@ -96,11 +96,16 @@ export function costearPaquete(
   const envioTotal = Math.max(0, entero(params.envio_total_usd_cents));
   const otrosTotal = Math.max(0, entero(params.otros_costos_usd_cents));
 
+  // El reparto se indexa por POSICIÓN, no por el id que venga en la línea.
+  // Indexar por id es frágil: dos líneas con el mismo id colapsan en una sola
+  // entrada del mapa y el envío se les asigna dos veces, con lo que la suma de
+  // las líneas deja de cuadrar con el total del paquete.
   const normalizadas = lineas.map((l, idx) => {
     const cantidad = Math.max(1, entero(l.cantidad, 1));
     const precio = Math.max(0, entero(l.precio_linea_usd_cents));
     const peso = Math.max(0, entero(l.peso_linea_mlb));
     return {
+      clave: idx,
       id: l.id ?? idx + 1,
       cantidad,
       precio_linea_usd_cents: precio,
@@ -122,7 +127,7 @@ export function costearPaquete(
   // Tax: si el usuario dio el total del recibo, ese manda y se reparte por
   // valor. Si no, cada línea paga su porcentaje.
   const basesValor = normalizadas.map((l) => ({
-    id: l.id,
+    id: l.clave,
     base_valor: l.precio_linea_usd_cents,
   }));
 
@@ -139,12 +144,12 @@ export function costearPaquete(
         l.tax_declarado !== null
           ? l.tax_declarado
           : Math.round((l.precio_linea_usd_cents * taxBp) / 10000);
-      taxPorLinea.set(l.id, calculado);
+      taxPorLinea.set(l.clave, calculado);
     }
   }
 
   const taxTotalFinal = normalizadas.reduce(
-    (acc, l) => acc + (taxPorLinea.get(l.id) ?? 0),
+    (acc, l) => acc + (taxPorLinea.get(l.clave) ?? 0),
     0
   );
 
@@ -152,16 +157,16 @@ export function costearPaquete(
   // por unidad, que es lo menos malo cuando falta el dato.
   const basesPeso =
     pesoTotal > 0
-      ? normalizadas.map((l) => ({ id: l.id, base_valor: l.peso_linea_mlb }))
-      : normalizadas.map((l) => ({ id: l.id, base_valor: l.cantidad }));
+      ? normalizadas.map((l) => ({ id: l.clave, base_valor: l.peso_linea_mlb }))
+      : normalizadas.map((l) => ({ id: l.clave, base_valor: l.cantidad }));
 
   const envioPorLinea = repartirMayorResiduo(envioTotal, basesPeso);
   const otrosPorLinea = repartirMayorResiduo(otrosTotal, basesPeso);
 
   const lineasCosteadas: CompraLineaCosteada[] = normalizadas.map((l) => {
-    const tax = taxPorLinea.get(l.id) ?? 0;
-    const envio = envioPorLinea.get(l.id) ?? 0;
-    const otros = otrosPorLinea.get(l.id) ?? 0;
+    const tax = taxPorLinea.get(l.clave) ?? 0;
+    const envio = envioPorLinea.get(l.clave) ?? 0;
+    const otros = otrosPorLinea.get(l.clave) ?? 0;
     const costoLinea = l.precio_linea_usd_cents + tax + envio + otros;
 
     return {
