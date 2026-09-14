@@ -9,19 +9,18 @@
  * de un `try/catch` que sólo hace `console.error`, la pantalla se queda vacía
  * como si el negocio no tuviera datos. Ya pasó dos veces en este proyecto.
  *
- * Y no se puede confiar en el emulador para detectarlo: se comprobó que el
- * emulador oficial ejecuta sin quejarse consultas que en producción exigen un
- * índice declarado (ver `tests/motor-real/indices.test.ts`). Por eso la
- * verificación es estática: se leen todas las consultas del código fuente de
- * las DOS apps y se contrastan contra `firestore.indexes.json`.
+ * Y no se puede confiar en el emulador para detectarlo: se comprobó plantando
+ * consultas sin índice que el emulador oficial las ejecuta sin quejarse. Por
+ * eso la verificación es estática: se leen todas las consultas del código
+ * fuente de las DOS apps y se contrastan contra `firestore.indexes.json`.
  *
  * Qué comprueba
  * -------------
  *   1. Toda consulta que necesita índice compuesto lo tiene declarado.
  *   2. Toda consulta que se resuelve sola (un solo campo, o sólo igualdades)
  *      queda anotada como tal, para que se vea por qué no hace falta índice.
- *   3. Índices declarados que ninguna consulta usa: no rompen nada, pero se
- *      pagan en cada escritura de esa colección.
+ *   3. Índices declarados que ninguna consulta aprovecha: no rompen nada, pero
+ *      se pagan en cada escritura de esa colección.
  *
  * Reglas de Firestore que se aplican
  * ----------------------------------
@@ -342,26 +341,31 @@ for (const consulta of consultas) {
 }
 
 /**
- * Un índice que ninguna consulta *necesita* puede seguir siendo útil: si sus
- * campos son exactamente las igualdades de alguna consulta, Firestore lo usa
- * para resolverla de una pasada en vez de combinar índices sueltos. Eso es
- * optimización, no obligación. Lo que no le sirve a ninguna consulta es peso
- * muerto: se escribe en cada alta de esa colección y no se lee nunca.
+ * Un índice que ninguna consulta *necesita* puede seguir siendo útil.
+ *
+ * Firestore resuelve una consulta con un índice cuyos PRIMEROS campos son los
+ * de igualdad: un índice (activo, fecha) sirve para `where activo == true`
+ * aunque nadie ordene por fecha, y lo hace de una pasada en vez de combinar
+ * índices sueltos. Eso es optimización, no obligación.
+ *
+ * (Una versión anterior de esta comprobación exigía coincidencia exacta y
+ * marcaba como muerto un índice que sí se usaba. Comparar por prefijo es lo
+ * que hace el planificador de verdad.)
  */
 const opcionales = [];
 const muertos = [];
 for (const i of indices) {
   if (usados.has(JSON.stringify(i))) continue;
-  const campos = i.fields.map((f) => f.fieldPath).sort().join('|');
   const acelera = consultas.some((c) => {
     if (c.coleccion !== i.collectionGroup) return false;
     if (c.ordenes.length > 0) return false;
-    const igualdades = c.filtros
-      .filter(([, op]) => OPS_IGUALDAD.has(op))
-      .map(([campo]) => campo)
-      .sort()
-      .join('|');
-    return igualdades !== '' && igualdades === campos;
+    const igualdades = [
+      ...new Set(c.filtros.filter(([, op]) => OPS_IGUALDAD.has(op)).map(([campo]) => campo)),
+    ];
+    if (igualdades.length === 0) return false;
+    // Prefijo: los primeros N campos del índice son justo las igualdades.
+    const prefijo = i.fields.slice(0, igualdades.length).map((f) => f.fieldPath).sort();
+    return prefijo.join('|') === [...igualdades].sort().join('|');
   });
   (acelera ? opcionales : muertos).push(i);
 }
