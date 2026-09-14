@@ -1,9 +1,28 @@
 import type { VentaCompleta, ParametrosSistema, CuentaBancaria } from '../../shared/types';
-import { formatearMoneda, formatearFecha } from '../moneda';
+import { formatearMoneda } from '../moneda';
 
 /**
  * Escapa caracteres especiales para evitar inyección de HTML en documentos generados.
  */
+const MESES = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+];
+
+/**
+ * Fecha completa para un documento.
+ *
+ * `formatearFecha` omite el año cuando es el año en curso, que esta bien en
+ * una pantalla —el contexto es hoy— pero no en un comprobante: se archiva y
+ * se lee meses o anos despues, cuando "14 sep" ya no dice de que ano es.
+ */
+function fechaDocumento(iso: string | undefined | null): string {
+  if (!iso) return '';
+  const [a, m, d] = iso.slice(0, 10).split('-').map(Number);
+  if (!a || !m || !d) return String(iso ?? '');
+  return `${d} de ${MESES[m - 1] ?? m} de ${a}`;
+}
+
 export function escaparHtml(texto: unknown): string {
   if (texto === null || texto === undefined) return '';
   return String(texto)
@@ -73,7 +92,7 @@ export function generarHtmlFactura(venta: VentaCompleta, parametros: ParametrosS
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      border-bottom: 2px solid #e2e8f0;
+      border-bottom: 2px solid #d9d9d9;
       padding-bottom: 20px;
       margin-bottom: 24px;
     }
@@ -81,7 +100,7 @@ export function generarHtmlFactura(venta: VentaCompleta, parametros: ParametrosS
     .brand-title {
       font-size: 26px;
       font-weight: 800;
-      color: #0f172a;
+      color: #1a1a1a;
       letter-spacing: -0.5px;
     }
 
@@ -96,7 +115,7 @@ export function generarHtmlFactura(venta: VentaCompleta, parametros: ParametrosS
 
     .brand-contact {
       font-size: 11px;
-      color: #64748b;
+      color: #666666;
       margin-top: 4px;
     }
 
@@ -107,7 +126,7 @@ export function generarHtmlFactura(venta: VentaCompleta, parametros: ParametrosS
     .doc-type {
       font-size: 18px;
       font-weight: 800;
-      color: #0f172a;
+      color: #1a1a1a;
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
@@ -122,14 +141,14 @@ export function generarHtmlFactura(venta: VentaCompleta, parametros: ParametrosS
 
     .doc-date {
       font-size: 12px;
-      color: #64748b;
+      color: #666666;
       margin-top: 4px;
     }
 
     .client-card {
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
+      background: #fafafa;
+      border: 1px solid #d9d9d9;
+      border-radius: 2px;
       padding: 16px 20px;
       margin-bottom: 24px;
       display: grid;
@@ -141,14 +160,14 @@ export function generarHtmlFactura(venta: VentaCompleta, parametros: ParametrosS
       font-size: 10px;
       font-weight: 700;
       text-transform: uppercase;
-      color: #64748b;
+      color: #666666;
       letter-spacing: 0.5px;
     }
 
     .client-value {
       font-size: 13px;
       font-weight: 600;
-      color: #0f172a;
+      color: #1a1a1a;
       margin-top: 2px;
     }
 
@@ -159,31 +178,31 @@ export function generarHtmlFactura(venta: VentaCompleta, parametros: ParametrosS
     }
 
     table.items-table th {
-      background: #f1f5f9;
-      color: #475569;
+      background: #f2f2f2;
+      color: #444444;
       font-size: 11px;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       padding: 10px 12px;
       text-align: left;
-      border-bottom: 2px solid #cbd5e1;
+      border-bottom: 2px solid #cccccc;
     }
 
     table.items-table td {
       padding: 12px;
       font-size: 13px;
-      border-bottom: 1px solid #e2e8f0;
+      border-bottom: 1px solid #d9d9d9;
     }
 
     .item-desc {
       font-weight: 600;
-      color: #0f172a;
+      color: #1a1a1a;
     }
 
     .item-variant {
       font-size: 11px;
-      color: #64748b;
+      color: #666666;
       margin-top: 2px;
     }
 
@@ -198,20 +217,20 @@ export function generarHtmlFactura(venta: VentaCompleta, parametros: ParametrosS
     .status-badge-container {
       flex: 1;
       padding: 14px;
-      border-radius: 10px;
-      border: 1px dashed;
+      border-radius: 2px;
+      border: 1px solid #d9d9d9;
     }
 
     .status-paid {
-      background: #ecfdf5;
-      border-color: #10b981;
-      color: #065f46;
+      background: #fafafa;
+      border-color: #059669;
+      color: #1a1a1a;
     }
 
     .status-pending {
-      background: #fffbeb;
-      border-color: #f59e0b;
-      color: #92400e;
+      background: #fafafa;
+      border-color: #999999;
+      color: #1a1a1a;
     }
 
     .totals-table {
@@ -225,21 +244,21 @@ export function generarHtmlFactura(venta: VentaCompleta, parametros: ParametrosS
     }
 
     .totals-table td.label {
-      color: #64748b;
+      color: #666666;
     }
 
     .totals-table td.value {
       text-align: right;
       font-weight: 600;
-      color: #0f172a;
+      color: #1a1a1a;
     }
 
     .totals-table tr.total-row td {
-      border-top: 2px solid #0f172a;
+      border-top: 2px solid #1a1a1a;
       padding-top: 8px;
       font-size: 16px;
       font-weight: 800;
-      color: #0f172a;
+      color: #1a1a1a;
     }
 
     .totals-table tr.total-cor td {
@@ -254,9 +273,9 @@ export function generarHtmlFactura(venta: VentaCompleta, parametros: ParametrosS
     }
 
     .bank-accounts {
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 10px;
+      background: #fafafa;
+      border: 1px solid #d9d9d9;
+      border-radius: 2px;
       padding: 14px 16px;
       margin-bottom: 24px;
       font-size: 11px;
@@ -265,7 +284,7 @@ export function generarHtmlFactura(venta: VentaCompleta, parametros: ParametrosS
     .bank-title {
       font-weight: 700;
       text-transform: uppercase;
-      color: #475569;
+      color: #444444;
       margin-bottom: 6px;
     }
 
@@ -274,15 +293,15 @@ export function generarHtmlFactura(venta: VentaCompleta, parametros: ParametrosS
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 6px;
-      color: #334155;
+      color: #333333;
     }
 
     .footer {
-      border-top: 1px solid #e2e8f0;
+      border-top: 1px solid #d9d9d9;
       padding-top: 16px;
       text-align: center;
       font-size: 11px;
-      color: #94a3b8;
+      color: #888888;
       line-height: 1.6;
     }
 
@@ -312,7 +331,7 @@ export function generarHtmlFactura(venta: VentaCompleta, parametros: ParametrosS
     <div class="doc-meta">
       <div class="doc-type">Factura Comercial</div>
       <div class="doc-code">${venta.codigo}</div>
-      <div class="doc-date">Fecha: ${formatearFecha(venta.fecha)}</div>
+      <div class="doc-date">Fecha de emisión: ${fechaDocumento(venta.fecha)}</div>
     </div>
   </div>
 
@@ -366,7 +385,7 @@ export function generarHtmlFactura(venta: VentaCompleta, parametros: ParametrosS
   <div class="totals-wrapper">
     <div class="status-badge-container ${esPagada ? 'status-paid' : 'status-pending'}">
       <div style="font-size: 13px; font-weight: 800; text-transform: uppercase;">
-        ${esPagada ? '✓ Pagado en su totalidad' : '⚠ Saldo Pendiente de Pago'}
+        ${esPagada ? 'Pagado en su totalidad' : 'Saldo pendiente de pago'}
       </div>
       <div style="font-size: 11px; margin-top: 4px;">
         ${esPagada
@@ -400,8 +419,8 @@ export function generarHtmlFactura(venta: VentaCompleta, parametros: ParametrosS
         <td class="value">${formatearMoneda(venta.pagado_usd_cents, 'USD')}</td>
       </tr>
       ${venta.saldo_usd_cents > 0 ? `
-      <tr style="color: #b45309; font-weight: 700;">
-        <td class="label" style="color: #b45309;">Saldo Pendiente:</td>
+      <tr style="color: #1a1a1a; font-weight: 700;">
+        <td class="label" style="color: #1a1a1a;">Saldo Pendiente:</td>
         <td class="value">${formatearMoneda(venta.saldo_usd_cents, 'USD')}</td>
       </tr>
       ` : ''}
@@ -418,8 +437,8 @@ export function generarHtmlFactura(venta: VentaCompleta, parametros: ParametrosS
   ` : ''}
 
   <div class="footer">
-    <p>¡Gracias por elegir <strong>${escaparHtml(parametros.nombre_negocio || 'Glow Heaven')}</strong>! 💖</p>
-    <p>Cambios válidos dentro de los primeros 5 días presentando este comprobante. Las prendas deben conservar sus etiquetas intactas.</p>
+    <p><strong>Condiciones de cambio.</strong> Cambios válidos dentro de los primeros 5 días presentando este comprobante. Las prendas deben conservar sus etiquetas intactas.</p>
+    <p>${escaparHtml(parametros.nombre_negocio || 'Glow Heaven')}${parametros.telefono_negocio ? ` · ${escaparHtml(parametros.telefono_negocio)}` : ''} · Managua, Nicaragua</p>
   </div>
 </body>
 </html>`;
@@ -482,7 +501,7 @@ export function generarHtmlProforma(venta: VentaCompleta, parametros: Parametros
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      border-bottom: 2px solid #e2e8f0;
+      border-bottom: 2px solid #d9d9d9;
       padding-bottom: 20px;
       margin-bottom: 24px;
     }
@@ -490,14 +509,14 @@ export function generarHtmlProforma(venta: VentaCompleta, parametros: Parametros
     .brand-title {
       font-size: 26px;
       font-weight: 800;
-      color: #0f172a;
+      color: #1a1a1a;
       letter-spacing: -0.5px;
     }
 
     .brand-subtitle {
       font-size: 12px;
       font-weight: 600;
-      color: #2563eb;
+      color: #1a1a1a;
       text-transform: uppercase;
       letter-spacing: 1px;
       margin-top: 2px;
@@ -505,7 +524,7 @@ export function generarHtmlProforma(venta: VentaCompleta, parametros: Parametros
 
     .brand-contact {
       font-size: 11px;
-      color: #64748b;
+      color: #666666;
       margin-top: 4px;
     }
 
@@ -516,7 +535,7 @@ export function generarHtmlProforma(venta: VentaCompleta, parametros: Parametros
     .doc-type {
       font-size: 18px;
       font-weight: 800;
-      color: #0f172a;
+      color: #1a1a1a;
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
@@ -524,21 +543,21 @@ export function generarHtmlProforma(venta: VentaCompleta, parametros: Parametros
     .doc-code {
       font-size: 15px;
       font-weight: 700;
-      color: #2563eb;
+      color: #1a1a1a;
       font-family: monospace;
       margin-top: 2px;
     }
 
     .doc-date {
       font-size: 12px;
-      color: #64748b;
+      color: #666666;
       margin-top: 4px;
     }
 
     .client-card {
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
+      background: #fafafa;
+      border: 1px solid #d9d9d9;
+      border-radius: 2px;
       padding: 16px 20px;
       margin-bottom: 24px;
       display: grid;
@@ -550,14 +569,14 @@ export function generarHtmlProforma(venta: VentaCompleta, parametros: Parametros
       font-size: 10px;
       font-weight: 700;
       text-transform: uppercase;
-      color: #64748b;
+      color: #666666;
       letter-spacing: 0.5px;
     }
 
     .client-value {
       font-size: 13px;
       font-weight: 600;
-      color: #0f172a;
+      color: #1a1a1a;
       margin-top: 2px;
     }
 
@@ -568,38 +587,38 @@ export function generarHtmlProforma(venta: VentaCompleta, parametros: Parametros
     }
 
     table.items-table th {
-      background: #f1f5f9;
-      color: #475569;
+      background: #f2f2f2;
+      color: #444444;
       font-size: 11px;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       padding: 10px 12px;
       text-align: left;
-      border-bottom: 2px solid #cbd5e1;
+      border-bottom: 2px solid #cccccc;
     }
 
     table.items-table td {
       padding: 12px;
       font-size: 13px;
-      border-bottom: 1px solid #e2e8f0;
+      border-bottom: 1px solid #d9d9d9;
     }
 
     .item-desc {
       font-weight: 600;
-      color: #0f172a;
+      color: #1a1a1a;
     }
 
     .item-variant {
       font-size: 11px;
-      color: #64748b;
+      color: #666666;
       margin-top: 2px;
     }
 
     .conditions-card {
-      background: #eff6ff;
-      border: 1px solid #bfdbfe;
-      border-radius: 12px;
+      background: #fafafa;
+      border: 1px solid #d9d9d9;
+      border-radius: 2px;
       padding: 16px;
       margin-bottom: 24px;
       display: grid;
@@ -616,20 +635,20 @@ export function generarHtmlProforma(venta: VentaCompleta, parametros: Parametros
       font-size: 11px;
       font-weight: 700;
       text-transform: uppercase;
-      color: #1e40af;
+      color: #1a1a1a;
     }
 
     .cond-amount {
       font-size: 18px;
       font-weight: 800;
-      color: #1e3a8a;
+      color: #1a1a1a;
       margin-top: 2px;
       font-family: monospace;
     }
 
     .cond-sub {
       font-size: 11px;
-      color: #3b82f6;
+      color: #999999;
       font-weight: 600;
     }
 
@@ -653,33 +672,33 @@ export function generarHtmlProforma(venta: VentaCompleta, parametros: Parametros
     }
 
     .totals-table td.label {
-      color: #64748b;
+      color: #666666;
     }
 
     .totals-table td.value {
       text-align: right;
       font-weight: 600;
-      color: #0f172a;
+      color: #1a1a1a;
     }
 
     .totals-table tr.total-row td {
-      border-top: 2px solid #0f172a;
+      border-top: 2px solid #1a1a1a;
       padding-top: 8px;
       font-size: 16px;
       font-weight: 800;
-      color: #0f172a;
+      color: #1a1a1a;
     }
 
     .totals-table tr.total-cor td {
       font-size: 13px;
       font-weight: 700;
-      color: #2563eb;
+      color: #1a1a1a;
     }
 
     .bank-accounts {
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 10px;
+      background: #fafafa;
+      border: 1px solid #d9d9d9;
+      border-radius: 2px;
       padding: 14px 16px;
       margin-bottom: 24px;
       font-size: 11px;
@@ -688,7 +707,7 @@ export function generarHtmlProforma(venta: VentaCompleta, parametros: Parametros
     .bank-title {
       font-weight: 700;
       text-transform: uppercase;
-      color: #475569;
+      color: #444444;
       margin-bottom: 6px;
     }
 
@@ -697,29 +716,29 @@ export function generarHtmlProforma(venta: VentaCompleta, parametros: Parametros
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 6px;
-      color: #334155;
+      color: #333333;
     }
 
     .policy-box {
-      border: 1px dashed #cbd5e1;
-      border-radius: 10px;
+      border: 1px solid #d9d9d9;
+      border-radius: 2px;
       padding: 12px 16px;
       font-size: 11px;
-      color: #64748b;
+      color: #666666;
       margin-bottom: 24px;
       background: #ffffff;
     }
 
     .policy-box strong {
-      color: #334155;
+      color: #333333;
     }
 
     .footer {
-      border-top: 1px solid #e2e8f0;
+      border-top: 1px solid #d9d9d9;
       padding-top: 16px;
       text-align: center;
       font-size: 11px;
-      color: #94a3b8;
+      color: #888888;
       line-height: 1.6;
     }
 
@@ -749,7 +768,7 @@ export function generarHtmlProforma(venta: VentaCompleta, parametros: Parametros
     <div class="doc-meta">
       <div class="doc-type">Cotización de Encargo</div>
       <div class="doc-code">${venta.codigo}</div>
-      <div class="doc-date">Fecha: ${formatearFecha(venta.fecha)}</div>
+      <div class="doc-date">Fecha de emisión: ${fechaDocumento(venta.fecha)}</div>
     </div>
   </div>
 
@@ -803,16 +822,16 @@ export function generarHtmlProforma(venta: VentaCompleta, parametros: Parametros
   <!-- Condiciones Financieras de Encargo -->
   <div class="conditions-card">
     <div class="cond-block">
-      <span class="cond-title">🔒 Anticipo Requerido para Ordenar</span>
+      <span class="cond-title">Anticipo requerido para ordenar</span>
       <span class="cond-amount">${formatearMoneda(venta.anticipo_esperado_usd_cents, 'USD')}</span>
       <span class="cond-sub">≈ ${formatearMoneda(anticipoEsperadoCs, 'COR')} (50%)</span>
-      <span style="font-size: 11px; margin-top: 4px; font-weight: 700; color: ${anticipoCubierto ? '#059669' : '#d97706'}">
-        ${anticipoCubierto ? '✓ Anticipo cubierto - Pedido en proceso' : '⏳ Pendiente de depósito'}
+      <span style="font-size: 11px; margin-top: 4px; font-weight: 700; color: ${anticipoCubierto ? '#059669' : '#1a1a1a'}">
+        ${anticipoCubierto ? 'Anticipo cubierto. Pedido en proceso.' : 'Pendiente de depósito'}
       </span>
     </div>
 
     <div class="cond-block">
-      <span class="cond-title">🤝 Saldo Contra Entrega</span>
+      <span class="cond-title">Saldo contra entrega</span>
       <span class="cond-amount">${formatearMoneda(venta.saldo_usd_cents, 'USD')}</span>
       <span class="cond-sub">A cancelar al recibir tus prendas</span>
     </div>
@@ -831,14 +850,14 @@ export function generarHtmlProforma(venta: VentaCompleta, parametros: Parametros
       <td class="label">Anticipo Abonado:</td>
       <td class="value">${formatearMoneda(venta.pagado_usd_cents, 'USD')}</td>
     </tr>
-    <tr style="color: #1e3a8a; font-weight: 700;">
-      <td class="label" style="color: #1e3a8a;">Saldo Pendiente:</td>
+    <tr style="color: #1a1a1a; font-weight: 700;">
+      <td class="label" style="color: #1a1a1a;">Saldo Pendiente:</td>
       <td class="value">${formatearMoneda(venta.saldo_usd_cents, 'USD')}</td>
     </tr>
   </table>
 
   <div class="policy-box">
-    <strong>📦 Políticas y Tiempos de Entrega de Encargos:</strong>
+    <strong>Políticas y tiempos de entrega de encargos</strong>
     <ul style="margin-left: 18px; margin-top: 6px; line-height: 1.6;">
       <li>Tiempo estimado de entrega: <strong>12 a 18 días hábiles</strong> tras confirmar el anticipo.</li>
       <li>Una vez realizada la compra en USA, no se permiten cancelaciones ni cambios de talla o color.</li>
@@ -856,8 +875,8 @@ export function generarHtmlProforma(venta: VentaCompleta, parametros: Parametros
   ` : ''}
 
   <div class="footer">
-    <p>¡Gracias por confiar en <strong>${escaparHtml(parametros.nombre_negocio || 'Glow Heaven')}</strong> para tus prendas favoritas! ✈️🛍️</p>
-    <p>Por favor compártenos la captura de tu transferencia bancaria para colocar tu pedido de inmediato.</p>
+    <p><strong>Para confirmar el pedido.</strong> Enviar el comprobante de la transferencia bancaria. El pedido se coloca una vez recibido el anticipo.</p>
+    <p>${escaparHtml(parametros.nombre_negocio || 'Glow Heaven')}${parametros.telefono_negocio ? ` · ${escaparHtml(parametros.telefono_negocio)}` : ''} · Managua, Nicaragua</p>
   </div>
 </body>
 </html>`;

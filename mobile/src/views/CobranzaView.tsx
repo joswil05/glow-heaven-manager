@@ -110,7 +110,7 @@ export function CobranzaView() {
               el eyebrow de marca, y repetía el conteo de cuentas dos veces
               (aquí y en el tab "Todas" de abajo) — se quitó la duplicación. */}
           <div className="flex min-w-0 items-center gap-2.5">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-alerta-suave text-alerta border border-alerta-suave">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-superficie-2 text-texto-2 border border-borde">
               <HandCoins size={18} />
             </span>
             <div className="min-w-0">

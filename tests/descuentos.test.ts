@@ -148,9 +148,9 @@ describe('Generador de Documentos Comerciales (Factura y Proforma)', () => {
     const html = generarHtmlProforma(ventaEncargo, parametros);
     expect(html).toContain('Cotización de Encargo');
     expect(html).toContain('COT-E-0015');
-    expect(html).toContain('Anticipo Requerido para Ordenar');
+    expect(html).toContain('Anticipo requerido para ordenar');
     expect(html).toContain('$40.00');
     expect(html).toContain('$80.00');
-    expect(html).toContain('Políticas y Tiempos de Entrega');
+    expect(html).toContain('Políticas y tiempos de entrega');
   });
 });

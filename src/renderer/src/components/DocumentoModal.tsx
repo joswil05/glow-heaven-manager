@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
+import { enlaceWhatsappDocumento } from '../../../core/documentos/mensajes';
 import { X, Printer, MessageCircle, FileText, Download, Loader2 } from 'lucide-react';
-import type { VentaCompleta, ParametrosSistema, CuentaBancaria } from '../../../shared/types';
+import type { VentaCompleta, ParametrosSistema } from '../../../shared/types';
 import { Button, Portal } from './ui';
 import { useToast } from '../context/ToastContext';
 import {
@@ -98,63 +99,9 @@ export const DocumentoModal: React.FC<DocumentoModalProps> = ({
   };
 
   const handleEnviarWhatsApp = () => {
-    const telefonoRaw = venta.cliente?.telefono ?? '';
-    const telefono = telefonoRaw.replace(/\D/g, '');
-    const totalCs = Math.round((venta.total_usd_cents * (parametros?.tasa_cambio_cents ?? 3662)) / 100);
-
-    const cuentasTxt = (parametros?.cuentas_bancarias ?? [])
-      .map((c: CuentaBancaria) => `${c.banco} (${c.moneda}): ${c.numero}${c.titular ? ' - ' + c.titular : ''}`)
-      .join('\n');
-
-    let mensaje = '';
-    if (esEncargo) {
-      const plantilla =
-        parametros?.plantilla_proforma_whatsapp ||
-        '¡Hola {cliente}! ✨ Te compartimos la cotización de tu encargo en Glow Heaven 📦✈️\n\n' +
-        '📋 Cotización: {codigo}\n' +
-        '💰 Total estimado: {total_usd} (≈ {total_cs})\n' +
-        '🔒 Anticipo requerido (50%): {anticipo}\n' +
-        '🤝 Saldo contra entrega: {saldo}\n\n' +
-        '{cuentas_bancarias}\n\n' +
-        '¡Quedamos atentas a tu comprobante de transferencia para procesar tu orden! 💕';
-
-      mensaje = plantilla
-        .replace(/\{cliente\}/g, venta.cliente_nombre ?? 'Clienta')
-        .replace(/\{codigo\}/g, venta.codigo)
-        .replace(/\{total_usd\}/g, formatearMoneda(venta.total_usd_cents, 'USD'))
-        .replace(/\{total_cs\}/g, formatearMoneda(totalCs, 'COR'))
-        .replace(/\{anticipo\}/g, formatearMoneda(venta.anticipo_esperado_usd_cents, 'USD'))
-        .replace(/\{saldo\}/g, formatearMoneda(venta.saldo_usd_cents, 'USD'))
-        .replace(/\{cuentas_bancarias\}/g, cuentasTxt ? `Cuentas para depósito:\n${cuentasTxt}` : '');
-    } else {
-      const plantilla =
-        parametros?.plantilla_factura_whatsapp ||
-        '¡Hola {cliente}! ✨ Muchas gracias por tu compra en Glow Heaven 🛍️\n\n' +
-        '📄 Factura: {codigo}\n' +
-        '💵 Total: {total_usd} (≈ {total_cs})\n' +
-        '{estado_pago}\n\n' +
-        '{cuentas_bancarias}\n\n' +
-        '¡Esperamos que disfrutes muchísimo tus prendas! 💖';
-
-      const estadoPago =
-        venta.saldo_usd_cents <= 0
-          ? '✓ Pagado en su totalidad'
-          : `⚠ Saldo pendiente: ${formatearMoneda(venta.saldo_usd_cents, 'USD')}`;
-
-      mensaje = plantilla
-        .replace(/\{cliente\}/g, venta.cliente_nombre ?? 'Clienta')
-        .replace(/\{codigo\}/g, venta.codigo)
-        .replace(/\{total_usd\}/g, formatearMoneda(venta.total_usd_cents, 'USD'))
-        .replace(/\{total_cs\}/g, formatearMoneda(totalCs, 'COR'))
-        .replace(/\{estado_pago\}/g, estadoPago)
-        .replace(/\{cuentas_bancarias\}/g, cuentasTxt && venta.saldo_usd_cents > 0 ? `Cuentas bancarias:\n${cuentasTxt}` : '');
-    }
-
-    const url = telefono
-      ? `https://wa.me/505${telefono.startsWith('505') ? telefono.slice(3) : telefono}?text=${encodeURIComponent(mensaje)}`
-      : `https://wa.me/?text=${encodeURIComponent(mensaje)}`;
-
-    window.open(url, '_blank');
+    // El armado del mensaje vive en @core/documentos/mensajes: el celular
+    // manda el mismo, y respeta las plantillas que se editan en Configuracion.
+    window.open(enlaceWhatsappDocumento(venta, parametros ?? null), '_blank');
   };
 
   return (

@@ -9,7 +9,7 @@ import { useSnackbar } from '../components/Snackbar';
 import { BottomSheet } from '../components/BottomSheet';
 import { PullToRefresh } from '../components/PullToRefresh';
 import { nuevoGrupoEvento } from '../lib/util';
-import { abrirDocumentoDeVenta } from '../lib/documentos';
+import { DocumentoSheet } from '../components/DocumentoSheet';
 import { haptics } from '../lib/haptics';
 
 /**
@@ -56,7 +56,7 @@ export function ActividadView({ onVolver }: { onVolver: () => void }) {
   const [filtro, setFiltro] = useState<Filtro>('todo');
   const [seleccionado, setSeleccionado] = useState<ItemActividad | null>(null);
   const [anulando, setAnulando] = useState(false);
-  const [abriendoDoc, setAbriendoDoc] = useState(false);
+  const [documentoDeVenta, setDocumentoDeVenta] = useState<number | null>(null);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -126,19 +126,6 @@ export function ActividadView({ onVolver }: { onVolver: () => void }) {
       mostrar('No se pudo anular. Probá de nuevo.', 'error');
     } finally {
       setAnulando(false);
-    }
-  }
-
-  async function verDocumento(item: ItemActividad) {
-    if (!item.venta || !parametros) return;
-    setAbriendoDoc(true);
-    try {
-      await abrirDocumentoDeVenta(item.venta.id, parametros);
-    } catch (err) {
-      console.error('[ActividadView] Error abriendo el documento:', err);
-      mostrar('No se pudo abrir el documento.', 'error');
-    } finally {
-      setAbriendoDoc(false);
     }
   }
 
@@ -301,11 +288,13 @@ export function ActividadView({ onVolver }: { onVolver: () => void }) {
             {seleccionado.tipo === 'venta' && (
               <button
                 type="button"
-                disabled={abriendoDoc}
-                onClick={() => verDocumento(seleccionado)}
+                onClick={() => {
+                  haptics.selection();
+                  setDocumentoDeVenta(seleccionado.venta?.id ?? null);
+                }}
                 className="m3-press tocable flex w-full items-center justify-center gap-2 rounded-2xl border border-borde bg-superficie-2 px-4 py-3 text-sm font-bold text-texto active:scale-[0.98] transition-transform disabled:opacity-50 cursor-pointer"
               >
-                {abriendoDoc ? <Loader2 size={17} className="animate-spin" /> : <FileText size={17} />}
+                <FileText size={17} />
                 {seleccionado.venta?.tipo === 'ENCARGO' ? 'Ver proforma' : 'Ver factura'}
               </button>
             )}
@@ -337,6 +326,11 @@ export function ActividadView({ onVolver }: { onVolver: () => void }) {
           </div>
         )}
       </BottomSheet>
+
+      <DocumentoSheet
+        ventaId={documentoDeVenta}
+        onCerrar={() => setDocumentoDeVenta(null)}
+      />
     </div>
   );
 }

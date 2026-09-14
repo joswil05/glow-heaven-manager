@@ -122,6 +122,17 @@ export function AjustesView({ onVolver }: { onVolver: () => void }) {
 
       <main className="flex-1 min-h-0 overflow-y-auto px-3.5 pb-28 pt-3">
         <div className="flex flex-col gap-4">
+          {/* Las dos apps escriben el MISMO documento de parametros, asi que
+              un cambio acá aparece en Windows y al revés. Estaba asi desde
+              siempre, pero la pantalla no lo decia: sin saberlo, nadie se
+              anima a cambiar nada desde el telefono. */}
+          <div className="flex items-start gap-2.5 rounded-2xl border border-borde bg-superficie-2 px-4 py-3">
+            <Monitor size={16} className="mt-0.5 shrink-0 text-texto-3" />
+            <p className="text-[11px] leading-relaxed text-texto-2">
+              Estos ajustes son los mismos de la computadora. Lo que cambies acá se aplica también
+              en Windows, y al revés.
+            </p>
+          </div>
           {/* --- Apariencia --- */}
           <section className="rounded-2xl border border-borde bg-superficie p-4">
             <h2 className="text-caption font-bold uppercase tracking-widest text-texto-3">
