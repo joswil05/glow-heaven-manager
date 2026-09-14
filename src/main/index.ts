@@ -18,6 +18,20 @@ if (!gotTheLock) {
     if (win) {
       if (win.isMinimized()) win.restore();
       win.focus();
+      return;
+    }
+
+    // Sin esto la aplicacion se volvia IMPOSIBLE de abrir: si la instancia
+    // viva se quedaba sin ventana (se cerro, se cayo el renderer, o el
+    // proceso sobrevivio a un cierre sucio), el candado de instancia unica
+    // hacia que cada nuevo lanzamiento se cerrara de inmediato, y el proceso
+    // viejo no tenia ventana que mostrar. Hacer doble clic en el icono no
+    // hacia nada, para siempre, hasta matar el proceso a mano.
+    //
+    // Si la instancia que tiene el candado no tiene ventana, la abre: es la
+    // unica que puede hacerlo.
+    if (app.isReady()) {
+      iniciarActualizador(createMainWindow());
     }
   });
 

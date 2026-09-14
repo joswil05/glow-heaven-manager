@@ -10,6 +10,7 @@ import {
   LogOut,
   Check,
   Loader2,
+  RefreshCw,
 } from 'lucide-react';
 import { ParametrosRepoFirestore } from '@repos/parametros.repo';
 import { formatearMoneda } from '@core/moneda';
@@ -51,6 +52,31 @@ export function AjustesView({ onVolver }: { onVolver: () => void }) {
   const [nombre, setNombre] = useState(parametros?.nombre_negocio ?? '');
   const [telefono, setTelefono] = useState(parametros?.telefono_negocio ?? '');
   const [stockMinimo, setStockMinimo] = useState(String(parametros?.stock_minimo_defecto ?? 2));
+  const [buscandoVersion, setBuscandoVersion] = useState(false);
+
+  /**
+   * Fuerza la busqueda de una version nueva.
+   *
+   * La app se actualiza sola, pero el service worker decide CUANDO revisa, y
+   * mientras tanto sigue sirviendo la version guardada en el telefono. Sin un
+   * boton, la unica salida es desinstalar el icono y volver a instalarlo: eso
+   * no puede ser la respuesta.
+   */
+  async function buscarActualizacion() {
+    setBuscandoVersion(true);
+    try {
+      const registros = await navigator.serviceWorker?.getRegistrations?.();
+      await Promise.all((registros ?? []).map((r) => r.update()));
+      mostrar('Buscando versión nueva…', 'info');
+      // Se recarga saltando la cache del navegador; si hay version nueva, el
+      // service worker ya la tiene lista y entra en este arranque.
+      setTimeout(() => window.location.reload(), 900);
+    } catch (err) {
+      console.error('[AjustesView] Error buscando actualización:', err);
+      mostrar('No se pudo buscar la actualización.', 'error');
+      setBuscandoVersion(false);
+    }
+  }
 
   const hayCambios =
     nombre !== (parametros?.nombre_negocio ?? '') ||
@@ -244,6 +270,26 @@ export function AjustesView({ onVolver }: { onVolver: () => void }) {
               Se cambia desde la computadora. Tocarla recalcula los precios de todo el catálogo, y
               esa no es una decisión para tomar entre una clienta y otra.
             </p>
+          </section>
+
+          {/* --- Version --- */}
+          <section className="rounded-2xl border border-borde bg-superficie p-4">
+            <h2 className="text-caption font-bold uppercase tracking-widest text-texto-3">
+              Versión de la app
+            </h2>
+            <p className="mt-1.5 text-[11px] leading-relaxed text-texto-3">
+              La app se actualiza sola, pero a veces tarda en darse cuenta de que hay una versión
+              nueva. Este botón la obliga a revisar ahora.
+            </p>
+            <button
+              type="button"
+              onClick={buscarActualizacion}
+              disabled={buscandoVersion}
+              className="m3-press tocable mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-borde bg-superficie-2 px-4 py-2.5 text-label font-bold text-texto active:scale-[0.98] transition-transform disabled:opacity-50 cursor-pointer"
+            >
+              <RefreshCw size={15} className={buscandoVersion ? 'animate-spin' : ''} />
+              {buscandoVersion ? 'Buscando…' : 'Buscar actualización'}
+            </button>
           </section>
 
           {/* --- Cuenta --- */}
