@@ -1,6 +1,6 @@
 {
   "name": "glow-heaven-manager",
-  "version": "2.5.2",
+  "version": "2.5.3",
   "type": "module",
   "description": "Herramienta de gestión interna para personal shopping e importación",
   "main": "dist-electron/main/index.js",
@@ -20,6 +20,7 @@
     "dev:mobile": "vite --config mobile/vite.config.ts",
     "auditar:colores": "node scripts/auditar-colores.mjs",
     "auditar:indices": "node scripts/auditar-indices.mjs",
+    "test:interfaz": "node scripts/test-interfaz.mjs",
     "build:mobile": "tsc -p mobile/tsconfig.json --noEmit && node scripts/auditar-colores.mjs && node scripts/auditar-indices.mjs && vite build --config mobile/vite.config.ts",
     "preview:mobile": "vite preview --config mobile/vite.config.ts",
     "deploy:mobile": "npm run build:mobile && npx firebase deploy --only hosting",

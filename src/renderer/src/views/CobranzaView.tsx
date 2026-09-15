@@ -734,9 +734,12 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
               <div className="grid grid-cols-2 gap-2">
                 <Field label={`Monto (${abonoMoneda === 'USD' ? 'USD' : 'C$'})`} className="mb-0">
                   <Input
-                    type="number"
-                    min="0.01"
-                    step="0.01"
+                    // Texto, no `type="number"`: el navegador convierte "1,500"
+                    // en "1.500" antes de que la aplicación lo vea, y eso se lee
+                    // como uno con medio. El parser de `@core/numeros` sí sabe
+                    // distinguir miles de decimales, pero necesita el texto crudo.
+                    // `inputMode` mantiene el teclado numérico en el celular.
+                    type="text"
                     value={abonoMontoTexto}
                     onChange={(e) => setAbonoMontoTexto(e.target.value)}
                     placeholder="0.00"

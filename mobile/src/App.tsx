@@ -18,11 +18,27 @@ import { SnackbarProvider } from './components/Snackbar';
 export type Vista = 'panel' | 'vender' | 'cobranza' | 'inventario' | 'ajustes' | 'actividad';
 
 import { ShieldAlert } from 'lucide-react';
+import { usandoEmuladorLocal } from './lib/firebase-mobile';
 
 const UIDS_AUTORIZADOS = new Set([
   'PLCUbpheiAhjelGqcZznVypc3O72', // espinozajoswill@gmail.com
   'ZdM86RTlEEQLYWHSBZPvsKq2YgJ3', // angierlinartej2020@gmail.com
 ]);
+
+/**
+ * Quien puede pasar de la pantalla de acceso.
+ *
+ * Esta lista es de interfaz, no de seguridad: quien de verdad decide qué se
+ * puede leer y escribir son las reglas de Firestore, del lado del servidor.
+ * Acá sirve para mostrar un mensaje claro en vez de una pantalla rota.
+ *
+ * Contra el emulador local no aplica, porque la cuenta de prueba tiene un UID
+ * distinto en cada máquina y no se puede anotar de antemano. En produccion
+ * `usandoEmuladorLocal` es `false` constante y la lista manda igual que antes.
+ */
+function puedeEntrar(uid: string): boolean {
+  return usandoEmuladorLocal || UIDS_AUTORIZADOS.has(uid);
+}
 
 function AppContenido() {
   const { usuario, cargando, salir } = useAuth();
@@ -45,7 +61,7 @@ function AppContenido() {
     return <LoginView />;
   }
 
-  if (!UIDS_AUTORIZADOS.has(usuario.uid)) {
+  if (!puedeEntrar(usuario.uid)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-fondo p-6">
         <div className="flex flex-col items-center gap-4 text-center max-w-sm bg-superficie p-6 rounded-2xl border border-peligro-suave shadow-lg">

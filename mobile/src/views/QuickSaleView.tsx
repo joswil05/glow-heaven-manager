@@ -933,8 +933,12 @@ export function QuickSaleView() {
                 <option value="MONTO_FIJO">$ Monto fijo</option>
               </select>
               <input
-                type="number"
-                step="any"
+                // Texto, no `type="number"`: el navegador convierte "1,500"
+                // en "1.500" antes de que la aplicación lo vea, y eso se lee
+                // como uno con medio. El parser de `@core/numeros` sí sabe
+                // distinguir miles de decimales, pero necesita el texto crudo.
+                // `inputMode` mantiene el teclado numérico en el celular.
+                type="text"
                 inputMode="decimal"
                 value={descValorTexto}
                 onChange={(e) => setDescValorTexto(e.target.value)}
@@ -1001,8 +1005,12 @@ export function QuickSaleView() {
                   Monto abonado hoy ({moneda === 'COR' ? 'C$' : 'US$'})
                 </label>
                 <input
-                  type="number"
-                  step="any"
+                  // Texto, no `type="number"`: el navegador convierte "1,500"
+                  // en "1.500" antes de que la aplicación lo vea, y eso se lee
+                  // como uno con medio. El parser de `@core/numeros` sí sabe
+                  // distinguir miles de decimales, pero necesita el texto crudo.
+                  // `inputMode` mantiene el teclado numérico en el celular.
+                  type="text"
                   inputMode="decimal"
                   value={montoAbonoTexto}
                   onChange={(e) => setMontoAbonoTexto(e.target.value)}

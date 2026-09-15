@@ -1,6 +1,8 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import {
   initializeAuth,
+  connectAuthEmulator,
+  signInWithEmailAndPassword,
   getAuth,
   browserPopupRedirectResolver,
   browserLocalPersistence,
@@ -121,6 +123,35 @@ function crearAuth() {
 }
 
 export const auth = crearAuth();
+
+/**
+ * Enganche con el emulador de Auth, solo para las pruebas de interfaz.
+ *
+ * `FIREBASE_AUTH_EMULATOR_HOST` la define el arranque de las pruebas; en una
+ * build de produccion vale cadena vacia y este bloque entero se elimina del
+ * bundle. Sin esto no habria forma de probar la aplicacion de verdad: la
+ * unica puerta de entrada es Google, y ese flujo no se puede automatizar.
+ */
+const emuladorAuth = process.env.FIREBASE_AUTH_EMULATOR_HOST;
+
+/**
+ * Verdadero solo cuando la app corre contra el emulador local, que es como
+ * corren las pruebas de interfaz. En produccion la variable vale cadena vacia
+ * y esto queda en `false` constante, asi que el empaquetador elimina las
+ * ramas que dependan de ello.
+ */
+export const usandoEmuladorLocal = Boolean(emuladorAuth);
+
+if (emuladorAuth) {
+  connectAuthEmulator(auth, `http://${emuladorAuth}`, { disableWarnings: true });
+
+  // Puerta de servicio para que las pruebas abran sesion sin pasar por Google.
+  // Vive solo mientras el emulador este configurado.
+  (window as unknown as Record<string, unknown>).__pruebaIngresar = (
+    correo: string,
+    clave: string
+  ) => signInWithEmailAndPassword(auth, correo, clave);
+}
 
 const googleProvider = new GoogleAuthProvider();
 // Fuerza el selector de cuenta: en un celular compartido entre dueña y

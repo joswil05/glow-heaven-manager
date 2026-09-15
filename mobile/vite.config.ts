@@ -75,8 +75,20 @@ export default defineConfig({
     },
   },
   define: {
-    'process.env.FIRESTORE_EMULATOR_HOST': JSON.stringify(''),
-    'process.env.FIREBASE_AUTH_EMULATOR_HOST': JSON.stringify(''),
+    // `client.ts` pregunta por estas variables para decidir si habla con el
+    // emulador. En el navegador no existe `process`, así que se reemplazan en
+    // tiempo de build.
+    //
+    // En una build de produccion quedan en cadena vacia y todo el cableado del
+    // emulador desaparece del bundle. Solo se propagan cuando alguien las
+    // define a proposito, que es lo que hacen las pruebas de interfaz contra
+    // el emulador local.
+    'process.env.FIRESTORE_EMULATOR_HOST': JSON.stringify(
+      process.env.FIRESTORE_EMULATOR_HOST ?? ''
+    ),
+    'process.env.FIREBASE_AUTH_EMULATOR_HOST': JSON.stringify(
+      process.env.FIREBASE_AUTH_EMULATOR_HOST ?? ''
+    ),
   },
   build: {
     outDir: path.resolve(__dirname, '../dist-mobile'),

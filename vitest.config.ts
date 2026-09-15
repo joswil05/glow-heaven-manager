@@ -11,7 +11,14 @@ export default defineConfig({
     // Las suites contra el motor real tienen su propia configuración
     // (`vitest.emulador.config.ts`): acá se sustituye el SDK por el falso y
     // correrían contra un Firestore que no es el que quieren probar.
-    exclude: ['tests/emulador.test.ts', 'tests/motor-real/**', '**/node_modules/**'],
+    exclude: [
+      'tests/emulador.test.ts',
+      'tests/motor-real/**',
+      // El decorado de las pruebas de interfaz también corre contra el motor
+      // real: acá el SDK está sustituido por el falso y sembraría en el vacío.
+      'tests/interfaz/**',
+      '**/node_modules/**',
+    ],
   },
   resolve: {
     alias: {
