@@ -1,6 +1,6 @@
 {
   "name": "glow-heaven-manager",
-  "version": "2.5.5",
+  "version": "2.5.6",
   "type": "module",
   "description": "Herramienta de gestión interna para personal shopping e importación",
   "main": "dist-electron/main/index.js",
@@ -9,8 +9,8 @@
   "scripts": {
     "dev": "vite",
     "limpiar": "node scripts/limpiar-build.mjs",
-    "build": "npm run limpiar && tsc && node scripts/auditar-colores.mjs && node scripts/auditar-indices.mjs && vite build && electron-builder --dir",
-    "build:exe": "npm run limpiar && tsc && node scripts/auditar-colores.mjs && node scripts/auditar-indices.mjs && vite build && electron-builder",
+    "build": "npm run limpiar && tsc && node scripts/auditar-colores.mjs && node scripts/auditar-indices.mjs && node scripts/auditar-hooks.mjs && vite build && electron-builder --dir",
+    "build:exe": "npm run limpiar && tsc && node scripts/auditar-colores.mjs && node scripts/auditar-indices.mjs && node scripts/auditar-hooks.mjs && vite build && electron-builder",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
@@ -20,11 +20,12 @@
     "dev:mobile": "vite --config mobile/vite.config.ts",
     "auditar:colores": "node scripts/auditar-colores.mjs",
     "auditar:indices": "node scripts/auditar-indices.mjs",
+    "auditar:hooks": "node scripts/auditar-hooks.mjs",
     "test:interfaz": "node scripts/test-interfaz.mjs",
-    "build:mobile": "tsc -p mobile/tsconfig.json --noEmit && node scripts/auditar-colores.mjs && node scripts/auditar-indices.mjs && vite build --config mobile/vite.config.ts",
+    "build:mobile": "tsc -p mobile/tsconfig.json --noEmit && node scripts/auditar-colores.mjs && node scripts/auditar-indices.mjs && node scripts/auditar-hooks.mjs && vite build --config mobile/vite.config.ts",
     "preview:mobile": "vite preview --config mobile/vite.config.ts",
     "deploy:mobile": "npm run build:mobile && npx firebase deploy --only hosting",
-    "release:windows": "npm run limpiar && tsc && node scripts/auditar-colores.mjs && node scripts/auditar-indices.mjs && vite build && electron-builder --publish always"
+    "release:windows": "npm run limpiar && tsc && node scripts/auditar-colores.mjs && node scripts/auditar-indices.mjs && node scripts/auditar-hooks.mjs && vite build && electron-builder --publish always"
   },
   "dependencies": {
     "clsx": "^2.1.1",

@@ -76,6 +76,18 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
     }
   }, [abierto, pesoTotalTexto, tarifaLb, envioManual]);
 
+  // Este hook va ANTES del `return null`, no despues.
+  //
+  // React exige que cada render llame a los mismos hooks en el mismo orden.
+  // Estaba mas abajo, del otro lado del return: mientras el modal estaba
+  // abierto se llamaban todos, y al cerrarse el componente salia antes de
+  // llegar a este. React detectaba menos hooks que en el render anterior,
+  // lanzaba el error 300 y desmontaba el arbol entero: la ventana quedaba
+  // en blanco y no habia forma de volver sin reiniciar la app.
+  //
+  // Y recibe `abierto` en vez de `true`: cerrado no tiene nada que escuchar.
+  useCerrarConEscape(abierto, onCerrar);
+
   if (!abierto) return null;
 
   const pesoTotalMlbPreview = Math.round((parsearDecimal(pesoTotalTexto, { min: 0 }) ?? 0) * 1000);
@@ -186,7 +198,6 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
     }
   };
 
-  useCerrarConEscape(true, onCerrar);
 
   return (
     <Portal>
