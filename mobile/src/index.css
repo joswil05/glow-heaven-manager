@@ -113,7 +113,19 @@
   --borde-fuerte: 73 70 68;
 
   /* Blanco puro sobre casi negro produce halo y cansa: se baja un punto. */
-  --texto: 246 245 244;
+  /* Texto principal al 92% de blanco, no al 96%.
+   *
+   * A 246 el contraste sobre las superficies oscuras llega a 15-18:1, muy por
+   * encima de lo que pide cualquier norma, y ahi aparece la halacion: el glifo
+   * brilla y sangra sobre el fondo. Se nota sobre todo en las cifras grandes
+   * en negrita, que es donde alguien dice "se siente muy blanco".
+   *
+   * A 234 sigue leyendose como blanco y el contraste queda en 13-16:1: el
+   * triple de lo que exige WCAG AAA, sin el resplandor. Material tope el texto
+   * principal en oscuro justo en esta zona; Apple reserva el blanco puro para
+   * etiquetas cortas, no para bloques de cifras.
+   */
+  --texto: 234 232 230;
   --texto-2: 172 169 166;
   --texto-3: 142 139 136;
 

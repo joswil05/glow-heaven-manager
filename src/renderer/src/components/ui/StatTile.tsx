@@ -163,7 +163,15 @@ export const StatTile: React.FC<StatTileProps> = ({
   );
 
   const clases = cn(
-    'group relative bg-gradient-to-b from-superficie via-superficie to-superficie-2/20 rounded-xl border text-left w-full shadow-2xs',
+    // Superficie plana, no degradada.
+    //
+    // El degradado terminaba en `superficie-2/20`, que se mezcla con lo que
+    // haya detras: al ser la pagina un negro mas profundo, el pie de la
+    // tarjeta quedaba MAS oscuro que su propia base y la tarjeta se hundia
+    // hacia abajo. En modo oscuro la elevacion se lee por luz: una superficie
+    // elevada no puede oscurecerse hacia el borde. El relieve lo dan el borde
+    // y la sombra, que no dependen del fondo.
+    'group relative bg-superficie rounded-xl border text-left w-full shadow-2xs',
     'transition-[transform,box-shadow,border-color] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md',
     size === 'lg' ? 'p-3' : 'p-2.5',
     estilo.borde,

@@ -263,7 +263,12 @@ export const App: React.FC = () => {
 
   return (
     <MonedaProvider valor={monedaConfig}>
-      <div className="flex flex-col h-screen w-screen bg-superficie-2 overflow-hidden select-none">
+      {/* `bg-fondo`, el escalon mas bajo de la escalera: en oscuro la pagina es
+          lo que menos luz recibe y lo que se apoya encima recibe mas. Esto pintaba
+          `bg-superficie-2`, el tercer escalon, asi que una tarjeta `bg-superficie`
+          quedaba MAS OSCURA que la pagina que la sostiene. Es tambien lo que ya
+          pintan `body` y el caparazon del movil. */}
+      <div className="flex flex-col h-screen w-screen bg-fondo overflow-hidden select-none">
         {actualizacionLista && (
           <div className="bg-acento text-acento-texto px-5 py-2 flex items-center justify-between text-xs font-bold shadow-md shrink-0 z-50">
             <div className="flex items-center gap-2">

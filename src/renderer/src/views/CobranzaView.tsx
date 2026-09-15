@@ -378,8 +378,11 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
     },
   ];
 
+  // Sin fondo propio, igual que el resto de las pantallas: lo pone el
+  // caparazon. `bg-superficie-2/40` era un segundo negro conviviendo con el
+  // de Inicio y el del resto.
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-superficie-2/40">
+    <div className="flex-1 flex flex-col overflow-hidden">
       <div className="flex-1 overflow-y-auto p-4 md:px-6 md:py-4 animate-fade-in scroll-smooth">
         <div className="max-w-[1500px] w-full mx-auto space-y-4 stagger-children">
           {/* Header estilizado idéntico al panel */}

@@ -224,7 +224,10 @@ export const PanelView: React.FC<PanelViewProps> = ({
         e.preventDefault();
         setMenuContextual({ x: e.clientX, y: e.clientY, tipo: 'fondo' });
       }}
-      className="flex-1 overflow-y-auto animate-fade-in bg-fondo/50 flex flex-col scroll-smooth"
+      // Sin fondo propio: lo pone el caparazon. `bg-fondo/50` mezclaba el negro
+      // al 50% sobre el del caparazon y daba un negro distinto al del resto de
+      // las pantallas; se notaba al cambiar de pestania.
+      className="flex-1 overflow-y-auto animate-fade-in flex flex-col scroll-smooth"
     >
       <div
         ref={scrollRevealRef}
