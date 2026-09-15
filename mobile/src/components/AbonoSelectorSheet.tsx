@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Search, DollarSign, X, Clock, User, AlertTriangle } from 'lucide-react';
+import { Search, DollarSign, X, User, AlertTriangle } from 'lucide-react';
 import { BottomSheet } from './BottomSheet';
 import { formatearMoneda } from '@core/moneda';
 import { useDatosNegocio } from '../context/DataContext';

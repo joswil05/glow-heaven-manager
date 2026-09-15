@@ -19,6 +19,10 @@ export default defineConfig({
       '@core': path.resolve(__dirname, './src/core'),
       '@shared': path.resolve(__dirname, './src/shared'),
       '@renderer': path.resolve(__dirname, './src/renderer/src'),
+      // Los mismos alias que usa el build del móvil, para poder probar su
+      // lógica propia (`mobile/src/lib/*`) con el resto de las suites.
+      '@repos': path.resolve(__dirname, './src/main/firebase/repositories'),
+      '@firebase-client': path.resolve(__dirname, './src/main/firebase/client.ts'),
     },
   },
 });

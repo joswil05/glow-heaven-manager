@@ -137,7 +137,6 @@ export function KardexClienteSheet({
   }
 
   const totalAbonadoUsd = pagos.reduce((acc, p) => acc + (p.monto_usd_cents || 0), 0);
-  const totalAbonadoCor = Math.round((totalAbonadoUsd * tasa) / 100);
 
   return (
     <BottomSheet

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   RefreshCw,
-  AlertTriangle,
   PackageX,
   Settings,
   TrendingUp,
@@ -88,7 +87,6 @@ export function DashboardView({
 
   const cuentasPorCobrar = panel?.por_cobrar ?? [];
   const cuotasVencidas = cuentasPorCobrar.filter((f) => f.cuotas_vencidas > 0);
-  const totalPorCobrarUsd = cuentasPorCobrar.reduce((acc, c) => acc + (c.saldo_usd_cents || 0), 0);
   const maxSerie = Math.max(1, ...serie.map((d) => d.total_usd_cents));
 
   return (

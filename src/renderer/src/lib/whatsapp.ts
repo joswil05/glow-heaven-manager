@@ -1,5 +1,6 @@
 import type { ParametrosSistema } from '../../../shared/types';
 import { formatearMoneda } from '@core/moneda';
+import { telefonoWhatsapp } from '@core/telefono';
 
 /**
  * Genera el enlace directo a WhatsApp con mensaje pre-rellenado para cobro de saldos pendientes
@@ -11,8 +12,7 @@ export function enlaceWhatsApp(
   saldoUsdCents: number,
   parametros?: ParametrosSistema | null
 ): string {
-  const soloDigitos = telefono.replace(/\D/g, '');
-  const numero = soloDigitos.length === 8 ? `505${soloDigitos}` : soloDigitos;
+  const numero = telefonoWhatsapp(telefono) ?? '';
 
   if (saldoUsdCents <= 0) {
     return `https://wa.me/${numero}?text=${encodeURIComponent(`Hola ${nombre.split(' ')[0]}!`)}`;

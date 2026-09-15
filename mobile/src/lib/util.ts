@@ -11,22 +11,10 @@ export function nuevoGrupoEvento(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-/** Deja solo dígitos, y antepone el código de país de Nicaragua si hace falta. */
-export function telefonoWhatsapp(telefono: string | undefined | null): string | null {
-  if (!telefono) return null;
-  const digitos = telefono.replace(/\D+/g, '');
-  if (!digitos) return null;
-  if (digitos.startsWith('505')) return digitos;
-  if (digitos.length === 8) return `505${digitos}`;
-  return digitos;
-}
-
-/** Arma el link de WhatsApp con el texto ya redactado. */
-export function linkWhatsapp(telefono: string | undefined | null, mensaje: string): string | null {
-  const numero = telefonoWhatsapp(telefono);
-  const texto = encodeURIComponent(mensaje);
-  return numero ? `https://wa.me/${numero}?text=${texto}` : `https://wa.me/?text=${texto}`;
-}
+// El número de WhatsApp se arma en `@core/telefono`, compartido con la app de
+// escritorio: las dos tienen que abrir el mismo chat para la misma clienta.
+export { telefonoWhatsapp } from '@core/telefono';
+export { enlaceWhatsapp as linkWhatsapp } from '@core/telefono';
 
 // La fecha del negocio vive en `@core/fechas`, compartida con la app de
 // escritorio: las dos tienen que estar de acuerdo en qué día es hoy.

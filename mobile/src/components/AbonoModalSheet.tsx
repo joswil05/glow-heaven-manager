@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { DollarSign, MessageCircle, CheckCircle2, Loader2, CreditCard } from 'lucide-react';
+import { DollarSign, MessageCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { BottomSheet } from './BottomSheet';
 import { PagosRepoFirestore } from '@repos/pagos.repo';
 import { formatearMoneda } from '@core/moneda';

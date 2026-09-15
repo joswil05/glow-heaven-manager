@@ -333,7 +333,6 @@ export function CobranzaView() {
             <div className="flex flex-col gap-2.5">
               {cuentasFiltradas.map((f) => {
                 const vencida = f.cuotas_vencidas > 0;
-                const saldoCor = Math.round((f.saldo_usd_cents * tasa) / 100);
                 const inicial = (f.cliente_nombre || 'C').charAt(0).toUpperCase();
                 const totalVenta = f.total_usd_cents || 1;
                 const pagado = f.pagado_usd_cents || 0;

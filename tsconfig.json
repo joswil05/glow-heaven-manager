@@ -26,8 +26,10 @@
       "@/*": ["src/*"],
       "@core/*": ["src/core/*"],
       "@shared/*": ["src/shared/*"],
-      "@renderer/*": ["src/renderer/src/*"]
+      "@renderer/*": ["src/renderer/src/*"],
+      "@repos/*": ["src/main/firebase/repositories/*"],
+      "@firebase-client": ["src/main/firebase/client.ts"]
     }
   },
-  "include": ["src", "tests", "vite.config.ts", "vitest.config.ts"]
+  "include": ["src", "tests", "mobile/src", "vite.config.ts", "vitest.config.ts"]
 }

@@ -11,8 +11,6 @@ import {
   X,
   Loader2,
   ShoppingCart,
-  DollarSign,
-  ImageOff,
   ChevronRight,
   Tag,
 } from 'lucide-react';

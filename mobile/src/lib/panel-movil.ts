@@ -1,6 +1,6 @@
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { getFirestoreDb } from '@firebase-client';
-import type { Venta, PanelData } from '@shared/types';
+import type { PanelData } from '@shared/types';
 import { PanelRepoFirestore } from '@repos/panel.repo';
 import { hoyISO } from './util';
 import { haceDias } from '@core/fechas';

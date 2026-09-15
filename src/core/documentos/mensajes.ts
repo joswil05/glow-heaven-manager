@@ -1,4 +1,5 @@
 import { formatearMoneda } from '../moneda';
+import { enlaceWhatsapp } from '../telefono';
 import type { VentaCompleta, ParametrosSistema, CuentaBancaria } from '../../shared/types';
 
 /**
@@ -75,12 +76,17 @@ export function mensajeWhatsappDocumento(
     );
 }
 
-/** Enlace de WhatsApp con el mensaje ya armado. */
+/**
+ * Enlace de WhatsApp con el mensaje ya armado.
+ *
+ * El número pasa por `enlaceWhatsapp`, que le pone el código de país. Antes
+ * acá se hacía un `replace(/\D/g, '')` a secas: el teléfono de una clienta
+ * guardado como "8888-7777" salía como `wa.me/88887777`, un número que
+ * WhatsApp no resuelve.
+ */
 export function enlaceWhatsappDocumento(
   venta: VentaCompleta,
   parametros: ParametrosSistema | null
 ): string {
-  const telefono = (venta.cliente?.telefono ?? '').replace(/\D/g, '');
-  const texto = encodeURIComponent(mensajeWhatsappDocumento(venta, parametros));
-  return telefono ? `https://wa.me/${telefono}?text=${texto}` : `https://wa.me/?text=${texto}`;
+  return enlaceWhatsapp(venta.cliente?.telefono, mensajeWhatsappDocumento(venta, parametros));
 }
