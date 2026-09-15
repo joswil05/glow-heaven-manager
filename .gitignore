@@ -40,3 +40,7 @@ firebase-debug.log
 firestore-debug.log
 ui-debug.log
 .firebase/
+
+# Cachés de Python (las pruebas de interfaz)
+__pycache__/
+*.pyc
