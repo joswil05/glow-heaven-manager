@@ -11,6 +11,7 @@ import {
   Check,
   Loader2,
   RefreshCw,
+  Vibrate,
 } from 'lucide-react';
 import { ParametrosRepoFirestore } from '@repos/parametros.repo';
 import { formatearMoneda } from '@core/moneda';
@@ -21,7 +22,7 @@ import { useAuth } from '../context/AuthContext';
 import { BottomSheet } from '../components/BottomSheet';
 import { useSnackbar } from '../components/Snackbar';
 import { nuevoGrupoEvento } from '../lib/util';
-import { haptics } from '../lib/haptics';
+import { haptics, estadoHaptico } from '../lib/haptics';
 
 /**
  * Ajustes del celular.
@@ -53,6 +54,19 @@ export function AjustesView({ onVolver }: { onVolver: () => void }) {
   const [telefono, setTelefono] = useState(parametros?.telefono_negocio ?? '');
   const [stockMinimo, setStockMinimo] = useState(String(parametros?.stock_minimo_defecto ?? 2));
   const [buscandoVersion, setBuscandoVersion] = useState(false);
+
+  // Se calcula una sola vez: pregunta por capacidades del navegador, no cambia
+  // mientras la app está abierta.
+  const [haptico] = useState(() => estadoHaptico());
+
+  /**
+   * Dispara la secuencia de confirmación, que es la más larga: si algo se
+   * siente, es ésta. Sirve para comprobarlo en el teléfono de verdad, que es
+   * el único lugar donde se puede comprobar.
+   */
+  function probarVibracion() {
+    haptics.success();
+  }
 
   /**
    * Fuerza la busqueda de una version nueva.
@@ -289,6 +303,29 @@ export function AjustesView({ onVolver }: { onVolver: () => void }) {
             >
               <RefreshCw size={15} className={buscandoVersion ? 'animate-spin' : ''} />
               {buscandoVersion ? 'Buscando…' : 'Buscar actualización'}
+            </button>
+          </section>
+
+          {/* --- Vibracion --- */}
+          <section className="rounded-2xl border border-borde bg-superficie p-4">
+            <h2 className="text-caption font-bold uppercase tracking-widest text-texto-3">
+              Vibración
+            </h2>
+            <p className="mt-1.5 text-[11px] leading-relaxed text-texto-3">
+              {haptico.via === 'vibracion'
+                ? 'Este teléfono vibra con distinta fuerza según la acción.'
+                : haptico.via === 'interruptor'
+                  ? 'En iPhone el sistema sólo permite un toque, siempre de la misma fuerza. Se siente, pero no cambia entre una acción y otra.'
+                  : 'Este teléfono no permite vibrar desde la app. En iPhone hace falta iOS 17.4 o más nuevo.'}
+            </p>
+            <button
+              type="button"
+              onClick={probarVibracion}
+              disabled={!haptico.disponible}
+              className="m3-press tocable mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-borde bg-superficie-2 px-4 py-2.5 text-label font-bold text-texto active:scale-[0.98] transition-transform disabled:opacity-50 cursor-pointer"
+            >
+              <Vibrate size={15} />
+              {haptico.disponible ? 'Probar la vibración' : 'No disponible en este teléfono'}
             </button>
           </section>
 
