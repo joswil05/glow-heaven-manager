@@ -6,6 +6,7 @@ import {
   getDocs,
   query,
   where,
+  runTransaction,
 } from 'firebase/firestore';
 import { getFirestoreDb, siguienteId, leerVarios, aplicarLote, sinUndefined, type OperacionLote } from '../client';
 import { costearPaquete } from '../../../core/costeo';
@@ -272,13 +273,32 @@ export class ComprasRepoFirestore {
   ): Promise<{ productos_afectados: number }> {
     const db = getFirestoreDb();
     const docRef = doc(db, 'compras', String(compra_id));
-    const snap = await getDoc(docRef);
 
-    if (!snap.exists()) throw new Error(`El paquete #${compra_id} no existe.`);
-    const compra = snap.data() as CompraDoc;
-    if (compra.estado === 'RECIBIDA') {
-      throw new Error('Este paquete ya estaba recibido.');
-    }
+    // El paquete se RESERVA de forma atómica antes de tocar el inventario.
+    //
+    // Antes esto era leer, comprobar el estado, meter toda la mercadería y
+    // recién al final marcarlo como recibido. Entre la comprobación y la marca
+    // había una ventana de varios segundos: dos clics en "Recibir", o los dos
+    // dispositivos a la vez, pasaban los dos el control. Y como cada llamada
+    // busca el producto por nombre y todavía no existe, cada una creaba el
+    // suyo: la bodega terminaba con dos fichas gemelas del mismo producto, con
+    // la mercadería repartida entre las dos. Eso no se ve en ninguna pantalla;
+    // sólo se nota cuando los números no cuadran.
+    //
+    // Con la transacción, la segunda llamada encuentra el paquete ya marcado y
+    // se va por la misma puerta que un intento repetido cualquiera.
+    const compra = await runTransaction(db, async (tx) => {
+      const snap = await tx.get(docRef);
+      if (!snap.exists()) throw new Error(`El paquete #${compra_id} no existe.`);
+
+      const data = snap.data() as CompraDoc;
+      if (data.estado === 'RECIBIDA') {
+        throw new Error('Este paquete ya estaba recibido.');
+      }
+
+      tx.set(docRef, { estado: 'RECIBIDA', actualizado_en: new Date().toISOString() }, { merge: true });
+      return data;
+    });
 
     let afectados = 0;
     const lineas = compra.lineas || [];
@@ -411,6 +431,10 @@ export class ComprasRepoFirestore {
       entidad_id: compra_id,
       tipo_evento: 'ACTUALIZACION',
       valor_anterior: compra as unknown as Record<string, unknown>,
+      // Recibir metió mercadería a la bodega. Restaurar la instantánea del
+      // paquete lo devolvería a "sin recibir" dejando las unidades adentro,
+      // listas para entrar una segunda vez.
+      reversible: false,
       detalle: `Paquete ${compra.codigo} recibido, ${afectados} producto(s) al inventario`,
     });
 

@@ -97,6 +97,41 @@ describe('devolución de mercadería al anular', () => {
   );
 
   it.skipIf(!disponible)(
+    'anular la misma venta dos veces AL MISMO TIEMPO no devuelve el doble',
+    async () => {
+      // `cambiarEstado` lee la venta, ve que no está cancelada, devuelve la
+      // mercadería y recién entonces escribe el estado nuevo. Es la misma
+      // forma que tenían los abonos simultáneos y la recepción de paquetes.
+      const { Productos, Ventas, Clientes } = await repos();
+
+      const ana = await Clientes.guardar({ nombre: 'Ana' }, g());
+      const producto = await Productos.crear(
+        { nombre: 'Doble anulación', stock_inicial: { cantidad: 10, costo_unitario_usd_cents: 500 } },
+        g()
+      );
+      const venta = await Ventas.crear(
+        {
+          cliente_id: ana,
+          fecha: HOY,
+          tipo: 'INVENTARIO',
+          lineas: [{ producto_id: producto, cantidad: 4, precio_unitario_usd_cents: 1200 }],
+        },
+        g()
+      );
+      expect(await stockDe(producto)).toBe(6);
+
+      await Promise.allSettled([
+        Ventas.cambiarEstado(venta, 'CANCELADA', g()),
+        Ventas.cambiarEstado(venta, 'CANCELADA', g()),
+      ]);
+
+      const stock = await stockDe(producto);
+      expect(stock, `la bodega quedó con ${stock} unidades; sólo volvían 4`).toBe(10);
+    },
+    60_000
+  );
+
+  it.skipIf(!disponible)(
     'un encargo entregado que después se anula también devuelve la mercadería',
     async () => {
       // La venta de inventario descuenta al crearse y devuelve al anularse.
@@ -169,6 +204,31 @@ describe('el stock nunca miente', () => {
       expect(exitosas).toBe(1);
     },
     45_000
+  );
+
+  it.skipIf(!disponible)(
+    'dos conteos físicos simultáneos dejan el número que se pidió, no la suma',
+    async () => {
+      // `ajustar` fija un total absoluto, no un delta, así que repetirlo tiene
+      // que dar lo mismo. Es la última mutación de inventario del barrido de
+      // concurrencia: entrada y salida ya van en transacción.
+      const { Productos } = await repos();
+
+      const producto = await Productos.crear(
+        { nombre: 'Conteo', stock_inicial: { cantidad: 5, costo_unitario_usd_cents: 1000 } },
+        g()
+      );
+      const variante = (await Productos.varianteUnica(producto))!;
+
+      await Promise.allSettled([
+        Productos.ajustar(variante, 12, g(), 'Conteo físico', producto),
+        Productos.ajustar(variante, 12, g(), 'Conteo físico', producto),
+      ]);
+
+      const p = (await Productos.listar()).find((x) => x.id === producto)!;
+      expect(p.existencias, `quedaron ${p.existencias} unidades y se contaron 12`).toBe(12);
+    },
+    60_000
   );
 
   it.skipIf(!disponible)(

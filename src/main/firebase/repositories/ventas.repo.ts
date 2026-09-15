@@ -1,4 +1,13 @@
-import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
+import {
+  collection,
+  getDocs,
+  query,
+  where,
+  orderBy,
+  limit,
+  doc,
+  runTransaction,
+} from 'firebase/firestore';
 import {
   getFirestoreDb,
   siguienteId,
@@ -545,9 +554,33 @@ export class VentasRepoFirestore {
     estado: EstadoVenta,
     evento_grupo_id: string
   ): Promise<{ reversible: boolean }> {
-    const venta = await leerDoc<VentaDoc>('ventas', venta_id);
-    if (!venta) throw new Error(`La venta #${venta_id} no existe.`);
-    if (venta.estado === estado) return { reversible: false };
+    const db = getFirestoreDb();
+    const ventaRef = doc(db, 'ventas', String(venta_id));
+    const ahora = new Date().toISOString();
+
+    // El cambio de estado se RESERVA de forma atómica antes de mover nada.
+    //
+    // Antes esto leía la venta, comprobaba el estado, devolvía la mercadería
+    // al inventario y recién al final escribía el estado nuevo. Dos
+    // anulaciones simultáneas de la misma venta —doble clic, o Windows y el
+    // celular a la vez— pasaban las dos el control y la mercadería volvía dos
+    // veces: la bodega quedaba inflada sin que nada lo indicara.
+    //
+    // Al escribir el estado dentro de la transacción, la segunda llamada lo
+    // encuentra ya cambiado y sale por la misma puerta que un intento
+    // repetido: sin hacer nada.
+    const venta = await runTransaction(db, async (tx) => {
+      const snap = await tx.get(ventaRef);
+      if (!snap.exists()) throw new Error(`La venta #${venta_id} no existe.`);
+
+      const data = snap.data() as VentaDoc;
+      if (data.estado === estado) return null;
+
+      tx.set(ventaRef, { estado, actualizado_en: ahora }, { merge: true });
+      return data;
+    });
+
+    if (!venta) return { reversible: false };
 
     const anterior = { ...venta } as unknown as Record<string, unknown>;
 
@@ -562,7 +595,6 @@ export class VentasRepoFirestore {
     // venta quede consistente, y con el MISMO grupo de eventos, asi deshacer
     // la cancelacion devuelve tambien los pagos.
     if (estado === 'CANCELADA') {
-      const db = getFirestoreDb();
       const pagosSnap = await getDocs(
         query(
           collection(db, 'pagos'),
@@ -645,15 +677,7 @@ export class VentasRepoFirestore {
       }
     }
 
-    await aplicarLote([
-      {
-        coleccion: 'ventas',
-        id: venta_id,
-        datos: { estado, actualizado_en: new Date().toISOString() },
-        merge: true,
-      },
-    ]);
-
+    // El estado ya quedó escrito en la transacción de arriba.
     await ClientesRepoFirestore.refrescarTotales(venta.cliente_id);
 
     await EventosRepoFirestore.registrarEvento({
