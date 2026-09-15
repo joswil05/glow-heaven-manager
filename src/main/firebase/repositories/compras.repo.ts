@@ -13,6 +13,7 @@ import { costearPaquete } from '../../../core/costeo';
 import type { CompraLineaInput } from '../../../core/costeo';
 import { ParametrosRepoFirestore } from './parametros.repo';
 import { ProductosRepoFirestore } from './productos.repo';
+import { ResumenesRepoFirestore } from './resumenes.repo';
 import { EventosRepoFirestore } from './eventos.repo';
 import type {
   Compra,
@@ -424,6 +425,13 @@ export class ComprasRepoFirestore {
     });
 
     await aplicarLote(operaciones);
+
+    // Recibir el paquete congela el costo real de los encargos que traía, y
+    // eso cambia su ganancia. Los resúmenes de los meses de esas ventas
+    // dejaron de ser ciertos.
+    for (const vData of ventas.values()) {
+      await ResumenesRepoFirestore.invalidarPorFecha((vData as { fecha?: string }).fecha);
+    }
 
     await EventosRepoFirestore.registrarEvento({
       evento_grupo_id,

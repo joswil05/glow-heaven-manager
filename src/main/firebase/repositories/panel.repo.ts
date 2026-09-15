@@ -1,10 +1,11 @@
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { getFirestoreDb } from '../client';
 import { ProductosRepoFirestore } from './productos.repo';
 import { type VentaDoc } from './ventas.repo';
 import { ClientesRepoFirestore } from './clientes.repo';
 import { formatearMoneda } from '../../../core/moneda';
 import { hoyISO, mesISO, haceDias } from '../../../core/fechas';
+import { ResumenesRepoFirestore } from './resumenes.repo';
 import type {
   PanelData,
   ResumenFinanciero,
@@ -29,7 +30,10 @@ import type {
  */
 interface Instantanea {
   productos: ProductoConStock[];
+  /** Union de los tres conjuntos, sin repetidos. Para los calculos generales. */
   ventas: VentaDoc[];
+  /** Solo los ultimos 90 dias, en orden. Para rotacion y tendencia. */
+  ventasRecientes: VentaDoc[];
   clientes: ClienteDetalle[];
   comprasEnCamino: Compra[];
 }
@@ -75,22 +79,73 @@ async function tomarInstantanea(forzarRefresco = false): Promise<Instantanea> {
 
   const db = getFirestoreDb();
 
-  const [productos, ventasSnap, clientes, comprasSnap] = await Promise.all([
-    ProductosRepoFirestore.listar(),
-    getDocs(query(collection(db, 'ventas'), where('activo', '==', true))),
-    ClientesRepoFirestore.listar(),
-    getDocs(
-      query(
-        collection(db, 'compras'),
-        where('activo', '==', true),
-        where('estado', '==', 'EN_CAMINO')
-      )
-    ),
-  ]);
+  // Tres consultas acotadas en lugar de "traeme todas las ventas".
+  //
+  // Antes esto leía la colección entera para calcular el panel, y el costo
+  // crecía con la antigüedad del negocio: medido, 200 ventas eran 401
+  // lecturas por apertura, y sube para siempre. La mayor parte de eso son
+  // ventas cerradas hace meses que ningún número del panel necesita.
+  //
+  // Lo que el panel SÍ necesita son tres conjuntos, y los tres están acotados
+  // por su propia naturaleza, no por la edad del negocio:
+  //
+  //   · recientes  — los últimos 90 días. De acá salen la ganancia del mes,
+  //                  la rotación y lo más vendido.
+  //   · conSaldo   — lo que se debe HOY. Crece con la morosidad, no con el
+  //                  tiempo: una venta cobrada sale del conjunto.
+  //   · encargos   — los que están vivos. Se vacía a medida que se entregan.
+  //
+  // El histórico de meses anteriores ya no sale de acá: lo arma
+  // `ResumenesRepoFirestore` con resúmenes por mes.
+  const desde90d = haceDias(90);
+
+  const [productos, recientesSnap, conSaldoSnap, encargosSnap, clientes, comprasSnap] =
+    await Promise.all([
+      ProductosRepoFirestore.listar(),
+      getDocs(
+        query(
+          collection(db, 'ventas'),
+          where('activo', '==', true),
+          where('fecha', '>=', desde90d),
+          orderBy('fecha', 'desc')
+        )
+      ),
+      getDocs(
+        query(
+          collection(db, 'ventas'),
+          where('activo', '==', true),
+          where('saldo_usd_cents', '>', 0)
+        )
+      ),
+      getDocs(
+        query(collection(db, 'ventas'), where('activo', '==', true), where('tipo', '==', 'ENCARGO'))
+      ),
+      ClientesRepoFirestore.listar(),
+      getDocs(
+        query(
+          collection(db, 'compras'),
+          where('activo', '==', true),
+          where('estado', '==', 'EN_CAMINO')
+        )
+      ),
+    ]);
+
+  const leer = (snap: { docs: { data: () => unknown }[] }) =>
+    snap.docs.map((d) => d.data() as VentaDoc).filter((v) => v.activo !== false);
+
+  const recientes = leer(recientesSnap);
+
+  // Los tres conjuntos se solapan (una venta reciente puede tener saldo y ser
+  // encargo). Se unen por id para que ningún cálculo la cuente dos veces.
+  const porId = new Map<number, VentaDoc>();
+  for (const v of [...recientes, ...leer(conSaldoSnap), ...leer(encargosSnap)]) {
+    porId.set(v.id, v);
+  }
 
   const datos: Instantanea = {
     productos: productos.filter((p) => p.activo !== false),
-    ventas: ventasSnap.docs.map((d) => d.data() as VentaDoc).filter((v) => v.activo !== false),
+    ventas: [...porId.values()],
+    ventasRecientes: recientes,
     clientes: clientes.filter((c) => c.activo !== false),
     comprasEnCamino: comprasSnap.docs
       .map((d) => d.data() as Compra)
@@ -137,31 +192,14 @@ function calcularResumen(s: Instantanea): ResumenFinanciero {
   };
 }
 
-function calcularHistorico(s: Instantanea, meses: number): GananciaMes[] {
-  const porMes = new Map<string, GananciaMes>();
-
-  for (const v of s.ventas) {
-    if (v.estado !== 'ENTREGADA') continue;
-    const mes = (v.fecha || '').slice(0, 7);
-    if (!mes) continue;
-
-    const act = porMes.get(mes) ?? mesVacio(mes);
-    act.ventas_count += 1;
-    act.ingresos_usd_cents += v.total_usd_cents || 0;
-    act.costos_usd_cents += v.costo_total_usd_cents || 0;
-    act.ganancia_usd_cents += v.ganancia_usd_cents || 0;
-    porMes.set(mes, act);
-  }
-
-  const serie: GananciaMes[] = [];
-  let clave = mesActual();
-
-  for (let i = 0; i < meses; i++) {
-    serie.unshift(porMes.get(clave) ?? mesVacio(clave));
-    clave = mesAnterior(clave);
-  }
-
-  return serie;
+/**
+ * La serie mensual sale de `ResumenesRepoFirestore`: los meses que caen dentro
+ * de los últimos noventa días se calculan con lo que la instantánea ya trajo,
+ * y los anteriores vienen de su resumen guardado. Ninguno cuesta releer la
+ * historia del negocio.
+ */
+async function calcularHistorico(s: Instantanea, meses: number): Promise<GananciaMes[]> {
+  return ResumenesRepoFirestore.historico(meses, s.ventasRecientes);
 }
 
 function calcularPorCobrar(s: Instantanea, limite: number): FilaPorCobrar[] {
@@ -359,7 +397,7 @@ export class PanelRepoFirestore {
   /** Carga completa del panel con una sola pasada por cada colección. */
   static async cargar(forzarRefresco = false): Promise<PanelData> {
     const s = await tomarInstantanea(forzarRefresco);
-    const historico = calcularHistorico(s, 6);
+    const historico = await calcularHistorico(s, 6);
     const rotacion = calcularRotacion(s);
 
     const buscarMes = (mes: string): GananciaMes =>

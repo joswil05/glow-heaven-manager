@@ -165,12 +165,19 @@ describe('el costo de abrir el panel móvil', () => {
     await obtenerDatosDashboard(true);
     const primeraApertura = contadores().lecturas;
 
-    // 20 ventas + los clientes y productos de la instantánea. Lo que no puede
-    // pasar es que las ventas se paguen dos veces: eso serían 40 y pico.
+    // El panel pide tres recortes de ventas —las recientes, las que deben y
+    // los encargos vivos— y una misma venta puede caer en más de uno, así que
+    // se lee hasta tres veces. Con un negocio chico eso cuesta MÁS que traer
+    // todo de una: 20 ventas impagas y recientes entran en los tres.
+    //
+    // Es un intercambio hecho a propósito. El costo de antes era el total de
+    // la historia y crecía todos los meses; el de ahora es como mucho tres
+    // veces un conjunto acotado, y no crece nunca. Para un negocio de un año
+    // ya conviene; para uno de tres, la diferencia es abismal.
     expect(
       primeraApertura,
       `abrir el panel costó ${primeraApertura} lecturas con 20 ventas`
-    ).toBeLessThan(40);
+    ).toBeLessThan(20 * 3 + 20);
   });
 
   it('la caché de 45 segundos evita releer en cada cambio de pestaña', async () => {

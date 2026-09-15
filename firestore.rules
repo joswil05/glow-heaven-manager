@@ -128,6 +128,20 @@ service cloud.firestore {
       allow read, write: if autenticado();
     }
 
+    match /resumenes_mensuales/{mes} {
+      // Caché de un cálculo, no una fuente de verdad: cada documento se puede
+      // rehacer leyendo las ventas de ese mes. Por eso se puede borrar sin
+      // perder nada; borrarlo es justamente cómo se invalida.
+      //
+      // Lleva plata, así que se le exige lo mismo que al resto: centavos
+      // enteros. Un decimal acá significa que algo escribió fuera de la app.
+      allow read, delete: if autenticado();
+      allow create, update: if autenticado()
+                   && centavosValidos('ingresos_usd_cents')
+                   && centavosValidos('costos_usd_cents')
+                   && centavosValidos('ganancia_usd_cents');
+    }
+
     // Cualquier colección que no esté nombrada arriba queda cerrada. Si el
     // modelo crece, la regla nueva se agrega acá a propósito.
     match /{document=**} {

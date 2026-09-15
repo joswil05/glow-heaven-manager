@@ -76,6 +76,10 @@ const DINAMICAS = [
     // combinan entre sí desde los filtros de la pantalla de ventas.
     combinaciones: [
       [['activo', '==']],
+      // La ventana por fecha: `activo ==` + `fecha >=` + orden descendente.
+      // Es la forma que usan las pantallas de listado para no traer la
+      // historia entera.
+      [['activo', '=='], ['fecha', '>=']],
       [['activo', '=='], ['tipo', '==']],
       [['activo', '=='], ['estado', '==']],
       [['activo', '=='], ['cliente_id', '==']],
@@ -84,6 +88,12 @@ const DINAMICAS = [
       [['activo', '=='], ['estado', '=='], ['cliente_id', '==']],
       [['activo', '=='], ['tipo', '=='], ['estado', '=='], ['cliente_id', '==']],
     ],
+  },
+  {
+    origen: 'src/main/firebase/repositories/ventas.repo.ts :: listar() con ventana',
+    coleccion: 'ventas',
+    combinaciones: [[['activo', '=='], ['fecha', '>=']]],
+    ordenes: [['fecha', 'desc']],
   },
   {
     origen: 'src/main/firebase/repositories/productos.repo.ts :: listar()',
@@ -298,7 +308,7 @@ for (const dinamica of DINAMICAS) {
       origen: dinamica.origen,
       coleccion: dinamica.coleccion,
       filtros: combinacion,
-      ordenes: [],
+      ordenes: dinamica.ordenes ?? [],
       dinamica: false,
       declarada: true,
     });
@@ -386,13 +396,25 @@ if (faltantes.length > 0) {
   for (const { consulta, forma } of faltantes) {
     console.log(`    ${describir(consulta.coleccion, forma)}`);
     console.log(`      origen: ${consulta.origen}`);
-    const sugerido = [
-      ...forma.igualdades.map((c) => ({ fieldPath: c, order: 'ASCENDING' })),
-      ...forma.ordenes.map(([c, d]) => ({
-        fieldPath: c,
-        order: d === 'desc' ? 'DESCENDING' : 'ASCENDING',
-      })),
-    ];
+    // Las igualdades van primero, despues el campo de la desigualdad (si no
+    // aparece ya en el orden) y al final los campos del orden.
+    const yaListados = new Set(forma.igualdades);
+    const sugerido = [...forma.igualdades.map((c) => ({ fieldPath: c, order: 'ASCENDING' }))];
+
+    for (const campo of forma.desigualdades) {
+      if (yaListados.has(campo)) continue;
+      if (forma.ordenes.some(([c]) => c === campo)) continue;
+      sugerido.push({ fieldPath: campo, order: 'ASCENDING' });
+      yaListados.add(campo);
+    }
+
+    for (const [campo, direccion] of forma.ordenes) {
+      if (yaListados.has(campo)) continue;
+      sugerido.push({
+        fieldPath: campo,
+        order: direccion === 'desc' ? 'DESCENDING' : 'ASCENDING',
+      });
+    }
     console.log(`      agregar: ${JSON.stringify({ collectionGroup: consulta.coleccion, queryScope: 'COLLECTION', fields: sugerido })}`);
     console.log('');
   }

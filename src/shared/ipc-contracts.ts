@@ -208,8 +208,11 @@ export interface FiltrosVenta {
   estado?: EstadoVenta;
   cliente_id?: number;
   soloConSaldo?: boolean;
+  /** Ventana de fechas: `desde` se resuelve en el servidor. */
   desde?: string;
   hasta?: string;
+  /** Tope de documentos a traer. */
+  limite?: number;
 }
 
 export interface RegistrarPagoInput {

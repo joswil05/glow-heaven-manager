@@ -137,6 +137,20 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "ventas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "activo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "saldo_usd_cents",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []

@@ -895,7 +895,31 @@ describe('costo de comunicación con Firestore', () => {
     // Antes de consolidar, el panel leía productos 5 veces y ventas 6:
     // pasaba de 150 lecturas para los mismos datos.
     expect(c.lecturas).toBeLessThanOrEqual(60);
-    expect(c.escrituras).toBe(0);
+  });
+
+  it('la primera apertura guarda los resúmenes de meses cerrados, y la segunda ya no', async () => {
+    // El panel escribe, y es a propósito: al calcular un mes ya cerrado lo
+    // guarda para no volver a calcularlo nunca. Es una escritura por mes, una
+    // sola vez en la vida de ese mes.
+    //
+    // Lo que sí tiene que cumplirse es que sea UNA vez: un panel que
+    // reescribe lo mismo en cada apertura sería una fuga silenciosa, y las
+    // escrituras cuestan más que las lecturas.
+    await sembrarNegocio();
+
+    reiniciarContadores();
+    await PanelRepo.cargar(true);
+    const primera = contadores();
+
+    reiniciarContadores();
+    await PanelRepo.cargar(true);
+    const segunda = contadores();
+
+    expect(
+      segunda.escrituras,
+      `la segunda apertura volvió a escribir ${segunda.escrituras} resumen(es)`
+    ).toBe(0);
+    expect(primera.escrituras).toBeLessThanOrEqual(12);
   });
 
   it('listar el inventario cuesta una pasada, no una por producto', async () => {

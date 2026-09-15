@@ -7,6 +7,7 @@ import {
   limit,
   doc,
   runTransaction,
+  type QueryConstraint,
 } from 'firebase/firestore';
 import {
   getFirestoreDb,
@@ -22,6 +23,7 @@ import { ProductosRepoFirestore, type ProductoDoc } from './productos.repo';
 import { ClientesRepoFirestore } from './clientes.repo';
 import { EventosRepoFirestore } from './eventos.repo';
 import { PagosRepoFirestore } from './pagos.repo';
+import { ResumenesRepoFirestore } from './resumenes.repo';
 import type {
   Venta,
   VentaCompleta,
@@ -67,8 +69,18 @@ export interface FiltrosVenta {
   estado?: EstadoVenta;
   cliente_id?: number;
   soloConSaldo?: boolean;
+  /**
+   * Ventana de fechas. Se respeta siempre; cuando se puede, se resuelve EN EL
+   * SERVIDOR, que es lo que evita pagar toda la historia del negocio.
+   *
+   * Una pantalla que necesita el historial completo de algo —las ventas de
+   * una clienta, los encargos pendientes— simplemente no lo manda. Acotar por
+   * fecha ahi escondería una deuda vieja o un encargo sin entregar.
+   */
   desde?: string;
   hasta?: string;
+  /** Tope de documentos. Sin tope, el costo crece con los años. */
+  limite?: number;
 }
 
 export interface VentaDoc extends Venta {
@@ -87,12 +99,37 @@ export class VentasRepoFirestore {
   ): Promise<Venta[]> {
     const db = getFirestoreDb();
 
-    // Los filtros que Firestore sabe resolver se mandan al servidor: filtrar
-    // en memoria significa pagar la lectura de todo lo que se descarta.
-    const clausulas = [where('activo', '==', true)];
-    if (filtros.tipo) clausulas.push(where('tipo', '==', filtros.tipo));
-    if (filtros.estado) clausulas.push(where('estado', '==', filtros.estado));
-    if (filtros.cliente_id) clausulas.push(where('cliente_id', '==', filtros.cliente_id));
+    // Dos formas de acotar, y se elige una sola.
+    //
+    // Firestore cobra por documento leido, asi que lo que importa no es cuanto
+    // se muestra sino cuanto se TRAE. Sin acotar, abrir la pantalla de ventas
+    // lee la historia entera del negocio, y esa cuenta crece todos los meses
+    // para siempre.
+    //
+    //   · Por fecha: `desde` + orden descendente + tope. Es la ventana normal
+    //     de una pantalla de listado, y su costo no depende de la antiguedad
+    //     del negocio sino del tamanio de la ventana.
+    //   · Por igualdad: cliente, tipo o estado. Sirve para conjuntos que ya
+    //     son chicos por naturaleza (las ventas de una clienta, los encargos
+    //     pendientes) y donde recortar por fecha SI perderia datos que
+    //     importan: un encargo pendiente de hace tres meses sigue pendiente.
+    //
+    // No se combinan las dos porque cada mezcla de igualdad + rango exige su
+    // propio indice compuesto, y multiplicar indices se paga en cada
+    // escritura. Con la ventana activa, tipo y estado se afinan en memoria
+    // sobre lo que ya vino, que no cuesta nada.
+    const clausulas: QueryConstraint[] = [where('activo', '==', true)];
+    const porFecha = Boolean(filtros.desde) && !filtros.cliente_id;
+
+    if (porFecha) {
+      clausulas.push(where('fecha', '>=', filtros.desde!));
+      clausulas.push(orderBy('fecha', 'desc'));
+      if (filtros.limite) clausulas.push(limit(filtros.limite));
+    } else {
+      if (filtros.tipo) clausulas.push(where('tipo', '==', filtros.tipo));
+      if (filtros.estado) clausulas.push(where('estado', '==', filtros.estado));
+      if (filtros.cliente_id) clausulas.push(where('cliente_id', '==', filtros.cliente_id));
+    }
 
     const snap = await getDocs(query(collection(db, 'ventas'), ...clausulas));
 
@@ -116,10 +153,24 @@ export class VentasRepoFirestore {
       };
     });
 
+    // Con la ventana activa, tipo y estado no fueron al servidor: se afinan
+    // acá sobre los documentos que ya se pagaron.
+    if (porFecha) {
+      if (filtros.tipo) ventas = ventas.filter((v) => v.tipo === filtros.tipo);
+      if (filtros.estado) ventas = ventas.filter((v) => v.estado === filtros.estado);
+    }
+
     if (filtros.soloConSaldo) {
       ventas = ventas.filter((v) => (v.saldo_usd_cents || 0) > 0 && v.estado !== 'CANCELADA');
     }
-    if (filtros.desde) ventas = ventas.filter((v) => v.fecha >= filtros.desde!);
+
+    // `desde` se respeta SIEMPRE, se haya resuelto en el servidor o no. Que
+    // un filtro signifique cosas distintas segun el camino es justo el tipo
+    // de sorpresa que hace perder datos sin que nadie lo note; quien no
+    // quiere ventana, no la manda.
+    if (!porFecha && filtros.desde) {
+      ventas = ventas.filter((v) => v.fecha >= filtros.desde!);
+    }
     if (filtros.hasta) ventas = ventas.filter((v) => v.fecha <= filtros.hasta!);
 
     return ventas.sort((a, b) => {
@@ -679,6 +730,10 @@ export class VentasRepoFirestore {
 
     // El estado ya quedó escrito en la transacción de arriba.
     await ClientesRepoFirestore.refrescarTotales(venta.cliente_id);
+
+    // Entregar o anular cambia la ganancia del mes de esa venta. Si es un mes
+    // ya cerrado, su resumen guardado dejó de ser cierto.
+    await ResumenesRepoFirestore.invalidarPorFecha(venta.fecha);
 
     await EventosRepoFirestore.registrarEvento({
       evento_grupo_id,

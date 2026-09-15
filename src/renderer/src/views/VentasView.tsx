@@ -90,7 +90,12 @@ export const VentasView: React.FC<VentasViewProps> = ({
   const [ventas, setVentas] = useState<Venta[]>([]);
   const [cargando, setCargando] = useState(true);
   const [filtro, setFiltro] = useState<Filtro>('TODAS');
-  const [periodo, setPeriodo] = useState<Periodo>('TODOS');
+  // Abre acotada al mes en curso, no a la historia entera.
+  //
+  // El período ya no es un filtro de pantalla: viaja al servidor y decide
+  // cuántos documentos se traen. Abrir en 'TODOS' significaba pagar todas las
+  // ventas del negocio cada vez, y esa cuenta crece todos los meses.
+  const [periodo, setPeriodo] = useState<Periodo>('ESTE_MES');
   const [editorAbierto, setEditorAbierto] = useState(abrirEditorAlEntrar);
   const [ventaDetalle, setVentaDetalle] = useState<VentaCompleta | null>(null);
   const [pagoAbierto, setPagoAbierto] = useState(false);
@@ -104,11 +109,28 @@ export const VentasView: React.FC<VentasViewProps> = ({
 
   const lateralRef = useClickOutside<HTMLElement>(Boolean(ventaDetalle), () => setVentaDetalle(null));
 
+  /**
+   * La fecha desde la que se piden ventas. `null` es "sin corte", y sólo lo
+   * devuelve 'TODOS', que es una decisión explícita de quien mira.
+   */
+  const desdeDelPeriodo = useMemo((): string | undefined => {
+    const [anio, mes] = mesISO().split('-').map(Number);
+    if (periodo === 'ESTE_MES') return `${anio}-${String(mes).padStart(2, '0')}-01`;
+    if (periodo === 'MES_ANTERIOR') {
+      return mes === 1
+        ? `${anio - 1}-12-01`
+        : `${anio}-${String(mes - 1).padStart(2, '0')}-01`;
+    }
+    if (periodo === 'ESTE_ANO') return `${anio}-01-01`;
+    return undefined;
+  }, [periodo]);
+
   const cargar = useCallback(async () => {
     setCargando(true);
     try {
       const r = await window.api.ventas.list({
         tipo,
+        desde: desdeDelPeriodo,
         soloConSaldo: filtro === 'CON_SALDO',
         estado:
           filtro === 'PENDIENTES'
@@ -124,7 +146,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
     } finally {
       setCargando(false);
     }
-  }, [tipo, filtro, esEncargo, showToast]);
+  }, [tipo, filtro, esEncargo, desdeDelPeriodo, showToast]);
 
   useEffect(() => {
     cargar();
@@ -143,24 +165,10 @@ export const VentasView: React.FC<VentasViewProps> = ({
     if (ventaInicialId) abrirDetalle(ventaInicialId);
   }, [ventaInicialId, abrirDetalle]);
 
-  const ventasPeriodo = useMemo(() => {
-    if (periodo === 'TODOS') return ventas;
-    const esteMes = mesISO();
-    const [anioActual, numeroMes] = esteMes.split('-').map(Number);
-    const mesPasado =
-      numeroMes === 1
-        ? `${anioActual - 1}-12`
-        : `${anioActual}-${String(numeroMes - 1).padStart(2, '0')}`;
-    const esteAno = String(anioActual);
-
-    return ventas.filter((v) => {
-      const fecha = (v.fecha || '').slice(0, 10);
-      if (periodo === 'ESTE_MES') return fecha.startsWith(esteMes);
-      if (periodo === 'MES_ANTERIOR') return fecha.startsWith(mesPasado);
-      if (periodo === 'ESTE_ANO') return fecha.startsWith(esteAno);
-      return true;
-    });
-  }, [ventas, periodo]);
+  // El recorte por período ya lo hizo el servidor: acá sólo queda darle
+  // nombre a lo que llegó. Antes esto filtraba en memoria una lista que ya
+  // se había pagado entera.
+  const ventasPeriodo = ventas;
 
   const totales = useMemo(() => {
     const activas = ventasPeriodo.filter((v) => v.estado !== 'CANCELADA');

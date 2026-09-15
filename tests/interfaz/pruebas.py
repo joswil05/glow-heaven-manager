@@ -396,7 +396,20 @@ def main() -> int:
 
         # Los errores de consola valen como falla: una pantalla que revienta
         # por dentro igual se ve bien por fuera.
-        ruido = [e for e in errores_consola if "favicon" not in e.lower()]
+        # Ruido del entorno, no de la aplicación: cuando el corredor apaga el
+        # servidor de desarrollo, el navegador todavía tiene peticiones en
+        # vuelo y las reporta como error. Contarlas haría fallar la suite por
+        # cómo termina la prueba, no por lo que hace la app.
+        ENTORNO = (
+            "favicon",
+            "err_network_io_suspended",
+            "err_connection_refused",
+            "websocket connection to",
+            "[vite]",
+        )
+        ruido = [
+            e for e in errores_consola if not any(m in e.lower() for m in ENTORNO)
+        ]
         if ruido:
             total_fallas += len(ruido)
             print(f"  x  errores de consola ({len(ruido)})")
