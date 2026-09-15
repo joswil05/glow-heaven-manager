@@ -123,7 +123,13 @@ export class VentasRepoFirestore {
 
     if (porFecha) {
       clausulas.push(where('fecha', '>=', filtros.desde!));
+      // Se ordena por fecha Y por id, que es la forma EXACTA del indice
+      // `ventas: activo, fecha desc, id desc`. Ordenar solo por fecha obliga a
+      // Firestore a encajar la consulta en un indice de otra forma, y cuando
+      // no encaja no devuelve datos parciales: rechaza la consulta entera y la
+      // pantalla queda vacia. El id ademas desempata las ventas del mismo dia.
       clausulas.push(orderBy('fecha', 'desc'));
+      clausulas.push(orderBy('id', 'desc'));
       if (filtros.limite) clausulas.push(limit(filtros.limite));
     } else {
       if (filtros.tipo) clausulas.push(where('tipo', '==', filtros.tipo));

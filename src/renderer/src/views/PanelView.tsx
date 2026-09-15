@@ -85,6 +85,9 @@ const OPCIONES_GRAFICA: {
 interface PanelViewProps {
   data: PanelData | null;
   loading: boolean;
+  /** Por qué no se pudo cargar, si es que no se pudo. */
+  error?: string | null;
+  onReintentar?: () => void;
   onNavegar: (destino: DestinoPanel, id?: number) => void;
   onNuevaVenta: () => void;
   onNuevoPaquete: () => void;
@@ -109,10 +112,38 @@ const ESTILO_ALERTA: Record<SeveridadAlerta, { punto: string; badge: 'danger' | 
 export const PanelView: React.FC<PanelViewProps> = ({
   data,
   loading,
+  error,
+  onReintentar,
   onNavegar,
   onNuevaVenta,
   onNuevoPaquete,
 }) => {
+  // Un fallo de carga NO puede verse igual que "todavía cargando". Antes los
+  // dos casos caían en el mismo spinner y la pantalla giraba para siempre sin
+  // decir nada ni ofrecer salida.
+  if (error && !data) {
+    return (
+      <div className="flex-1 p-8 flex items-center justify-center">
+        <div className="flex max-w-md flex-col items-center gap-3 rounded-2xl border border-borde bg-superficie p-6 text-center">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-peligro-suave text-peligro">
+            <AlertTriangle size={22} />
+          </div>
+          <h2 className="text-body font-bold text-texto">No se pudo cargar tu resumen</h2>
+          <p className="text-caption text-texto-2 break-words">{error}</p>
+          {onReintentar && (
+            <button
+              type="button"
+              onClick={onReintentar}
+              className="mt-1 rounded-xl bg-acento px-4 py-2 text-label font-bold text-acento-texto transition-transform active:scale-[0.97] cursor-pointer"
+            >
+              Reintentar
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   if (loading || !data) {
     return (
       <div className="flex-1 p-8 flex items-center justify-center text-texto-3 text-body">

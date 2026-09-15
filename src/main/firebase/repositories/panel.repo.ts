@@ -107,7 +107,9 @@ async function tomarInstantanea(forzarRefresco = false): Promise<Instantanea> {
           collection(db, 'ventas'),
           where('activo', '==', true),
           where('fecha', '>=', desde90d),
-          orderBy('fecha', 'desc')
+          // Misma forma exacta que el indice construido: fecha y despues id.
+          orderBy('fecha', 'desc'),
+          orderBy('id', 'desc')
         )
       ),
       getDocs(

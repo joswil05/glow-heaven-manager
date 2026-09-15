@@ -34,6 +34,8 @@ export const App: React.FC = () => {
   const [clientes, setClientes] = useState<ClienteDetalle[]>([]);
   const [productos, setProductos] = useState<ProductoConStock[]>([]);
   const [panel, setPanel] = useState<PanelData | null>(null);
+  /** Por qué no se pudo cargar el panel, si es que no se pudo. */
+  const [errorPanel, setErrorPanel] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
 
   // Selección que viaja entre vistas al hacer clic en una alerta.
@@ -108,7 +110,15 @@ export const App: React.FC = () => {
       if (rc.success) setCategorias(rc.data);
       if (rcl.success) setClientes(rcl.data);
       if (rpr.success) setProductos(rpr.data);
-      if (rpanel.success) setPanel(rpanel.data);
+      if (rpanel.success) {
+        setPanel(rpanel.data);
+        setErrorPanel(null);
+      } else {
+        // Sin esto el panel se quedaba girando para siempre: un fallo de carga
+        // se veia exactamente igual que "todavia cargando", y no habia forma
+        // de saber que algo habia salido mal ni de reintentar.
+        setErrorPanel(rpanel.error);
+      }
 
       const fallo = [rp, rc, rcl, rpr, rpanel].find((r) => !r.success);
       if (fallo && !fallo.success) {
@@ -127,7 +137,12 @@ export const App: React.FC = () => {
   useEffect(() => {
     if (usuario && tab === 'panel') {
       window.api.panel.cargar().then((r) => {
-        if (r.success) setPanel(r.data);
+        if (r.success) {
+          setPanel(r.data);
+          setErrorPanel(null);
+        } else {
+          setErrorPanel(r.error);
+        }
       });
     }
   }, [tab, usuario]);
@@ -315,6 +330,8 @@ export const App: React.FC = () => {
             <div key={tab} className="flex-1 flex overflow-hidden view-fade-slide">
               {tab === 'panel' && (
                 <PanelView
+                  error={errorPanel}
+                  onReintentar={cargar}
                   data={panel}
                   loading={cargando}
                   onNavegar={navegarDesdePanel}

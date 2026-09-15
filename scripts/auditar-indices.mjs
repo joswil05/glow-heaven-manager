@@ -246,6 +246,55 @@ function indiceNecesario(filtros, ordenes) {
   };
 }
 
+/**
+ * ¿El índice declarado sirve para la forma pedida, SIN depender de reglas
+ * finas de Firestore?
+ *
+ * Esta comprobación se volvió estricta después de que una consulta con índice
+ * "aprobado" por esta auditoría fuera rechazada en producción. El problema no
+ * fue el índice: fue esta función, que daba por bueno un encaje que dependía
+ * de que Firestore recorriera el índice al revés o ignorara campos de más.
+ *
+ * Una auditoría que aprueba de más es peor que no tenerla: da permiso para
+ * desplegar. Así que ahora sólo aprueba el encaje EXACTO —las igualdades como
+ * prefijo y después los campos del orden, en el mismo orden y la misma
+ * dirección— y todo lo demás se reporta como "encaje dudoso", que no es un
+ * error pero tampoco un visto bueno.
+ */
+function indiceSirveExacto(declarado, forma) {
+  const campos = declarado.fields.map((f) => ({
+    campo: f.fieldPath,
+    dir: (f.order ?? 'ASCENDING').toLowerCase().startsWith('desc') ? 'desc' : 'asc',
+  }));
+
+  const nIgual = forma.igualdades.length;
+  if (campos.length < nIgual + forma.ordenes.length) return false;
+
+  const prefijo = campos.slice(0, nIgual).map((c) => c.campo).sort();
+  if (prefijo.join('|') !== [...forma.igualdades].sort().join('|')) return false;
+
+  const resto = campos.slice(nIgual);
+
+  // Exacto: mismo campo, misma dirección. Sin recorrer al revés.
+  const exacto = forma.ordenes.every(
+    (o, i) => resto[i] && resto[i].campo === o[0] && resto[i].dir === o[1]
+  );
+  if (!exacto) return false;
+
+  // Una desigualdad tiene que ser el primer campo ordenado.
+  if (forma.desigualdades.length > 0) {
+    const primero = forma.ordenes[0]?.[0] ?? resto[0]?.campo;
+    if (!forma.desigualdades.includes(primero)) return false;
+
+    // Sin `orderBy` explícito, Firestore ordena por el campo de la
+    // desigualdad de forma ascendente. El índice tiene que estar en esa
+    // dirección: un índice descendente NO sirve, aunque tenga el campo.
+    if (forma.ordenes.length === 0 && resto[0]?.dir !== 'asc') return false;
+  }
+
+  return true;
+}
+
 /** ¿El índice declarado sirve para la forma pedida? */
 function indiceSirve(declarado, forma) {
   const campos = declarado.fields.map((f) => ({
@@ -315,7 +364,12 @@ for (const dinamica of DINAMICAS) {
   }
 }
 
+const nombrar = (i) =>
+  `${i.collectionGroup}: ` +
+  i.fields.map((f) => `${f.fieldPath} ${f.order === 'DESCENDING' ? 'desc' : 'asc'}`).join(', ');
+
 const faltantes = [];
+const dudosos = [];
 const sinResolver = [];
 const usados = new Set();
 let automaticas = 0;
@@ -342,11 +396,18 @@ for (const consulta of consultas) {
   }
 
   const candidatos = indices.filter((i) => i.collectionGroup === consulta.coleccion);
-  const servidor = candidatos.find((i) => indiceSirve(i, forma));
-  if (servidor) {
-    usados.add(JSON.stringify(servidor));
+  const exacto = candidatos.find((i) => indiceSirveExacto(i, forma));
+
+  if (exacto) {
+    usados.add(JSON.stringify(exacto));
   } else {
-    faltantes.push({ consulta, forma });
+    const dudoso = candidatos.find((i) => indiceSirve(i, forma));
+    if (dudoso) {
+      usados.add(JSON.stringify(dudoso));
+      dudosos.push({ consulta, forma, indice: dudoso });
+    } else {
+      faltantes.push({ consulta, forma });
+    }
   }
 }
 
@@ -420,10 +481,6 @@ if (faltantes.length > 0) {
   }
 }
 
-const nombrar = (i) =>
-  `${i.collectionGroup}: ` +
-  i.fields.map((f) => `${f.fieldPath} ${f.order === 'DESCENDING' ? 'desc' : 'asc'}`).join(', ');
-
 if (opcionales.length > 0) {
   console.log(
     '\n· Índices opcionales (aceleran una consulta de sólo igualdades, no son obligatorios):'
@@ -434,6 +491,21 @@ if (opcionales.length > 0) {
 if (muertos.length > 0) {
   console.log('\n· Índices que ninguna consulta usa — peso muerto en cada escritura:');
   for (const i of muertos) console.log(`    ${nombrar(i)}`);
+}
+
+if (dudosos.length > 0) {
+  console.log('');
+  console.log('⚠ Encajes dudosos: hay un indice que PODRIA servir, pero solo si Firestore');
+  console.log('  recorre el índice al revés o ignora campos de más. Eso no está garantizado,');
+  console.log('  y cuando no se cumple la consulta se rechaza entera y la pantalla queda vacía.');
+  console.log('  Lo seguro es que la consulta ordene exactamente como el indice.');
+  console.log('');
+  for (const { consulta, forma, indice } of dudosos) {
+    console.log(`    ${describir(consulta.coleccion, forma)}`);
+    console.log(`      origen: ${consulta.origen}`);
+    console.log(`      encajaría con: ${nombrar(indice)}`);
+    console.log('');
+  }
 }
 
 if (faltantes.length === 0 && sinResolver.length === 0) {
