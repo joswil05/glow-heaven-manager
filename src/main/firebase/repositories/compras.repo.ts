@@ -210,11 +210,27 @@ export class ComprasRepoFirestore {
     const now = new Date().toISOString();
 
     if (compraId) {
+      // `sinUndefined` tambien de este lado, no solo al crear.
+      //
+      // Las lineas de un paquete nuevo traen `producto_id` sin definir: el
+      // producto todavia no existe en bodega, se crea al recibir. Firestore
+      // rechaza cualquier escritura que contenga `undefined`, asi que editar
+      // un borrador con productos nuevos reventaba con un error que no decia
+      // nada ("Unsupported field value: undefined") y el paquete se quedaba
+      // sin guardar.
       await setDoc(
         doc(db, 'compras', String(compraId)),
-        {
+        sinUndefined({
           fecha: input.fecha,
-          estado: input.estado ?? (tieneLineas ? 'BORRADOR' : 'RECIBIDA'),
+          // Un paquete sin lineas es un BORRADOR, no un paquete recibido.
+          //
+          // Antes nacia 'RECIBIDA', y eso lo dejaba inservible: guardar el
+          // paquete con el costo del envio antes de cargar los productos lo
+          // marcaba como recibido, y desde ese momento `guardar` se negaba a
+          // editarlo —"ya se recibio y su mercaderia entro al inventario"—
+          // aunque no hubiera entrado nada. El paquete quedaba trabado con su
+          // costo adentro y sin forma de agregarle los productos.
+          estado: input.estado ?? 'BORRADOR',
           envio_total_usd_cents: envioFinal,
           otros_costos_usd_cents: otrosFinal,
           tax_total_override_usd_cents: taxOverrideFinal ?? null,
@@ -225,7 +241,7 @@ export class ComprasRepoFirestore {
           notas: input.notas ?? null,
           lineas: lineasMapeadas,
           actualizado_en: now,
-        },
+        } as unknown as Record<string, unknown>),
         { merge: true }
       );
     } else {
@@ -239,7 +255,15 @@ export class ComprasRepoFirestore {
         id: compraId,
         codigo,
         fecha: input.fecha,
-        estado: input.estado ?? (tieneLineas ? 'BORRADOR' : 'RECIBIDA'),
+        // Un paquete sin lineas es un BORRADOR, no un paquete recibido.
+        //
+        // Antes nacia 'RECIBIDA', y eso lo dejaba inservible: guardar el
+        // paquete con el costo del envio antes de cargar los productos lo
+        // marcaba como recibido, y desde ese momento `guardar` se negaba a
+        // editarlo —"ya se recibio y su mercaderia entro al inventario"—
+        // aunque no hubiera entrado nada. El paquete quedaba trabado con su
+        // costo adentro y sin forma de agregarle los productos.
+        estado: input.estado ?? 'BORRADOR',
         envio_total_usd_cents: envioFinal,
         otros_costos_usd_cents: otrosFinal,
         tax_total_override_usd_cents: taxOverrideFinal ?? undefined,
@@ -295,6 +319,24 @@ export class ComprasRepoFirestore {
       const data = snap.data() as CompraDoc;
       if (data.estado === 'RECIBIDA') {
         throw new Error('Este paquete ya estaba recibido.');
+      }
+
+      // Un paquete sin lineas no se puede recibir.
+      //
+      // Recibir es irreversible: marca el paquete y el segundo intento se
+      // rechaza. Si se recibia vacio, quedaba marcado como RECIBIDA, no
+      // entraba ni una unidad al inventario, y el costo del paquete —envio,
+      // impuesto, todo— se quedaba sin producto al cual repartirse. La plata
+      // desaparecia del costeo y ya no habia forma de volver atras, porque
+      // recibirlo de nuevo estaba prohibido.
+      //
+      // No se exige que haya lineas de INVENTARIO: un paquete que trae solo
+      // encargos es legitimo, la mercaderia va a las clientas y no a bodega.
+      if (!data.lineas || data.lineas.length === 0) {
+        throw new Error(
+          'Este paquete no tiene ningun producto cargado. ' +
+            'Agregale las lineas antes de recibirlo: una vez recibido no se puede volver atras.'
+        );
       }
 
       tx.set(docRef, { estado: 'RECIBIDA', actualizado_en: new Date().toISOString() }, { merge: true });

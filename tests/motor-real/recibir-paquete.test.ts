@@ -144,4 +144,58 @@ describe('recibir un paquete', () => {
     },
     45_000
   );
+
+  it.skipIf(!disponible)(
+    'un paquete vacío no se puede recibir: quedaría marcado y sin mercadería',
+    async () => {
+      // Recibir es irreversible. Si un paquete vacío se pudiera recibir,
+      // quedaría marcado como RECIBIDA, no entraría ni una unidad, y su costo
+      // —envío, impuesto, todo— se quedaría sin producto al cual repartirse.
+      // Y no habría vuelta atrás, porque recibirlo de nuevo está prohibido.
+      const { Compras } = await repos();
+
+      const vacio = await Compras.guardar(
+        {
+          fecha: HOY,
+          envio_total_usd_cents: 3500,
+          lineas: [],
+        },
+        g()
+      );
+
+      // Nace como borrador: guardar el envío antes de cargar los productos
+      // no puede dejar el paquete trabado para siempre.
+      const recienGuardado = await Compras.getById(vacio);
+      expect(
+        recienGuardado?.estado,
+        'un paquete sin líneas nació marcado como recibido: ya no se puede editar'
+      ).toBe('BORRADOR');
+
+      await expect(Compras.recibir(vacio, g())).rejects.toThrow(/ningún producto|ningun producto/i);
+
+      // Y todavía se le pueden agregar los productos.
+      await Compras.guardar(
+        {
+          id: vacio,
+          fecha: HOY,
+          envio_total_usd_cents: 3500,
+          lineas: [
+            {
+              descripcion: 'Bolso',
+              cantidad: 2,
+              precio_linea_usd_cents: 4000,
+              peso_linea_mlb: 100,
+              destino: 'INVENTARIO',
+            },
+          ],
+        },
+        g()
+      );
+
+      const { productos_afectados } = await Compras.recibir(vacio, g());
+      expect(productos_afectados, 'después de cargarle las líneas sí se pudo recibir').toBe(1);
+    },
+    60_000
+  );
+
 });
