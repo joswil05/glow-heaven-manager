@@ -45,3 +45,58 @@ describe('medicion', () => {
     expect(true).toBe(true);
   });
 });
+
+describe('el costo de abrir la pantalla de ventas', () => {
+  beforeEach(async () => {
+    reiniciarFirestoreFalso();
+    Par.invalidarCache();
+    await Par.getParametros();
+    await Par.getCategorias();
+  });
+
+  it('no crece con el tamaño del directorio de clientas', async () => {
+    // Ponerle nombre a las ventas que se muestran no puede costar el
+    // directorio entero. Con 50 ventas en pantalla y 500 clientas, eso serían
+    // 550 lecturas, y 500 de ellas crecen con el directorio para siempre.
+    const pocasClientas = 3;
+    const muchasClientas = 60;
+
+    async function costoDeAbrir(cuantasClientas: number): Promise<number> {
+      reiniciarFirestoreFalso();
+      Par.invalidarCache();
+      await Par.getParametros();
+      await Par.getCategorias();
+
+      const ids: number[] = [];
+      for (let i = 0; i < cuantasClientas; i++) {
+        ids.push(await C.guardar({ nombre: `Clienta ${i}` }, g()));
+      }
+
+      // Diez ventas, todas de las tres primeras clientas.
+      for (let i = 0; i < 10; i++) {
+        await V.crear(
+          {
+            cliente_id: ids[i % 3],
+            fecha: HOY,
+            tipo: 'INVENTARIO',
+            lineas: [{ descripcion: 'x', cantidad: 1, precio_unitario_usd_cents: 1000 }],
+          },
+          g()
+        );
+      }
+
+      reiniciarContadores();
+      await V.listar({ desde: HOY, limite: 50 });
+      return contadores().lecturas;
+    }
+
+    const conPocas = await costoDeAbrir(pocasClientas);
+    const conMuchas = await costoDeAbrir(muchasClientas);
+
+    expect(
+      conMuchas,
+      `con ${muchasClientas} clientas costó ${conMuchas} lecturas y con ${pocasClientas} costó ` +
+        `${conPocas}: el directorio entero se está leyendo`
+    ).toBeLessThanOrEqual(conPocas);
+  });
+});

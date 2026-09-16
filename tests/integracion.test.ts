@@ -1040,8 +1040,17 @@ describe('flujo Opción 1: paquete de courier rápido y multipack de boxers', ()
     expect(paquete).not.toBeNull();
     expect(paquete!.envio_total_usd_cents).toBe(7000);
     expect(paquete!.peso_total_mlb).toBe(10000);
-    expect(paquete!.estado).toBe('RECIBIDA');
+    // Nace BORRADOR: guardar el flete antes de tener los productos no puede
+    // ser una decisión irreversible. Cerrarlo es un acto aparte.
+    expect(paquete!.estado).toBe('BORRADOR');
     expect(paquete!.lineas).toHaveLength(0);
+
+    await ComprasRepo.recibir(paqueteId, g());
+    const cerrado = await ComprasRepo.getById(paqueteId);
+    expect(
+      cerrado!.estado,
+      'el paquete de sólo flete no se pudo cerrar: ese flujo quedó roto'
+    ).toBe('RECIBIDA');
 
     // 2. En Inventario, crear "Boxers Calvin Klein" como multipack de 5 unidades comprado a $12.00
     // 1 pack x 5 boxers = 5 unidades individuales en stock

@@ -321,23 +321,17 @@ export class ComprasRepoFirestore {
         throw new Error('Este paquete ya estaba recibido.');
       }
 
-      // Un paquete sin lineas no se puede recibir.
+      // Un paquete sin lineas SI se puede recibir, a proposito.
       //
-      // Recibir es irreversible: marca el paquete y el segundo intento se
-      // rechaza. Si se recibia vacio, quedaba marcado como RECIBIDA, no
-      // entraba ni una unidad al inventario, y el costo del paquete —envio,
-      // impuesto, todo— se quedaba sin producto al cual repartirse. La plata
-      // desaparecia del costeo y ya no habia forma de volver atras, porque
-      // recibirlo de nuevo estaba prohibido.
+      // Es un flujo real: se anota el paquete solo con el flete y el peso, sin
+      // transcribir cada producto, y despues se cargan a mano en Inventario
+      // asociandolos al paquete. Ahi "recibir" no mueve mercaderia, significa
+      // "este paquete ya esta cerrado".
       //
-      // No se exige que haya lineas de INVENTARIO: un paquete que trae solo
-      // encargos es legitimo, la mercaderia va a las clientas y no a bodega.
-      if (!data.lineas || data.lineas.length === 0) {
-        throw new Error(
-          'Este paquete no tiene ningun producto cargado. ' +
-            'Agregale las lineas antes de recibirlo: una vez recibido no se puede volver atras.'
-        );
-      }
+      // Lo que si estaba mal era que un paquete naciera recibido por el solo
+      // hecho de guardarse sin lineas: eso convertia un guardado a medias en
+      // una decision irreversible. Ahora nace BORRADOR y recibirlo es siempre
+      // un acto explicito.
 
       tx.set(docRef, { estado: 'RECIBIDA', actualizado_en: new Date().toISOString() }, { merge: true });
       return data;
@@ -486,7 +480,10 @@ export class ComprasRepoFirestore {
       // paquete lo devolvería a "sin recibir" dejando las unidades adentro,
       // listas para entrar una segunda vez.
       reversible: false,
-      detalle: `Paquete ${compra.codigo} recibido, ${afectados} producto(s) al inventario`,
+      detalle:
+        afectados > 0
+          ? `Paquete ${compra.codigo} recibido, ${afectados} producto(s) al inventario`
+          : `Paquete ${compra.codigo} recibido sin mercadería: sus productos se cargan a mano`,
     });
 
     return { productos_afectados: afectados };

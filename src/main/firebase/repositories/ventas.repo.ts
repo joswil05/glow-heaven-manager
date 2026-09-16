@@ -166,15 +166,30 @@ export class VentasRepoFirestore {
 
     const snap = await getDocs(query(collection(db, 'ventas'), ...clausulas));
 
+    // Solo las clientas que aparecen en ESTA pagina, no el directorio entero.
+    //
+    // Antes esto leia todas las clientas activas para ponerle nombre a las
+    // ventas que se estaban mostrando. Con cincuenta ventas en pantalla y
+    // quinientas clientas en el directorio, abrir la pantalla costaba
+    // quinientas cincuenta lecturas, y quinientas de esas crecian con el
+    // directorio para siempre. Era la ultima lectura sin techo que quedaba en
+    // el camino de todos los dias.
+    //
+    // Pidiendo solo las referenciadas, el costo queda atado al tamanio de la
+    // pagina —como mucho una clienta por venta— y deja de crecer.
     let cliMap = cacheClientes;
     if (!cliMap) {
-      const conCliente = snap.docs.some((d) => (d.data() as VentaDoc).cliente_id);
-      if (conCliente) {
-        const clientes = await ClientesRepoFirestore.listar();
-        cliMap = new Map(clientes.map((c) => [c.id, c.nombre]));
-      } else {
-        cliMap = new Map();
-      }
+      const ids = [
+        ...new Set(
+          snap.docs
+            .map((d) => (d.data() as VentaDoc).cliente_id)
+            .filter((id): id is number => Boolean(id))
+        ),
+      ];
+      const docs = await leerVarios<{ nombre?: string }>('clientes', ids);
+      cliMap = new Map(
+        [...docs.entries()].map(([id, c]) => [Number(id), c.nombre ?? ''])
+      );
     }
 
     let ventas: Venta[] = snap.docs.map((d) => {

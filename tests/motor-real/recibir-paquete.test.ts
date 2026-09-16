@@ -146,12 +146,12 @@ describe('recibir un paquete', () => {
   );
 
   it.skipIf(!disponible)(
-    'un paquete vacío no se puede recibir: quedaría marcado y sin mercadería',
+    'guardar un paquete a medias no lo deja trabado para siempre',
     async () => {
-      // Recibir es irreversible. Si un paquete vacío se pudiera recibir,
-      // quedaría marcado como RECIBIDA, no entraría ni una unidad, y su costo
-      // —envío, impuesto, todo— se quedaría sin producto al cual repartirse.
-      // Y no habría vuelta atrás, porque recibirlo de nuevo está prohibido.
+      // Guardar el flete antes de cargar los productos marcaba el paquete
+      // como recibido en el acto, y desde ahí `guardar` se negaba a editarlo.
+      // El paquete quedaba trabado con su costo adentro y sin forma de
+      // agregarle la mercadería.
       const { Compras } = await repos();
 
       const vacio = await Compras.guardar(
@@ -170,8 +170,6 @@ describe('recibir un paquete', () => {
         recienGuardado?.estado,
         'un paquete sin líneas nació marcado como recibido: ya no se puede editar'
       ).toBe('BORRADOR');
-
-      await expect(Compras.recibir(vacio, g())).rejects.toThrow(/ningún producto|ningun producto/i);
 
       // Y todavía se le pueden agregar los productos.
       await Compras.guardar(

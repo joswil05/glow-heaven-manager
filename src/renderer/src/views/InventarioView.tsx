@@ -77,7 +77,9 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
   const [paqueteFiltro, setPaqueteFiltro] = useState<number | 'SIN_PAQUETE' | undefined>(
     undefined
   );
-  const [paquetes, setPaquetes] = useState<{ id: number; codigo: string; fecha: string }[]>([]);
+  const [paquetes, setPaquetes] = useState<
+    { id: number; codigo: string; fecha: string; estado: string }[]
+  >([]);
 
   const [modalAbierto, setModalAbierto] = useState(false);
   const [productoEditando, setProductoEditando] = useState<ProductoConStock | null>(null);
@@ -154,8 +156,7 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
         if (!vivo || !r.success) return;
         setPaquetes(
           r.data
-            .filter((c) => c.estado === 'RECIBIDA')
-            .map((c) => ({ id: c.id, codigo: c.codigo, fecha: c.fecha }))
+            .map((c) => ({ id: c.id, codigo: c.codigo, fecha: c.fecha, estado: c.estado }))
             .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '') || b.id - a.id)
         );
       })
@@ -321,6 +322,26 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
   /** El código del paquete (PQ-0007) a partir de su número. */
   const codigoDePaquete = (id?: number): string | undefined =>
     id ? paquetes.find((q) => q.id === id)?.codigo : undefined;
+
+  /**
+   * Los paquetes que vale la pena ofrecer en el filtro.
+   *
+   * Los recibidos, más cualquiera al que un producto apunte. Esos segundos son
+   * el caso de anotar el paquete sólo con el flete y cargar los productos a
+   * mano: el paquete sigue en borrador hasta que se lo cierra, pero su
+   * mercadería ya está en la bodega y hay que poder verla.
+   *
+   * Un borrador vacío que nadie referencia no aparece: filtrar por él no
+   * mostraría nada.
+   */
+  const paquetesDelFiltro = useMemo(() => {
+    const referenciados = new Set(
+      (todosLosProductos.length > 0 ? todosLosProductos : productos)
+        .map((p) => p.paquete_id)
+        .filter((id): id is number => Boolean(id))
+    );
+    return paquetes.filter((q) => q.estado === 'RECIBIDA' || referenciados.has(q.id));
+  }, [paquetes, productos, todosLosProductos]);
 
   const columnas: Column<ProductoConStock>[] = [
     {
@@ -651,7 +672,7 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
           {/* De qué paquete mirar la bodega.
               Sólo aparece si hay paquetes recibidos: un selector vacío no
               explica nada y ocupa lugar. */}
-          {paquetes.length > 0 && (
+          {paquetesDelFiltro.length > 0 && (
             <Select
               value={paqueteFiltro === undefined ? '' : String(paqueteFiltro)}
               onChange={(e) => {
@@ -662,7 +683,7 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
               aria-label="Filtrar por paquete"
             >
               <option value="">Todos los paquetes</option>
-              {paquetes.map((p, i) => (
+              {paquetesDelFiltro.map((p, i) => (
                 <option key={p.id} value={p.id}>
                   {p.codigo}
                   {i === 0 ? ' (el último)' : ''}

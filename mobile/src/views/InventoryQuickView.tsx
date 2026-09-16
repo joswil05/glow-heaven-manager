@@ -42,8 +42,16 @@ export function InventoryQuickView() {
     ComprasRepoFirestore.listar()
       .then((lista) => {
         if (!vivo) return;
+        // Los recibidos, más cualquiera al que un producto apunte: un
+        // paquete anotado sólo con el flete sigue en borrador, pero su
+        // mercadería ya está en la bodega.
+        const referenciados = new Set(
+          productos.map((p) => p.paquete_id).filter((id): id is number => Boolean(id))
+        );
         setPaquetes(
-          lista.filter((c) => c.estado === 'RECIBIDA').map((c) => ({ id: c.id, codigo: c.codigo }))
+          lista
+            .filter((c) => c.estado === 'RECIBIDA' || referenciados.has(c.id))
+            .map((c) => ({ id: c.id, codigo: c.codigo }))
         );
       })
       .catch(() => {
@@ -52,7 +60,7 @@ export function InventoryQuickView() {
     return () => {
       vivo = false;
     };
-  }, [hayProductosConPaquete, paquetes.length]);
+  }, [hayProductosConPaquete, paquetes.length, productos]);
 
   const tasa = parametros?.tasa_cambio_cents ?? 3662;
   const cargando = cargandoProductos && productos.length === 0;
