@@ -44,3 +44,7 @@ ui-debug.log
 # Cachés de Python (las pruebas de interfaz)
 __pycache__/
 *.pyc
+
+# Respaldos de la base: llevan datos reales del negocio y el PIN.
+# El repositorio es publico.
+respaldos/
