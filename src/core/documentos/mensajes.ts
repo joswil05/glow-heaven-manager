@@ -88,5 +88,9 @@ export function enlaceWhatsappDocumento(
   venta: VentaCompleta,
   parametros: ParametrosSistema | null
 ): string {
-  return enlaceWhatsapp(venta.cliente?.telefono, mensajeWhatsappDocumento(venta, parametros));
+  return enlaceWhatsapp(
+    venta.cliente?.telefono,
+    mensajeWhatsappDocumento(venta, parametros),
+    parametros?.codigo_pais_whatsapp
+  );
 }

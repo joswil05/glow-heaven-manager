@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, AlertTriangle, CheckCircle2 } from 'lucide-react';
-import type { VentaCompleta, MetodoPago, MonedaPago } from '../../../shared/types';
+import type { VentaCompleta, MetodoPago, MonedaPago, ParametrosSistema } from '../../../shared/types';
 import {
   Button,
   Field,
@@ -23,12 +23,15 @@ import {
 import { useToast } from '../context/ToastContext';
 import { cn } from '../lib/cn';
 import { hoyISO } from '@core/fechas';
+import { monedaPorDefecto, metodoPorDefecto } from '@core/preferencias';
 
 interface PagoModalProps {
   abierto: boolean;
   venta: VentaCompleta | null;
   onCerrar: () => void;
   onRegistrado: () => Promise<void>;
+  /** Para arrancar con la moneda y el método que ella eligió. */
+  parametros?: ParametrosSistema | null;
 }
 
 const METODOS: { valor: MetodoPago; etiqueta: string }[] = [
@@ -42,12 +45,13 @@ export const PagoModal: React.FC<PagoModalProps> = ({
   venta,
   onCerrar,
   onRegistrado,
+  parametros,
 }) => {
   const { showToast, showUndoToast } = useToast();
 
   const [montoTexto, setMontoTexto] = useState('');
-  const [moneda, setMoneda] = useState<MonedaPago>('USD');
-  const [metodo, setMetodo] = useState<MetodoPago>('EFECTIVO');
+  const [moneda, setMoneda] = useState<MonedaPago>(monedaPorDefecto(parametros));
+  const [metodo, setMetodo] = useState<MetodoPago>(metodoPorDefecto(parametros));
   const [referencia, setReferencia] = useState('');
   const [notas, setNotas] = useState('');
   const [fecha, setFecha] = useState(() => hoyISO());

@@ -1046,6 +1046,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
       <PagoModal
         abierto={pagoAbierto}
         venta={ventaDetalle}
+        parametros={parametros}
         onCerrar={() => setPagoAbierto(false)}
         onRegistrado={async () => {
           await cargar();

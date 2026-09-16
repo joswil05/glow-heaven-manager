@@ -12,7 +12,7 @@ export function enlaceWhatsApp(
   saldoUsdCents: number,
   parametros?: ParametrosSistema | null
 ): string {
-  const numero = telefonoWhatsapp(telefono) ?? '';
+  const numero = telefonoWhatsapp(telefono, parametros?.codigo_pais_whatsapp) ?? '';
 
   if (saldoUsdCents <= 0) {
     return `https://wa.me/${numero}?text=${encodeURIComponent(`Hola ${nombre.split(' ')[0]}!`)}`;

@@ -66,6 +66,12 @@ function almacenInicial(): Almacen {
     dias_alerta_mora: 15,
     dias_alerta_encargos: 10,
     moneda_defecto_venta: 'USD',
+    metodo_pago_defecto: 'EFECTIVO',
+    cuotas_defecto_cantidad: 4,
+    cuotas_defecto_dias: 15,
+    pantalla_inicio: 'panel',
+    pantalla_inicio_movil: 'panel',
+    codigo_pais_whatsapp: '505',
   };
 
   const categorias: Categoria[] = [

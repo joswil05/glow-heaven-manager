@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
-import { DataProvider } from './context/DataContext';
+import { DataProvider, useDatosNegocio } from './context/DataContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { LoginView } from './views/LoginView';
 import { DashboardView } from './views/DashboardView';
@@ -42,7 +42,6 @@ function puedeEntrar(uid: string): boolean {
 
 function AppContenido() {
   const { usuario, cargando, salir } = useAuth();
-  const [vista, setVista] = useState<Vista>('panel');
 
   if (cargando) {
     return (
@@ -89,6 +88,43 @@ function AppContenido() {
   return (
     <SnackbarProvider>
       <DataProvider>
+        <Navegacion />
+      </DataProvider>
+    </SnackbarProvider>
+  );
+}
+
+/**
+ * Las pantallas y la barra de abajo.
+ *
+ * Vive adentro del proveedor de datos a proposito: es el unico lugar desde el
+ * que se pueden leer los parametros, y ahi esta con que pantalla quiere abrir.
+ * Antes `vista` colgaba de `AppContenido`, que renderiza el proveedor y por lo
+ * tanto no puede consultarlo.
+ */
+function Navegacion() {
+  const { parametros } = useDatosNegocio();
+  const [vista, setVista] = useState<Vista>('panel');
+  /**
+   * Se aplica UNA sola vez.
+   *
+   * Los parametros se releen despues de cada venta y cada abono. Sin este
+   * candado, la app la devolveria a su pantalla preferida en medio de lo que
+   * estuviera haciendo.
+   */
+  const inicioAplicado = useRef(false);
+
+  useEffect(() => {
+    if (inicioAplicado.current || !parametros) return;
+    inicioAplicado.current = true;
+    const preferida = parametros.pantalla_inicio_movil as Vista | undefined;
+    const validas: Vista[] = ['panel', 'vender', 'cobranza', 'inventario'];
+    if (preferida && preferida !== 'panel' && validas.includes(preferida)) {
+      setVista(preferida);
+    }
+  }, [parametros]);
+
+  return (
         <div className="flex flex-col h-[100dvh] overflow-hidden bg-fondo text-texto transition-colors duration-200">
           <div className="flex-1 min-h-0 relative">
             <div className={`h-full w-full overflow-hidden ${vista === 'panel' ? 'block animate-vista' : 'hidden'}`}>
@@ -118,8 +154,6 @@ function AppContenido() {
           </div>
           {vista !== 'ajustes' && vista !== 'actividad' && <BottomNav actual={vista} onCambiar={setVista} />}
         </div>
-      </DataProvider>
-    </SnackbarProvider>
   );
 }
 

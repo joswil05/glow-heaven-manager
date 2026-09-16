@@ -56,9 +56,34 @@ export interface ParametrosSistema {
   plantilla_factura_whatsapp?: string;
   plantilla_proforma_whatsapp?: string;
   cuentas_bancarias?: CuentaBancaria[];
+  /** Días de gracia antes de avisar por una cuota atrasada. */
   dias_alerta_mora?: number;
+  /** Días que puede llevar un encargo pendiente antes de avisar. */
   dias_alerta_encargos?: number;
+  /**
+   * Con qué moneda arrancan los cobros.
+   *
+   * Ojo con el vocabulario: acá dice `NIO` y el resto de la app dice `COR`
+   * para lo mismo. Se convierte al leerlo; no se cambia el valor guardado
+   * porque ya hay bases con `NIO` adentro.
+   */
   moneda_defecto_venta?: 'USD' | 'NIO';
+  /** Con qué método arrancan los cobros. */
+  metodo_pago_defecto?: MetodoPago;
+  /** Cuántas cuotas propone una venta a crédito. */
+  cuotas_defecto_cantidad?: number;
+  /** Cada cuántos días vence cada cuota. */
+  cuotas_defecto_dias?: number;
+  /** Con qué pantalla abre la app de Windows. */
+  pantalla_inicio?: string;
+  /** Con qué pantalla abre el celular. */
+  pantalla_inicio_movil?: string;
+  /**
+   * Código de país para los enlaces de WhatsApp, sin el `+`. 505 es
+   * Nicaragua. Una clienta de afuera necesita el suyo, porque si no el
+   * enlace no abre y no avisa.
+   */
+  codigo_pais_whatsapp?: string;
 }
 
 export interface Categoria {

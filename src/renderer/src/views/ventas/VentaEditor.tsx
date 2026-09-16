@@ -33,6 +33,7 @@ import { cn } from '../../lib/cn';
 import { formatearNombreEntidad } from '@shared/formatoTexto';
 import { hoyISO } from '@core/fechas';
 import { algunoContiene } from '@core/texto';
+import { monedaPorDefecto, metodoPorDefecto } from '@core/preferencias';
 
 interface LineaBorrador {
   clave: string;
@@ -140,12 +141,12 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
     setEntregarAhora(true);
     setAnticipoTexto(String((parametros?.anticipo_defecto_bp ?? 5000) / 100));
     setFormaCobro('CONTADO');
-    setMetodoPago('EFECTIVO');
-    setMonedaPago('COR');
+    setMetodoPago(metodoPorDefecto(parametros));
+    setMonedaPago(monedaPorDefecto(parametros));
     setReferenciaPago('');
     setConCuotas(false);
-    setCuotasCantidad('4');
-    setCuotasCada('15');
+    setCuotasCantidad(String(parametros?.cuotas_defecto_cantidad ?? 4));
+    setCuotasCada(String(parametros?.cuotas_defecto_dias ?? 15));
     setBusquedaProducto('');
     setDescuentoAbierto(false);
     setDescuentoTipo('PORCENTAJE');

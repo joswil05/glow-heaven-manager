@@ -6,6 +6,8 @@ import { ClientesRepoFirestore } from './clientes.repo';
 import { formatearMoneda } from '../../../core/moneda';
 import { hoyISO, mesISO, haceDias } from '../../../core/fechas';
 import { ResumenesRepoFirestore } from './resumenes.repo';
+import { ParametrosRepoFirestore } from './parametros.repo';
+import type { ParametrosSistema } from '../../../shared/types';
 import type {
   PanelData,
   ResumenFinanciero,
@@ -286,16 +288,23 @@ function calcularRotacion(s: Instantanea): FilaRotacion[] {
   });
 }
 
-function calcularAlertas(s: Instantanea): Alerta[] {
+function calcularAlertas(s: Instantanea, parametros?: ParametrosSistema): Alerta[] {
   const alertas: Alerta[] = [];
-  const hoy = hoyISO();
   const cliMap = new Map(s.clientes.map((c) => [c.id, c.nombre]));
 
-  // 1. Cuotas vencidas
+  // 1. Cuotas vencidas.
+  //
+  // Con los días de gracia que ella configuró. Una cuota está atrasada al día
+  // siguiente, pero avisar ese mismo día por un atraso de veinticuatro horas
+  // convierte la alerta en ruido, y una alerta que suena siempre deja de
+  // mirarse. El número lo elige ella.
+  const diasGracia = parametros?.dias_alerta_mora ?? 15;
+  const limiteMora = haceDias(diasGracia);
+
   for (const v of s.ventas) {
     if (v.estado === 'CANCELADA') continue;
     const vencidas = (v.cuotas || []).filter(
-      (q) => (q.pagado_usd_cents || 0) < q.monto_usd_cents && q.fecha_vencimiento < hoy
+      (q) => (q.pagado_usd_cents || 0) < q.monto_usd_cents && q.fecha_vencimiento < limiteMora
     );
     if (vencidas.length === 0) continue;
 
@@ -314,16 +323,21 @@ function calcularAlertas(s: Instantanea): Alerta[] {
     });
   }
 
-  // 2. Encargos con anticipo cobrado que llevan más de una semana
-  const limite7d = haceDias(7);
+  // 2. Encargos que llevan demasiado tiempo pendientes.
+  //
+  // Cuántos días es "demasiado" lo decide ella en Configuración. Antes esto
+  // eran siete clavados acá y el aviso decía "más de una semana", así que
+  // podía mover ese número todo lo que quisiera y no pasaba nada.
+  const diasEncargo = parametros?.dias_alerta_encargos ?? 10;
+  const limiteEncargos = haceDias(diasEncargo);
 
   for (const v of s.ventas) {
-    if (v.tipo !== 'ENCARGO' || v.estado !== 'PENDIENTE' || v.fecha > limite7d) continue;
+    if (v.tipo !== 'ENCARGO' || v.estado !== 'PENDIENTE' || v.fecha > limiteEncargos) continue;
     const nombre = v.cliente_id ? (cliMap.get(v.cliente_id) ?? 'Cliente') : 'Cliente';
     alertas.push({
       id: `encargo-${v.id}`,
       severidad: 'atencion',
-      titulo: `El encargo de ${nombre} lleva más de una semana`,
+      titulo: `El encargo de ${nombre} lleva más de ${diasEncargo} días`,
       detalle: `${v.codigo}, anticipo cobrado desde el ${v.fecha}`,
       destino: { vista: 'ventas', id: v.id },
     });
@@ -399,6 +413,8 @@ export class PanelRepoFirestore {
   /** Carga completa del panel con una sola pasada por cada colección. */
   static async cargar(forzarRefresco = false): Promise<PanelData> {
     const s = await tomarInstantanea(forzarRefresco);
+    // Sale de la caché de parámetros, así que no cuesta una lectura más.
+    const parametros = await ParametrosRepoFirestore.getParametros();
     const historico = await calcularHistorico(s, 6);
     const rotacion = calcularRotacion(s);
 
@@ -420,7 +436,7 @@ export class PanelRepoFirestore {
         .filter((r) => r.unidades_vendidas_90d === 0 && r.existencias > 0)
         .sort((a, b) => b.existencias - a.existencias)
         .slice(0, 5),
-      alertas: calcularAlertas(s),
+      alertas: calcularAlertas(s, parametros),
     };
   }
 
@@ -470,6 +486,10 @@ export class PanelRepoFirestore {
   }
 
   static async alertas(): Promise<Alerta[]> {
-    return calcularAlertas(await tomarInstantanea());
+    const [s, parametros] = await Promise.all([
+      tomarInstantanea(),
+      ParametrosRepoFirestore.getParametros(),
+    ]);
+    return calcularAlertas(s, parametros);
   }
 }

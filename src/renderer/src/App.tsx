@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Header } from './components/layout/Header';
 import { Sidebar, TITULOS, type NavTab } from './components/layout/Sidebar';
 import { LoginView } from './views/LoginView';
@@ -28,6 +28,14 @@ export const App: React.FC = () => {
   const [verificandoAuth, setVerificandoAuth] = useState(true);
   const [pinDesbloqueado, setPinDesbloqueado] = useState(false);
   const [tab, setTab] = useState<NavTab>('panel');
+  /**
+   * La pantalla de inicio se aplica UNA sola vez, en el primer arranque.
+   *
+   * Sin este candado, cada recarga de datos —que ocurre después de cada venta,
+   * cada abono, cada ajuste— la devolvería a su pantalla preferida en medio de
+   * lo que estuviera haciendo.
+   */
+  const inicioAplicado = useRef(false);
 
   const [parametros, setParametros] = useState<ParametrosSistema | null>(null);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
@@ -106,7 +114,14 @@ export const App: React.FC = () => {
         window.api.panel.cargar(),
       ]);
 
-      if (rp.success) setParametros(rp.data);
+      if (rp.success) {
+        setParametros(rp.data);
+        const preferida = rp.data.pantalla_inicio as NavTab | undefined;
+        if (!inicioAplicado.current) {
+          inicioAplicado.current = true;
+          if (preferida && preferida !== 'panel' && TITULOS[preferida]) setTab(preferida);
+        }
+      }
       if (rc.success) setCategorias(rc.data);
       if (rcl.success) setClientes(rcl.data);
       if (rpr.success) setProductos(rpr.data);

@@ -6,6 +6,7 @@ import {
   aplicarLote,
   type OperacionLote,
 } from '../client';
+import type { MetodoPago } from '../../../shared/types';
 import { esPasoRedondeoValido, calcularPrecio } from '../../../core/precios';
 import { EventosRepoFirestore } from './eventos.repo';
 import type { ParametrosSistema, Categoria, ModoPrecio, CuentaBancaria } from '../../../shared/types';
@@ -38,6 +39,12 @@ const DEFECTOS: Record<string, string> = {
   dias_alerta_mora: '15',
   dias_alerta_encargos: '10',
   moneda_defecto_venta: 'USD',
+  metodo_pago_defecto: 'EFECTIVO',
+  cuotas_defecto_cantidad: '4',
+  cuotas_defecto_dias: '15',
+  pantalla_inicio: 'panel',
+  pantalla_inicio_movil: 'panel',
+  codigo_pais_whatsapp: '505',
 };
 
 /**
@@ -115,6 +122,19 @@ export class ParametrosRepoFirestore {
       dias_alerta_mora: entero('dias_alerta_mora') || 15,
       dias_alerta_encargos: entero('dias_alerta_encargos') || 10,
       moneda_defecto_venta: data?.moneda_defecto_venta === 'NIO' ? 'NIO' : 'USD',
+      metodo_pago_defecto:
+        data?.metodo_pago_defecto === 'TRANSFERENCIA' || data?.metodo_pago_defecto === 'OTRO'
+          ? (data.metodo_pago_defecto as MetodoPago)
+          : 'EFECTIVO',
+      // Los topes no son caprichos: una venta de cero cuotas no existe, y una
+      // de cien es un error de tipeo que rompería la pantalla de cobranza.
+      cuotas_defecto_cantidad: Math.min(24, Math.max(2, entero('cuotas_defecto_cantidad') || 4)),
+      cuotas_defecto_dias: Math.min(90, Math.max(1, entero('cuotas_defecto_dias') || 15)),
+      pantalla_inicio: String(data?.pantalla_inicio || 'panel'),
+      pantalla_inicio_movil: String(data?.pantalla_inicio_movil || 'panel'),
+      // Sólo dígitos: un espacio o un `+` de más rompe el enlace de WhatsApp
+      // en silencio, que es la forma en que este campo falla.
+      codigo_pais_whatsapp: String(data?.codigo_pais_whatsapp || '505').replace(/\D/g, '') || '505',
     };
 
     cacheParametros = { valor, expira: Date.now() + TTL_CACHE_MS };

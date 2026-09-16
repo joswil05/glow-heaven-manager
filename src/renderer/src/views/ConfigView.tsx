@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/cn';
 import { useTheme } from '../context/ThemeContext';
-import type { ParametrosSistema, Categoria, CuentaBancaria } from '../../../shared/types';
+import type { ParametrosSistema, Categoria, CuentaBancaria, MetodoPago } from '../../../shared/types';
 import type { InfoSistema } from '../../../shared/ipc-contracts';
 import {
   Card,
@@ -95,6 +95,12 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
   >(null);
   // El período que se va a bajar. Arranca en el año corriente, que es lo que
   // pide una contadora; el resto se elige.
+  const [metodoDefecto, setMetodoDefecto] = useState<MetodoPago>('EFECTIVO');
+  const [cuotasCantidad, setCuotasCantidad] = useState('4');
+  const [cuotasDias, setCuotasDias] = useState('15');
+  const [pantallaInicio, setPantallaInicio] = useState('panel');
+  const [pantallaInicioMovil, setPantallaInicioMovil] = useState('panel');
+  const [codigoPais, setCodigoPais] = useState('505');
   const [desdeExp, setDesdeExp] = useState(`${mesISO().slice(0, 4)}-01-01`);
   const [hastaExp, setHastaExp] = useState(hoyISO());
   const [guardando, setGuardando] = useState(false);
@@ -131,6 +137,12 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
     setDiasMora(parametros.dias_alerta_mora ?? 15);
     setDiasEncargos(parametros.dias_alerta_encargos ?? 10);
     setMonedaDefectoVenta(parametros.moneda_defecto_venta ?? 'USD');
+    setMetodoDefecto(parametros.metodo_pago_defecto ?? 'EFECTIVO');
+    setCuotasCantidad(String(parametros.cuotas_defecto_cantidad ?? 4));
+    setCuotasDias(String(parametros.cuotas_defecto_dias ?? 15));
+    setPantallaInicio(parametros.pantalla_inicio ?? 'panel');
+    setPantallaInicioMovil(parametros.pantalla_inicio_movil ?? 'panel');
+    setCodigoPais(parametros.codigo_pais_whatsapp ?? '505');
   }, [parametros]);
 
   useEffect(() => {
@@ -370,6 +382,12 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
         dias_alerta_mora: diasMora,
         dias_alerta_encargos: diasEncargos,
         moneda_defecto_venta: monedaDefectoVenta,
+        metodo_pago_defecto: metodoDefecto,
+        cuotas_defecto_cantidad: Number(cuotasCantidad) || 4,
+        cuotas_defecto_dias: Number(cuotasDias) || 15,
+        pantalla_inicio: pantallaInicio,
+        pantalla_inicio_movil: pantallaInicioMovil,
+        codigo_pais_whatsapp: codigoPais.replace(/\D/g, '') || '505',
       });
 
       if (!r.success) {
@@ -977,8 +995,8 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
           <CardHeader>
             <SectionHeader
               icon={Clock}
-              title="Alertas Operativas y Preferencias"
-              description="Umbrales para detectar clientes con retraso y paquetes retenidos"
+              title="Avisos y preferencias"
+              description="Cuándo avisarte, y con qué arranca cada pantalla para que no lo elijas cada vez"
             />
           </CardHeader>
           <CardContent>
@@ -1012,8 +1030,8 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
               </Field>
 
               <Field
-                label="Moneda preferida en ventas"
-                hint="Moneda por defecto al facturar"
+                label="Moneda con la que arrancan los cobros"
+                hint="Se puede cambiar en cada venta"
               >
                 <Select
                   value={monedaDefectoVenta}
@@ -1022,6 +1040,86 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
                   <option value="USD">Dólares ($ USD)</option>
                   <option value="NIO">Córdobas (C$ NIO)</option>
                 </Select>
+              </Field>
+
+              <Field
+                label="Método con el que arrancan los cobros"
+                hint="El que más usás, para no elegirlo cada vez"
+              >
+                <Select
+                  value={metodoDefecto}
+                  onChange={(e) => setMetodoDefecto(e.target.value as MetodoPago)}
+                >
+                  <option value="EFECTIVO">Efectivo</option>
+                  <option value="TRANSFERENCIA">Transferencia</option>
+                  <option value="OTRO">Otro</option>
+                </Select>
+              </Field>
+
+              <Field label="Cuotas que propone una venta a crédito" hint="Se puede cambiar en cada venta">
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    value={cuotasCantidad}
+                    onChange={(e) => setCuotasCantidad(e.target.value.replace(/\D/g, ''))}
+                    className="w-16 text-center"
+                    aria-label="Cantidad de cuotas"
+                  />
+                  <span className="text-caption text-texto-3 whitespace-nowrap">cuotas cada</span>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    value={cuotasDias}
+                    onChange={(e) => setCuotasDias(e.target.value.replace(/\D/g, ''))}
+                    className="w-16 text-center"
+                    aria-label="Días entre cuotas"
+                  />
+                  <span className="text-caption text-texto-3">días</span>
+                </div>
+              </Field>
+
+              <Field
+                label="Pantalla con la que abre Windows"
+                hint="Donde empieza tu día en la computadora"
+              >
+                <Select value={pantallaInicio} onChange={(e) => setPantallaInicio(e.target.value)}>
+                  <option value="panel">Inicio</option>
+                  <option value="ventas">Ventas</option>
+                  <option value="encargos">Encargos</option>
+                  <option value="cobranza">Cobros y Abonos</option>
+                  <option value="inventario">Inventario</option>
+                  <option value="clientes">Clientes</option>
+                </Select>
+              </Field>
+
+              <Field
+                label="Pantalla con la que abre el celular"
+                hint="Se nota: el celular se abre muchas veces al día"
+              >
+                <Select
+                  value={pantallaInicioMovil}
+                  onChange={(e) => setPantallaInicioMovil(e.target.value)}
+                >
+                  <option value="panel">Inicio</option>
+                  <option value="vender">Vender</option>
+                  <option value="cobranza">Cobranza</option>
+                  <option value="inventario">Inventario</option>
+                </Select>
+              </Field>
+
+              <Field
+                label="Código de país para WhatsApp"
+                hint="505 es Nicaragua. Sin el +"
+              >
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  value={codigoPais}
+                  onChange={(e) => setCodigoPais(e.target.value.replace(/\D/g, ''))}
+                  className="w-24"
+                  aria-label="Código de país para WhatsApp"
+                />
               </Field>
             </div>
           </CardContent>
