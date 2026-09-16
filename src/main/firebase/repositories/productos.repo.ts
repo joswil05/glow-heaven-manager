@@ -18,6 +18,7 @@ import {
   type OperacionLote,
 } from '../client';
 import { calcularPrecio } from '../../../core/precios';
+import { algunoContiene } from '../../../core/texto';
 import { costoUnitario, registrarSalida, ajustarExistencias } from '../../../core/inventario';
 import { ParametrosRepoFirestore } from './parametros.repo';
 import { EventosRepoFirestore } from './eventos.repo';
@@ -158,9 +159,8 @@ export class ProductosRepoFirestore {
     let productos = snap.docs.map((d) => aProductoConStock(d.data() as ProductoDoc, catMap));
 
     if (filtros.busqueda) {
-      const q = filtros.busqueda.toLowerCase().trim();
-      productos = productos.filter(
-        (p) => p.nombre.toLowerCase().includes(q) || p.codigo.toLowerCase().includes(q)
+      productos = productos.filter((p) =>
+        algunoContiene([p.nombre, p.codigo], filtros.busqueda!)
       );
     }
     if (filtros.categoria_id) {

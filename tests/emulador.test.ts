@@ -14,6 +14,7 @@
  */
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { randomUUID } from 'node:crypto';
+import { hoyISO } from '../src/core/fechas';
 
 const HOST = process.env.FIRESTORE_EMULATOR_HOST ?? '127.0.0.1:8080';
 const HOST_AUTH = process.env.FIREBASE_AUTH_EMULATOR_HOST ?? '127.0.0.1:9099';
@@ -26,7 +27,7 @@ const CORREO = 'pruebas@glowheaven.local';
 const CLAVE = 'prueba1234';
 
 const g = () => randomUUID();
-const HOY = new Date().toISOString().slice(0, 10);
+const HOY = hoyISO();
 
 
 

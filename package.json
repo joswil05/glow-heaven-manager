@@ -22,6 +22,7 @@
     "auditar:indices": "node scripts/auditar-indices.mjs",
     "auditar:hooks": "node scripts/auditar-hooks.mjs",
     "test:interfaz": "node scripts/test-interfaz.mjs",
+    "test:interfaz-escritorio": "node scripts/test-interfaz-escritorio.mjs",
     "build:mobile": "tsc -p mobile/tsconfig.json --noEmit && node scripts/auditar-colores.mjs && node scripts/auditar-indices.mjs && node scripts/auditar-hooks.mjs && vite build --config mobile/vite.config.ts",
     "preview:mobile": "vite preview --config mobile/vite.config.ts",
     "deploy:mobile": "npm run build:mobile && npx firebase deploy --only hosting",

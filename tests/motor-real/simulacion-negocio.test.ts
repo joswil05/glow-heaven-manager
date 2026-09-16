@@ -25,8 +25,9 @@
  * hasta ahí.
  */
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
-import { emuladorVivo, iniciarSesion, baseLimpia, repos, g, HOY } from './arnes';
+import { emuladorVivo, iniciarSesion, baseLimpia, repos, g } from './arnes';
 import { revisarInvariantes } from './invariantes';
+import { haceDias } from '../../src/core/fechas';
 
 const disponible = await emuladorVivo();
 
@@ -55,10 +56,7 @@ function aleatorio(semilla: number) {
 
 /** Un día cualquiera de los últimos dos meses. */
 function fechaCercana(rnd: ReturnType<typeof aleatorio>): string {
-  const dias = rnd.entre(0, 50);
-  const base = new Date(`${HOY}T12:00:00Z`);
-  base.setUTCDate(base.getUTCDate() - dias);
-  return base.toISOString().slice(0, 10);
+  return haceDias(rnd.entre(0, 50));
 }
 
 interface Mundo {

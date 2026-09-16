@@ -33,6 +33,7 @@ import { BottomSheet } from '../components/BottomSheet';
 import { useSnackbar } from '../components/Snackbar';
 import { haptics } from '../lib/haptics';
 import { useScrollReveal } from '../lib/useScrollReveal';
+import { algunoContiene } from '@core/texto';
 
 export interface LineaCarrito {
   clave: string;
@@ -67,14 +68,11 @@ export function QuickSaleView() {
   // Filtrado reactivo de productos
   const productosFiltrados = useMemo(() => {
     let res = productos;
-    const q = busqueda.trim().toLowerCase();
-
-    if (q) {
+    if (busqueda.trim()) {
       res = res.filter(
         (p) =>
-          p.nombre.toLowerCase().includes(q) ||
-          p.codigo.toLowerCase().includes(q) ||
-          p.variantes.some((v) => (v.color || '').toLowerCase().includes(q))
+          algunoContiene([p.nombre, p.codigo], busqueda) ||
+          p.variantes.some((v) => algunoContiene([v.color], busqueda))
       );
     }
 

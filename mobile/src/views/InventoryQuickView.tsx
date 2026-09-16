@@ -8,6 +8,7 @@ import { useDatosNegocio } from '../context/DataContext';
 import { haptics } from '../lib/haptics';
 import { useScrollReveal } from '../lib/useScrollReveal';
 import { useSnackbar } from '../components/Snackbar';
+import { algunoContiene } from '@core/texto';
 
 /** `null` representa "Todos". El resto son los `id` reales de `categorias`,
  * las mismas que la dueña administra en Windows > Configuración > Ganancia
@@ -42,14 +43,11 @@ export function InventoryQuickView() {
   // Filtrado reactivo por texto y categoría real (por id, no por nombre adivinado)
   const filtrados = useMemo(() => {
     let res = productos;
-    const q = busqueda.trim().toLowerCase();
-
-    if (q) {
+    if (busqueda.trim()) {
       res = res.filter(
         (p) =>
-          p.nombre.toLowerCase().includes(q) ||
-          p.codigo.toLowerCase().includes(q) ||
-          p.variantes.some((v) => (v.color || '').toLowerCase().includes(q))
+          algunoContiene([p.nombre, p.codigo], busqueda) ||
+          p.variantes.some((v) => algunoContiene([v.color], busqueda))
       );
     }
 

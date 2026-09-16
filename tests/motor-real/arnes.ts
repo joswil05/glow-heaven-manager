@@ -7,6 +7,7 @@
  * (`fileParallelism: false`) porque cada una limpia la base.
  */
 import { randomUUID } from 'node:crypto';
+import { hoyISO } from '../../src/core/fechas';
 
 export const HOST = process.env.FIRESTORE_EMULATOR_HOST ?? '127.0.0.1:8080';
 export const HOST_AUTH = process.env.FIREBASE_AUTH_EMULATOR_HOST ?? '127.0.0.1:9099';
@@ -19,8 +20,14 @@ const CLAVE = 'prueba1234';
 /** Identificador de grupo de eventos: cada operación de negocio lleva el suyo. */
 export const g = (): string => randomUUID();
 
-/** Fecha de hoy en el mismo formato que usa la aplicación. */
-export const HOY = new Date().toISOString().slice(0, 10);
+/**
+ * Fecha de hoy con el MISMO reloj que usa la aplicación.
+ *
+ * Con `toISOString()` esto era la fecha en UTC, y Nicaragua está seis horas
+ * atrás: después de las seis de la tarde el arnés sembraba con la fecha de
+ * mañana y las pruebas de fecha fallaban sin que hubiera nada roto en la app.
+ */
+export const HOY = hoyISO();
 
 export async function emuladorVivo(): Promise<boolean> {
   try {

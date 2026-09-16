@@ -41,6 +41,7 @@ import { enlaceWhatsApp } from '../lib/whatsapp';
 import { useToast } from '../context/ToastContext';
 import { cn } from '../lib/cn';
 import { hoyISO } from '@core/fechas';
+import { algunoContiene } from '@core/texto';
 
 interface CobranzaViewProps {
   clientes: ClienteDetalle[];
@@ -147,14 +148,9 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
     if (filtroMetodo !== 'TODOS') {
       list = list.filter((p) => p.metodo === filtroMetodo);
     }
-    const q = busqueda.trim().toLowerCase();
-    if (q) {
-      list = list.filter(
-        (p) =>
-          (p.cliente_nombre || '').toLowerCase().includes(q) ||
-          (p.venta_codigo || '').toLowerCase().includes(q) ||
-          (p.referencia || '').toLowerCase().includes(q) ||
-          (p.notas || '').toLowerCase().includes(q)
+    if (busqueda.trim()) {
+      list = list.filter((p) =>
+        algunoContiene([p.cliente_nombre, p.venta_codigo, p.referencia, p.notas], busqueda)
       );
     }
     return list;
@@ -168,13 +164,9 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
     } else if (filtroCuentas === 'AL_DIA') {
       list = list.filter((c) => c.cuotas_vencidas === 0);
     }
-    const q = busqueda.trim().toLowerCase();
-    if (q) {
-      list = list.filter(
-        (c) =>
-          c.cliente_nombre.toLowerCase().includes(q) ||
-          c.codigo.toLowerCase().includes(q) ||
-          (c.cliente_telefono || '').includes(q)
+    if (busqueda.trim()) {
+      list = list.filter((c) =>
+        algunoContiene([c.cliente_nombre, c.codigo, c.cliente_telefono], busqueda)
       );
     }
     return list;

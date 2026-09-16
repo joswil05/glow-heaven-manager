@@ -3,6 +3,7 @@ import { getFirestoreDb, siguienteId, leerDoc, aplicarLote } from '../client';
 import { EventosRepoFirestore } from './eventos.repo';
 import type { ClienteDetalle } from '../../../shared/types';
 import { formatearMoneda } from '../../../core/moneda';
+import { algunoContiene } from '../../../core/texto';
 
 export interface GuardarClienteInput {
   id?: number;
@@ -70,13 +71,10 @@ export class ClientesRepoFirestore {
     // El filtro por texto se hace en memoria a propósito: Firestore no tiene
     // búsqueda por subcadena, y la alternativa es un servicio de búsqueda
     // aparte para un directorio que cabe en una pantalla.
-    const q = busqueda.toLowerCase().trim();
-    return clientes.filter(
-      (c) =>
-        c.nombre.toLowerCase().includes(q) ||
-        (c.alias && c.alias.toLowerCase().includes(q)) ||
-        (c.telefono && c.telefono.includes(q))
-    );
+    //
+    // La comparación ignora tildes: nadie escribe 'María' con tilde al buscar,
+    // y un `includes` crudo diría que esa clienta no existe.
+    return clientes.filter((c) => algunoContiene([c.nombre, c.alias, c.telefono], busqueda));
   }
 
   static async getById(id: number): Promise<ClienteDetalle | null> {

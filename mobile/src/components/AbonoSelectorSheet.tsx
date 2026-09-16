@@ -6,6 +6,7 @@ import { useDatosNegocio } from '../context/DataContext';
 import { haptics } from '../lib/haptics';
 import type { FilaPorCobrar } from '@shared/types';
 import type { VentaCobroItem } from './AbonoModalSheet';
+import { algunoContiene } from '@core/texto';
 
 interface AbonoSelectorSheetProps {
   abierto: boolean;
@@ -32,13 +33,9 @@ export function AbonoSelectorSheet({
   const totalPendienteCor = Math.round((totalPendienteUsd * tasa) / 100);
 
   const filtradas = useMemo(() => {
-    const q = busqueda.trim().toLowerCase();
-    if (!q) return cuentasPorCobrar;
-    return cuentasPorCobrar.filter(
-      (c) =>
-        c.cliente_nombre.toLowerCase().includes(q) ||
-        c.codigo.toLowerCase().includes(q) ||
-        (c.cliente_telefono && c.cliente_telefono.includes(q))
+    if (!busqueda.trim()) return cuentasPorCobrar;
+    return cuentasPorCobrar.filter((c) =>
+      algunoContiene([c.cliente_nombre, c.codigo, c.cliente_telefono], busqueda)
     );
   }, [cuentasPorCobrar, busqueda]);
 

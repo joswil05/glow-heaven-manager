@@ -6,9 +6,10 @@ import { VentasRepoFirestore as V } from '../src/main/firebase/repositories/vent
 import { ClientesRepoFirestore as C } from '../src/main/firebase/repositories/clientes.repo';
 import { ParametrosRepoFirestore as Par } from '../src/main/firebase/repositories/parametros.repo';
 import { PanelRepoFirestore as Panel } from '../src/main/firebase/repositories/panel.repo';
+import { hoyISO } from '../src/core/fechas';
 
 const g = () => randomUUID();
-const HOY = new Date().toISOString().slice(0, 10);
+const HOY = hoyISO();
 
 beforeEach(async () => {
   reiniciarFirestoreFalso();

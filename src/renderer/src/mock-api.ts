@@ -22,10 +22,12 @@ import type {
 } from '../../shared/types';
 import { calcularPrecio } from '@core/precios';
 import { costearPaquete } from '@core/costeo';
+import { algunoContiene } from '@core/texto';
+import { hoyISO, sumarDiasAFecha } from '@core/fechas';
 
 const ok = <T>(data: T): Promise<Resultado<T>> => Promise.resolve({ success: true, data });
 const grupo = () => ({ evento_grupo_id: `g_${Math.random().toString(36).slice(2)}` });
-const hoy = () => new Date().toISOString().slice(0, 10);
+const hoy = () => hoyISO();
 
 interface Almacen {
   parametros: ParametrosSistema;
@@ -367,10 +369,7 @@ const api: ApiPuente = {
           ? db.productos
           : db.productos.filter((p) => p.activo);
       if (filtros?.busqueda) {
-        const q = filtros.busqueda.toLowerCase();
-        r = r.filter(
-          (p) => p.nombre.toLowerCase().includes(q) || p.codigo.toLowerCase().includes(q)
-        );
+        r = r.filter((p) => algunoContiene([p.nombre, p.codigo], filtros.busqueda!));
       }
       if (filtros?.categoria_id) r = r.filter((p) => p.categoria_id === filtros.categoria_id);
       if (filtros?.soloConStock) r = r.filter((p) => p.existencias > 0);
@@ -631,6 +630,19 @@ const api: ApiPuente = {
       if (filtros?.estado) r = r.filter((v) => v.estado === filtros.estado);
       if (filtros?.cliente_id) r = r.filter((v) => v.cliente_id === filtros.cliente_id);
       if (filtros?.soloConSaldo) r = r.filter((v) => v.saldo_usd_cents > 0);
+
+      // La ventana por fecha y el tope existen en el repositorio de verdad.
+      // Si el simulador los ignora, la pantalla se ve distinta acá que en la
+      // app real y probarla contra el simulador no prueba nada.
+      if (filtros?.desde) r = r.filter((v) => (v.fecha || '') >= filtros.desde!);
+      if (filtros?.hasta) r = r.filter((v) => (v.fecha || '') <= filtros.hasta!);
+
+      r = [...r].sort((a, b) => {
+        const cmp = (b.fecha || '').localeCompare(a.fecha || '');
+        return cmp !== 0 ? cmp : b.id - a.id;
+      });
+      if (filtros?.limite) r = r.slice(0, filtros.limite);
+
       return ok(r as Venta[]);
     },
     get: (id) => ok(db.ventas.find((v) => v.id === id) ?? null),
@@ -748,11 +760,10 @@ const api: ApiPuente = {
               id: id * 100 + i,
               venta_id: id,
               numero: i + 1,
-              fecha_vencimiento: (() => {
-                const d = new Date(`${input.fecha}T00:00:00`);
-                d.setDate(d.getDate() + input.plan_cuotas!.cada_dias * i);
-                return d.toISOString().slice(0, 10);
-              })(),
+              fecha_vencimiento: sumarDiasAFecha(
+                input.fecha,
+                input.plan_cuotas!.cada_dias * i
+              ),
               monto_usd_cents: Math.floor((saldoUsdCents > 0 ? saldoUsdCents : total) / input.plan_cuotas!.cantidad),
               pagado_usd_cents: 0,
             }))
@@ -903,11 +914,8 @@ const api: ApiPuente = {
   clientes: {
     list: (busqueda) => {
       if (!busqueda) return ok(db.clientes);
-      const q = busqueda.toLowerCase();
       return ok(
-        db.clientes.filter(
-          (c) => c.nombre.toLowerCase().includes(q) || (c.telefono ?? '').includes(q)
-        )
+        db.clientes.filter((c) => algunoContiene([c.nombre, c.alias, c.telefono], busqueda))
       );
     },
     get: (id) => ok(db.clientes.find((c) => c.id === id) ?? null),

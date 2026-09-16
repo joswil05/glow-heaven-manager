@@ -16,6 +16,7 @@ import {
   FileText,
   MoreVertical,
   Clock,
+  Search,
 } from 'lucide-react';
 import type {
   Venta,
@@ -47,6 +48,7 @@ import { useToast } from '../context/ToastContext';
 import { cn } from '../lib/cn';
 import { formatearMoneda, formatearFecha } from '@core/moneda';
 import { mesISO } from '@core/fechas';
+import { algunoContiene } from '@core/texto';
 
 interface VentasViewProps {
   tipo: TipoVenta;
@@ -96,6 +98,10 @@ export const VentasView: React.FC<VentasViewProps> = ({
   // cuántos documentos se traen. Abrir en 'TODOS' significaba pagar todas las
   // ventas del negocio cada vez, y esa cuenta crece todos los meses.
   const [periodo, setPeriodo] = useState<Periodo>('ESTE_MES');
+  const [busqueda, setBusqueda] = useState('');
+  /** Resultados que vinieron de fuera del período, al buscar. */
+  const [fueraDelPeriodo, setFueraDelPeriodo] = useState<Venta[] | null>(null);
+  const [buscando, setBuscando] = useState(false);
   const [editorAbierto, setEditorAbierto] = useState(abrirEditorAlEntrar);
   const [ventaDetalle, setVentaDetalle] = useState<VentaCompleta | null>(null);
   const [pagoAbierto, setPagoAbierto] = useState(false);
@@ -168,7 +174,81 @@ export const VentasView: React.FC<VentasViewProps> = ({
   // El recorte por período ya lo hizo el servidor: acá sólo queda darle
   // nombre a lo que llegó. Antes esto filtraba en memoria una lista que ya
   // se había pagado entera.
-  const ventasPeriodo = ventas;
+  /**
+   * Buscar no escanea: resuelve.
+   *
+   * La lista abre acotada al mes, asi que lo que se busca puede no estar
+   * cargado. En vez de traer la historia entera para filtrarla —que es
+   * justamente lo que se acaba de sacar— se traduce lo que se escribio a algo
+   * que la base sabe responder de una:
+   *
+   *   · Un codigo de venta (V-0007, E-12) es el numero de la venta: se pide
+   *     ese documento y ya. Una lectura.
+   *   · Un nombre de clienta se resuelve contra el directorio y despues se
+   *     piden SUS ventas, que estan indexadas por clienta y no se acotan por
+   *     fecha. Asi aparece su compra de hace ocho meses.
+   *
+   * Lo que ya esta en pantalla se filtra al instante mientras se escribe; lo
+   * de mas atras llega cuando la consulta responde.
+   */
+  useEffect(() => {
+    const texto = busqueda.trim();
+    if (texto.length < 2) {
+      setFueraDelPeriodo(null);
+      return;
+    }
+
+    let vivo = true;
+    const temporizador = setTimeout(async () => {
+      setBuscando(true);
+      try {
+        const encontradas: Venta[] = [];
+
+        // ¿Es un código de venta? V-0007, e12, 7...
+        const codigo = texto.toUpperCase().match(/^[VE]?-?0*(\d+)$/);
+        if (codigo) {
+          const r = await window.api.ventas.get(Number(codigo[1]));
+          if (r.success && r.data) encontradas.push(r.data);
+        }
+
+        // ¿Es el nombre de una clienta?
+        const rc = await window.api.clientes.list(texto);
+        if (rc.success) {
+          for (const cliente of rc.data.slice(0, 3)) {
+            const rv = await window.api.ventas.list({ cliente_id: cliente.id });
+            if (rv.success) encontradas.push(...rv.data);
+          }
+        }
+
+        if (!vivo) return;
+        const porId = new Map(encontradas.map((v) => [v.id, v]));
+        setFueraDelPeriodo([...porId.values()]);
+      } finally {
+        if (vivo) setBuscando(false);
+      }
+    }, 350);
+
+    return () => {
+      vivo = false;
+      clearTimeout(temporizador);
+    };
+  }, [busqueda]);
+
+  const ventasPeriodo = useMemo(() => {
+    if (!busqueda.trim()) return ventas;
+
+    const coincide = (v: Venta) => algunoContiene([v.codigo, v.cliente_nombre], busqueda);
+
+    // Lo del período que coincide, más lo que la búsqueda trajo de más atrás.
+    const porId = new Map<number, Venta>();
+    for (const v of ventas.filter(coincide)) porId.set(v.id, v);
+    for (const v of fueraDelPeriodo ?? []) porId.set(v.id, v);
+
+    return [...porId.values()].sort((a, b) => {
+      const cmp = (b.fecha || '').localeCompare(a.fecha || '');
+      return cmp !== 0 ? cmp : b.id - a.id;
+    });
+  }, [ventas, busqueda, fueraDelPeriodo]);
 
   const totales = useMemo(() => {
     const activas = ventasPeriodo.filter((v) => v.estado !== 'CANCELADA');
@@ -468,6 +548,31 @@ export const VentasView: React.FC<VentasViewProps> = ({
             ))}
           </div>
 
+          {/* Buscador: alcanza más allá del período cargado */}
+          <div className="relative flex-1 min-w-[220px] max-w-sm">
+            <Search
+              size={15}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-texto-3"
+            />
+            <input
+              type="text"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar por clienta o código de venta..."
+              className="w-full rounded-xl border border-borde bg-superficie-2/80 py-1.5 pl-9 pr-8 text-label text-texto placeholder:text-texto-3 outline-none focus:border-acento-suave focus:ring-2 focus:ring-acento"
+            />
+            {busqueda && (
+              <button
+                type="button"
+                onClick={() => setBusqueda('')}
+                aria-label="Limpiar búsqueda"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-texto-3 hover:text-texto cursor-pointer"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
           {/* Selector Histórico de Período */}
           <div className="inline-flex items-center gap-1.5 p-1 bg-superficie-2/80 rounded-xl border border-borde/70 text-caption font-medium">
             <span className="text-[11px] text-texto-3 pl-2 pr-1 font-semibold flex items-center gap-1">
@@ -498,6 +603,23 @@ export const VentasView: React.FC<VentasViewProps> = ({
             ))}
           </div>
         </div>
+
+        {/* Si la búsqueda trajo algo de fuera del período, hay que decirlo:
+            una venta de hace ocho meses apareciendo en una lista rotulada
+            "Este mes" es la interfaz mintiendo. */}
+        {busqueda.trim() && !cargando && (
+          <div className="px-1 pb-2 text-caption text-texto-3">
+            {buscando ? (
+              <span>Buscando en todo el historial…</span>
+            ) : (
+              <span>
+                {ventasPeriodo.length} resultado{ventasPeriodo.length === 1 ? '' : 's'} para{' '}
+                <strong className="text-texto-2">“{busqueda.trim()}”</strong>
+                {(fueraDelPeriodo?.length ?? 0) > 0 && ', incluyendo ventas fuera del período'}
+              </span>
+            )}
+          </div>
+        )}
 
         {cargando ? (
           <div className="p-12 text-center text-body text-texto-3">Cargando...</div>

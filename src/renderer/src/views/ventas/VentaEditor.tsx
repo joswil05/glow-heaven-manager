@@ -32,6 +32,7 @@ import { useToast } from '../../context/ToastContext';
 import { cn } from '../../lib/cn';
 import { formatearNombreEntidad } from '@shared/formatoTexto';
 import { hoyISO } from '@core/fechas';
+import { algunoContiene } from '@core/texto';
 
 interface LineaBorrador {
   clave: string;
@@ -207,15 +208,9 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
   }, [clienteId, listaClientes]);
 
   const clientesFiltrados = useMemo(() => {
-    const q = busquedaCliente.trim().toLowerCase();
-    if (!q) return listaClientes.slice(0, 8);
+    if (!busquedaCliente.trim()) return listaClientes.slice(0, 8);
     return listaClientes
-      .filter(
-        (c) =>
-          c.nombre.toLowerCase().includes(q) ||
-          (c.alias && c.alias.toLowerCase().includes(q)) ||
-          (c.telefono && c.telefono.includes(q))
-      )
+      .filter((c) => algunoContiene([c.nombre, c.alias, c.telefono], busquedaCliente))
       .slice(0, 8);
   }, [busquedaCliente, listaClientes]);
 
@@ -264,12 +259,11 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
   };
 
   const resultadosBusqueda = useMemo(() => {
-    const q = busquedaProducto.trim().toLowerCase();
     const activos = productos.filter((p) => p.activo !== false);
     const base = esEncargo ? activos : activos.filter((p) => p.existencias > 0);
-    if (!q) return base.slice(0, 8);
+    if (!busquedaProducto.trim()) return base.slice(0, 8);
     return base
-      .filter((p) => p.nombre.toLowerCase().includes(q) || p.codigo.toLowerCase().includes(q))
+      .filter((p) => algunoContiene([p.nombre, p.codigo], busquedaProducto))
       .slice(0, 8);
   }, [busquedaProducto, productos, esEncargo]);
 

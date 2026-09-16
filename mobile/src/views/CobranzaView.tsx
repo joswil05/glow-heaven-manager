@@ -23,6 +23,7 @@ import { KardexClienteSheet, type ClienteKardexInfo } from '../components/Kardex
 import { DetalleCobroSheet } from '../components/DetalleCobroSheet';
 import { haptics } from '../lib/haptics';
 import { useScrollReveal } from '../lib/useScrollReveal';
+import { algunoContiene } from '@core/texto';
 
 export function CobranzaView() {
   const { parametros, version, marcarCambio } = useDatosNegocio();
@@ -86,13 +87,9 @@ export function CobranzaView() {
     if (filtro === 'vencidas') res = cuentasVencidas;
     if (filtro === 'al_dia') res = cuentasAlDia;
 
-    const q = busqueda.trim().toLowerCase();
-    if (q) {
-      res = res.filter(
-        (c) =>
-          c.cliente_nombre.toLowerCase().includes(q) ||
-          c.codigo.toLowerCase().includes(q) ||
-          (c.cliente_telefono || '').includes(q)
+    if (busqueda.trim()) {
+      res = res.filter((c) =>
+        algunoContiene([c.cliente_nombre, c.codigo, c.cliente_telefono], busqueda)
       );
     }
     return res;
