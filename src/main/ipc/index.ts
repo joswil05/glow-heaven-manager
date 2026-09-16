@@ -307,8 +307,35 @@ export function registrarHandlers(): void {
   // -------------------------------------------------------------------------
   // Autenticación con Google
   // -------------------------------------------------------------------------
-  manejar(IPC.AUTH_GOOGLE_INICIAR, () => GoogleAuthService.iniciarSesionGoogle());
-  manejar(IPC.AUTH_GET_USER, () => GoogleAuthService.obtenerUsuarioActual());
+  /**
+   * Reclamar la invitación al entrar.
+   *
+   * Sin esto, a alguien invitado la app le abría y después le negaba todo: la
+   * invitación existe, pero lo que las reglas miran es el documento de
+   * `usuarios_autorizados`, y ese lo tiene que crear la propia persona al
+   * entrar por primera vez. En el celular eso ya pasaba; acá faltaba, así que
+   * la ventana quedaba viva y vacía, sin decir por qué.
+   *
+   * Va en las dos puertas —entrar y restaurar sesión— porque se llega por las
+   * dos, y falla en silencio a propósito: si no se pudo reclamar, las reglas
+   * van a decir que no igual, y no es este el lugar para explicarlo.
+   */
+  const reclamarAcceso = async (usuario: { uid: string; email: string } | null) => {
+    if (!usuario?.uid) return usuario;
+    try {
+      await AccesosRepo.verificarOReclamar(usuario.uid, usuario.email ?? null);
+    } catch {
+      /* que conteste el servidor cuando la app pida datos */
+    }
+    return usuario;
+  };
+
+  manejar(IPC.AUTH_GOOGLE_INICIAR, async () =>
+    reclamarAcceso(await GoogleAuthService.iniciarSesionGoogle())
+  );
+  manejar(IPC.AUTH_GET_USER, async () =>
+    reclamarAcceso(GoogleAuthService.obtenerUsuarioActual())
+  );
   manejar(IPC.AUTH_LOGOUT, () => GoogleAuthService.cerrarSesion());
 
   // -------------------------------------------------------------------------

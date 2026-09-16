@@ -17,8 +17,9 @@ import { SnackbarProvider } from './components/Snackbar';
 // para lo de cada minuto. Se entra por el engranaje del Inicio.
 export type Vista = 'panel' | 'vender' | 'cobranza' | 'inventario' | 'ajustes' | 'actividad';
 
-import { ShieldAlert } from 'lucide-react';
+import { ShieldAlert, WifiOff } from 'lucide-react';
 import { usandoEmuladorLocal } from './lib/firebase-mobile';
+import type { ResultadoAcceso as EstadoAcceso } from '../../src/main/firebase/repositories/accesos.repo';
 
 /**
  * Quien puede pasar de la pantalla de acceso.
@@ -36,8 +37,8 @@ import { usandoEmuladorLocal } from './lib/firebase-mobile';
  * servidor; acá sirve para mostrar un mensaje claro en vez de una pantalla
  * rota.
  */
-async function puedeEntrar(uid: string, correo: string | null): Promise<boolean> {
-  if (usandoEmuladorLocal) return true;
+async function puedeEntrar(uid: string, correo: string | null): Promise<EstadoAcceso> {
+  if (usandoEmuladorLocal) return 'autorizado';
   const { AccesosRepoFirestore } = await import(
     '../../src/main/firebase/repositories/accesos.repo'
   );
@@ -46,22 +47,29 @@ async function puedeEntrar(uid: string, correo: string | null): Promise<boolean>
 
 function AppContenido() {
   const { usuario, cargando, salir } = useAuth();
-  /** `null` mientras se averigua; después, si puede entrar o no. */
-  const [autorizado, setAutorizado] = useState<boolean | null>(null);
+  /** `null` mientras se averigua. */
+  const [acceso, setAcceso] = useState<EstadoAcceso | null>(null);
+  /** Sube para volver a preguntar cuando la conexión falló. */
+  const [reintento, setReintento] = useState(0);
 
   useEffect(() => {
     if (!usuario) {
-      setAutorizado(null);
+      setAcceso(null);
       return;
     }
     let vivo = true;
+    setAcceso(null);
     puedeEntrar(usuario.uid, usuario.email ?? null)
-      .then((ok) => vivo && setAutorizado(ok))
-      .catch(() => vivo && setAutorizado(false));
+      .then((r) => vivo && setAcceso(r))
+      // Si ni siquiera se pudo preguntar, es un problema de conexión, no un
+      // veto. Decirle "no tenés acceso" a quien sí lo tiene es peor que no
+      // decir nada.
+      .catch(() => vivo && setAcceso('sin-conexion'))
+      .finally(() => undefined);
     return () => {
       vivo = false;
     };
-  }, [usuario]);
+  }, [usuario, reintento]);
 
   if (cargando) {
     return (
@@ -80,7 +88,7 @@ function AppContenido() {
     return <LoginView />;
   }
 
-  if (autorizado === null) {
+  if (acceso === null) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-fondo transition-colors duration-200">
         <div className="flex flex-col items-center gap-3">
@@ -93,7 +101,33 @@ function AppContenido() {
     );
   }
 
-  if (!autorizado) {
+  if (acceso === 'sin-conexion') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-fondo p-6">
+        <div className="flex max-w-sm flex-col items-center gap-4 rounded-2xl border border-borde bg-superficie p-6 text-center shadow-lg">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-superficie-2 text-texto-3">
+            <WifiOff size={26} />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-texto">No pudimos comprobar tu acceso</h2>
+            <p className="mt-1 text-sm text-texto-3">
+              Parece que no hay conexión. Tu cuenta está bien; sólo hace falta internet para
+              entrar.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setReintento((n) => n + 1)}
+            className="m3-press mt-1 w-full rounded-xl bg-acento px-4 py-2.5 text-sm font-semibold text-acento-texto transition-colors cursor-pointer"
+          >
+            Reintentar
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (acceso !== 'autorizado') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-fondo p-6">
         <div className="flex flex-col items-center gap-4 text-center max-w-sm bg-superficie p-6 rounded-2xl border border-peligro-suave shadow-lg">

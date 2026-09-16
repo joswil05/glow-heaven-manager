@@ -207,6 +207,71 @@ describe('quién puede entrar', () => {
   );
 
   it.skipIf(!disponible)(
+    'sin conexión no dice "no tenés acceso": dice que no se pudo comprobar',
+    async () => {
+      // Con un booleano, quedarse sin señal se veía igual que estar vetada, y
+      // la app le decía a una persona legítima que la echaron de su propio
+      // negocio. Acá se apunta a un host muerto para que falle la red, no las
+      // reglas, y la respuesta tiene que ser distinta.
+      const { initializeApp, deleteApp } = await import('firebase/app');
+      const { getFirestore, connectFirestoreEmulator, doc, getDoc } = await import(
+        'firebase/firestore'
+      );
+      const { FIREBASE_CONFIG } = await import('../../src/shared/firebase-config');
+
+      const app = initializeApp(FIREBASE_CONFIG, `muerto-${randomUUID()}`);
+      const db = getFirestore(app);
+      connectFirestoreEmulator(db, '127.0.0.1', 9);
+
+      try {
+        let error: unknown = null;
+        try {
+          await getDoc(doc(db, 'usuarios_autorizados', 'quien-sea'));
+        } catch (err) {
+          error = err;
+        }
+
+        // Lo que tiene que ser cierto para que la app distinga: un fallo de red
+        // NO llega con el código que usan las reglas para decir que no.
+        const codigo = (error as { code?: string } | null)?.code ?? '';
+        expect(
+          codigo === 'permission-denied',
+          `un fallo de red llegó como '${codigo}', igual que un veto de las reglas`
+        ).toBe(false);
+      } finally {
+        await deleteApp(app);
+      }
+    },
+    90_000
+  );
+
+  it.skipIf(!disponible)(
+    'un veto de las reglas sí llega como permiso denegado',
+    async () => {
+      // La otra mitad: si esto cambiara, la app tomaría un veto real por un
+      // problema de conexión y dejaría reintentando para siempre.
+      const ajena = await sesionDe(`vetada-${Date.now()}@ejemplo.com`);
+      try {
+        const { setDoc, doc } = await import('firebase/firestore');
+        let error: unknown = null;
+        try {
+          await setDoc(doc(ajena.db as never, 'usuarios_autorizados', ajena.uid), {
+            correo: ajena.correo,
+            agregado_en: new Date().toISOString(),
+          });
+        } catch (err) {
+          error = err;
+        }
+        const codigo = (error as { code?: string } | null)?.code ?? '';
+        expect(codigo).toBe('permission-denied');
+      } finally {
+        await ajena.cerrar();
+      }
+    },
+    90_000
+  );
+
+  it.skipIf(!disponible)(
     'el acceso de la dueña no se puede quitar',
     async () => {
       const { Accesos } = await repos();

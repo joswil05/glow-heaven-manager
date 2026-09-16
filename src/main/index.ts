@@ -2,6 +2,7 @@ import { app, BrowserWindow, dialog } from 'electron';
 import { getFirestoreDb } from './firebase/client';
 import { AccesoFirebase } from './firebase/auth';
 import { GoogleAuthService } from './firebase/google-auth.service';
+import { AccesosRepoFirestore } from './firebase/repositories/accesos.repo';
 import { ParametrosRepoFirestore } from './firebase/repositories/parametros.repo';
 import { registrarHandlers } from './ipc';
 import { createMainWindow } from './windows/main.window';
@@ -44,6 +45,25 @@ if (!gotTheLock) {
       // la aplicación sin credenciales frente a Firestore, mostrándose
       // "conectada" pero sin poder leer ni escribir nada.
       const usuarioGoogle = await GoogleAuthService.restaurarSesion();
+
+      // Reclamar la invitación, si la hay.
+      //
+      // El arranque restaura la sesión por fuera del canal de ingreso, así que
+      // sin esto una persona invitada que ya había entrado alguna vez volvía a
+      // encontrarse la ventana viva y vacía: la invitación existe, pero lo que
+      // las reglas miran es su documento de `usuarios_autorizados`, y ese lo
+      // crea ella misma al entrar. Falla en silencio a propósito: si no se
+      // pudo, el servidor va a decir que no igual cuando se pidan datos.
+      if (usuarioGoogle?.uid) {
+        try {
+          await AccesosRepoFirestore.verificarOReclamar(
+            usuarioGoogle.uid,
+            usuarioGoogle.email ?? null
+          );
+        } catch {
+          /* que conteste el servidor */
+        }
+      }
 
       // Las reglas de Firestore exigen una sesión. Si falta configurarla, la
       // aplicación abre igual y lo pide desde Configuración: cerrarla dejaría

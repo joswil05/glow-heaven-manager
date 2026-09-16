@@ -41,6 +41,22 @@ interface InvitacionDoc {
 
 const normalizarCorreo = (correo: string): string => correo.trim().toLowerCase();
 
+/**
+ * Qué pasó al comprobar el acceso.
+ *
+ * Son tres respuestas y no dos porque "no" y "no sé" no son lo mismo. Con un
+ * booleano, quedarse sin señal se veía igual que estar vetada: la app le decía
+ * a una persona legítima que no tiene permiso para entrar a su propio negocio.
+ * Eso asusta y además manda a buscar el problema donde no está.
+ */
+export type ResultadoAcceso = 'autorizado' | 'sin-permiso' | 'sin-conexion';
+
+/** ¿El servidor dijo que no, o no llegamos a preguntarle? */
+function esPermisoDenegado(err: unknown): boolean {
+  const codigo = (err as { code?: string } | null)?.code ?? '';
+  return codigo === 'permission-denied' || String(err).includes('permission-denied');
+}
+
 export class AccesosRepoFirestore {
   /**
    * Quién tiene acceso y quién está invitado, en una sola lista.
@@ -168,27 +184,37 @@ export class AccesosRepoFirestore {
    * que es la única escritura que las reglas le permiten a alguien todavía no
    * autorizado.
    */
-  static async verificarOReclamar(uid: string, correo: string | null): Promise<boolean> {
-    if (uid === UID_DUENIA) return true;
+  static async verificarOReclamar(
+    uid: string,
+    correo: string | null
+  ): Promise<ResultadoAcceso> {
+    if (uid === UID_DUENIA) return 'autorizado';
 
     const db = getFirestoreDb();
     const limpio = correo ? normalizarCorreo(correo) : '';
 
-    const ya = await getDoc(doc(db, 'usuarios_autorizados', uid)).catch(() => null);
-    if (ya?.exists()) return true;
+    try {
+      const ya = await getDoc(doc(db, 'usuarios_autorizados', uid));
+      if (ya.exists()) return 'autorizado';
+    } catch (err) {
+      // Leer el documento propio SÍ está permitido, así que un rechazo acá no
+      // es una respuesta sobre el acceso: es que no se pudo preguntar.
+      if (!esPermisoDenegado(err)) return 'sin-conexion';
+    }
 
-    if (!limpio) return false;
+    if (!limpio) return 'sin-permiso';
 
     try {
       await setDoc(doc(db, 'usuarios_autorizados', uid), {
         correo: limpio,
         agregado_en: new Date().toISOString(),
       });
-      return true;
-    } catch {
-      // Sin invitación a su nombre, las reglas rechazan la escritura. Eso ES
-      // la respuesta: no tiene acceso.
-      return false;
+      return 'autorizado';
+    } catch (err) {
+      // Sin invitación a su nombre, las reglas rechazan la escritura, y ESO es
+      // la respuesta. Cualquier otra falla es un problema de conexión y hay que
+      // decirlo distinto.
+      return esPermisoDenegado(err) ? 'sin-permiso' : 'sin-conexion';
     }
   }
 }
