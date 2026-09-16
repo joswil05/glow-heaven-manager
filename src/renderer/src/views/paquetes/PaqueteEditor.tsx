@@ -223,7 +223,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
             </div>
             <div>
               <h3 id="titulo-paquete" className="text-title text-texto">
-                {esNuevo ? 'Registrar paquete / envío' : `Editar ${compra!.codigo}`}
+                {esNuevo ? 'Registrar paquete' : `Editar ${compra!.codigo}`}
               </h3>
               <p className="text-caption text-texto-3">
                 Factura y flete de la caja cobrado por el courier.
@@ -248,7 +248,11 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Peso de la caja (lb) *" hint="El de la factura del courier">
+            {/* Los números van alineados a la izquierda como todo lo demás.
+                Alineados a la derecha, el texto de ejemplo flotaba contra el
+                borde y parecía un valor ya escrito —sobre todo el "0.00" de
+                otros gastos, que no se distinguía de una cifra de verdad. */}
+            <Field label="Peso de la caja *" hint="En libras, el de la factura del courier">
               <Input
                 value={pesoTotalTexto}
                 onChange={(e) => {
@@ -256,15 +260,15 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                   setEnvioManual(false);
                 }}
                 placeholder="Ej. 11.5"
-                className="text-right font-medium font-mono"
+                className="font-medium font-mono"
                 inputMode="decimal"
                 autoFocus
               />
             </Field>
 
             <Field
-              label="Flete / Envío pagado ($) *"
-              hint={envioManual ? 'Escrito a mano' : `${formatearMoneda(tarifaLb, 'USD')} por libra`}
+              label="Flete pagado al courier *"
+              hint={envioManual ? 'Escrito a mano' : `Calculado a ${formatearMoneda(tarifaLb, 'USD')} por libra`}
             >
               <Input
                 value={envioTexto}
@@ -273,29 +277,31 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                   setEnvioTexto(e.target.value);
                 }}
                 placeholder="Ej. 77.00"
-                className={cn('text-right font-medium font-mono', !envioManual && 'text-acento-fuerte')}
+                className={cn('font-medium font-mono', !envioManual && 'text-acento-fuerte')}
                 inputMode="decimal"
               />
             </Field>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Fecha de llegada / factura">
+            {/* Las dos filas llevan pista para que queden de la misma altura:
+                sin la de la fecha, la columna izquierda quedaba más corta. */}
+            <Field label="Fecha de llegada" hint="La que dice la factura del courier">
               <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
             </Field>
 
-            <Field label="Otros gastos ($)" hint="Aduana, reempaque, etc.">
+            <Field label="Otros gastos" hint="Aduana, reempaque, etc.">
               <Input
                 value={otrosTexto}
                 onChange={(e) => setOtrosTexto(e.target.value)}
-                placeholder="0.00"
-                className="text-right font-mono"
+                placeholder="Ej. 5.00"
+                className="font-mono"
                 inputMode="decimal"
               />
             </Field>
           </div>
 
-          <Field label="Notas y detalles del paquete">
+          <Field label="Notas">
             <Textarea
               rows={2}
               value={notas}
@@ -305,34 +311,53 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
             />
           </Field>
 
-          {/* Tarjeta informativa y resumen de flete */}
-          <div className="rounded-xl border border-acento/20 bg-gradient-to-br from-acento-suave/40 via-acento-suave/15 to-transparent p-4.5 space-y-3 shadow-xs">
-            <div className="flex items-center justify-between text-label">
-              <span className="text-texto-2 font-medium">Total a pagar al courier:</span>
-              <span className="text-lg font-bold text-acento-fuerte">
-                <Money usd_cents={totalCents} size="md" soloUsd />
-              </span>
+          {/* El total, con la misma cara que el resumen del editor de ventas.
+              Antes esto era una caja con degradado verde que no existe en
+              ninguna otra pantalla, y que además compartía lugar con un
+              párrafo de ayuda tres veces más largo que el número: lo que más
+              pesaba en la ventana era lo que menos importaba.
+
+              (El `p-4.5` que tenía no existe en Tailwind, así que el texto
+              venía tocando el borde.) */}
+          <div className="rounded-xl border border-borde bg-superficie-2/40 p-4 space-y-2.5">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-label text-texto-2">Total a pagar al courier</span>
+              {/* Apagado mientras está en cero: un monto en verde antes de
+                  escribir nada es un número que todavía no quiere decir nada. */}
+              <Money
+                usd_cents={totalCents}
+                size="md"
+                soloUsd
+                className={cn(
+                  'text-lg font-bold',
+                  totalCents > 0 ? 'text-acento-fuerte' : 'text-texto-3'
+                )}
+              />
             </div>
 
             {pesoTotalMlbPreview > 0 && (
-              <div className="flex justify-between text-caption text-texto-3 pt-2 border-t border-borde/60 font-mono">
+              <div className="flex justify-between gap-3 border-t border-borde/60 pt-2.5 text-caption text-texto-3 font-mono">
                 <span>Peso registrado: {formatearPeso(pesoTotalMlbPreview)}</span>
                 <span>
-                  Tarifa efectiva:{' '}
-                  {pesoTotalMlbPreview > 0
-                    ? formatearMoneda(Math.round((envioCentsPreview * 1000) / pesoTotalMlbPreview), 'USD')
-                    : '$0.00'}
-                  /lb
+                  {formatearMoneda(
+                    Math.round((envioCentsPreview * 1000) / pesoTotalMlbPreview),
+                    'USD'
+                  )}
+                  /lb efectivo
                 </span>
               </div>
             )}
-
-            <p className="text-caption text-texto-2 leading-relaxed pt-1">
-              <strong>¿Dónde se ingresan los productos?</strong> En la pestaña{' '}
-              <strong>Inventario</strong> (botón <em>Agregar producto</em>). Allí podrás cargar cada
-              prenda con sus fotos, tallas y vincularla a este paquete si deseas asociar su flete.
-            </p>
           </div>
+
+          {/* La ayuda, afuera y en voz baja. Explica algo que pasa en OTRA
+              pantalla, así que no puede tener el mismo peso que la plata de
+              esta. */}
+          <p className="text-caption leading-relaxed text-texto-3">
+            Los productos se cargan desde <span className="font-medium text-texto-2">Inventario</span>,
+            con el botón <span className="font-medium text-texto-2">Agregar producto</span>. Ahí le
+            ponés fotos y tallas a cada prenda, y podés vincularla a este paquete para que cargue su
+            parte del flete.
+          </p>
         </div>
 
         {/* Pie de acción */}
