@@ -88,6 +88,17 @@ export interface FiltrosProducto {
   soloBajoStock?: boolean;
   soloInactivos?: boolean;
   incluirInactivos?: boolean;
+  /**
+   * Sólo lo que trajo este paquete.
+   *
+   * El negocio funciona por tandas: se vende casi todo y llega un paquete
+   * nuevo que renueva la bodega. Por eso "¿qué hay del último paquete?" es
+   * una pregunta cotidiana, y sin esto había que acordarse de memoria.
+   *
+   * `SIN_PAQUETE` son los productos que no vinieron de ninguno: los que se
+   * cargaron a mano y los que ya estaban antes de que existiera el registro.
+   */
+  paquete_id?: number | 'SIN_PAQUETE';
 }
 
 export interface SimularPrecioInput {

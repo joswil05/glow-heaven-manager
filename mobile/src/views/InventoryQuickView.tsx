@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Search, X } from 'lucide-react';
 import type { ProductoConStock } from '@shared/types';
 import { PullToRefresh } from '../components/PullToRefresh';
@@ -9,6 +9,7 @@ import { haptics } from '../lib/haptics';
 import { useScrollReveal } from '../lib/useScrollReveal';
 import { useSnackbar } from '../components/Snackbar';
 import { algunoContiene } from '@core/texto';
+import { ComprasRepoFirestore } from '../../../src/main/firebase/repositories/compras.repo';
 
 /** `null` representa "Todos". El resto son los `id` reales de `categorias`,
  * las mismas que la dueña administra en Windows > Configuración > Ganancia
@@ -22,6 +23,36 @@ export function InventoryQuickView() {
   const [busqueda, setBusqueda] = useState('');
   const [categoriaActiva, setCategoriaActiva] = useState<number | null>(null);
   const [fichaAbierta, setFichaAbierta] = useState<ProductoConStock | null>(null);
+  /**
+   * Mirar la bodega por paquete.
+   *
+   * El negocio funciona por tandas: se vende casi todo y llega un paquete
+   * nuevo que renueva el inventario. Estando en el mostrador, "¿esto vino en
+   * el último paquete?" es una pregunta de todos los días.
+   */
+  const [paqueteActivo, setPaqueteActivo] = useState<number | null>(null);
+  const [paquetes, setPaquetes] = useState<{ id: number; codigo: string }[]>([]);
+
+  // Los paquetes se leen una sola vez, y sólo si hay algún producto que venga
+  // de uno: en una bodega cargada a mano esto no gasta ni una lectura.
+  const hayProductosConPaquete = productos.some((p) => p.paquete_id);
+  useEffect(() => {
+    if (!hayProductosConPaquete || paquetes.length > 0) return;
+    let vivo = true;
+    ComprasRepoFirestore.listar()
+      .then((lista) => {
+        if (!vivo) return;
+        setPaquetes(
+          lista.filter((c) => c.estado === 'RECIBIDA').map((c) => ({ id: c.id, codigo: c.codigo }))
+        );
+      })
+      .catch(() => {
+        /* sin paquetes, los chips no aparecen */
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [hayProductosConPaquete, paquetes.length]);
 
   const tasa = parametros?.tasa_cambio_cents ?? 3662;
   const cargando = cargandoProductos && productos.length === 0;
@@ -51,12 +82,16 @@ export function InventoryQuickView() {
       );
     }
 
+    if (paqueteActivo !== null) {
+      res = res.filter((p) => p.paquete_id === paqueteActivo);
+    }
+
     if (categoriaActiva !== null) {
       res = res.filter((p) => p.categoria_id === categoriaActiva);
     }
 
     return res;
-  }, [productos, busqueda, categoriaActiva]);
+  }, [productos, busqueda, categoriaActiva, paqueteActivo]);
 
   const scrollRevealRef = useScrollReveal<HTMLElement>({ deps: [filtrados] });
 
@@ -137,6 +172,50 @@ export function InventoryQuickView() {
         {/* Chips de categorías: las mismas categorías reales de Windows.
             El degradado a la derecha avisa que hay más chips fuera de
             vista en vez de cortarlos en seco contra el borde. */}
+        {/* De qué paquete. Sólo aparece si hay más de uno: con un solo
+            paquete el filtro no distingue nada y ocupa lugar en una pantalla
+            que ya es chica. */}
+        {paquetes.length > 1 && (
+          <div className="relative mt-2">
+            <div className="flex items-center gap-1.5 overflow-x-auto sin-scrollbar py-0.5 pr-6">
+              <button
+                type="button"
+                onClick={() => {
+                  haptics.selection();
+                  setPaqueteActivo(null);
+                }}
+                className={`m3-press shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                  paqueteActivo === null
+                    ? 'bg-acento text-acento-texto shadow-sm'
+                    : 'bg-superficie-2 text-texto-2 hover:bg-superficie-3 border border-borde'
+                }`}
+              >
+                Todo
+              </button>
+              {paquetes.map((paq, i) => {
+                const activo = paqueteActivo === paq.id;
+                return (
+                  <button
+                    key={paq.id}
+                    type="button"
+                    onClick={() => {
+                      haptics.selection();
+                      setPaqueteActivo(paq.id);
+                    }}
+                    className={`m3-press shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                      activo
+                        ? 'bg-acento text-acento-texto shadow-sm'
+                        : 'bg-superficie-2 text-texto-2 hover:bg-superficie-3 border border-borde'
+                    }`}
+                  >
+                    {i === 0 ? 'Último paquete' : paq.codigo}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div className="relative mt-2">
           <div className="flex items-center gap-1.5 overflow-x-auto sin-scrollbar py-0.5 pr-6">
             <button

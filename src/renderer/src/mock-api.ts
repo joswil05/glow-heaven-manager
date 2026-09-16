@@ -372,6 +372,12 @@ const api: ApiPuente = {
         r = r.filter((p) => algunoContiene([p.nombre, p.codigo], filtros.busqueda!));
       }
       if (filtros?.categoria_id) r = r.filter((p) => p.categoria_id === filtros.categoria_id);
+      if (filtros?.paquete_id !== undefined) {
+        r =
+          filtros.paquete_id === 'SIN_PAQUETE'
+            ? r.filter((p) => !p.paquete_id)
+            : r.filter((p) => p.paquete_id === filtros.paquete_id);
+      }
       if (filtros?.soloConStock) r = r.filter((p) => p.existencias > 0);
       if (filtros?.soloBajoStock)
         r = r.filter((p) => p.stock_minimo > 0 && p.existencias <= p.stock_minimo);
@@ -502,7 +508,8 @@ const api: ApiPuente = {
         id,
         codigo: `PQ-${String(id).padStart(4, '0')}`,
         fecha: input.fecha,
-        estado: input.estado ?? (tieneLineas ? 'BORRADOR' : 'RECIBIDA'),
+        // Igual que el repositorio real: sin lineas es un BORRADOR.
+        estado: input.estado ?? 'BORRADOR',
         envio_total_usd_cents: envioFinal,
         otros_costos_usd_cents: otrosFinal,
         subtotal_productos_usd_cents: subtotalFinal,
@@ -575,6 +582,7 @@ const api: ApiPuente = {
             p.id === existente.id
               ? recalcularProducto({
                   ...p,
+                  paquete_id: id,
                   existencias: p.existencias + linea.cantidad,
                   valor_inventario_usd_cents:
                     p.valor_inventario_usd_cents + linea.costo_linea_usd_cents,
@@ -596,6 +604,7 @@ const api: ApiPuente = {
               codigo: `P-${String(nuevoId).padStart(4, '0')}`,
               nombre: linea.descripcion,
               tiene_variantes: false,
+              paquete_id: id,
               valor_inventario_usd_cents: linea.costo_linea_usd_cents,
               costo_unitario_usd_cents: linea.costo_unitario_usd_cents,
               modo_precio: linea.precio_venta_usd_cents ? 'MANUAL' : 'MARGEN',

@@ -170,6 +170,77 @@ def caso_paginacion(page: Page) -> list[str]:
     return fallas
 
 
+@caso("el inventario se puede mirar paquete por paquete")
+def caso_paquetes(page: Page) -> list[str]:
+    fallas = []
+
+    # Dos paquetes con productos distintos, los dos recibidos.
+    datos = page.evaluate("""async () => {
+      const hoy = new Date().toISOString().slice(0, 10);
+      const armar = async (nombres) => {
+        const r = await window.api.compras.guardar({
+          fecha: hoy,
+          envio_total_usd_cents: 1000,
+          lineas: nombres.map((n) => ({
+            descripcion: n, cantidad: 3, precio_linea_usd_cents: 4000,
+            peso_linea_mlb: 100, destino: 'INVENTARIO',
+          })),
+        });
+        const id = r.data.id;
+        await window.api.compras.recibir(id);
+        const c = await window.api.compras.get(id);
+        return { id, codigo: c.data.codigo };
+      };
+      const uno = await armar(['Gloss del uno', 'Labial del uno']);
+      const dos = await armar(['Bolso del dos']);
+      return { uno, dos };
+    }""")
+
+    page.get_by_role("button", name="Inventario", exact=False).first.click()
+    page.wait_for_timeout(1500)
+
+    selector = page.locator("select[aria-label='Filtrar por paquete']")
+    if selector.count() == 0:
+        return ["no hay selector de paquete en el inventario"]
+
+    # Sin filtrar se ven los tres.
+    cuerpo = page.inner_text("body")
+    for nombre in ("Gloss del uno", "Labial del uno", "Bolso del dos"):
+        if nombre not in cuerpo:
+            fallas.append(f"sin filtrar no aparece '{nombre}'")
+
+    # El código del paquete se ve en la fila, sin tener que filtrar.
+    if datos["uno"]["codigo"] not in cuerpo:
+        fallas.append(f"la fila no muestra de qué paquete vino ({datos['uno']['codigo']})")
+
+    # Filtrando por el primero: sólo lo suyo.
+    selector.select_option(str(datos["uno"]["id"]))
+    page.wait_for_timeout(1500)
+    cuerpo = page.inner_text("body")
+    if "Bolso del dos" in cuerpo:
+        fallas.append("filtrando por el primer paquete se cuela un producto del segundo")
+    for nombre in ("Gloss del uno", "Labial del uno"):
+        if nombre not in cuerpo:
+            fallas.append(f"filtrando por su paquete no aparece '{nombre}'")
+
+    # Filtrando por el segundo: sólo lo suyo.
+    selector.select_option(str(datos["dos"]["id"]))
+    page.wait_for_timeout(1500)
+    cuerpo = page.inner_text("body")
+    if "Gloss del uno" in cuerpo:
+        fallas.append("filtrando por el segundo paquete se cuela un producto del primero")
+    if "Bolso del dos" not in cuerpo:
+        fallas.append("filtrando por su paquete no aparece 'Bolso del dos'")
+
+    # Volver a todos.
+    selector.select_option("")
+    page.wait_for_timeout(1200)
+    if "Gloss del uno" not in page.inner_text("body"):
+        fallas.append("al quitar el filtro no vuelven a verse todos los productos")
+
+    return fallas
+
+
 @caso("se puede recorrer la app sin que quede la ventana en blanco")
 def caso_recorrido(page: Page) -> list[str]:
     fallas = []

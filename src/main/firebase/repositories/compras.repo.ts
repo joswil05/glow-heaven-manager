@@ -403,6 +403,7 @@ export class ComprasRepoFirestore {
         referencia_tipo: 'COMPRA',
         referencia_id: compra_id,
         detalle: `Paquete ${compra.codigo}`,
+        paquete_id: compra_id,
       });
       afectados++;
     }

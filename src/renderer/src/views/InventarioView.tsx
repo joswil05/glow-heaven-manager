@@ -67,6 +67,17 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
   const [busqueda, setBusqueda] = useState('');
   const [filtro, setFiltro] = useState<Filtro>('TODOS');
   const [categoriaFiltro, setCategoriaFiltro] = useState<number | undefined>(undefined);
+  /**
+   * De qué paquete mirar la bodega.
+   *
+   * El negocio funciona por tandas: se vende casi todo y llega un paquete
+   * nuevo que renueva el inventario. "¿Qué hay del último paquete?" es la
+   * pregunta de todos los días, y hasta ahora había que acordarse de memoria.
+   */
+  const [paqueteFiltro, setPaqueteFiltro] = useState<number | 'SIN_PAQUETE' | undefined>(
+    undefined
+  );
+  const [paquetes, setPaquetes] = useState<{ id: number; codigo: string; fecha: string }[]>([]);
 
   const [modalAbierto, setModalAbierto] = useState(false);
   const [productoEditando, setProductoEditando] = useState<ProductoConStock | null>(null);
@@ -84,7 +95,7 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
   const [todosLosProductos, setTodosLosProductos] = useState<ProductoConStock[]>([]);
 
   const hayFiltroActivo = Boolean(
-    busqueda.trim() || categoriaFiltro !== undefined || filtro !== 'TODOS'
+    busqueda.trim() || categoriaFiltro !== undefined || filtro !== 'TODOS' || paqueteFiltro !== undefined
   );
 
   const cargarTotalesGenerales = useCallback(async () => {
@@ -108,10 +119,16 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
         soloConStock: filtro === 'CON_STOCK',
         soloBajoStock: filtro === 'BAJO_STOCK',
         soloInactivos: filtro === 'DESCATALOGADOS',
+        paquete_id: paqueteFiltro,
       });
       if (r.success) {
         let items = r.data;
-        if (!busqueda.trim() && categoriaFiltro === undefined && filtro === 'TODOS') {
+        if (
+          !busqueda.trim() &&
+          categoriaFiltro === undefined &&
+          filtro === 'TODOS' &&
+          paqueteFiltro === undefined
+        ) {
           setTodosLosProductos(items);
         }
         if (filtro === 'AGOTADOS') {
@@ -124,7 +141,31 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
     } finally {
       setCargando(false);
     }
-  }, [busqueda, categoriaFiltro, filtro, showToast]);
+  }, [busqueda, categoriaFiltro, filtro, paqueteFiltro, showToast]);
+
+  // Los paquetes para el selector. Se leen una vez al entrar: son pocos —uno
+  // cada tanto— y sólo interesan los recibidos, porque un borrador todavía no
+  // trajo nada a la bodega.
+  useEffect(() => {
+    let vivo = true;
+    window.api.compras
+      .list()
+      .then((r) => {
+        if (!vivo || !r.success) return;
+        setPaquetes(
+          r.data
+            .filter((c) => c.estado === 'RECIBIDA')
+            .map((c) => ({ id: c.id, codigo: c.codigo, fecha: c.fecha }))
+            .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '') || b.id - a.id)
+        );
+      })
+      .catch(() => {
+        /* el selector simplemente no aparece */
+      });
+    return () => {
+      vivo = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (hayFiltroActivo && todosLosProductos.length === 0) {
@@ -277,6 +318,10 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
     onCambio();
   };
 
+  /** El código del paquete (PQ-0007) a partir de su número. */
+  const codigoDePaquete = (id?: number): string | undefined =>
+    id ? paquetes.find((q) => q.id === id)?.codigo : undefined;
+
   const columnas: Column<ProductoConStock>[] = [
     {
       key: 'nombre',
@@ -305,6 +350,11 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
               </span>
               {p.categoria_nombre && <span>· {p.categoria_nombre}</span>}
               {p.tiene_variantes && <span>· {p.variantes.length} variante(s)</span>}
+              {/* De qué paquete vino. Es la pregunta que se hace mirando el
+                  estante, así que va en la fila y no escondida en el detalle. */}
+              {codigoDePaquete(p.paquete_id) && (
+                <span className="text-acento-fuerte">· {codigoDePaquete(p.paquete_id)}</span>
+              )}
             </div>
           </div>
         </div>
@@ -597,6 +647,30 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
               </option>
             ))}
           </Select>
+
+          {/* De qué paquete mirar la bodega.
+              Sólo aparece si hay paquetes recibidos: un selector vacío no
+              explica nada y ocupa lugar. */}
+          {paquetes.length > 0 && (
+            <Select
+              value={paqueteFiltro === undefined ? '' : String(paqueteFiltro)}
+              onChange={(e) => {
+                const v = e.target.value;
+                setPaqueteFiltro(v === '' ? undefined : v === 'SIN_PAQUETE' ? 'SIN_PAQUETE' : Number(v));
+              }}
+              className="w-auto min-w-[175px]"
+              aria-label="Filtrar por paquete"
+            >
+              <option value="">Todos los paquetes</option>
+              {paquetes.map((p, i) => (
+                <option key={p.id} value={p.id}>
+                  {p.codigo}
+                  {i === 0 ? ' (el último)' : ''}
+                </option>
+              ))}
+              <option value="SIN_PAQUETE">Cargados a mano</option>
+            </Select>
+          )}
 
           {/* Segmented Pill Control */}
           <div className="inline-flex items-center p-1 bg-superficie-2/80 rounded-xl border border-borde/70 text-caption font-medium">

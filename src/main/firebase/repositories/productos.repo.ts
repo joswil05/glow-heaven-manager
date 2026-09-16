@@ -71,6 +71,17 @@ export interface FiltrosProducto {
   soloBajoStock?: boolean;
   soloInactivos?: boolean;
   incluirInactivos?: boolean;
+  /**
+   * Sólo lo que trajo este paquete.
+   *
+   * El negocio funciona por tandas: se vende casi todo y llega un paquete
+   * nuevo que renueva la bodega. Por eso "¿qué hay del último paquete?" es
+   * una pregunta cotidiana, y sin esto había que acordarse de memoria.
+   *
+   * `SIN_PAQUETE` son los productos que no vinieron de ninguno: los que se
+   * cargaron a mano y los que ya estaban antes de que existiera el registro.
+   */
+  paquete_id?: number | 'SIN_PAQUETE';
 }
 
 export interface ProductoDoc {
@@ -171,6 +182,12 @@ export class ProductosRepoFirestore {
     }
     if (filtros.soloBajoStock) {
       productos = productos.filter((p) => p.stock_minimo > 0 && p.existencias <= p.stock_minimo);
+    }
+    if (filtros.paquete_id !== undefined) {
+      productos =
+        filtros.paquete_id === 'SIN_PAQUETE'
+          ? productos.filter((p) => !p.paquete_id)
+          : productos.filter((p) => p.paquete_id === filtros.paquete_id);
     }
 
     return productos.sort((a, b) => a.nombre.localeCompare(b.nombre));
@@ -627,6 +644,15 @@ export class ProductosRepoFirestore {
     referencia_tipo?: string;
     referencia_id?: number;
     detalle?: string;
+    /**
+     * El paquete que trae esta mercadería, si viene de uno.
+     *
+     * Queda anotado en la ficha del producto como el último paquete que lo
+     * repuso. El negocio funciona por tandas —se vende casi todo y llega un
+     * paquete nuevo— así que esto es lo que contesta "¿esto de qué paquete
+     * es?" mirando la bodega, sin recorrer el historial de movimientos.
+     */
+    paquete_id?: number;
   }): Promise<void> {
     const cantidad = Math.max(0, Math.round(params.cantidad));
     if (cantidad === 0) return;
@@ -693,6 +719,9 @@ export class ProductosRepoFirestore {
           valor_inventario_usd_cents: nuevoValor,
           costo_unitario_usd_cents: costo,
           precio_venta_usd_cents: calculo.precio_usd_cents,
+          // Va acá adentro y no en otra escritura: la transacción ya está
+          // tocando este documento.
+          ...(params.paquete_id ? { paquete_id: params.paquete_id } : {}),
           actualizado_en: new Date().toISOString(),
         }),
         { merge: true }
