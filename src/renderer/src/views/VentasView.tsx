@@ -75,6 +75,14 @@ const ESTADO_TEXTO: Record<EstadoVenta, string> = {
 };
 
 type Filtro = 'TODAS' | 'CON_SALDO' | 'PENDIENTES' | 'ENTREGADAS';
+
+/**
+ * Cuántas ventas se traen de una.
+ *
+ * Bastante más de lo que entra en pantalla, para que el primer scroll no
+ * pida nada, y bastante menos que un año de historia.
+ */
+const POR_PAGINA = 50;
 type Periodo = 'TODOS' | 'ESTE_MES' | 'MES_ANTERIOR' | 'ESTE_ANO';
 
 export const VentasView: React.FC<VentasViewProps> = ({
@@ -102,6 +110,9 @@ export const VentasView: React.FC<VentasViewProps> = ({
   /** Resultados que vinieron de fuera del período, al buscar. */
   const [fueraDelPeriodo, setFueraDelPeriodo] = useState<Venta[] | null>(null);
   const [buscando, setBuscando] = useState(false);
+  /** ¿Quedó historia más atrás de lo que se trajo? */
+  const [hayMas, setHayMas] = useState(false);
+  const [trayendoMas, setTrayendoMas] = useState(false);
   const [editorAbierto, setEditorAbierto] = useState(abrirEditorAlEntrar);
   const [ventaDetalle, setVentaDetalle] = useState<VentaCompleta | null>(null);
   const [pagoAbierto, setPagoAbierto] = useState(false);
@@ -131,28 +142,80 @@ export const VentasView: React.FC<VentasViewProps> = ({
     return undefined;
   }, [periodo]);
 
+  const estadoDelFiltro: EstadoVenta | undefined =
+    filtro === 'PENDIENTES' ? 'PENDIENTE' : filtro === 'ENTREGADAS' ? 'ENTREGADA' : undefined;
+
+  /**
+   * Cuáles listas se traen de a pedazos y cuáles enteras.
+   *
+   * 'Todas' y 'Entregadas' crecen para siempre: son toda la historia del
+   * negocio y no hay forma de que quepan en una pantalla, así que se traen de
+   * a una página y se sigue si alguien quiere ver más atrás.
+   *
+   * 'Con saldo' y 'Pendientes' NO se cortan. Son las listas que hay que ver
+   * completas —quién debe, qué falta entregar— y traerlas a medias escondería
+   * justo la deuda vieja, que está al fondo. Además no crecen con los años
+   * sino con los pendientes: si alguna vez son miles, el problema no es la
+   * factura de lecturas.
+   */
+  const paginada = filtro === 'TODAS' || filtro === 'ENTREGADAS';
+
+  const filtrosBase = useCallback(
+    () => ({
+      tipo,
+      desde: desdeDelPeriodo,
+      soloConSaldo: filtro === 'CON_SALDO',
+      estado: estadoDelFiltro,
+    }),
+    [tipo, desdeDelPeriodo, filtro, estadoDelFiltro]
+  );
+
   const cargar = useCallback(async () => {
     setCargando(true);
     try {
       const r = await window.api.ventas.list({
-        tipo,
-        desde: desdeDelPeriodo,
-        soloConSaldo: filtro === 'CON_SALDO',
-        estado:
-          filtro === 'PENDIENTES'
-            ? esEncargo
-              ? 'PENDIENTE'
-              : 'PENDIENTE'
-            : filtro === 'ENTREGADAS'
-              ? 'ENTREGADA'
-              : undefined,
+        ...filtrosBase(),
+        limite: paginada ? POR_PAGINA : undefined,
       });
-      if (r.success) setVentas(r.data);
-      else showToast({ message: r.error, type: 'error' });
+      if (r.success) {
+        setVentas(r.data);
+        // Si vino la página entera, es probable que haya más atrás. Si vino
+        // corta, se acabó: no hace falta otra consulta para averiguarlo.
+        setHayMas(paginada && r.data.length === POR_PAGINA);
+      } else {
+        showToast({ message: r.error, type: 'error' });
+      }
     } finally {
       setCargando(false);
     }
-  }, [tipo, filtro, esEncargo, desdeDelPeriodo, showToast]);
+  }, [filtrosBase, paginada, showToast]);
+
+  /** Trae la página siguiente y la agrega abajo, sin volver a leer la de arriba. */
+  const cargarMas = useCallback(async () => {
+    const ultima = ventas[ventas.length - 1];
+    if (!ultima || trayendoMas) return;
+
+    setTrayendoMas(true);
+    try {
+      const r = await window.api.ventas.list({
+        ...filtrosBase(),
+        limite: POR_PAGINA,
+        despuesDe: { fecha: ultima.fecha, id: ultima.id },
+      });
+      if (r.success) {
+        setVentas((previas) => {
+          const porId = new Map(previas.map((v) => [v.id, v]));
+          for (const v of r.data) porId.set(v.id, v);
+          return [...porId.values()];
+        });
+        setHayMas(r.data.length === POR_PAGINA);
+      } else {
+        showToast({ message: r.error, type: 'error' });
+      }
+    } finally {
+      setTrayendoMas(false);
+    }
+  }, [ventas, trayendoMas, filtrosBase, showToast]);
 
   useEffect(() => {
     cargar();
@@ -662,6 +725,28 @@ export const VentasView: React.FC<VentasViewProps> = ({
               setMenuContextual({ x: e.clientX, y: e.clientY, venta: v });
             }}
           />
+        )}
+
+        {/* Traer más historia.
+            Sólo aparece si de verdad quedó algo atrás, y desaparece solo
+            cuando se acabó: un botón que no hace nada enseña a desconfiar de
+            todos los botones. Con la búsqueda abierta no aparece, porque ahí
+            la lista ya no es una ventana de tiempo. */}
+        {hayMas && !busqueda.trim() && !cargando && (
+          <div className="flex flex-col items-center gap-2 py-6">
+            <Button
+              variant="secondary"
+              onClick={cargarMas}
+              disabled={trayendoMas}
+              className="min-w-[200px]"
+            >
+              {trayendoMas ? 'Trayendo…' : 'Ver ventas más antiguas'}
+            </Button>
+            <span className="text-caption text-texto-3">
+              Mostrando {ventasPeriodo.length}
+              {periodo === 'TODOS' ? ' de todo el historial' : ' de este período'}
+            </span>
+          </div>
         )}
         </div>
       </div>

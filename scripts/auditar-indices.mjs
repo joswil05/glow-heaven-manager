@@ -90,10 +90,20 @@ const DINAMICAS = [
     ],
   },
   {
-    origen: 'src/main/firebase/repositories/ventas.repo.ts :: listar() con ventana',
+    // El camino ordenado de `listar()`: ventana, tope y cursor. `tipo` va al
+    // servidor; `estado` se afina en memoria y por eso no aparece acá.
+    origen: 'src/main/firebase/repositories/ventas.repo.ts :: listar() ordenada',
     coleccion: 'ventas',
-    combinaciones: [[['activo', '=='], ['fecha', '>=']]],
-    ordenes: [['fecha', 'desc']],
+    combinaciones: [
+      [['activo', '==']],
+      [['activo', '=='], ['fecha', '>=']],
+      [['activo', '=='], ['tipo', '==']],
+      [['activo', '=='], ['tipo', '=='], ['fecha', '>=']],
+    ],
+    ordenes: [
+      ['fecha', 'desc'],
+      ['id', 'desc'],
+    ],
   },
   {
     origen: 'src/main/firebase/repositories/productos.repo.ts :: listar()',
@@ -345,9 +355,15 @@ const indices = JSON.parse(
 ).indexes;
 
 const consultas = [];
+/** El texto de cada archivo, para revisar después que DINAMICAS siga al día. */
+const FUENTES = new Map();
 for (const carpeta of CARPETAS) {
   for (const archivo of listarArchivos(carpeta)) {
     consultas.push(...consultasDeArchivo(archivo));
+    FUENTES.set(
+      path.relative(RAIZ, archivo).split(path.sep).join('/'),
+      fs.readFileSync(archivo, 'utf8')
+    );
   }
 }
 
@@ -508,10 +524,96 @@ if (dudosos.length > 0) {
   }
 }
 
-if (faltantes.length === 0 && sinResolver.length === 0) {
+
+// ---------------------------------------------------------------------------
+// Que la tabla de arriba no se quede vieja
+// ---------------------------------------------------------------------------
+
+/**
+ * Los archivos de EXCLUIDAS arman sus cláusulas con un spread, así que el
+ * auditor no puede leerlas: confía en lo que dice DINAMICAS. Eso vale
+ * mientras la tabla siga describiendo el código, y una tabla escrita a mano
+ * envejece sin avisar. Ya pasó: el código empezó a ordenar también por `id` y
+ * la tabla siguió diciendo que ordenaba sólo por fecha.
+ *
+ * Esto no adivina las combinaciones —para eso habría que ejecutar el código—
+ * pero sí comprueba lo mínimo: que todo campo que el archivo nombra en un
+ * `where` o un `orderBy` aparezca en alguna forma declarada. Un campo nuevo
+ * que nadie declaró es una consulta que nadie auditó.
+ */
+/**
+ * Los tramos de código que arman un arreglo de cláusulas para pasarlo con
+ * spread a `query(...)`. Va desde la declaración del arreglo hasta la
+ * consulta que lo usa: es exactamente lo que el auditor no puede leer solo.
+ */
+function tramosDeClausulas(contenido) {
+  const tramos = [];
+  const RE_DECL = /const\s+(\w+)\s*:\s*QueryConstraint\[\]\s*=/g;
+  for (const m of contenido.matchAll(RE_DECL)) {
+    const variable = m[1];
+    const inicio = m.index;
+    const uso = contenido.indexOf(`...${variable}`, inicio);
+    tramos.push(contenido.slice(inicio, uso === -1 ? contenido.length : uso));
+  }
+  return tramos;
+}
+
+function revisarTablaAlDia(archivos) {
+  const problemas = [];
+
+  for (const archivo of Object.keys(EXCLUIDAS)) {
+    const contenido = archivos.get(archivo);
+    if (!contenido) continue;
+
+    const declarados = new Set();
+    for (const d of DINAMICAS) {
+      if (!d.origen.startsWith(archivo)) continue;
+      for (const combo of d.combinaciones ?? []) {
+        for (const [campo] of combo) declarados.add(campo);
+      }
+      for (const [campo] of d.ordenes ?? []) declarados.add(campo);
+    }
+    if (declarados.size === 0) continue;
+
+    // Sólo el tramo que arma el arreglo de cláusulas. El resto del archivo
+    // tiene consultas normales, que el auditor sí sabe leer solo.
+    const usados = new Set();
+    for (const tramo of tramosDeClausulas(contenido)) {
+      for (const m of tramo.matchAll(RE_WHERE)) usados.add(m[1]);
+      for (const m of tramo.matchAll(RE_ORDERBY)) usados.add(m[1]);
+    }
+
+    for (const campo of usados) {
+      if (!declarados.has(campo)) {
+        problemas.push({ archivo, campo });
+      }
+    }
+  }
+
+  return problemas;
+}
+
+const desactualizada = revisarTablaAlDia(FUENTES);
+
+if (desactualizada.length > 0) {
+  console.log('');
+  console.log('⚠ La tabla DINAMICAS de este auditor quedó vieja.');
+  console.log('  El código consulta por campos que ninguna forma declarada menciona, así que');
+  console.log('  esas consultas NO se auditaron. Un índice faltante no falla de a poco: la');
+  console.log('  consulta se rechaza entera y la pantalla queda en blanco.');
+  console.log('');
+  for (const { archivo, campo } of desactualizada) {
+    console.log(`    ${archivo} consulta por '${campo}', que no está en DINAMICAS`);
+  }
+  console.log('');
+}
+
+if (faltantes.length === 0 && sinResolver.length === 0 && desactualizada.length === 0) {
   console.log('\n✓ Todas las consultas tienen el índice que necesitan.\n');
   process.exit(0);
 }
 
 console.log('');
-process.exit(faltantes.length > 0 || sinResolver.length > 0 ? 1 : 0);
+process.exit(
+  faltantes.length > 0 || sinResolver.length > 0 || desactualizada.length > 0 ? 1 : 0
+);

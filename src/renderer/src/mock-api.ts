@@ -641,6 +641,23 @@ const api: ApiPuente = {
         const cmp = (b.fecha || '').localeCompare(a.fecha || '');
         return cmp !== 0 ? cmp : b.id - a.id;
       });
+
+      // El cursor: se sigue después de la última venta de la página anterior,
+      // con el mismo orden (fecha, después id) que usa el repositorio real.
+      const corte = filtros?.despuesDe;
+      if (corte) {
+        const desde = r.findIndex(
+          (v) => v.fecha === corte.fecha && v.id === corte.id
+        );
+        r = desde === -1
+          ? r.filter(
+              (v) =>
+                (v.fecha || '') < corte.fecha ||
+                (v.fecha === corte.fecha && v.id < corte.id)
+            )
+          : r.slice(desde + 1);
+      }
+
       if (filtros?.limite) r = r.slice(0, filtros.limite);
 
       return ok(r as Venta[]);

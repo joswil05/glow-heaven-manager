@@ -5,6 +5,7 @@ import {
   where,
   orderBy,
   limit,
+  startAfter,
   doc,
   runTransaction,
   type QueryConstraint,
@@ -81,6 +82,18 @@ export interface FiltrosVenta {
   hasta?: string;
   /** Tope de documentos. Sin tope, el costo crece con los años. */
   limite?: number;
+  /**
+   * Dónde seguir: la última venta de la página anterior.
+   *
+   * Es un cursor de verdad, no un `skip`. Firestore cobra por documento
+   * leído, así que saltarse las primeras doscientas para traer las siguientes
+   * cincuenta costaría doscientas cincuenta lecturas. Con el cursor, la
+   * página cinco cuesta lo mismo que la primera.
+   *
+   * Lleva fecha e id porque el orden es por los dos: varias ventas del mismo
+   * día necesitan el id para no repetirse ni saltearse en el corte.
+   */
+  despuesDe?: { fecha: string; id: number };
 }
 
 export interface VentaDoc extends Venta {
@@ -119,17 +132,31 @@ export class VentasRepoFirestore {
     // escritura. Con la ventana activa, tipo y estado se afinan en memoria
     // sobre lo que ya vino, que no cuesta nada.
     const clausulas: QueryConstraint[] = [where('activo', '==', true)];
-    const porFecha = Boolean(filtros.desde) && !filtros.cliente_id;
+
+    // Se recorre por fecha cuando hay ventana, tope o cursor: son las tres
+    // formas de decir "traeme una parte". Las ventas de una clienta nunca
+    // van por aca, porque ahi se quiere la historia completa.
+    const porFecha =
+      !filtros.cliente_id &&
+      (Boolean(filtros.desde) || Boolean(filtros.limite) || Boolean(filtros.despuesDe));
 
     if (porFecha) {
-      clausulas.push(where('fecha', '>=', filtros.desde!));
-      // Se ordena por fecha Y por id, que es la forma EXACTA del indice
-      // `ventas: activo, fecha desc, id desc`. Ordenar solo por fecha obliga a
-      // Firestore a encajar la consulta en un indice de otra forma, y cuando
-      // no encaja no devuelve datos parciales: rechaza la consulta entera y la
-      // pantalla queda vacia. El id ademas desempata las ventas del mismo dia.
+      // `tipo` va al servidor, no a la memoria. Antes la pantalla de ventas
+      // traia tambien los encargos del periodo para descartarlos despues:
+      // pagaba documentos que nunca iba a mostrar.
+      if (filtros.tipo) clausulas.push(where('tipo', '==', filtros.tipo));
+      if (filtros.desde) clausulas.push(where('fecha', '>=', filtros.desde));
+      // Se ordena por fecha Y por id, que es la forma EXACTA de los indices
+      // `ventas: activo, fecha desc, id desc` y `activo, tipo, fecha desc,
+      // id desc`. Ordenar solo por fecha obliga a Firestore a encajar la
+      // consulta en un indice de otra forma, y cuando no encaja no devuelve
+      // datos parciales: rechaza la consulta entera y la pantalla queda
+      // vacia. El id ademas desempata las ventas del mismo dia.
       clausulas.push(orderBy('fecha', 'desc'));
       clausulas.push(orderBy('id', 'desc'));
+      if (filtros.despuesDe) {
+        clausulas.push(startAfter(filtros.despuesDe.fecha, filtros.despuesDe.id));
+      }
       if (filtros.limite) clausulas.push(limit(filtros.limite));
     } else {
       if (filtros.tipo) clausulas.push(where('tipo', '==', filtros.tipo));
@@ -159,11 +186,12 @@ export class VentasRepoFirestore {
       };
     });
 
-    // Con la ventana activa, tipo y estado no fueron al servidor: se afinan
-    // acá sobre los documentos que ya se pagaron.
-    if (porFecha) {
-      if (filtros.tipo) ventas = ventas.filter((v) => v.tipo === filtros.tipo);
-      if (filtros.estado) ventas = ventas.filter((v) => v.estado === filtros.estado);
+    // El estado sí se afina acá: meterlo al índice obligaría a declarar una
+    // combinación más por cada filtro de la pantalla, y cada índice se paga
+    // en todas las escrituras. Sobre documentos que ya se trajeron, filtrar
+    // no cuesta nada.
+    if (porFecha && filtros.estado) {
+      ventas = ventas.filter((v) => v.estado === filtros.estado);
     }
 
     if (filtros.soloConSaldo) {

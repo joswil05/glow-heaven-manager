@@ -14,6 +14,15 @@ Se corre con:  npm run test:interfaz-escritorio
 import sys
 from playwright.sync_api import sync_playwright, Page
 
+# La consola de Windows no habla UTF-8 por omisión, y un acento en el mensaje
+# de una falla tumbaba la corrida entera: la prueba encontraba el problema y
+# después se moría al contarlo.
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
+
 URL = "http://127.0.0.1:5199"
 RUIDO = ("ERR_NETWORK_IO_SUSPENDED", "ResizeObserver", "favicon")
 
@@ -110,6 +119,55 @@ def caso_limpiar(page: Page) -> list[str]:
     if venta["codigo"] in page.inner_text("body"):
         return ["después de limpiar, la lista sigue mostrando lo de fuera del período"]
     return []
+
+
+@caso("la lista se trae de a pedazos y el botón trae más, sin repetir")
+def caso_paginacion(page: Page) -> list[str]:
+    fallas = []
+
+    # Sesenta ventas de este mes: más de una página.
+    page.evaluate("""async () => {
+      const hoy = new Date().toISOString().slice(0, 10);
+      for (let i = 0; i < 60; i++) {
+        await window.api.ventas.crear({
+          fecha: hoy,
+          tipo: 'INVENTARIO',
+          lineas: [{ descripcion: 'lote ' + i, cantidad: 1, precio_unitario_usd_cents: 500 + i }],
+        });
+      }
+    }""")
+
+    # Volver a entrar a la pantalla para que recargue.
+    page.get_by_role("button", name="Inicio", exact=True).click()
+    page.wait_for_timeout(600)
+    ir_a_ventas(page)
+
+    def codigos_en_pantalla() -> list[str]:
+        import re
+        return re.findall("V-" + chr(92) + "d{4}", page.inner_text("body"))
+
+    primera = codigos_en_pantalla()
+    if not primera:
+        return ["la pantalla de ventas no muestra ninguna venta"]
+    if len(primera) > 55:
+        fallas.append(f"la primera carga trajo {len(primera)} ventas: no se está acotando")
+
+    boton = page.get_by_role("button", name="Ver ventas más antiguas")
+    if boton.count() == 0:
+        fallas.append("con más de una página, no apareció el botón para traer más")
+        return fallas
+
+    boton.click()
+    page.wait_for_timeout(1500)
+
+    segunda = codigos_en_pantalla()
+    if len(segunda) <= len(primera):
+        fallas.append(f"tras pedir más quedaron {len(segunda)} y antes había {len(primera)}")
+    if len(segunda) != len(set(segunda)):
+        repetidos = len(segunda) - len(set(segunda))
+        fallas.append(f"la segunda página repitió {repetidos} venta(s) de la primera")
+
+    return fallas
 
 
 @caso("se puede recorrer la app sin que quede la ventana en blanco")

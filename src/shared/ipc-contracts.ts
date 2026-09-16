@@ -213,6 +213,11 @@ export interface FiltrosVenta {
   hasta?: string;
   /** Tope de documentos a traer. */
   limite?: number;
+  /**
+   * Dónde seguir: la última venta de la página anterior. Es un cursor, no un
+   * salto, así que la página cinco cuesta lo mismo que la primera.
+   */
+  despuesDe?: { fecha: string; id: number };
 }
 
 export interface RegistrarPagoInput {
