@@ -241,6 +241,49 @@ def caso_paquetes(page: Page) -> list[str]:
     return fallas
 
 
+@caso("se puede bajar cada planilla, y trae lo que dice traer")
+def caso_exportar(page: Page) -> list[str]:
+    import io as _io
+    fallas = []
+
+    page.get_by_role("button", name="Configuración", exact=False).first.click()
+    page.wait_for_timeout(1500)
+
+    esperados = ["Ventas", "Abonos", "Paquetes", "Clientas", "Inventario"]
+    cuerpo = page.inner_text("body")
+    for nombre in esperados:
+        if nombre not in cuerpo:
+            fallas.append(f"no aparece la opcion de exportar {nombre}")
+
+    botones = page.get_by_role("button", name="Bajar")
+    if botones.count() != len(esperados):
+        fallas.append(f"hay {botones.count()} botones de bajar y se esperaban {len(esperados)}")
+        return fallas
+
+    # El rango: todo, para que las ventas del decorado entren.
+    page.get_by_role("button", name="Todo", exact=True).first.click()
+    page.wait_for_timeout(400)
+
+    for i, nombre in enumerate(esperados):
+        with page.expect_download(timeout=15000) as dl:
+            botones.nth(i).click()
+        archivo = dl.value
+        ruta = archivo.path()
+        contenido = _io.open(ruta, encoding="utf-8-sig").read()
+
+        if not contenido.strip():
+            fallas.append(f"el archivo de {nombre} salio vacio")
+            continue
+        # Encabezado con al menos tres columnas entre comillas.
+        primera = contenido.split(chr(13) + chr(10))[0]
+        if primera.count('"') < 6:
+            fallas.append(f"el archivo de {nombre} no tiene encabezado: {primera[:60]!r}")
+        if "Glow_Heaven" not in archivo.suggested_filename:
+            fallas.append(f"el archivo de {nombre} se llama {archivo.suggested_filename!r}")
+
+    return fallas
+
+
 @caso("se puede recorrer la app sin que quede la ventana en blanco")
 def caso_recorrido(page: Page) -> list[str]:
     fallas = []
@@ -271,7 +314,7 @@ def main() -> int:
     with sync_playwright() as p:
         navegador = p.chromium.launch(headless=True)
         contexto = navegador.new_context(viewport={"width": 1440, "height": 900},
-                                         bypass_csp=True)
+                                         bypass_csp=True, accept_downloads=True)
         page = contexto.new_page()
         errores: list[str] = []
         page.on("pageerror", lambda e: errores.append(str(e)))

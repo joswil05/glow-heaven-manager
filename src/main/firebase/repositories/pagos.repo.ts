@@ -253,7 +253,11 @@ export class PagosRepoFirestore {
         limit(limite)
       )
     );
-    const pagos = snap.docs.map((d) => d.data() as Pago);
+    return this.conDatosDeVenta(snap.docs.map((d) => d.data() as Pago));
+  }
+
+  /** Le pega a cada abono el código de su venta y el nombre de la clienta. */
+  private static async conDatosDeVenta(pagos: Pago[]): Promise<PagoCompleto[]> {
     if (pagos.length === 0) return [];
 
     const ventaIds = [...new Set(pagos.map((p) => p.venta_id).filter(Boolean))];
@@ -276,6 +280,33 @@ export class PagosRepoFirestore {
         cliente_nombre: info?.cliente || 'Cliente',
       };
     });
+  }
+
+  /**
+   * Los abonos de un período, para llevárselos a una planilla.
+   *
+   * Usa el mismo índice que `recientes` —activo, fecha desc, id desc— sumando
+   * la ventana de fechas, que cae sobre el mismo campo por el que ya ordena.
+   *
+   * El tope existe por seguridad, no para recortar: si la exportación lo toca,
+   * quien llama tiene que darse cuenta y avisar. Una planilla a la que le
+   * faltan las últimas cien filas y no lo dice es peor que no exportar nada,
+   * porque los números cuadran entre ellos y nadie sospecha.
+   */
+  static async enRango(desde: string, hasta: string, limite = 10000): Promise<PagoCompleto[]> {
+    const db = getFirestoreDb();
+    const snap = await getDocs(
+      query(
+        collection(db, 'pagos'),
+        where('activo', '==', true),
+        where('fecha', '>=', desde),
+        orderBy('fecha', 'desc'),
+        orderBy('id', 'desc'),
+        limit(limite)
+      )
+    );
+    const pagos = (snap.docs.map((d) => d.data() as Pago)).filter((p) => p.fecha <= hasta);
+    return this.conDatosDeVenta(pagos);
   }
 
   /**

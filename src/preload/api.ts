@@ -63,6 +63,7 @@ export const api: ApiPuente = {
     listarPorVenta: (venta_id) => ipcRenderer.invoke(IPC.PAGOS_LISTAR_POR_VENTA, venta_id),
     anular: (pago_id) => ipcRenderer.invoke(IPC.PAGOS_ANULAR, pago_id),
     recientes: (limite) => ipcRenderer.invoke(IPC.PAGOS_RECIENTES, limite),
+    enRango: (desde, hasta) => ipcRenderer.invoke(IPC.PAGOS_EN_RANGO, desde, hasta),
   },
   clientes: {
     list: (busqueda) => ipcRenderer.invoke(IPC.CLIENTES_LIST, busqueda),

@@ -363,6 +363,8 @@ export interface ApiPuente {
     listarPorVenta(venta_id: number): Promise<Resultado<PagoCompleto[]>>;
     anular(pago_id: number): Promise<Resultado<ConGrupo>>;
     recientes(limite?: number): Promise<Resultado<PagoCompleto[]>>;
+    /** Los abonos de un período, para exportarlos. */
+    enRango(desde: string, hasta: string): Promise<Resultado<PagoCompleto[]>>;
   };
   clientes: {
     list(busqueda?: string): Promise<Resultado<ClienteDetalle[]>>;

@@ -44,6 +44,7 @@ export const IPC = {
   PAGOS_LISTAR_POR_VENTA: 'pagos:listarPorVenta',
   PAGOS_ANULAR: 'pagos:anular',
   PAGOS_RECIENTES: 'pagos:recientes',
+  PAGOS_EN_RANGO: 'pagos:en-rango',
 
   // Clientes
   CLIENTES_LIST: 'clientes:list',

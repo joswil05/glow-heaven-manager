@@ -228,6 +228,7 @@ export function registrarHandlers(): void {
   });
 
   manejar(IPC.PAGOS_RECIENTES, (limite?: number) => PagosRepo.recientes(limite));
+  manejar(IPC.PAGOS_EN_RANGO, (desde: string, hasta: string) => PagosRepo.enRango(desde, hasta));
 
   // -------------------------------------------------------------------------
   // Clientes

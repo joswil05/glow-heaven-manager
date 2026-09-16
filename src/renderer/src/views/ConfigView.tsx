@@ -39,7 +39,8 @@ import { calcularPrecio } from '@core/precios';
 import { useToast } from '../context/ToastContext';
 import { NubeSection } from './config/NubeSection';
 import { formatearMoneda } from '@core/moneda';
-import { hoyISO } from '@core/fechas';
+import { hoyISO, mesISO } from '@core/fechas';
+import { generarCSV, dinero, nombreArchivo, type Columna } from '@core/exportar';
 
 interface ConfigViewProps {
   parametros: ParametrosSistema | null;
@@ -89,7 +90,13 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
     titular: '',
     tipo: 'Ahorros',
   });
-  const [exportando, setExportando] = useState(false);
+  const [exportando, setExportando] = useState<
+    'ventas' | 'abonos' | 'clientas' | 'paquetes' | 'inventario' | null
+  >(null);
+  // El período que se va a bajar. Arranca en el año corriente, que es lo que
+  // pide una contadora; el resto se elige.
+  const [desdeExp, setDesdeExp] = useState(`${mesISO().slice(0, 4)}-01-01`);
+  const [hastaExp, setHastaExp] = useState(hoyISO());
   const [guardando, setGuardando] = useState(false);
   const [guardadoExitoso, setGuardadoExitoso] = useState(false);
   const [info, setInfo] = useState<InfoSistema | null>(null);
@@ -141,52 +148,125 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
     paso_redondeo_usd_cents: paso,
   });
 
-  const exportarCatalogo = async () => {
-    setExportando(true);
+  /**
+   * Bajar los datos del negocio.
+   *
+   * Son datos de ella. Hasta ahora solo podia bajar el catalogo: ni sus
+   * ventas, ni sus abonos, ni sus clientas. Si la contadora le pedia el anio,
+   * o queria un respaldo propio, no tenia como.
+   */
+  const bajarArchivo = (contenido: string, nombre: string) => {
+    const blob = new Blob([contenido], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = nombre;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const exportar = async (que: 'ventas' | 'abonos' | 'clientas' | 'paquetes' | 'inventario') => {
+    setExportando(que);
     try {
-      const r = await window.api.productos.list({ incluirInactivos: true });
-      if (!r.success) {
-        showToast({ message: r.error, type: 'error' });
+      if (que === 'inventario') {
+        const r = await window.api.productos.list({ incluirInactivos: true });
+        if (!r.success) throw new Error(r.error);
+        const cols: Columna<(typeof r.data)[number]>[] = [
+          { titulo: 'Codigo', valor: (p) => p.codigo },
+          { titulo: 'Producto', valor: (p) => p.nombre },
+          { titulo: 'Categoria', valor: (p) => p.categoria_nombre ?? 'Sin categoria' },
+          {
+            titulo: 'Estado',
+            valor: (p) =>
+              !p.activo ? 'Descatalogado' : p.existencias > 0 ? 'Con stock' : 'Agotado',
+          },
+          { titulo: 'Existencias', valor: (p) => p.existencias },
+          { titulo: 'Costo unitario (USD)', valor: (p) => dinero(p.costo_unitario_usd_cents) },
+          { titulo: 'Precio de venta (USD)', valor: (p) => dinero(p.precio_venta_usd_cents) },
+          { titulo: 'Ganancia unitaria (USD)', valor: (p) => dinero(p.ganancia_unitaria_usd_cents) },
+          { titulo: 'Valor en bodega (USD)', valor: (p) => dinero(p.valor_inventario_usd_cents) },
+        ];
+        bajarArchivo(generarCSV(cols, r.data), nombreArchivo('Inventario', hoyISO()));
+        showToast({ message: r.data.length + ' productos exportados', type: 'success' });
         return;
       }
-      const prods = r.data;
-      const encabezados = [
-        'Código',
-        'Nombre del Producto',
-        'Categoría',
-        'Estado',
-        'Existencias',
-        'Costo Unitario (USD)',
-        'Precio Venta (USD)',
-        'Ganancia Unitaria (USD)',
-        'Valor Total en Inventario (USD)',
+
+      if (que === 'clientas') {
+        const r = await window.api.clientes.list();
+        if (!r.success) throw new Error(r.error);
+        const cols: Columna<(typeof r.data)[number]>[] = [
+          { titulo: 'Nombre', valor: (c) => c.nombre },
+          { titulo: 'Alias', valor: (c) => c.alias ?? '' },
+          { titulo: 'Telefono', valor: (c) => c.telefono ?? '' },
+          { titulo: 'Compras', valor: (c) => c.compras_count ?? 0 },
+          { titulo: 'Total comprado (USD)', valor: (c) => dinero(c.total_comprado_usd_cents) },
+          { titulo: 'Debe (USD)', valor: (c) => dinero(c.saldo_pendiente_usd_cents) },
+          { titulo: 'Ultima compra', valor: (c) => c.ultima_compra ?? '' },
+        ];
+        bajarArchivo(generarCSV(cols, r.data), nombreArchivo('Clientas', hoyISO()));
+        showToast({ message: r.data.length + ' clientas exportadas', type: 'success' });
+        return;
+      }
+
+      if (que === 'paquetes') {
+        const r = await window.api.compras.list();
+        if (!r.success) throw new Error(r.error);
+        const enRango = r.data.filter((c) => c.fecha >= desdeExp && c.fecha <= hastaExp);
+        const cols: Columna<(typeof enRango)[number]>[] = [
+          { titulo: 'Paquete', valor: (c) => c.codigo },
+          { titulo: 'Fecha', valor: (c) => c.fecha },
+          { titulo: 'Estado', valor: (c) => (c.estado === 'RECIBIDA' ? 'Recibido' : 'Borrador') },
+          { titulo: 'Productos (USD)', valor: (c) => dinero(c.subtotal_productos_usd_cents) },
+          { titulo: 'Impuesto (USD)', valor: (c) => dinero(c.tax_total_usd_cents) },
+          { titulo: 'Envio (USD)', valor: (c) => dinero(c.envio_total_usd_cents) },
+          { titulo: 'Otros costos (USD)', valor: (c) => dinero(c.otros_costos_usd_cents) },
+          { titulo: 'Total invertido (USD)', valor: (c) => dinero(c.total_usd_cents) },
+          { titulo: 'Peso (lb)', valor: (c) => ((c.peso_total_mlb ?? 0) / 1000).toFixed(2) },
+        ];
+        bajarArchivo(generarCSV(cols, enRango), nombreArchivo('Paquetes', desdeExp, hastaExp));
+        showToast({ message: enRango.length + ' paquetes exportados', type: 'success' });
+        return;
+      }
+
+      if (que === 'ventas') {
+        const r = await window.api.ventas.list({ desde: desdeExp, hasta: hastaExp });
+        if (!r.success) throw new Error(r.error);
+        const cols: Columna<(typeof r.data)[number]>[] = [
+          { titulo: 'Venta', valor: (v) => v.codigo },
+          { titulo: 'Fecha', valor: (v) => v.fecha },
+          { titulo: 'Tipo', valor: (v) => (v.tipo === 'ENCARGO' ? 'Encargo' : 'De inventario') },
+          { titulo: 'Clienta', valor: (v) => v.cliente_nombre ?? 'Mostrador' },
+          { titulo: 'Estado', valor: (v) => v.estado },
+          { titulo: 'Total (USD)', valor: (v) => dinero(v.total_usd_cents) },
+          { titulo: 'Pagado (USD)', valor: (v) => dinero(v.pagado_usd_cents) },
+          { titulo: 'Debe (USD)', valor: (v) => dinero(v.saldo_usd_cents) },
+          { titulo: 'Costo (USD)', valor: (v) => dinero(v.costo_total_usd_cents) },
+          { titulo: 'Ganancia (USD)', valor: (v) => dinero(v.ganancia_usd_cents) },
+        ];
+        bajarArchivo(generarCSV(cols, r.data), nombreArchivo('Ventas', desdeExp, hastaExp));
+        showToast({ message: r.data.length + ' ventas exportadas', type: 'success' });
+        return;
+      }
+
+      const r = await window.api.pagos.enRango(desdeExp, hastaExp);
+      if (!r.success) throw new Error(r.error);
+      const cols: Columna<(typeof r.data)[number]>[] = [
+        { titulo: 'Fecha', valor: (p) => p.fecha },
+        { titulo: 'Venta', valor: (p) => p.venta_codigo ?? '' },
+        { titulo: 'Clienta', valor: (p) => p.cliente_nombre ?? '' },
+        { titulo: 'Metodo', valor: (p) => p.metodo },
+        { titulo: 'Monto (USD)', valor: (p) => dinero(p.monto_usd_cents) },
+        { titulo: 'Referencia', valor: (p) => p.referencia ?? '' },
+        { titulo: 'Notas', valor: (p) => p.notas ?? '' },
       ];
-      const filas = prods.map((p) => [
-        `"${p.codigo}"`,
-        `"${p.nombre.replace(/"/g, '""')}"`,
-        `"${(p.categoria_nombre ?? 'Sin categoría').replace(/"/g, '""')}"`,
-        `"${p.activo ? (p.existencias > 0 ? 'Con stock' : 'Agotado') : 'Descatalogado'}"`,
-        p.existencias,
-        (p.costo_unitario_usd_cents / 100).toFixed(2),
-        (p.precio_venta_usd_cents / 100).toFixed(2),
-        (p.ganancia_unitaria_usd_cents / 100).toFixed(2),
-        (p.valor_inventario_usd_cents / 100).toFixed(2),
-      ]);
-      const csv = '\uFEFF' + [encabezados.join(';'), ...filas.map((f) => f.join(';'))].join('\r\n');
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Glow_Heaven_Inventario_${hoyISO()}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      showToast({ message: 'Catálogo exportado exitosamente para Excel (.csv)', type: 'success' });
+      bajarArchivo(generarCSV(cols, r.data), nombreArchivo('Abonos', desdeExp, hastaExp));
+      showToast({ message: r.data.length + ' abonos exportados', type: 'success' });
     } catch (err) {
-      showToast({ message: 'Error al exportar inventario: ' + String(err), type: 'error' });
+      showToast({ message: 'No se pudo exportar: ' + String(err), type: 'error' });
     } finally {
-      setExportando(false);
+      setExportando(null);
     }
   };
 
@@ -957,23 +1037,126 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
             />
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-borde bg-superficie-2/40 flex-wrap">
+            <p className="text-caption text-texto-3">
+              Los datos del negocio son tuyos. Todo sale en archivos que Excel abre directo, para
+              tu contadora, para un respaldo propio o para lo que necesites.
+            </p>
+
+            {/* El período. Los archivos de fechas lo respetan; el inventario y
+                las clientas son una foto de hoy y no tienen período. */}
+            <div className="flex items-end gap-3 flex-wrap p-4 rounded-xl border border-borde bg-superficie-2/40">
               <div>
-                <div className="font-semibold text-body text-texto">Descargar catálogo completo en Excel</div>
-                <div className="text-caption text-texto-3">
-                  Incluye productos activos, existencias, costos en USD, precios de venta y márgenes.
-                </div>
+                <label className="text-caption font-semibold text-texto-2 block mb-1">Desde</label>
+                <Input
+                  type="date"
+                  value={desdeExp}
+                  onChange={(e) => setDesdeExp(e.target.value)}
+                  className="w-auto"
+                />
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={exportarCatalogo}
-                disabled={exportando}
-                className="shadow-2xs font-medium"
-              >
-                <Download className="w-4 h-4 mr-1.5" />
-                <span>{exportando ? 'Generando archivo...' : 'Exportar a Excel (.csv)'}</span>
-              </Button>
+              <div>
+                <label className="text-caption font-semibold text-texto-2 block mb-1">Hasta</label>
+                <Input
+                  type="date"
+                  value={hastaExp}
+                  onChange={(e) => setHastaExp(e.target.value)}
+                  className="w-auto"
+                />
+              </div>
+              <div className="flex gap-1.5 pb-0.5">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setDesdeExp(`${mesISO()}-01`);
+                    setHastaExp(hoyISO());
+                  }}
+                >
+                  Este mes
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setDesdeExp(`${mesISO().slice(0, 4)}-01-01`);
+                    setHastaExp(hoyISO());
+                  }}
+                >
+                  Este año
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setDesdeExp('2000-01-01');
+                    setHastaExp(hoyISO());
+                  }}
+                >
+                  Todo
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-2">
+              {(
+                [
+                  {
+                    id: 'ventas',
+                    titulo: 'Ventas',
+                    detalle: 'Cada venta con su clienta, total, lo pagado, lo que debe y la ganancia.',
+                    conPeriodo: true,
+                  },
+                  {
+                    id: 'abonos',
+                    titulo: 'Abonos',
+                    detalle: 'Cada pago recibido, con su venta, su método y su referencia.',
+                    conPeriodo: true,
+                  },
+                  {
+                    id: 'paquetes',
+                    titulo: 'Paquetes',
+                    detalle: 'Lo invertido en cada uno: productos, impuesto, envío y peso.',
+                    conPeriodo: true,
+                  },
+                  {
+                    id: 'clientas',
+                    titulo: 'Clientas',
+                    detalle: 'El directorio con lo que compró cada una y lo que debe hoy.',
+                    conPeriodo: false,
+                  },
+                  {
+                    id: 'inventario',
+                    titulo: 'Inventario',
+                    detalle: 'El catálogo con existencias, costos, precios y margen.',
+                    conPeriodo: false,
+                  },
+                ] as const
+              ).map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-center justify-between gap-3 p-4 rounded-xl border border-borde bg-superficie-2/40"
+                >
+                  <div className="min-w-0">
+                    <div className="font-semibold text-body text-texto">{item.titulo}</div>
+                    <div className="text-caption text-texto-3">{item.detalle}</div>
+                    {!item.conPeriodo && (
+                      <div className="text-[11px] text-texto-3 mt-0.5 italic">
+                        Es una foto de hoy, no usa el período.
+                      </div>
+                    )}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => exportar(item.id)}
+                    disabled={exportando !== null}
+                    className="shadow-2xs font-medium shrink-0"
+                  >
+                    <Download className="w-4 h-4 mr-1.5" />
+                    <span>{exportando === item.id ? 'Generando...' : 'Bajar'}</span>
+                  </Button>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>

@@ -936,6 +936,19 @@ const api: ApiPuente = {
           )
           .slice(0, 20)
       ),
+    enRango: (desde, hasta) =>
+      ok(
+        db.ventas
+          .flatMap((v) =>
+            v.pagos.map((p) => ({
+              ...p,
+              venta_codigo: v.codigo,
+              cliente_nombre: db.clientes.find((c) => c.id === v.cliente_id)?.nombre || 'Cliente',
+            }))
+          )
+          .filter((p) => (p.fecha || '') >= desde && (p.fecha || '') <= hasta)
+          .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '') || b.id - a.id)
+      ),
   },
   clientes: {
     list: (busqueda) => {
