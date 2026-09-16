@@ -20,28 +20,48 @@ export type Vista = 'panel' | 'vender' | 'cobranza' | 'inventario' | 'ajustes' |
 import { ShieldAlert } from 'lucide-react';
 import { usandoEmuladorLocal } from './lib/firebase-mobile';
 
-const UIDS_AUTORIZADOS = new Set([
-  'PLCUbpheiAhjelGqcZznVypc3O72', // espinozajoswill@gmail.com
-  'ZdM86RTlEEQLYWHSBZPvsKq2YgJ3', // angierlinartej2020@gmail.com
-]);
-
 /**
  * Quien puede pasar de la pantalla de acceso.
  *
- * Esta lista es de interfaz, no de seguridad: quien de verdad decide qué se
- * puede leer y escribir son las reglas de Firestore, del lado del servidor.
- * Acá sirve para mostrar un mensaje claro en vez de una pantalla rota.
+ * Antes esto era una lista de UID escrita acá, gemela de la que estaba en
+ * `firestore.rules`. Agregar a alguien exigía tocar las dos y publicar las dos
+ * apps, así que la dueña no podía hacerlo sola.
  *
- * Contra el emulador local no aplica, porque la cuenta de prueba tiene un UID
- * distinto en cada máquina y no se puede anotar de antemano. En produccion
- * `usandoEmuladorLocal` es `false` constante y la lista manda igual que antes.
+ * Ahora se le pregunta a la base, que es donde vive la respuesta, y de paso se
+ * reclama la invitación si la hay: es lo que convierte un correo invitado en
+ * acceso, la primera vez que esa persona entra.
+ *
+ * Sigue siendo una comprobación de interfaz, no de seguridad. Quien de verdad
+ * decide qué se puede leer y escribir son las reglas de Firestore, del lado del
+ * servidor; acá sirve para mostrar un mensaje claro en vez de una pantalla
+ * rota.
  */
-function puedeEntrar(uid: string): boolean {
-  return usandoEmuladorLocal || UIDS_AUTORIZADOS.has(uid);
+async function puedeEntrar(uid: string, correo: string | null): Promise<boolean> {
+  if (usandoEmuladorLocal) return true;
+  const { AccesosRepoFirestore } = await import(
+    '../../src/main/firebase/repositories/accesos.repo'
+  );
+  return AccesosRepoFirestore.verificarOReclamar(uid, correo);
 }
 
 function AppContenido() {
   const { usuario, cargando, salir } = useAuth();
+  /** `null` mientras se averigua; después, si puede entrar o no. */
+  const [autorizado, setAutorizado] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!usuario) {
+      setAutorizado(null);
+      return;
+    }
+    let vivo = true;
+    puedeEntrar(usuario.uid, usuario.email ?? null)
+      .then((ok) => vivo && setAutorizado(ok))
+      .catch(() => vivo && setAutorizado(false));
+    return () => {
+      vivo = false;
+    };
+  }, [usuario]);
 
   if (cargando) {
     return (
@@ -60,7 +80,20 @@ function AppContenido() {
     return <LoginView />;
   }
 
-  if (!puedeEntrar(usuario.uid)) {
+  if (autorizado === null) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-fondo transition-colors duration-200">
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-superficie shadow-md border border-borde">
+            <Loader2 size={24} className="animate-spin text-acento" />
+          </div>
+          <span className="text-xs font-semibold text-texto-3">Comprobando tu acceso…</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!autorizado) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-fondo p-6">
         <div className="flex flex-col items-center gap-4 text-center max-w-sm bg-superficie p-6 rounded-2xl border border-peligro-suave shadow-lg">

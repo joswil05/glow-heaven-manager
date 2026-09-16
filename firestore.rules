@@ -13,18 +13,22 @@ rules_version = '2';
 // autorizado. Estar autenticado NO alcanza, porque cualquier persona del mundo
 // puede crearse una cuenta de Google.
 //
-// Hay dos formas de autorizar a alguien:
+// Quien entra se maneja desde la app, no desde este archivo.
 //
-//   1. Agregando su UID a la lista de `autenticado()`, acá abajo, y publicando
-//      las reglas con:  firebase deploy --only firestore:rules
-//   2. Creando el documento `usuarios_autorizados/<UID>` desde la consola de
-//      Firebase. No hace falta volver a publicar reglas; sirve para dar de
-//      alta a una empleada sin tocar este archivo.
+// La dueña invita por correo en Configuración > Accesos. Eso crea un documento
+// en `invitaciones/<correo>`. Cuando esa persona entra por primera vez con ESE
+// Google, la app reclama la invitación y se crea su `usuarios_autorizados/<uid>`.
 //
-// El UID se saca de: Consola de Firebase > Authentication > Users.
+// Hay un solo UID escrito acá: el de la dueña. No es un privilegio, es un
+// seguro. Todo lo demás vive en la base y se puede quitar desde la app, así que
+// sin este ancla un borrado desafortunado dejaría a todo el mundo afuera y
+// haría falta la consola de Firebase para volver a entrar. Al no poder quitarse
+// a sí misma, eso no puede pasar.
 //
-// Para quitarle el acceso a alguien: borrar su UID de la lista (y publicar) o
-// borrar su documento de `usuarios_autorizados`.
+// Firebase identifica a la gente por UID, no por correo: el UID recién existe
+// cuando la persona entra por primera vez. Por eso una invitación queda
+// pendiente hasta que la usan, y la app lo muestra así en vez de dejarla
+// esperando sin saber.
 // ============================================================================
 
 service cloud.firestore {
@@ -42,20 +46,49 @@ service cloud.firestore {
     // Si el escritorio vuelve a quedarse sin permisos, el problema está en que
     // su sesión de Firebase Auth no se restauró (ver
     // `GoogleAuthService.restaurarSesion()`), no acá.
+    /** La dueña del negocio. El único acceso que no se puede quitar. */
+    function esDuenia() {
+      return request.auth != null
+          && request.auth.uid == 'ZdM86RTlEEQLYWHSBZPvsKq2YgJ3';
+    }
+
     function autenticado() {
       return request.auth != null
           && request.auth.uid != null
           && (
-            request.auth.uid in [
-              'PLCUbpheiAhjelGqcZznVypc3O72',
-              'ZdM86RTlEEQLYWHSBZPvsKq2YgJ3'
-            ]
+            esDuenia()
             || exists(/databases/$(database)/documents/usuarios_autorizados/$(request.auth.uid))
           );
     }
 
     match /usuarios_autorizados/{uid} {
-      allow read: if request.auth != null && request.auth.uid == uid;
+      // Quien ya entró ve la lista completa: es lo que dibuja la pantalla de
+      // accesos. Y cualquiera puede leer SU propio documento, que es como el
+      // celular sabe si dejarlo pasar antes de pedir nada más.
+      allow read: if autenticado() || (request.auth != null && request.auth.uid == uid);
+
+      // Reclamar una invitación.
+      //
+      // Es la única escritura que hace alguien todavía no autorizado, y por eso
+      // está atada corto: sólo puede crear SU propio documento, sólo si hay una
+      // invitación a nombre de SU correo, y sólo con el correo que Google
+      // confirmó. Sin esa última condición, cualquiera podría anotarse con el
+      // correo de otra persona.
+      allow create: if request.auth != null
+                    && request.auth.uid == uid
+                    && request.auth.token.email != null
+                    && exists(/databases/$(database)/documents/invitaciones/$(request.auth.token.email))
+                    && request.resource.data.correo == request.auth.token.email;
+
+      // Dar de baja a alguien. Nadie puede quitarse a sí mismo: es lo que
+      // vuelve imposible quedarse afuera del propio negocio por error.
+      allow delete: if autenticado() && request.auth.uid != uid;
+
+      allow update: if autenticado();
+    }
+
+    match /invitaciones/{correo} {
+      allow read, write: if autenticado();
     }
 
     // El dinero siempre es entero de centavos. Un decimal acá significa que

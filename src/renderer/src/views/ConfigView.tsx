@@ -18,10 +18,11 @@ import {
   Sun,
   Moon,
   Monitor,
+  Users,
 } from 'lucide-react';
 import { cn } from '../lib/cn';
 import { useTheme } from '../context/ThemeContext';
-import type { ParametrosSistema, Categoria, CuentaBancaria, MetodoPago } from '../../../shared/types';
+import type { ParametrosSistema, Categoria, CuentaBancaria, MetodoPago, Acceso } from '../../../shared/types';
 import type { InfoSistema } from '../../../shared/ipc-contracts';
 import {
   Card,
@@ -38,6 +39,7 @@ import { parsearDecimal, parsearACentavos } from '@core/numeros';
 import { calcularPrecio } from '@core/precios';
 import { useToast } from '../context/ToastContext';
 import { NubeSection } from './config/NubeSection';
+import { Confirmar } from '../components/ui/Confirmar';
 import { formatearMoneda } from '@core/moneda';
 import { hoyISO, mesISO } from '@core/fechas';
 import { generarCSV, dinero, nombreArchivo, type Columna } from '@core/exportar';
@@ -58,6 +60,9 @@ const PASOS = [
 ];
 
 const num = (t: string): number => parsearDecimal(t) ?? 0;
+
+/** Quien desarrolló la herramienta. Se avisa distinto al quitarle el acceso. */
+const CORREO_DESARROLLADOR = 'espinozajoswill@gmail.com';
 
 export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, onCambio }) => {
   const { showToast } = useToast();
@@ -101,6 +106,10 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
   const [pantallaInicio, setPantallaInicio] = useState('panel');
   const [pantallaInicioMovil, setPantallaInicioMovil] = useState('panel');
   const [codigoPais, setCodigoPais] = useState('505');
+  const [accesos, setAccesos] = useState<Acceso[]>([]);
+  const [correoInvitado, setCorreoInvitado] = useState('');
+  const [invitando, setInvitando] = useState(false);
+  const [quitando, setQuitando] = useState<Acceso | null>(null);
   const [desdeExp, setDesdeExp] = useState(`${mesISO().slice(0, 4)}-01-01`);
   const [hastaExp, setHastaExp] = useState(hoyISO());
   const [guardando, setGuardando] = useState(false);
@@ -177,6 +186,70 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  };
+
+  const cargarAccesos = async () => {
+    const r = await window.api.accesos.list();
+    if (r.success) setAccesos(r.data);
+  };
+
+  useEffect(() => {
+    cargarAccesos();
+    // Se lee una vez al entrar a Configuración: cambia sólo cuando ella lo cambia.
+  }, []);
+
+  const invitar = async () => {
+    setInvitando(true);
+    try {
+      const r = await window.api.accesos.invitar(correoInvitado);
+      if (!r.success) throw new Error(r.error);
+      setCorreoInvitado('');
+      await cargarAccesos();
+      showToast({
+        message: 'Invitación creada. El acceso se activa cuando entre con ese correo.',
+        type: 'success',
+      });
+    } catch (err) {
+      showToast({ message: String(err instanceof Error ? err.message : err), type: 'error' });
+    } finally {
+      setInvitando(false);
+    }
+  };
+
+  /**
+   * Qué pasa al quitar este acceso.
+   *
+   * No es lo mismo sacar a una ayudante que sacar a quien te hizo la
+   * herramienta: en el segundo caso, si después necesitás que te ayude con
+   * algo, vas a tener que volver a invitarlo. Eso se dice antes, no después.
+   */
+  const consecuenciasDeQuitar = (a: Acceso): string[] => {
+    const base = a.pendiente
+      ? ['La invitación se cancela: ese correo ya no va a poder entrar.']
+      : [
+          'Deja de poder abrir la app, en la computadora y en el celular.',
+          'Los datos que cargó se quedan: no se borra nada del negocio.',
+        ];
+    if (a.correo === CORREO_DESARROLLADOR) {
+      base.push(
+        'Es quien desarrolló la herramienta. Si más adelante necesitás que te ayude con algo, vas a tener que invitarlo de nuevo.'
+      );
+    }
+    return base;
+  };
+
+  const confirmarQuitar = async () => {
+    if (!quitando) return;
+    try {
+      const r = await window.api.accesos.quitar(quitando.id, quitando.correo);
+      if (!r.success) throw new Error(r.error);
+      await cargarAccesos();
+      showToast({ message: `${quitando.correo} ya no tiene acceso`, type: 'success' });
+    } catch (err) {
+      showToast({ message: String(err instanceof Error ? err.message : err), type: 'error' });
+    } finally {
+      setQuitando(null);
+    }
   };
 
   const exportar = async (que: 'ventas' | 'abonos' | 'clientas' | 'paquetes' | 'inventario') => {
@@ -1122,6 +1195,92 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
                 />
               </Field>
             </div>
+          </CardContent>
+        </Card>
+
+        <Confirmar
+          abierto={quitando !== null}
+          peligroso
+          titulo={quitando ? `¿Quitarle el acceso a ${quitando.correo}?` : ''}
+          consecuencias={quitando ? consecuenciasDeQuitar(quitando) : []}
+          textoConfirmar="Sí, quitar el acceso"
+          onConfirmar={confirmarQuitar}
+          onCerrar={() => setQuitando(null)}
+        />
+
+        {/* Accesos */}
+        <Card>
+          <CardHeader>
+            <SectionHeader
+              icon={Users}
+              title="Quién puede entrar"
+              description="Tu negocio, tus datos: acá decidís vos quién los ve"
+            />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-end gap-2 flex-wrap">
+              <Field
+                label="Invitar a alguien"
+                hint="Su correo de Google, el mismo con el que va a entrar"
+                className="flex-1 min-w-[260px]"
+              >
+                <Input
+                  type="email"
+                  value={correoInvitado}
+                  onChange={(e) => setCorreoInvitado(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && correoInvitado.trim()) invitar();
+                  }}
+                  placeholder="nombre@gmail.com"
+                />
+              </Field>
+              <Button
+                variant="primary"
+                onClick={invitar}
+                disabled={invitando || !correoInvitado.trim()}
+                className="mb-6"
+              >
+                {invitando ? 'Invitando...' : 'Invitar'}
+              </Button>
+            </div>
+
+            <div className="space-y-2">
+              {accesos.map((a) => (
+                <div
+                  key={a.id}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-borde bg-superficie-2/40 p-3.5"
+                >
+                  <div className="min-w-0">
+                    <div className="text-body text-texto truncate">{a.correo}</div>
+                    <div className="text-caption text-texto-3">
+                      {a.pendiente
+                        ? 'Invitada — el acceso se activa cuando entre con ese correo'
+                        : a.fijo
+                          ? 'Acceso permanente'
+                          : 'Tiene acceso'}
+                    </div>
+                  </div>
+                  {a.fijo ? (
+                    <span className="text-caption text-texto-3 shrink-0">—</span>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setQuitando(a)}
+                      className="shrink-0 text-danger hover:text-danger"
+                    >
+                      Quitar
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <p className="text-caption leading-relaxed text-texto-3">
+              Firebase reconoce a cada persona por su cuenta de Google, y esa cuenta recién existe
+              cuando entra por primera vez. Por eso una invitación queda pendiente hasta que la usan.
+              Tiene que ser el correo exacto con el que inicia sesión.
+            </p>
           </CardContent>
         </Card>
 

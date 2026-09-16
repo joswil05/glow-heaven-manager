@@ -86,6 +86,19 @@ export interface ParametrosSistema {
   codigo_pais_whatsapp?: string;
 }
 
+/** Alguien con acceso al negocio, o invitado a tenerlo. */
+export interface Acceso {
+  /** El UID de Firebase, o el correo si todavía no entró nunca. */
+  id: string;
+  correo: string;
+  nombre?: string;
+  /** `true` mientras no haya entrado con esa cuenta. */
+  pendiente: boolean;
+  /** No se puede quitar: es la dueña, o sos vos mismo. */
+  fijo: boolean;
+  desde?: string;
+}
+
 export interface Categoria {
   id: number;
   nombre: string;

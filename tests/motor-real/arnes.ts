@@ -91,7 +91,7 @@ export async function iniciarSesion(): Promise<void> {
  * motor falso en memoria de `tests/setup-firestore.ts`.
  */
 export async function repos() {
-  const [productos, ventas, compras, pagos, clientes, parametros, panel, eventos] =
+  const [productos, ventas, compras, pagos, clientes, parametros, panel, eventos, accesos] =
     await Promise.all([
       import('../../src/main/firebase/repositories/productos.repo'),
       import('../../src/main/firebase/repositories/ventas.repo'),
@@ -101,6 +101,7 @@ export async function repos() {
       import('../../src/main/firebase/repositories/parametros.repo'),
       import('../../src/main/firebase/repositories/panel.repo'),
       import('../../src/main/firebase/repositories/eventos.repo'),
+      import('../../src/main/firebase/repositories/accesos.repo'),
     ]);
 
   return {
@@ -112,6 +113,7 @@ export async function repos() {
     Parametros: parametros.ParametrosRepoFirestore,
     Panel: panel.PanelRepoFirestore,
     Eventos: eventos.EventosRepoFirestore,
+    Accesos: accesos.AccesosRepoFirestore,
   };
 }
 

@@ -18,6 +18,7 @@ import type {
   MetodoPago,
   MonedaPago,
   TipoDescuento,
+  Acceso,
 } from './types';
 
 /**
@@ -365,6 +366,12 @@ export interface ApiPuente {
     recientes(limite?: number): Promise<Resultado<PagoCompleto[]>>;
     /** Los abonos de un período, para exportarlos. */
     enRango(desde: string, hasta: string): Promise<Resultado<PagoCompleto[]>>;
+  };
+  accesos: {
+    /** Quién tiene acceso al negocio, y quién está invitado sin haber entrado. */
+    list(): Promise<Resultado<Acceso[]>>;
+    invitar(correo: string): Promise<Resultado<ConGrupo>>;
+    quitar(id: string, correo: string): Promise<Resultado<ConGrupo>>;
   };
   clientes: {
     list(busqueda?: string): Promise<Resultado<ClienteDetalle[]>>;

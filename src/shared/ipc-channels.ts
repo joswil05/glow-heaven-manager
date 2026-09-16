@@ -46,6 +46,10 @@ export const IPC = {
   PAGOS_RECIENTES: 'pagos:recientes',
   PAGOS_EN_RANGO: 'pagos:en-rango',
 
+  ACCESOS_LIST: 'accesos:list',
+  ACCESOS_INVITAR: 'accesos:invitar',
+  ACCESOS_QUITAR: 'accesos:quitar',
+
   // Clientes
   CLIENTES_LIST: 'clientes:list',
   CLIENTES_GET: 'clientes:get',

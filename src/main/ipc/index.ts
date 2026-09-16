@@ -1,5 +1,6 @@
 import { ipcMain, BrowserWindow, dialog } from 'electron';
 import { randomUUID } from 'node:crypto';
+import { AccesosRepoFirestore as AccesosRepo } from '../firebase/repositories/accesos.repo';
 import fs from 'node:fs/promises';
 import { getMainWindow } from '../windows/main.window';
 import { IPC } from '../../shared/ipc-channels';
@@ -229,6 +230,28 @@ export function registrarHandlers(): void {
 
   manejar(IPC.PAGOS_RECIENTES, (limite?: number) => PagosRepo.recientes(limite));
   manejar(IPC.PAGOS_EN_RANGO, (desde: string, hasta: string) => PagosRepo.enRango(desde, hasta));
+
+  // -------------------------------------------------------------------------
+  // Accesos
+  // -------------------------------------------------------------------------
+
+  // El UID de quien está mirando, para que la pantalla no le ofrezca quitarse
+  // a sí misma un acceso que las reglas van a rechazar igual.
+  manejar(IPC.ACCESOS_LIST, () =>
+    AccesosRepo.listar(GoogleAuthService.obtenerUsuarioActual()?.uid)
+  );
+
+  manejar(IPC.ACCESOS_INVITAR, async (correo: string) => {
+    const evento_grupo_id = nuevoGrupo();
+    await AccesosRepo.invitar(correo, evento_grupo_id);
+    return { evento_grupo_id };
+  });
+
+  manejar(IPC.ACCESOS_QUITAR, async (id: string, correo: string) => {
+    const evento_grupo_id = nuevoGrupo();
+    await AccesosRepo.quitar(id, correo, evento_grupo_id);
+    return { evento_grupo_id };
+  });
 
   // -------------------------------------------------------------------------
   // Clientes

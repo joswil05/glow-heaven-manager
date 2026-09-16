@@ -19,6 +19,7 @@ import type {
   VentaCompleta,
   Pago,
   PanelData,
+  Acceso,
 } from '../../shared/types';
 import { calcularPrecio } from '@core/precios';
 import { costearPaquete } from '@core/costeo';
@@ -30,6 +31,7 @@ const grupo = () => ({ evento_grupo_id: `g_${Math.random().toString(36).slice(2)
 const hoy = () => hoyISO();
 
 interface Almacen {
+  accesos: Acceso[];
   parametros: ParametrosSistema;
   categorias: Categoria[];
   clientes: ClienteDetalle[];
@@ -158,6 +160,15 @@ function almacenInicial(): Almacen {
     productos,
     compras: [],
     ventas: [],
+    accesos: [
+      {
+        id: 'duenia',
+        correo: 'ross@glowheaven.com',
+        nombre: 'Dueña',
+        pendiente: false,
+        fijo: true,
+      },
+    ],
     pin: 'demo',
     siguienteId: 100,
   };
@@ -955,6 +966,21 @@ const api: ApiPuente = {
           .filter((p) => (p.fecha || '') >= desde && (p.fecha || '') <= hasta)
           .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '') || b.id - a.id)
       ),
+  },
+  accesos: {
+    list: () => ok([...db.accesos]),
+    invitar: (correo) => {
+      const limpio = correo.trim().toLowerCase();
+      if (!limpio.includes('@')) throw new Error('Escribí un correo válido.');
+      if (!db.accesos.some((a) => a.correo === limpio)) {
+        db.accesos.push({ id: limpio, correo: limpio, pendiente: true, fijo: false });
+      }
+      return ok(grupo());
+    },
+    quitar: (id) => {
+      db.accesos = db.accesos.filter((a) => a.id !== id || a.fijo);
+      return ok(grupo());
+    },
   },
   clientes: {
     list: (busqueda) => {
