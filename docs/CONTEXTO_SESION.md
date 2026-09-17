@@ -221,9 +221,23 @@ npm run deploy:mobile          # PWA a los dos sitios de Firebase Hosting
 npm run release:windows        # instalador NSIS + GitHub Release
 ```
 
-El release de Windows falla a veces con un error de token de GitHub **después de
-haber subido**. Antes de reintentar, mirá con `gh release view` si la versión ya
-está publicada, o vas a terminar con dos.
+**`release:windows` casi siempre falla al final con `GitHub Personal Access
+Token is not set`.** No exportes el token a una variable de entorno; Joswill ya
+rechazó eso. Lo que hay que saber:
+
+1. El `.exe` **sí se compila**. Lo que no se llega a escribir es `latest.yml`,
+   que queda con la versión anterior. Ese archivo es el que lee el actualizador
+   automático de la app instalada, así que publicar el exe sin regenerarlo deja
+   a la clienta sin actualización y sin ningún error visible.
+2. Se arregla con `npx electron-builder --publish never`, que reempaqueta y
+   escribe `latest.yml` bien.
+3. Antes de subir, comprobá que el `sha512` y el tamaño de `latest.yml`
+   describan **ese** exe. Si no coinciden, el actualizador rechaza la descarga.
+4. Se sube con `gh release create`, y los archivos hay que copiarlos con
+   **guiones** (`Glow-Heaven-Manager-Setup-X.Y.Z.exe`), porque así los nombra
+   `latest.yml`. En `release/` están con espacios.
+5. Mirá siempre con `gh release view vX.Y.Z` si ya existe antes de reintentar,
+   o vas a terminar con dos.
 
 ---
 
