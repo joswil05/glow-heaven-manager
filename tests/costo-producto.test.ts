@@ -11,7 +11,7 @@
  * ve en ninguna pantalla.
  */
 import { describe, it, expect } from 'vitest';
-import { desglosarCosto, repartirFlete } from '../src/core/costo-producto';
+import { desglosarCosto, repartirFlete, fletePorUnidad } from '../src/core/costo-producto';
 
 describe('el costo de una unidad', () => {
   it('suma el impuesto de la tienda y la parte del flete', () => {
@@ -53,34 +53,32 @@ describe('el costo de una unidad', () => {
 });
 
 describe('repartir el flete del paquete', () => {
-  it('lo reparte por unidades cuando no se conocen los pesos', () => {
-    // Es el caso normal: se conoce el peso del paquete, no el de cada cosa.
+  it('reparte el TOTAL de cada producto, no el costo por unidad', () => {
+    // Guardar el total y no el por unidad es lo que hace que la cuenta cierre:
+    // $77.00 entre 45 unidades da $1.7111… y en centavos enteros se pierden
+    // cinco centavos que nadie ve irse.
     const r = repartirFlete(7700, [
       { producto_id: 1, unidades: 20 },
       { producto_id: 2, unidades: 20 },
       { producto_id: 3, unidades: 5 },
     ]);
 
-    expect(r.get(1)).toBe(171); // $1.71 por unidad
-    expect(r.get(2)).toBe(171);
-    expect(r.get(3)).toBe(171);
+    const total = (r.get(1) ?? 0) + (r.get(2) ?? 0) + (r.get(3) ?? 0);
+    expect(total, 'el flete repartido tiene que dar el flete pagado, exacto').toBe(7700);
   });
 
-  it('no pierde ni inventa un centavo, aunque no reparta parejo', () => {
-    // Tres productos y $10.00: 1000 / 3 no da exacto. La plata tiene que
-    // llegar entera igual.
+  it('cuadra exacto aunque la división no sea redonda', () => {
     const productos = [
       { producto_id: 1, unidades: 1 },
       { producto_id: 2, unidades: 1 },
       { producto_id: 3, unidades: 1 },
     ];
     const r = repartirFlete(1000, productos);
-
-    const total = productos.reduce((s, p) => s + (r.get(p.producto_id) ?? 0) * p.unidades, 0);
-    expect(total, 'el flete repartido no suma el flete pagado').toBe(1000);
+    const total = productos.reduce((s, p) => s + (r.get(p.producto_id) ?? 0), 0);
+    expect(total).toBe(1000);
   });
 
-  it('el caso real: $77 entre 45 unidades cuadra exacto', () => {
+  it('el caso real: $77 entre 45 unidades, sin perder un centavo', () => {
     const productos = [
       { producto_id: 1, unidades: 6 },
       { producto_id: 2, unidades: 3 },
@@ -90,11 +88,9 @@ describe('repartir el flete del paquete', () => {
       { producto_id: 6, unidades: 23 },
     ];
     const r = repartirFlete(7700, productos);
-    const total = productos.reduce((s, p) => s + (r.get(p.producto_id) ?? 0) * p.unidades, 0);
+    const total = productos.reduce((s, p) => s + (r.get(p.producto_id) ?? 0), 0);
 
-    // Con 45 unidades a $1.71 quedan 5 centavos de diferencia por redondeo;
-    // lo que no puede pasar es que se pierdan dólares.
-    expect(Math.abs(total - 7700)).toBeLessThanOrEqual(45);
+    expect(total, 'antes se perdían 5 centavos acá').toBe(7700);
   });
 
   it('reparte por peso cuando TODOS los productos lo tienen', () => {
@@ -124,15 +120,13 @@ describe('repartir el flete del paquete', () => {
   it('un producto agotado no se lleva flete', () => {
     // Si se lo llevara, esa plata desaparecería: no hay unidades sobre las
     // cuales recuperarla.
-    const productos = [
+    const r = repartirFlete(1000, [
       { producto_id: 1, unidades: 0 },
       { producto_id: 2, unidades: 10 },
-    ];
-    const r = repartirFlete(1000, productos);
+    ]);
 
     expect(r.get(1)).toBe(0);
-    expect(r.get(2)).toBe(100);
-    expect((r.get(2) ?? 0) * 10).toBe(1000);
+    expect(r.get(2)).toBe(1000);
   });
 
   it('sin flete, nadie carga nada', () => {
@@ -142,5 +136,16 @@ describe('repartir el flete del paquete', () => {
 
   it('un paquete sin nada adentro no rompe', () => {
     expect(repartirFlete(7700, []).size).toBe(0);
+  });
+});
+
+describe('el flete por unidad, para mostrar', () => {
+  it('es una división del total, no un dato guardado', () => {
+    expect(fletePorUnidad(7700, 45)).toBe(171);
+    expect(fletePorUnidad(1000, 10)).toBe(100);
+  });
+
+  it('sin unidades no divide por cero', () => {
+    expect(fletePorUnidad(1000, 0)).toBe(0);
   });
 });

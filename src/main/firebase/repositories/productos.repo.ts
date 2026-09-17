@@ -113,7 +113,15 @@ export interface ProductoDoc {
    * del total —cuenta en la que el redondeo se acumula hasta descuadrar—.
    */
   costo_base_unitario_usd_cents?: number;
-  /** La parte del flete del paquete que le tocó a cada unidad. */
+  /**
+   * El flete del paquete que le tocó a ESTE producto, en total.
+   *
+   * Es el dato exacto. `flete_unitario_usd_cents` es esta cifra dividida entre
+   * las unidades, redondeada, y existe sólo para mostrarla: guardar el por
+   * unidad como fuente de verdad perdía centavos en cada división.
+   */
+  flete_total_usd_cents?: number;
+  /** El flete por unidad, redondeado. Para mostrar. */
   flete_unitario_usd_cents?: number;
   /**
    * TODOS los paquetes que trajeron este producto alguna vez.
@@ -475,8 +483,26 @@ export class ProductosRepoFirestore {
     let costo: number;
     let nuevoValorInventario = p.valor_inventario_usd_cents ?? 0;
 
-    if (input.costo_unitario_usd_cents !== undefined) {
+    // Lo que se corrige al editar es el PRECIO DE LA TIENDA, no el costo.
+    //
+    // El costo se calcula: precio + impuesto + flete. Dejar que se escriba el
+    // costo final a mano rompe la cadena —el número deja de tener procedencia—
+    // y además se pisa solo: la pantalla mostraba el costo con flete adentro
+    // bajo una etiqueta que decía "lo que costó en la tienda", así que
+    // guardarlo sin tocar nada le sumaba el impuesto y el flete otra vez.
+    let costoBase = p.costo_base_unitario_usd_cents ?? p.costo_unitario_usd_cents ?? 0;
+    const fleteUnitario = p.flete_unitario_usd_cents ?? 0;
+
+    if (input.precio_tienda_unitario_usd_cents !== undefined) {
+      costoBase = desglosarCosto({
+        base_usd_cents: input.precio_tienda_unitario_usd_cents,
+        tax_bp: parametros.tax_bp,
+      }).total_usd_cents;
+      costo = costoBase + fleteUnitario;
+      nuevoValorInventario = existencias * costo;
+    } else if (input.costo_unitario_usd_cents !== undefined) {
       costo = Math.max(0, Math.round(input.costo_unitario_usd_cents));
+      costoBase = Math.max(0, costo - fleteUnitario);
       nuevoValorInventario = existencias * costo;
     } else {
       costo = costoUnitario({

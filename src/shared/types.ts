@@ -155,7 +155,9 @@ export interface Producto {
   costo_unitario_usd_cents: number;
   /** Precio en la tienda + impuesto, por unidad. Sin flete. */
   costo_base_unitario_usd_cents?: number;
-  /** Parte del flete del paquete que le tocó a cada unidad. */
+  /** El flete del paquete que le tocó a este producto, en total. Es el exacto. */
+  flete_total_usd_cents?: number;
+  /** El flete por unidad, redondeado. Sólo para mostrar. */
   flete_unitario_usd_cents?: number;
   /** Todos los paquetes que lo trajeron alguna vez. `paquete_id` es el último. */
   paquetes?: number[];

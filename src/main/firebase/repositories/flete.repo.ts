@@ -25,7 +25,7 @@
  */
 import { doc, getDoc } from 'firebase/firestore';
 import { getFirestoreDb, aplicarLote, type OperacionLote } from '../client';
-import { repartirFlete } from '../../../core/costo-producto';
+import { repartirFlete, fletePorUnidad } from '../../../core/costo-producto';
 import type { ProductoDoc } from './productos.repo';
 
 interface CompraParaFlete {
@@ -68,7 +68,7 @@ export async function recalcularFleteDePaquete(
   const unidadesHoy = productosDelPaquete.reduce((s, p) => s + existenciasDe(p), 0);
   const unidadesIngresadas = compra.unidades_ingresadas || unidadesHoy;
 
-  const porUnidad = repartirFlete(
+  const porProducto = repartirFlete(
     aRepartir,
     productosDelPaquete.map((p) => ({
       producto_id: p.id,
@@ -89,13 +89,19 @@ export async function recalcularFleteDePaquete(
   for (const p of productosDelPaquete) {
     const existencias = existenciasDe(p);
     const base = p.costo_base_unitario_usd_cents ?? p.costo_unitario_usd_cents ?? 0;
-    const fleteUnitario = Math.round((porUnidad.get(p.id) ?? 0) * escala);
-    const costoUnitario = base + fleteUnitario;
+    const fleteTotal = Math.round((porProducto.get(p.id) ?? 0) * escala);
+
+    // El valor de la bodega sale del TOTAL, no del costo por unidad. Es lo que
+    // hace que los $77 del courier caigan enteros en vez de perder centavos en
+    // cada redondeo.
+    const valor = existencias * base + fleteTotal;
+    const fleteUnitario = fletePorUnidad(fleteTotal, existencias);
+    const costoUnitario = existencias > 0 ? Math.round(valor / existencias) : base;
 
     if (
       p.costo_base_unitario_usd_cents === base &&
-      p.flete_unitario_usd_cents === fleteUnitario &&
-      p.costo_unitario_usd_cents === costoUnitario
+      p.flete_total_usd_cents === fleteTotal &&
+      p.valor_inventario_usd_cents === valor
     ) {
       continue; // nada que cambiar en este
     }
@@ -106,9 +112,10 @@ export async function recalcularFleteDePaquete(
       merge: true,
       datos: {
         costo_base_unitario_usd_cents: base,
+        flete_total_usd_cents: fleteTotal,
         flete_unitario_usd_cents: fleteUnitario,
         costo_unitario_usd_cents: costoUnitario,
-        valor_inventario_usd_cents: existencias * costoUnitario,
+        valor_inventario_usd_cents: valor,
         actualizado_en: ahora,
       },
     });

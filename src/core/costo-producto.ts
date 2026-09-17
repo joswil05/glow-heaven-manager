@@ -61,14 +61,19 @@ export interface UnidadesDeProducto {
 }
 
 /**
- * Cuánto flete le toca a CADA UNIDAD de cada producto de un paquete.
+ * Cuánto flete le toca a cada PRODUCTO de un paquete, en total.
  *
- * Devuelve centavos por unidad, no por producto, porque es lo que se suma al
- * costo unitario.
+ * Devuelve el total por producto y no el costo por unidad a propósito, y esa
+ * decisión es la que hace que la cuenta cierre.
  *
- * El reparto es exacto en el total: la suma de lo asignado da el flete del
- * paquete, sin perder ni inventar un centavo. Los centavos que sobran del
- * redondeo van a los productos con más unidades, que es donde menos se notan.
+ * Con $77.00 entre 45 unidades, el costo por unidad es $1.7111… Guardado en
+ * centavos enteros queda $1.71, y 45 × $1.71 = $76.95: cinco centavos que
+ * desaparecen del valor de la bodega sin que nadie los vea irse. Guardando el
+ * total de cada producto, los $77.00 caen enteros y el costo por unidad pasa a
+ * ser lo que es —una división para mostrar— en vez de la fuente de la verdad.
+ *
+ * Los centavos que sobran del reparto van a los productos con más peso, que es
+ * donde menos mueven la aguja.
  */
 export function repartirFlete(
   flete_total_usd_cents: number,
@@ -112,9 +117,18 @@ export function repartirFlete(
   });
 
   for (const p of productos) {
-    const linea = porLinea.get(p.producto_id) ?? 0;
-    salida.set(p.producto_id, p.unidades > 0 ? Math.round(linea / p.unidades) : 0);
+    salida.set(p.producto_id, porLinea.get(p.producto_id) ?? 0);
   }
 
   return salida;
+}
+
+/**
+ * El flete por unidad, para mostrar. Es una división, no un dato guardado.
+ *
+ * Lo que se guarda es el total del producto, porque es lo único que puede
+ * sumar exacto. Este número redondeado sirve para escribirlo en pantalla.
+ */
+export function fletePorUnidad(flete_total_usd_cents: number, unidades: number): number {
+  return unidades > 0 ? Math.round(flete_total_usd_cents / unidades) : 0;
 }
