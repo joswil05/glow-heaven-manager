@@ -165,10 +165,22 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
       setStockMinimo(String(producto.stock_minimo));
       setNotas(producto.notas ?? '');
       setCantidadInicial(String(producto.existencias ?? 0));
+      // Lo que se devuelve para editar es el PRECIO DE LA TIENDA, que es lo que
+      // se escribió. Antes se cargaba el costo con impuesto y flete adentro,
+      // así que guardar sin tocar nada se los sumaba de nuevo.
+      //
+      // Para los productos cargados antes de que existiera el campo, se despeja
+      // del costo base, que es exactamente reversible.
       setCostoInicialTexto(
-        producto.costo_unitario_usd_cents !== undefined
-          ? (producto.costo_unitario_usd_cents / 100).toFixed(2)
-          : ''
+        producto.precio_tienda_unitario_usd_cents !== undefined
+          ? (producto.precio_tienda_unitario_usd_cents / 100).toFixed(2)
+          : producto.costo_base_unitario_usd_cents !== undefined
+            ? (
+                Math.round((producto.costo_base_unitario_usd_cents * 10000) / (10000 + taxBp)) / 100
+              ).toFixed(2)
+            : producto.costo_unitario_usd_cents !== undefined
+              ? (producto.costo_unitario_usd_cents / 100).toFixed(2)
+              : ''
       );
       setPaqueteId(producto.paquete_id);
       const tienePack = Boolean(producto.unidades_por_paquete && producto.unidades_por_paquete > 1);
@@ -916,14 +928,14 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
                       Costo unitario de compra
                     </h4>
                     <p className="text-caption text-texto-3">
-                      Modificá aquí el precio de compra unitario si te equivocaste o cambió el costo.
+                      El impuesto y el flete los calcula la app: acá va sólo lo que pagaste en la tienda.
                     </p>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
                     <Field
                       label="Costo por unidad ($)"
-                      hint="Lo que costó adquirir cada unidad en USA / tienda"
+                      hint="Lo que pagaste en la tienda, sin impuesto ni flete"
                     >
                       <Input
                         value={costoInicialTexto}

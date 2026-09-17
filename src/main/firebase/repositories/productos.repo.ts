@@ -124,6 +124,15 @@ export interface ProductoDoc {
   /** El flete por unidad, redondeado. Para mostrar. */
   flete_unitario_usd_cents?: number;
   /**
+   * Lo que se escribió en la tienda, por unidad. Sin impuesto y sin flete.
+   *
+   * Se guarda aparte aunque se pueda despejar del costo base, porque es el
+   * número que la persona escribió y el que hay que devolverle al editar. La
+   * ficha mostraba el costo con todo adentro bajo la etiqueta "lo que costó en
+   * la tienda", y guardar sin tocar nada le sumaba impuesto y flete otra vez.
+   */
+  precio_tienda_unitario_usd_cents?: number;
+  /**
    * TODOS los paquetes que trajeron este producto alguna vez.
    *
    * `paquete_id` guarda sólo el último, que es el que manda para el costo. Pero
@@ -349,6 +358,8 @@ export class ProductosRepoFirestore {
       costo_unitario_usd_cents: costo,
       costo_base_unitario_usd_cents: costoBase,
       flete_unitario_usd_cents: 0,
+      precio_tienda_unitario_usd_cents:
+        input.precio_tienda_unitario_usd_cents ?? costoBase,
       modo_precio: modoPrecio,
       margen_bp: input.margen_bp,
       multiplicador_bp: input.multiplicador_bp,

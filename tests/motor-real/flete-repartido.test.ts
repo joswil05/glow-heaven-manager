@@ -155,6 +155,62 @@ describe('el flete llega al costo', () => {
   );
 
   it.skipIf(!disponible)(
+    'abrir la ficha y guardar sin tocar nada no cambia el costo',
+    async () => {
+      // Es lo que se rompió: la ficha mostraba el costo con impuesto y flete
+      // adentro bajo la etiqueta "lo que pagaste en la tienda", así que guardar
+      // sin cambiar nada se los sumaba otra vez. Dos guardados y el costo se
+      // iba al doble, sin que nadie tocara un número.
+      const { Productos } = await repos();
+      const paquete = await paqueteCon(1000);
+      const id = await cargarProducto('Cartera', 10, 1000, paquete);
+
+      const antes = await Productos.getById(id);
+      const precioQueEscribio = antes!.precio_tienda_unitario_usd_cents;
+      expect(precioQueEscribio, 'lo que se escribió tiene que quedar guardado').toBe(1000);
+
+      // Lo que hace la pantalla: devolver ese precio y volver a guardarlo.
+      await Productos.actualizar(
+        { id, precio_tienda_unitario_usd_cents: precioQueEscribio },
+        g()
+      );
+
+      const despues = await Productos.getById(id);
+      expect(despues!.costo_unitario_usd_cents).toBe(antes!.costo_unitario_usd_cents);
+      expect(despues!.costo_base_unitario_usd_cents).toBe(antes!.costo_base_unitario_usd_cents);
+      expect(despues!.valor_inventario_usd_cents).toBe(antes!.valor_inventario_usd_cents);
+    },
+    120_000
+  );
+
+  it.skipIf(!disponible)(
+    'guardar tres veces seguidas tampoco lo mueve',
+    async () => {
+      // Una sola pasada podría cuadrar por casualidad. Lo que importa es que
+      // sea estable: editar un producto es algo que se hace muchas veces.
+      const { Productos } = await repos();
+      const paquete = await paqueteCon(2000);
+      const id = await cargarProducto('Perfume', 4, 2500, paquete);
+
+      const original = await Productos.getById(id);
+      for (let i = 0; i < 3; i++) {
+        const actual = await Productos.getById(id);
+        await Productos.actualizar(
+          { id, precio_tienda_unitario_usd_cents: actual!.precio_tienda_unitario_usd_cents },
+          g()
+        );
+      }
+
+      const final = await Productos.getById(id);
+      expect(
+        final!.costo_unitario_usd_cents,
+        'el costo se movió solo de tanto abrir y guardar la ficha'
+      ).toBe(original!.costo_unitario_usd_cents);
+    },
+    120_000
+  );
+
+  it.skipIf(!disponible)(
     'un paquete sin flete no cambia nada',
     async () => {
       const { Productos } = await repos();

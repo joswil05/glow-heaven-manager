@@ -159,6 +159,15 @@ export interface Producto {
   flete_total_usd_cents?: number;
   /** El flete por unidad, redondeado. Sólo para mostrar. */
   flete_unitario_usd_cents?: number;
+  /**
+   * Lo que se escribió en la tienda, por unidad. Sin impuesto y sin flete.
+   *
+   * Se guarda aparte aunque se pueda despejar del costo base, porque es el
+   * número que la persona escribió y el que hay que devolverle al editar. La
+   * ficha mostraba el costo con todo adentro bajo la etiqueta "lo que costó en
+   * la tienda", y guardar sin tocar nada le sumaba impuesto y flete otra vez.
+   */
+  precio_tienda_unitario_usd_cents?: number;
   /** Todos los paquetes que lo trajeron alguna vez. `paquete_id` es el último. */
   paquetes?: number[];
 
