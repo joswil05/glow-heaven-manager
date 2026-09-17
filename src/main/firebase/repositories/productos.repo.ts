@@ -19,6 +19,8 @@ import {
 } from '../client';
 import { calcularPrecio } from '../../../core/precios';
 import { algunoContiene } from '../../../core/texto';
+import { desglosarCosto } from '../../../core/costo-producto';
+import { recalcularFleteDePaquete, sumarUnidadesAlPaquete } from './flete.repo';
 import { costoUnitario, registrarSalida, ajustarExistencias } from '../../../core/inventario';
 import { ParametrosRepoFirestore } from './parametros.repo';
 import { EventosRepoFirestore } from './eventos.repo';
@@ -50,6 +52,16 @@ export interface CrearProductoInput {
   costo_unitario_usd_cents?: number;
   precio_venta_usd_cents?: number;
   stock_minimo?: number;
+  /**
+   * Lo que se pagó EN LA TIENDA por unidad, sin impuesto ni flete.
+   *
+   * Existe aparte de `costo_unitario_usd_cents` porque significan cosas
+   * distintas: aquél es el costo final y éste es el punto de partida. Cuando
+   * viene éste, el repositorio le suma el impuesto configurado y después el
+   * paquete le reparte el flete. Cuando viene aquél, se toma como final —es lo
+   * que hace `recibir`, que ya viene costeado.
+   */
+  precio_tienda_unitario_usd_cents?: number;
   peso_unitario_mlb?: number;
   unidades_por_paquete?: number;
   packs_comprados?: number;
@@ -93,6 +105,16 @@ export interface ProductoDoc {
   variantes: ProductoVariante[];
   valor_inventario_usd_cents: number;
   costo_unitario_usd_cents: number;
+  /**
+   * Lo que se pagó en la tienda por unidad, con impuesto y sin flete.
+   *
+   * Va aparte del costo total para que el flete se pueda volver a repartir
+   * cuando el paquete recibe otro producto, sin tener que despejarlo al revés
+   * del total —cuenta en la que el redondeo se acumula hasta descuadrar—.
+   */
+  costo_base_unitario_usd_cents?: number;
+  /** La parte del flete del paquete que le tocó a cada unidad. */
+  flete_unitario_usd_cents?: number;
   modo_precio: ModoPrecio;
   margen_bp?: number;
   multiplicador_bp?: number;
@@ -257,6 +279,20 @@ export class ProductosRepoFirestore {
       }
     }
 
+    // El precio de la tienda no es el costo: hay que sumarle el impuesto que
+    // cobra la tienda, con la tasa que ella configuró y no una fija. El flete
+    // llega después, cuando el paquete reparte el suyo.
+    let costoBase = costo;
+    if (input.precio_tienda_unitario_usd_cents !== undefined) {
+      const desglose = desglosarCosto({
+        base_usd_cents: input.precio_tienda_unitario_usd_cents,
+        tax_bp: parametros.tax_bp,
+      });
+      costoBase = desglose.total_usd_cents;
+      costo = costoBase;
+      valorInicial = totalExistencias * costo;
+    }
+
     const modoPrecio = input.modo_precio ?? (input.precio_venta_usd_cents ? 'MANUAL' : 'MARGEN');
     const precioManual =
       input.precio_manual_usd_cents !== undefined
@@ -286,6 +322,8 @@ export class ProductosRepoFirestore {
       variantes: variantes.map((v) => sinUndefined(v as unknown as Record<string, unknown>)) as unknown as ProductoVariante[],
       valor_inventario_usd_cents: valorInicial,
       costo_unitario_usd_cents: costo,
+      costo_base_unitario_usd_cents: costoBase,
+      flete_unitario_usd_cents: 0,
       modo_precio: modoPrecio,
       margen_bp: input.margen_bp,
       multiplicador_bp: input.multiplicador_bp,
@@ -332,6 +370,14 @@ export class ProductosRepoFirestore {
 
     await aplicarLote(operaciones);
 
+    // El paquete reparte su flete entre todo lo que trajo, incluido esto que
+    // acaba de entrar. Se hace después de guardar para que el producto nuevo
+    // ya cuente en el reparto; antes, cargaría flete de más el que ya estaba.
+    if (input.paquete_id && totalExistencias > 0) {
+      await sumarUnidadesAlPaquete(input.paquete_id, totalExistencias);
+      await this.repartirFleteDelPaquete(input.paquete_id);
+    }
+
     await EventosRepoFirestore.registrarEvento({
       evento_grupo_id,
       entidad_tipo: 'productos',
@@ -341,6 +387,25 @@ export class ProductosRepoFirestore {
     });
 
     return nuevoId;
+  }
+
+  /**
+   * Reparte de nuevo el flete de un paquete entre sus productos.
+   *
+   * Vive acá y no en el módulo del flete porque necesita leer los productos, y
+   * eso ya lo sabe hacer este repositorio.
+   */
+  static async repartirFleteDelPaquete(paquete_id: number): Promise<void> {
+    const db = getFirestoreDb();
+    const snap = await getDocs(
+      query(
+        collection(db, 'productos'),
+        where('activo', '==', true),
+        where('paquete_id', '==', paquete_id)
+      )
+    );
+    const productos = snap.docs.map((d) => d.data() as ProductoDoc);
+    await recalcularFleteDePaquete(paquete_id, productos);
   }
 
   static async actualizar(

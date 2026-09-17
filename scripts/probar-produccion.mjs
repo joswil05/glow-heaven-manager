@@ -178,6 +178,14 @@ const CONSULTAS = [
     },
   ],
   [
+    'Productos de un paquete (reparto del flete)',
+    {
+      from: [{ collectionId: 'productos' }],
+      where: y(igual('activo', bool(true)), igual('paquete_id', num(1))),
+      limit: 3,
+    },
+  ],
+  [
     'Movimientos de un producto',
     {
       from: [{ collectionId: 'movimientos_inventario' }],

@@ -153,6 +153,10 @@ export interface Producto {
   valor_inventario_usd_cents: number;
   /** Derivado de valor / existencias. */
   costo_unitario_usd_cents: number;
+  /** Precio en la tienda + impuesto, por unidad. Sin flete. */
+  costo_base_unitario_usd_cents?: number;
+  /** Parte del flete del paquete que le tocó a cada unidad. */
+  flete_unitario_usd_cents?: number;
 
   modo_precio: ModoPrecio;
   margen_bp?: number;
