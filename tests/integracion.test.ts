@@ -1052,13 +1052,26 @@ describe('flujo Opción 1: paquete de courier rápido y multipack de boxers', ()
       'el paquete de sólo flete no se pudo cerrar: ese flujo quedó roto'
     ).toBe('RECIBIDA');
 
-    // 2. En Inventario, crear "Boxers Calvin Klein" como multipack de 5 unidades comprado a $12.00
-    // 1 pack x 5 boxers = 5 unidades individuales en stock
-    // Costo base USA: $12.00 / 5 = $2.40 (240 cents)
-    // Tax 7% USA: round(240 * 0.07) = 17 cents
-    // Flete (0.2 lb x $7.00/lb = $1.40 = 140 cents)
-    // Costo aterrizado unitario: 240 + 17 + 140 = 397 cents ($3.97)
-    const costoAterrizadoUnit = 397;
+    // 2. En Inventario, "Boxers Calvin Klein": 1 pack de 5, comprado a $12.00.
+    //
+    // Se carga el PRECIO DE LA TIENDA por unidad y nada más. El impuesto y el
+    // flete los pone la aplicación, que es de lo que se trata todo esto: antes
+    // había que calcular el costo aterrizado a mano, y si te olvidabas del
+    // flete —o lo cargabas sin paquete— el margen quedaba inflado sin aviso.
+    //
+    //   precio de tienda:  $12.00 / 5   = $2.40
+    //   impuesto 7%:       round(240×7%) = $0.17   →  base $2.57
+    //   flete:             los $70 del paquete entre las 5 unidades = $14.00
+    //   costo unitario:    $2.57 + $14.00 = $16.57
+    //
+    // Los $70 caen enteros sobre estas 5 unidades porque es lo único que se
+    // cargó en el paquete. Si después se le agregan más productos, el reparto
+    // se rehace solo y a éste le baja.
+    const precioTiendaUnit = 240;
+    const baseConImpuesto = 257;
+    const fleteUnit = 1400;
+    const costoAterrizadoUnit = baseConImpuesto + fleteUnit;
+
     const productoId = await ProductosRepo.crear(
       {
         nombre: 'Boxers Calvin Klein Multipack',
@@ -1068,9 +1081,10 @@ describe('flujo Opción 1: paquete de courier rápido y multipack de boxers', ()
         modo_precio: 'MANUAL',
         precio_manual_usd_cents: 700, // $7.00 venta individual
         precio_venta_usd_cents: 700,
+        precio_tienda_unitario_usd_cents: precioTiendaUnit,
         stock_inicial: {
           cantidad: 5, // Entran 5 unidades físicas
-          costo_unitario_usd_cents: costoAterrizadoUnit,
+          costo_unitario_usd_cents: precioTiendaUnit,
         },
       },
       g()
@@ -1081,6 +1095,8 @@ describe('flujo Opción 1: paquete de courier rápido y multipack de boxers', ()
     expect(producto!.existencias).toBe(5);
     expect(producto!.unidades_por_paquete).toBe(5);
     expect(producto!.paquete_id).toBe(paqueteId);
+    expect(producto!.costo_base_unitario_usd_cents, 'precio de tienda + 7%').toBe(baseConImpuesto);
+    expect(producto!.flete_unitario_usd_cents, 'los $70 del paquete entre 5').toBe(fleteUnit);
     expect(producto!.costo_unitario_usd_cents).toBe(costoAterrizadoUnit);
     expect(producto!.precio_venta_usd_cents).toBe(700);
 
