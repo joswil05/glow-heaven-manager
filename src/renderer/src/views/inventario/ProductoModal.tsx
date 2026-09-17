@@ -40,6 +40,10 @@ interface ProductoModalProps {
   producto: ProductoConStock | null;
   categorias: Categoria[];
   margenDefectoBp: number;
+  /** El mínimo de stock configurado, para que un campo vacío no lo apague. */
+  stockMinimoDefecto: number;
+  /** El impuesto de la tienda, en puntos básicos. 700 = 7%. */
+  taxBp: number;
   pasoRedondeo: number;
   onCerrar: () => void;
   onGuardar: (datos: DatosProducto) => Promise<void>;
@@ -56,6 +60,8 @@ export interface DatosProducto {
   multiplicador_bp?: number;
   precio_manual_usd_cents?: number;
   costo_unitario_usd_cents?: number;
+  /** El precio de la TIENDA por unidad. El impuesto y el flete los pone la app. */
+  precio_tienda_unitario_usd_cents?: number;
   stock_minimo: number;
   peso_unitario_mlb: number;
   unidades_por_paquete?: number;
@@ -86,6 +92,8 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
   producto,
   categorias,
   margenDefectoBp,
+  stockMinimoDefecto,
+  taxBp,
   pasoRedondeo,
   onCerrar,
   onGuardar,
@@ -103,7 +111,7 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
   const [margenTexto, setMargenTexto] = useState('');
   const [multiplicadorTexto, setMultiplicadorTexto] = useState('2');
   const [precioManualTexto, setPrecioManualTexto] = useState('');
-  const [stockMinimo, setStockMinimo] = useState('2');
+  const [stockMinimo, setStockMinimo] = useState(String(stockMinimoDefecto ?? 2));
   const [notas, setNotas] = useState('');
   const [cantidadInicial, setCantidadInicial] = useState('');
   const [costoInicialTexto, setCostoInicialTexto] = useState('');
@@ -203,7 +211,7 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
       setMargenTexto('');
       setMultiplicadorTexto('2');
       setPrecioManualTexto('');
-      setStockMinimo('2');
+      setStockMinimo(String(stockMinimoDefecto));
       setNotas('');
       setCantidadInicial('');
       setCostoInicialTexto('');
@@ -238,11 +246,11 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
     const totalUnidades = packs * porPack;
     const precioPackCents = parsearACentavos(costoPackUsaTexto, { min: 0 }) ?? 0;
 
+    // Acá sólo se divide el pack entre sus unidades. El impuesto y el flete
+    // los pone el repositorio, con la tasa configurada y el paquete de verdad.
+    // Antes esto sumaba un 7% clavado que ignoraba Configuración, y llamaba
+    // "landed" a un costo que no incluía el flete.
     const costoBaseUnitCents = precioPackCents > 0 ? Math.round(precioPackCents / porPack) : 0;
-    const taxUnitCents =
-      aplicarTaxUsa && costoBaseUnitCents > 0 ? Math.round(costoBaseUnitCents * 0.07) : 0;
-
-    const costoLandedUnitCents = costoBaseUnitCents + taxUnitCents;
 
     return {
       packs,
@@ -250,17 +258,15 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
       totalUnidades,
       precioPackCents,
       costoBaseUnitCents,
-      taxUnitCents,
-      costoLandedUnitCents,
     };
-  }, [esPack, packsComprados, unidadesPorPack, costoPackUsaTexto, aplicarTaxUsa]);
+  }, [esPack, packsComprados, unidadesPorPack, costoPackUsaTexto]);
 
   useEffect(() => {
     if (!esPack || !calculoPack) return;
     if (esNuevo) {
       setCantidadInicial(String(calculoPack.totalUnidades));
-      if (calculoPack.costoLandedUnitCents > 0) {
-        setCostoInicialTexto((calculoPack.costoLandedUnitCents / 100).toFixed(2));
+      if (calculoPack.costoBaseUnitCents > 0) {
+        setCostoInicialTexto((calculoPack.costoBaseUnitCents / 100).toFixed(2));
       }
     }
   }, [esPack, calculoPack, esNuevo]);
@@ -470,8 +476,16 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
             : undefined,
         precio_manual_usd_cents:
           modoPrecio === 'MANUAL' ? parsearACentavos(precioManualTexto, { min: 0.01 }) ?? undefined : undefined,
+        // Lo que ella escribe es el precio de la TIENDA. El impuesto y el flete
+        // los agrega la aplicación, que es de lo que se trata todo esto.
         costo_unitario_usd_cents: costoUnitarioCents,
-        stock_minimo: Math.round(parsearDecimal(stockMinimo) ?? 0),
+        precio_tienda_unitario_usd_cents: costoUnitarioCents,
+        // Un campo vacío no significa "sin mínimo": significa "el de siempre".
+        // Mandando 0 se desactivaba la alerta de stock sin que nadie lo pidiera,
+        // y 12 de los 22 productos quedaron así.
+        stock_minimo: stockMinimo.trim()
+          ? Math.round(parsearDecimal(stockMinimo) ?? stockMinimoDefecto)
+          : stockMinimoDefecto,
         peso_unitario_mlb: 0,
         unidades_por_paquete: esPack
           ? Math.max(1, Math.round(parsearDecimal(unidadesPorPack) ?? 5))
@@ -796,14 +810,12 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
                           const precioPack = parsearACentavos(costoPackUsaTexto, { min: 0 }) ?? 0;
                           const porPack = Math.max(1, Math.round(parsearDecimal(unidadesPorPack) ?? 5));
                           if (precioPack > 0) {
-                            const base = Math.round(precioPack / porPack);
-                            const tax = e.target.checked ? Math.round(base * 0.07) : 0;
-                            setCostoInicialTexto(((base + tax) / 100).toFixed(2));
+                            setCostoInicialTexto((Math.round(precioPack / porPack) / 100).toFixed(2));
                           }
                         }}
                         className="w-4 h-4 rounded border-borde-fuerte text-acento"
                       />
-                      <span>Sumar 7% de taxes de USA (+${((calculoPack?.taxUnitCents ?? 0) / 100).toFixed(2)} por unidad)</span>
+                      <span>Este producto vino en pack</span>
                     </label>
 
                     {calculoPack && calculoPack.precioPackCents > 0 && (
@@ -818,15 +830,23 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
                             ${(calculoPack.costoBaseUnitCents / 100).toFixed(2)} c/u (${(calculoPack.precioPackCents / 100).toFixed(2)} ÷ {calculoPack.porPack})
                           </span>
                         </div>
-                        {aplicarTaxUsa && (
-                          <div className="flex justify-between items-center">
-                            <span className="text-texto-3">+ Tax USA (7%):</span>
-                            <span className="tabular text-texto">+${(calculoPack.taxUnitCents / 100).toFixed(2)} c/u</span>
-                          </div>
-                        )}
+                        <div className="flex justify-between items-center">
+                          <span className="text-texto-3">+ Impuesto de la tienda ({(taxBp / 100).toFixed(0)}%):</span>
+                          <span className="tabular text-texto">
+                            +${(Math.round((calculoPack.costoBaseUnitCents * taxBp) / 10000) / 100).toFixed(2)} c/u
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-texto-3">+ Flete del paquete:</span>
+                          <span className="tabular text-texto-3">
+                            {paqueteId ? 'se reparte al guardar' : 'sin paquete, no lleva'}
+                          </span>
+                        </div>
                         <div className="flex justify-between items-center pt-2 border-t border-borde font-semibold text-acento-fuerte">
-                          <span>Costo unitario calculado:</span>
-                          <span className="tabular text-base">${(calculoPack.costoLandedUnitCents / 100).toFixed(2)} por unidad</span>
+                          <span>Costo antes del flete:</span>
+                          <span className="tabular text-base">
+                            ${((calculoPack.costoBaseUnitCents + Math.round((calculoPack.costoBaseUnitCents * taxBp) / 10000)) / 100).toFixed(2)} por unidad
+                          </span>
                         </div>
                       </div>
                     )}
@@ -850,7 +870,7 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
                     </strong>{' '}
                     a{' '}
                     <strong className="text-texto">
-                      ${((calculoPack?.costoLandedUnitCents ?? 0) / 100).toFixed(2)}
+                      ${((calculoPack?.costoBaseUnitCents ?? 0) / 100).toFixed(2)}
                     </strong>{' '}
                     cada una. Para cambiarlos, modificá los packs, las unidades por pack o el
                     precio del pack.

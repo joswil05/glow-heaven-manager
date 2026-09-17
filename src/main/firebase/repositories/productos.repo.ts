@@ -115,6 +115,16 @@ export interface ProductoDoc {
   costo_base_unitario_usd_cents?: number;
   /** La parte del flete del paquete que le tocó a cada unidad. */
   flete_unitario_usd_cents?: number;
+  /**
+   * TODOS los paquetes que trajeron este producto alguna vez.
+   *
+   * `paquete_id` guarda sólo el último, que es el que manda para el costo. Pero
+   * para buscar no alcanza: si el gloss vino en el 3, en el 7 y en el 11, el
+   * producto dice 11 y filtrar por el 3 no lo encontraba, aunque el 3 sí lo
+   * trajo. Con la lista, la pregunta "¿qué trajo este paquete?" se contesta
+   * bien aunque el producto se haya repetido.
+   */
+  paquetes?: number[];
   modo_precio: ModoPrecio;
   margen_bp?: number;
   multiplicador_bp?: number;
@@ -206,10 +216,17 @@ export class ProductosRepoFirestore {
       productos = productos.filter((p) => p.stock_minimo > 0 && p.existencias <= p.stock_minimo);
     }
     if (filtros.paquete_id !== undefined) {
+      // Se busca en TODOS los paquetes que lo trajeron, no sólo en el último.
+      // Con un producto repetido, mirar sólo el último contesta que el paquete
+      // viejo no lo trajo, y sí lo trajo.
       productos =
         filtros.paquete_id === 'SIN_PAQUETE'
-          ? productos.filter((p) => !p.paquete_id)
-          : productos.filter((p) => p.paquete_id === filtros.paquete_id);
+          ? productos.filter((p) => !p.paquete_id && (p.paquetes ?? []).length === 0)
+          : productos.filter(
+              (p) =>
+                p.paquete_id === filtros.paquete_id ||
+                (p.paquetes ?? []).includes(filtros.paquete_id as number)
+            );
     }
 
     return productos.sort((a, b) => a.nombre.localeCompare(b.nombre));
@@ -336,6 +353,7 @@ export class ProductosRepoFirestore {
       costo_pack_usa_usd_cents: input.costo_pack_usa_usd_cents,
       aplicar_tax_usa: input.aplicar_tax_usa,
       paquete_id: input.paquete_id,
+      paquetes: input.paquete_id ? [input.paquete_id] : [],
       foto: input.foto?.trim() || undefined,
       notas: input.notas?.trim() || undefined,
       activo: true,
@@ -786,7 +804,16 @@ export class ProductosRepoFirestore {
           precio_venta_usd_cents: calculo.precio_usd_cents,
           // Va acá adentro y no en otra escritura: la transacción ya está
           // tocando este documento.
-          ...(params.paquete_id ? { paquete_id: params.paquete_id } : {}),
+          //
+          // `paquete_id` es el último que lo repuso —el que manda para el
+          // costo— y `paquetes` los guarda todos, que es lo que hace que
+          // buscar por un paquete viejo siga encontrándolo.
+          ...(params.paquete_id
+            ? {
+                paquete_id: params.paquete_id,
+                paquetes: [...new Set([...(p.paquetes ?? []), params.paquete_id])],
+              }
+            : {}),
           actualizado_en: new Date().toISOString(),
         }),
         { merge: true }

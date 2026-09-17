@@ -26,6 +26,16 @@ import { costearPaquete } from '@core/costeo';
 import { algunoContiene } from '@core/texto';
 import { hoyISO, sumarDiasAFecha } from '@core/fechas';
 
+/** El precio de tienda con el impuesto configurado encima. */
+function costoConImpuesto(
+  input: { precio_tienda_unitario_usd_cents?: number; stock_inicial?: { costo_unitario_usd_cents: number } },
+  tax_bp: number
+): number {
+  const base =
+    input.precio_tienda_unitario_usd_cents ?? input.stock_inicial?.costo_unitario_usd_cents ?? 0;
+  return base + Math.round((base * tax_bp) / 10000);
+}
+
 const ok = <T>(data: T): Promise<Resultado<T>> => Promise.resolve({ success: true, data });
 const grupo = () => ({ evento_grupo_id: `g_${Math.random().toString(36).slice(2)}` });
 const hoy = () => hoyISO();
@@ -411,9 +421,13 @@ const api: ApiPuente = {
         categoria_id: input.categoria_id,
         categoria_nombre: db.categorias.find((c) => c.id === input.categoria_id)?.nombre,
         tiene_variantes: input.tiene_variantes ?? false,
-        valor_inventario_usd_cents:
-          existencias * (input.stock_inicial?.costo_unitario_usd_cents ?? 0),
-        costo_unitario_usd_cents: input.stock_inicial?.costo_unitario_usd_cents ?? 0,
+        // Igual que el repositorio real: lo que se escribe es el precio de la
+        // tienda, y el impuesto lo pone la aplicación. Si el simulador no lo
+        // hiciera, la prueba de interfaz no estaría probando lo que se publica.
+        valor_inventario_usd_cents: existencias * costoConImpuesto(input, db.parametros.tax_bp),
+        costo_unitario_usd_cents: costoConImpuesto(input, db.parametros.tax_bp),
+        costo_base_unitario_usd_cents: costoConImpuesto(input, db.parametros.tax_bp),
+        flete_unitario_usd_cents: 0,
         modo_precio: input.modo_precio ?? 'MARGEN',
         margen_bp: input.margen_bp,
         multiplicador_bp: input.multiplicador_bp,

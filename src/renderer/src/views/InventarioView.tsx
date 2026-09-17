@@ -80,6 +80,7 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
   const [paquetes, setPaquetes] = useState<
     { id: number; codigo: string; fecha: string; estado: string }[]
   >([]);
+  const [verTodosLosPaquetes, setVerTodosLosPaquetes] = useState(false);
 
   const [modalAbierto, setModalAbierto] = useState(false);
   const [productoEditando, setProductoEditando] = useState<ProductoConStock | null>(null);
@@ -334,6 +335,9 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
    * Un borrador vacío que nadie referencia no aparece: filtrar por él no
    * mostraría nada.
    */
+  /** Cuántos paquetes se ofrecen antes de pedir "ver más". */
+  const PAQUETES_VISIBLES = 8;
+
   const paquetesDelFiltro = useMemo(() => {
     const referenciados = new Set(
       (todosLosProductos.length > 0 ? todosLosProductos : productos)
@@ -342,6 +346,11 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
     );
     return paquetes.filter((q) => q.estado === 'RECIBIDA' || referenciados.has(q.id));
   }, [paquetes, productos, todosLosProductos]);
+
+  const paquetesVisibles = useMemo(
+    () => (verTodosLosPaquetes ? paquetesDelFiltro : paquetesDelFiltro.slice(0, PAQUETES_VISIBLES)),
+    [paquetesDelFiltro, verTodosLosPaquetes]
+  );
 
   const columnas: Column<ProductoConStock>[] = [
     {
@@ -407,7 +416,19 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
       header: 'Te cuesta',
       align: 'right',
       width: '150px',
-      render: (p) => <Money usd_cents={p.costo_unitario_usd_cents} size="sm" soloUsd />,
+      render: (p) => (
+        <div className="flex flex-col items-end">
+          <Money usd_cents={p.costo_unitario_usd_cents} size="sm" soloUsd />
+          {/* La cuenta, no sólo el resultado. Antes el costo era un número sin
+              procedencia y no había forma de saber si incluía el flete. */}
+          {(p.flete_unitario_usd_cents ?? 0) > 0 && (
+            <span className="text-[11px] text-texto-3 tabular">
+              {formatearMoneda(p.costo_base_unitario_usd_cents ?? 0, 'USD')} + {' '}
+              {formatearMoneda(p.flete_unitario_usd_cents ?? 0, 'USD')} flete
+            </span>
+          )}
+        </div>
+      ),
     },
     {
       key: 'precio',
@@ -677,18 +698,29 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
               value={paqueteFiltro === undefined ? '' : String(paqueteFiltro)}
               onChange={(e) => {
                 const v = e.target.value;
+                if (v === 'VER_MAS') {
+                  setVerTodosLosPaquetes(true);
+                  return;
+                }
                 setPaqueteFiltro(v === '' ? undefined : v === 'SIN_PAQUETE' ? 'SIN_PAQUETE' : Number(v));
               }}
               className="w-auto min-w-[175px]"
               aria-label="Filtrar por paquete"
             >
               <option value="">Todos los paquetes</option>
-              {paquetesDelFiltro.map((p, i) => (
+              {paquetesVisibles.map((p, i) => (
                 <option key={p.id} value={p.id}>
                   {p.codigo}
                   {i === 0 ? ' (el último)' : ''}
                 </option>
               ))}
+              {/* Con un paquete por mes, a los tres años son treinta y seis en
+                  una lista. Se muestran los últimos y el resto se pide. */}
+              {!verTodosLosPaquetes && paquetesDelFiltro.length > PAQUETES_VISIBLES && (
+                <option value="VER_MAS">
+                  Ver los {paquetesDelFiltro.length - PAQUETES_VISIBLES} anteriores…
+                </option>
+              )}
               <option value="SIN_PAQUETE">Cargados a mano</option>
             </Select>
           )}
@@ -1120,6 +1152,8 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
         producto={productoEditando}
         categorias={categorias}
         margenDefectoBp={parametros?.margen_defecto_bp ?? 4500}
+        stockMinimoDefecto={parametros?.stock_minimo_defecto ?? 2}
+        taxBp={parametros?.tax_bp ?? 700}
         pasoRedondeo={parametros?.paso_redondeo_usd_cents ?? 100}
         onCerrar={() => setModalAbierto(false)}
         onGuardar={guardar}

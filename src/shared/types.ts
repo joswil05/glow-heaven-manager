@@ -157,6 +157,8 @@ export interface Producto {
   costo_base_unitario_usd_cents?: number;
   /** Parte del flete del paquete que le tocó a cada unidad. */
   flete_unitario_usd_cents?: number;
+  /** Todos los paquetes que lo trajeron alguna vez. `paquete_id` es el último. */
+  paquetes?: number[];
 
   modo_precio: ModoPrecio;
   margen_bp?: number;

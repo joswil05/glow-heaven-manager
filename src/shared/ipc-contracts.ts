@@ -59,6 +59,14 @@ export interface VarianteInput {
 
 export interface CrearProductoInput {
   nombre: string;
+  /**
+   * El precio de la TIENDA por unidad, sin impuesto ni flete.
+   *
+   * Cuando viene, la aplicación le suma el impuesto configurado y después el
+   * paquete le reparte su flete. Es lo que evita tener que calcular el costo
+   * aterrizado de memoria y equivocarse sin enterarse.
+   */
+  precio_tienda_unitario_usd_cents?: number;
   categoria_id?: number;
   tiene_variantes?: boolean;
   variantes?: VarianteInput[];

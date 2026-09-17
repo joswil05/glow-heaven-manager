@@ -125,8 +125,20 @@ describe('el inventario visto por paquete', () => {
       expect(todos, 'el producto repetido creó una ficha gemela').toHaveLength(1);
       expect(todos[0].existencias).toBe(9);
 
-      expect(await Productos.listar({ paquete_id: viejo })).toHaveLength(0);
+      // Buscar por el paquete VIEJO tiene que seguir encontrándolo: ese paquete
+      // sí lo trajo. Antes el producto guardaba un solo número —el último— y
+      // filtrar por el viejo contestaba que no lo había traído, que es falso.
+      expect(
+        await Productos.listar({ paquete_id: viejo }),
+        'el paquete viejo trajo este producto y dejó de encontrarlo'
+      ).toHaveLength(1);
       expect(await Productos.listar({ paquete_id: nuevo })).toHaveLength(1);
+
+      // Para el costo, en cambio, manda el último: es el que tiene la
+      // mercadería que está hoy en el estante.
+      const ficha = await Productos.getById(todos[0].id);
+      expect(ficha!.paquete_id).toBe(nuevo);
+      expect(ficha!.paquetes).toEqual([viejo, nuevo]);
     },
     120_000
   );
