@@ -20,21 +20,22 @@ import type {
   Pago,
   PanelData,
   Acceso,
+  CompraLinea,
+  EfectoIngreso,
+  PrecioDesactualizado,
 } from '../../shared/types';
-import { calcularPrecio } from '@core/precios';
-import { costearPaquete } from '@core/costeo';
-import { algunoContiene } from '@core/texto';
+import type { LineaCompraInput, GuardarCompraInput } from '../../shared/ipc-contracts';
+import { calcularPrecio, margenEfectivo } from '@core/precios';
+import {
+  calcularPaquete,
+  efectoDeEntradas,
+  efectoDeCorreccion,
+  precioParaCosto,
+  type ProductoAntesDelPaquete,
+} from '@core/paquete';
+import { algunoContiene, normalizar } from '@core/texto';
+import { esDeuda, esCotizacion, estadoInicialEncargo } from '@core/cobranza';
 import { hoyISO, sumarDiasAFecha } from '@core/fechas';
-
-/** El precio de tienda con el impuesto configurado encima. */
-function costoConImpuesto(
-  input: { precio_tienda_unitario_usd_cents?: number; stock_inicial?: { costo_unitario_usd_cents: number } },
-  tax_bp: number
-): number {
-  const base =
-    input.precio_tienda_unitario_usd_cents ?? input.stock_inicial?.costo_unitario_usd_cents ?? 0;
-  return base + Math.round((base * tax_bp) / 10000);
-}
 
 const ok = <T>(data: T): Promise<Resultado<T>> => Promise.resolve({ success: true, data });
 const grupo = () => ({ evento_grupo_id: `g_${Math.random().toString(36).slice(2)}` });
@@ -138,6 +139,13 @@ function almacenInicial(): Almacen {
     armarProducto(4, 'Sandalias Nike', 1, 1, 1520, 2),
     armarProducto(5, 'Perfume Bath & Body', 4, 0, 890, 3),
   ];
+  // Como quedaron los productos cargados antes de v2.12: el precio se calculó
+  // sin el flete. Así el simulador muestra el aviso de "precios para revisar".
+  productos[1] = {
+    ...productos[1],
+    precio_venta_usd_cents: 1400,
+    ganancia_unitaria_usd_cents: 1400 - productos[1].costo_unitario_usd_cents,
+  };
 
   const clientes: ClienteDetalle[] = [
     {
@@ -195,10 +203,11 @@ function armarPanel(): PanelData {
         : p.existencias * (p.costo_unitario_usd_cents || 0)),
     0
   );
-  const enCamino = db.compras
-    .filter((c) => c.estado === 'EN_CAMINO')
-    .reduce((a, c) => a + c.total_usd_cents, 0);
-  const porCobrarTotal = db.ventas.reduce((a, v) => a + Math.max(0, v.saldo_usd_cents), 0);
+  const conDeuda = db.ventas.filter((v) => esDeuda(v));
+  const porCobrarTotal = conDeuda.reduce((a, v) => a + Math.max(0, v.saldo_usd_cents), 0);
+  const cotizado = db.ventas
+    .filter((v) => esCotizacion(v))
+    .reduce((a, v) => a + v.saldo_usd_cents, 0);
 
   const bajoStock = db.productos
     .filter((p) => p.stock_minimo > 0 && p.existencias <= p.stock_minimo)
@@ -231,8 +240,8 @@ function armarPanel(): PanelData {
   return {
     resumen: {
       inversion_inventario_usd_cents: inversion,
-      inversion_en_camino_usd_cents: enCamino,
       por_cobrar_usd_cents: porCobrarTotal,
+      cotizado_sin_confirmar_usd_cents: cotizado,
       anticipos_por_entregar_usd_cents: db.ventas
         .filter((v) => v.tipo === 'ENCARGO' && v.estado !== 'ENTREGADA')
         .reduce((a, v) => a + v.pagado_usd_cents, 0),
@@ -242,8 +251,10 @@ function armarPanel(): PanelData {
     ganancia_mes_actual: historico[5],
     ganancia_mes_anterior: historico[4],
     historico,
+    total_por_cobrar: conDeuda.length,
+    total_bajo_stock: bajoStock.length,
     por_cobrar:
-      db.ventas.filter((v) => v.saldo_usd_cents > 0).map((v) => ({
+      conDeuda.slice(0, 10).map((v) => ({
         venta_id: v.id,
         codigo: v.codigo,
         fecha: v.fecha,
@@ -256,7 +267,7 @@ function armarPanel(): PanelData {
         saldo_usd_cents: v.saldo_usd_cents,
         cuotas_vencidas: 0,
       })) ?? [],
-    bajo_stock: bajoStock,
+    bajo_stock: bajoStock.slice(0, 10),
     mas_vendidos: db.productos.slice(0, 3).map((p) => ({
       producto_id: p.id,
       nombre: p.nombre,
@@ -302,6 +313,103 @@ function armarPanel(): PanelData {
         : []),
     ],
   };
+}
+
+/** Deriva el costo del valor sin tocar el precio: lo que hace una venta. */
+function sinCambiarPrecio(p: ProductoConStock): ProductoConStock {
+  const costo =
+    p.existencias > 0
+      ? Math.round(p.valor_inventario_usd_cents / p.existencias)
+      : p.costo_unitario_usd_cents;
+  return {
+    ...p,
+    costo_unitario_usd_cents: costo,
+    ganancia_unitaria_usd_cents: p.precio_venta_usd_cents - costo,
+  };
+}
+
+function antesDelPaquete(p: ProductoConStock): ProductoAntesDelPaquete {
+  return {
+    existencias: p.existencias,
+    valor_inventario_usd_cents: p.valor_inventario_usd_cents,
+    costo_unitario_usd_cents: p.costo_unitario_usd_cents,
+    precio_venta_usd_cents: p.precio_venta_usd_cents,
+    modo_precio: p.modo_precio,
+    margen_bp: margenEfectivo(p, db.categorias, db.parametros.margen_defecto_bp),
+    multiplicador_bp: p.multiplicador_bp,
+    precio_manual_usd_cents: p.precio_manual_usd_cents,
+  };
+}
+
+/** Las líneas guardadas del simulador, con la misma cuenta que el repositorio. */
+function lineasCosteadas(input: GuardarCompraInput, compra_id: number, previas: CompraLinea[] = []): CompraLinea[] {
+  let max = Math.max(0, ...previas.map((l) => l.id), ...input.lineas.map((l) => l.id ?? 0));
+  const conId = input.lineas.map((l) => ({ ...l, id: l.id ?? ++max }));
+  const calc = calcularPaquete(
+    conId.map((l) => ({
+      clave: String(l.id),
+      producto_id: l.producto_id,
+      destino: l.destino,
+      cantidad: l.cantidad,
+      precio_linea_usd_cents: l.precio_linea_usd_cents,
+      exento: l.exento,
+      peso_manual_mlb: l.peso_linea_mlb ?? null,
+    })),
+    {
+      tax_bp: db.parametros.tax_bp,
+      envio_total_usd_cents: input.envio_total_usd_cents,
+      otros_costos_usd_cents: input.otros_costos_usd_cents,
+      tax_total_override_usd_cents: input.tax_total_override_usd_cents,
+      peso_total_mlb: input.peso_total_mlb ?? 0,
+      pesoUnitario: (id) => db.productos.find((p) => p.id === id)?.peso_unitario_mlb ?? 0,
+    }
+  );
+  return conId.map((l: LineaCompraInput & { id: number }, i) => {
+    const c = calc.lineas.find((x) => x.clave === String(l.id))!;
+    return {
+      id: l.id,
+      compra_id,
+      producto_id: l.producto_id,
+      variante_id: l.variante_id,
+      descripcion: l.descripcion,
+      cantidad: l.cantidad,
+      precio_linea_usd_cents: c.precio_linea_usd_cents,
+      tax_linea_usd_cents: c.tax_linea_usd_cents,
+      exento: l.exento,
+      peso_linea_mlb: c.peso_linea_mlb,
+      peso_estimado: c.peso_estimado,
+      envio_asignado_usd_cents: c.envio_asignado_usd_cents,
+      otros_asignados_usd_cents: c.otros_asignados_usd_cents,
+      costo_linea_usd_cents: c.costo_linea_usd_cents,
+      costo_unitario_usd_cents: c.costo_unitario_usd_cents,
+      destino: l.destino,
+      venta_id: l.venta_id,
+      venta_linea_id: l.venta_linea_id,
+      orden: i,
+      es_multipack: l.es_multipack,
+      packs_comprados: l.packs_comprados,
+      unidades_por_pack: l.unidades_por_pack,
+      precio_por_pack_usd_cents: l.precio_por_pack_usd_cents,
+    };
+  });
+}
+
+function totalesDe(lineas: CompraLinea[], envio: number, otros: number) {
+  const subtotal = lineas.reduce((a, l) => a + l.precio_linea_usd_cents, 0);
+  const tax = lineas.reduce((a, l) => a + l.tax_linea_usd_cents, 0);
+  return {
+    subtotal_productos_usd_cents: subtotal,
+    tax_total_usd_cents: tax,
+    total_usd_cents: subtotal + tax + envio + otros,
+  };
+}
+
+/** Le mete a un producto del simulador las unidades de una línea. */
+function meterUnidades(p: ProductoConStock, cantidad: number, variante_id?: number): ProductoConStock {
+  const variantes = p.variantes.length > 0 ? [...p.variantes] : [{ id: p.id * 10, producto_id: p.id, existencias: 0, activo: true }];
+  const idx = Math.max(0, variante_id ? variantes.findIndex((v) => v.id === variante_id) : 0);
+  variantes[idx] = { ...variantes[idx], existencias: variantes[idx].existencias + cantidad };
+  return { ...p, variantes, existencias: p.existencias + cantidad };
 }
 
 function recalcularProducto(p: ProductoConStock): ProductoConStock {
@@ -402,18 +510,26 @@ const api: ApiPuente = {
       if (filtros?.paquete_id !== undefined) {
         r =
           filtros.paquete_id === 'SIN_PAQUETE'
-            ? r.filter((p) => !p.paquete_id)
-            : r.filter((p) => p.paquete_id === filtros.paquete_id);
+            ? r.filter((p) => !p.paquete_id && (p.paquetes ?? []).length === 0)
+            : r.filter(
+                (p) =>
+                  p.paquete_id === filtros.paquete_id ||
+                  (p.paquetes ?? []).includes(filtros.paquete_id as number)
+              );
       }
       if (filtros?.soloConStock) r = r.filter((p) => p.existencias > 0);
       if (filtros?.soloBajoStock)
         r = r.filter((p) => p.stock_minimo > 0 && p.existencias <= p.stock_minimo);
-      return ok(r);
+      // Una copia, como la que llega por IPC. Devolver el mismo arreglo que
+      // se modifica en el lugar hacía que React no viera un producto recién
+      // creado.
+      return ok([...r]);
     },
     get: (id) => ok(db.productos.find((p) => p.id === id) ?? null),
     crear: (input) => {
+      // Igual que el repositorio: la ficha es catálogo. Nace sin existencias
+      // ni costo; la mercadería entra por un paquete.
       const id = db.siguienteId++;
-      const existencias = input.stock_inicial?.cantidad ?? 0;
       const nuevo: ProductoConStock = recalcularProducto({
         id,
         codigo: `P-${String(id).padStart(4, '0')}`,
@@ -421,13 +537,8 @@ const api: ApiPuente = {
         categoria_id: input.categoria_id,
         categoria_nombre: db.categorias.find((c) => c.id === input.categoria_id)?.nombre,
         tiene_variantes: input.tiene_variantes ?? false,
-        // Igual que el repositorio real: lo que se escribe es el precio de la
-        // tienda, y el impuesto lo pone la aplicación. Si el simulador no lo
-        // hiciera, la prueba de interfaz no estaría probando lo que se publica.
-        valor_inventario_usd_cents: existencias * costoConImpuesto(input, db.parametros.tax_bp),
-        costo_unitario_usd_cents: costoConImpuesto(input, db.parametros.tax_bp),
-        costo_base_unitario_usd_cents: costoConImpuesto(input, db.parametros.tax_bp),
-        flete_unitario_usd_cents: 0,
+        valor_inventario_usd_cents: 0,
+        costo_unitario_usd_cents: 0,
         modo_precio: input.modo_precio ?? 'MARGEN',
         margen_bp: input.margen_bp,
         multiplicador_bp: input.multiplicador_bp,
@@ -436,14 +547,11 @@ const api: ApiPuente = {
         stock_minimo: input.stock_minimo ?? 2,
         peso_unitario_mlb: input.peso_unitario_mlb ?? 0,
         unidades_por_paquete: input.unidades_por_paquete,
-        packs_comprados: input.packs_comprados,
-        costo_pack_usa_usd_cents: input.costo_pack_usa_usd_cents,
-        aplicar_tax_usa: input.aplicar_tax_usa,
-        paquete_id: input.paquete_id,
+        paquetes: [],
         foto: input.foto,
         notas: input.notas,
         activo: true,
-        existencias,
+        existencias: 0,
         ganancia_unitaria_usd_cents: 0,
         variantes:
           input.tiene_variantes && input.variantes?.length
@@ -452,18 +560,26 @@ const api: ApiPuente = {
                 producto_id: id,
                 talla: v.talla,
                 color: v.color,
-                existencias: v.existencias ?? 0,
+                existencias: 0,
                 activo: true,
               }))
-            : [{ id: id * 10, producto_id: id, existencias, activo: true }],
+            : [{ id: id * 10, producto_id: id, existencias: 0, activo: true }],
       });
       db.productos.push(nuevo);
       return ok({ ...grupo(), id });
     },
     actualizar: (input) => {
-      db.productos = db.productos.map((p) =>
-        p.id === input.id ? recalcularProducto({ ...p, ...input } as ProductoConStock) : p
-      );
+      db.productos = db.productos.map((p) => {
+        if (p.id !== input.id) return p;
+        const { variantes: _v, ...catalogo } = input;
+        const junto = { ...p, ...catalogo } as ProductoConStock;
+        const precio = precioParaCosto(
+          { ...antesDelPaquete(junto) },
+          junto.costo_unitario_usd_cents,
+          db.parametros.paso_redondeo_usd_cents
+        );
+        return sinCambiarPrecio({ ...junto, precio_venta_usd_cents: precio });
+      });
       return ok(grupo());
     },
     ajustarStock: (variante_id, existencias) => {
@@ -473,7 +589,7 @@ const api: ApiPuente = {
           v.id === variante_id ? { ...v, existencias } : v
         );
         const total = variantes.reduce((a, v) => a + v.existencias, 0);
-        return recalcularProducto({
+        return sinCambiarPrecio({
           ...p,
           variantes,
           existencias: total,
@@ -503,163 +619,265 @@ const api: ApiPuente = {
           paso_redondeo_usd_cents: db.parametros.paso_redondeo_usd_cents,
         })
       ),
+    preciosDesactualizados: () => {
+      const salida: PrecioDesactualizado[] = [];
+      for (const p of db.productos.filter((x) => x.activo)) {
+        if (p.modo_precio === 'MANUAL' || p.costo_unitario_usd_cents <= 0) continue;
+        const calculado = precioParaCosto(
+          antesDelPaquete(p),
+          p.costo_unitario_usd_cents,
+          db.parametros.paso_redondeo_usd_cents
+        );
+        if (calculado === p.precio_venta_usd_cents) continue;
+        salida.push({
+          producto_id: p.id,
+          codigo: p.codigo,
+          nombre: p.nombre,
+          modo_precio: p.modo_precio,
+          existencias: p.existencias,
+          costo_unitario_usd_cents: p.costo_unitario_usd_cents,
+          precio_actual_usd_cents: p.precio_venta_usd_cents,
+          precio_calculado_usd_cents: calculado,
+        });
+      }
+      return ok(salida);
+    },
+    aplicarPrecios: (ids) => {
+      let actualizados = 0;
+      db.productos = db.productos.map((p) => {
+        if (!ids.includes(p.id) || p.modo_precio === 'MANUAL') return p;
+        actualizados++;
+        return sinCambiarPrecio({
+          ...p,
+          precio_venta_usd_cents: precioParaCosto(
+            antesDelPaquete(p),
+            p.costo_unitario_usd_cents,
+            db.parametros.paso_redondeo_usd_cents
+          ),
+        });
+      });
+      return ok({ ...grupo(), actualizados });
+    },
   },
   compras: {
     list: () => ok(db.compras as Compra[]),
     get: (id) => ok(db.compras.find((c) => c.id === id) ?? null),
     guardar: (input) => {
-      const tieneLineas = input.lineas && input.lineas.length > 0;
-      const costeo = tieneLineas
-        ? costearPaquete(
-            input.lineas.map((l, i) => ({
-              id: i + 1,
-              cantidad: l.cantidad,
-              precio_linea_usd_cents: l.precio_linea_usd_cents,
-              peso_linea_mlb: l.peso_linea_mlb,
-              tax_linea_usd_cents: l.tax_linea_usd_cents,
-            })),
-            {
-              tax_bp: db.parametros.tax_bp,
-              envio_total_usd_cents: input.envio_total_usd_cents,
-              otros_costos_usd_cents: input.otros_costos_usd_cents,
-              tax_total_override_usd_cents: input.tax_total_override_usd_cents,
-            }
-          )
-        : null;
-
+      const previa = input.id ? db.compras.find((c) => c.id === input.id) : undefined;
+      if (previa?.estado === 'RECIBIDA') {
+        return Promise.resolve({
+          success: false as const,
+          error: 'Este paquete ya está en el inventario. Para cambiarle algo usá "Corregir".',
+        });
+      }
       const id = input.id ?? db.siguienteId++;
-      const envioFinal = costeo ? costeo.envio_total_usd_cents : input.envio_total_usd_cents;
-      const otrosFinal = costeo ? costeo.otros_costos_usd_cents : (input.otros_costos_usd_cents || 0);
-      const subtotalFinal = costeo ? costeo.subtotal_productos_usd_cents : 0;
-      const taxFinal = costeo ? costeo.tax_total_usd_cents : (input.tax_total_override_usd_cents || 0);
-      const totalFinal = costeo ? costeo.total_pagado_usd_cents : envioFinal + otrosFinal + taxFinal;
-      const pesoFinal = costeo ? costeo.peso_total_mlb : (input.peso_total_mlb || 0);
-
+      const lineas = lineasCosteadas(input, id, previa?.lineas);
       const compra: CompraCompleta = {
         id,
-        codigo: `PQ-${String(id).padStart(4, '0')}`,
+        codigo: previa?.codigo ?? `PQ-${String(id).padStart(4, '0')}`,
         fecha: input.fecha,
-        // Igual que el repositorio real: sin lineas es un BORRADOR.
-        estado: input.estado ?? 'BORRADOR',
-        envio_total_usd_cents: envioFinal,
-        otros_costos_usd_cents: otrosFinal,
-        subtotal_productos_usd_cents: subtotalFinal,
-        tax_total_usd_cents: taxFinal,
-        total_usd_cents: totalFinal,
-        peso_total_mlb: pesoFinal,
+        estado: 'BORRADOR',
+        envio_total_usd_cents: input.envio_total_usd_cents,
+        otros_costos_usd_cents: input.otros_costos_usd_cents ?? 0,
+        tax_total_override_usd_cents: input.tax_total_override_usd_cents ?? undefined,
+        ...totalesDe(lineas, input.envio_total_usd_cents, input.otros_costos_usd_cents ?? 0),
+        peso_total_mlb: input.peso_total_mlb ?? 0,
         tasa_cambio_cents: db.parametros.tasa_cambio_cents,
         notas: input.notas,
         activo: true,
-        unidades_totales: costeo ? costeo.unidades_totales : 0,
-        lineas: tieneLineas
-          ? input.lineas.map((l, i) => ({
-              id: i + 1,
-              compra_id: id,
-              descripcion: l.descripcion,
-              cantidad: costeo!.lineas[i].cantidad,
-              precio_linea_usd_cents: costeo!.lineas[i].precio_linea_usd_cents,
-              tax_linea_usd_cents: costeo!.lineas[i].tax_linea_usd_cents,
-              peso_linea_mlb: costeo!.lineas[i].peso_linea_mlb,
-              envio_asignado_usd_cents: costeo!.lineas[i].envio_asignado_usd_cents,
-              otros_asignados_usd_cents: costeo!.lineas[i].otros_asignados_usd_cents,
-              costo_linea_usd_cents: costeo!.lineas[i].costo_linea_usd_cents,
-              costo_unitario_usd_cents: costeo!.lineas[i].costo_unitario_usd_cents,
-              destino: l.destino,
-              venta_id: l.venta_id,
-              orden: i,
-              precio_venta_usd_cents: l.precio_venta_usd_cents,
-              es_multipack: l.es_multipack,
-              packs_comprados: l.packs_comprados,
-              unidades_por_pack: l.unidades_por_pack,
-              precio_por_pack_usd_cents: l.precio_por_pack_usd_cents,
-            }))
-          : [],
+        unidades_totales: lineas.reduce((a, l) => a + l.cantidad, 0),
+        lineas,
       };
-
       db.compras = [compra, ...db.compras.filter((c) => c.id !== id)];
       return ok({ ...grupo(), id });
     },
-    previsualizar: (input) =>
-      ok(
-        costearPaquete(
-          input.lineas.map((l, i) => ({
-            id: i + 1,
-            cantidad: l.cantidad,
-            precio_linea_usd_cents: l.precio_linea_usd_cents,
-            peso_linea_mlb: l.peso_linea_mlb,
-            tax_linea_usd_cents: l.tax_linea_usd_cents,
-          })),
-          {
-            tax_bp: db.parametros.tax_bp,
-            envio_total_usd_cents: input.envio_total_usd_cents,
-            otros_costos_usd_cents: input.otros_costos_usd_cents,
-            tax_total_override_usd_cents: input.tax_total_override_usd_cents,
-          }
-        )
-      ),
+    previsualizar: (input) => {
+      const lineas = lineasCosteadas(input, 0);
+      const envio = input.envio_total_usd_cents;
+      const otros = input.otros_costos_usd_cents ?? 0;
+      const t = totalesDe(lineas, envio, otros);
+      return ok({
+        lineas,
+        subtotal_productos_usd_cents: t.subtotal_productos_usd_cents,
+        tax_total_usd_cents: t.tax_total_usd_cents,
+        envio_total_usd_cents: envio,
+        otros_costos_usd_cents: otros,
+        total_pagado_usd_cents: t.total_usd_cents,
+        peso_total_mlb: input.peso_total_mlb ?? 0,
+        unidades_totales: lineas.reduce((a, l) => a + l.cantidad, 0),
+        criterio_flete: envio + otros === 0 ? ('SIN_FLETE' as const) : ('UNIDADES' as const),
+      });
+    },
     recibir: (id) => {
       const compra = db.compras.find((c) => c.id === id);
-      if (!compra) return ok({ ...grupo(), productos_afectados: 0 });
+      if (!compra) return Promise.resolve({ success: false as const, error: 'El paquete no existe.' });
 
-      let afectados = 0;
-      for (const linea of compra.lineas) {
-        if (linea.destino !== 'INVENTARIO') continue;
-        afectados++;
-        const existente = db.productos.find(
-          (p) => p.nombre.toLowerCase() === linea.descripcion.toLowerCase()
+      // Las líneas sin producto se asocian por nombre, o se crea uno.
+      const lineas = compra.lineas.map((l) => {
+        if (l.destino !== 'INVENTARIO' || l.producto_id) return l;
+        const existente = db.productos.find((p) => normalizar(p.nombre) === normalizar(l.descripcion));
+        if (existente) return { ...l, producto_id: existente.id };
+        const nuevoId = db.siguienteId++;
+        db.productos.push(
+          recalcularProducto({
+            id: nuevoId,
+            codigo: `P-${String(nuevoId).padStart(4, '0')}`,
+            nombre: l.descripcion,
+            tiene_variantes: false,
+            valor_inventario_usd_cents: 0,
+            costo_unitario_usd_cents: 0,
+            modo_precio: 'MARGEN',
+            precio_venta_usd_cents: 0,
+            stock_minimo: db.parametros.stock_minimo_defecto,
+            peso_unitario_mlb: 0,
+            paquetes: [],
+            activo: true,
+            existencias: 0,
+            ganancia_unitaria_usd_cents: 0,
+            variantes: [{ id: nuevoId * 10, producto_id: nuevoId, existencias: 0, activo: true }],
+          })
         );
-        if (existente) {
-          db.productos = db.productos.map((p) =>
-            p.id === existente.id
-              ? recalcularProducto({
-                  ...p,
-                  paquete_id: id,
-                  existencias: p.existencias + linea.cantidad,
-                  valor_inventario_usd_cents:
-                    p.valor_inventario_usd_cents + linea.costo_linea_usd_cents,
-                  modo_precio: linea.precio_venta_usd_cents ? 'MANUAL' : p.modo_precio,
-                  precio_manual_usd_cents: linea.precio_venta_usd_cents ?? p.precio_manual_usd_cents,
-                  precio_venta_usd_cents: linea.precio_venta_usd_cents ?? p.precio_venta_usd_cents,
-                  unidades_por_paquete: linea.unidades_por_pack ?? p.unidades_por_paquete,
-                  variantes: p.variantes.map((v, i) =>
-                    i === 0 ? { ...v, existencias: v.existencias + linea.cantidad } : v
-                  ),
-                })
-              : p
-          );
-        } else {
-          const nuevoId = db.siguienteId++;
-          db.productos.push(
-            recalcularProducto({
-              id: nuevoId,
-              codigo: `P-${String(nuevoId).padStart(4, '0')}`,
-              nombre: linea.descripcion,
-              tiene_variantes: false,
-              paquete_id: id,
-              valor_inventario_usd_cents: linea.costo_linea_usd_cents,
-              costo_unitario_usd_cents: linea.costo_unitario_usd_cents,
-              modo_precio: linea.precio_venta_usd_cents ? 'MANUAL' : 'MARGEN',
-              precio_manual_usd_cents: linea.precio_venta_usd_cents,
-              precio_venta_usd_cents: linea.precio_venta_usd_cents ?? 0,
-              stock_minimo: db.parametros.stock_minimo_defecto,
-              peso_unitario_mlb: Math.round(linea.peso_linea_mlb / linea.cantidad),
-              unidades_por_paquete: linea.unidades_por_pack,
-              activo: true,
-              existencias: linea.cantidad,
-              ganancia_unitaria_usd_cents: 0,
-              variantes: [
-                { id: nuevoId * 10, producto_id: nuevoId, existencias: linea.cantidad, activo: true },
-              ],
-            })
-          );
-        }
+        return { ...l, producto_id: nuevoId };
+      });
+
+      const efectos: EfectoIngreso[] = [];
+      const ids = [...new Set(lineas.filter((l) => l.destino === 'INVENTARIO').map((l) => l.producto_id!))];
+      for (const pid of ids) {
+        const p = db.productos.find((x) => x.id === pid)!;
+        const suyas = lineas.filter((l) => l.destino === 'INVENTARIO' && l.producto_id === pid);
+        const efecto = efectoDeEntradas(
+          antesDelPaquete(p),
+          suyas.map((l) => ({ cantidad: l.cantidad, costo_linea_usd_cents: l.costo_linea_usd_cents })),
+          db.parametros.paso_redondeo_usd_cents
+        );
+        let nuevo = p;
+        for (const l of suyas) nuevo = meterUnidades(nuevo, l.cantidad, l.variante_id);
+        nuevo = {
+          ...nuevo,
+          valor_inventario_usd_cents: efecto.valor_despues_usd_cents,
+          costo_unitario_usd_cents: efecto.costo_despues_usd_cents,
+          precio_venta_usd_cents: efecto.precio_despues_usd_cents,
+          ganancia_unitaria_usd_cents: efecto.precio_despues_usd_cents - efecto.costo_despues_usd_cents,
+          paquete_id: id,
+          paquetes: [...new Set([...(p.paquetes ?? []), id])],
+          activo: true,
+        };
+        db.productos = db.productos.map((x) => (x.id === pid ? nuevo : x));
+        efectos.push({ producto_id: pid, nombre: p.nombre, modo_precio: p.modo_precio, ...efecto });
       }
 
-      db.compras = db.compras.map((c) => (c.id === id ? { ...c, estado: 'RECIBIDA' } : c));
-      return ok({ ...grupo(), productos_afectados: afectados });
+      db.compras = db.compras.map((c) =>
+        c.id === id ? { ...c, lineas, estado: 'RECIBIDA', resumen_ingreso: efectos, cerrado_en: new Date().toISOString() } : c
+      );
+      return ok({
+        ...grupo(),
+        codigo: compra.codigo,
+        productos_afectados: efectos.length,
+        productos: efectos,
+        encargos_actualizados: 0,
+      });
     },
+    corregir: (input) => {
+      const compra = db.compras.find((c) => c.id === input.id);
+      if (!compra || compra.estado !== 'RECIBIDA') {
+        return Promise.resolve({ success: false as const, error: 'Este paquete no está en el inventario.' });
+      }
+      const viejas = new Map(compra.lineas.map((l) => [l.id, l]));
+      const lineas = lineasCosteadas(input, compra.id, compra.lineas);
+      const efectos: EfectoIngreso[] = [];
+      const ids = [...new Set(lineas.filter((l) => l.destino === 'INVENTARIO').map((l) => l.producto_id!))];
+      for (const pid of ids) {
+        const p = db.productos.find((x) => x.id === pid);
+        if (!p) continue;
+        const suyas = lineas.filter((l) => l.destino === 'INVENTARIO' && l.producto_id === pid);
+        const cambios = suyas
+          .filter((l) => viejas.has(l.id))
+          .map((l) => ({
+            unidades_de_la_linea: l.cantidad,
+            diferencia_usd_cents: l.costo_linea_usd_cents - viejas.get(l.id)!.costo_linea_usd_cents,
+          }))
+          .filter((c) => c.diferencia_usd_cents !== 0);
+        const nuevas = suyas.filter((l) => !viejas.has(l.id));
+        if (cambios.length === 0 && nuevas.length === 0) continue;
+        const efecto = efectoDeCorreccion(
+          antesDelPaquete(p),
+          cambios,
+          nuevas.map((l) => ({ cantidad: l.cantidad, costo_linea_usd_cents: l.costo_linea_usd_cents })),
+          db.parametros.paso_redondeo_usd_cents
+        );
+        let nuevo = p;
+        for (const l of nuevas) nuevo = meterUnidades(nuevo, l.cantidad, l.variante_id);
+        nuevo = {
+          ...nuevo,
+          valor_inventario_usd_cents: efecto.valor_despues_usd_cents,
+          costo_unitario_usd_cents: efecto.costo_despues_usd_cents,
+          precio_venta_usd_cents: efecto.precio_despues_usd_cents,
+          ganancia_unitaria_usd_cents: efecto.precio_despues_usd_cents - efecto.costo_despues_usd_cents,
+        };
+        db.productos = db.productos.map((x) => (x.id === pid ? nuevo : x));
+        efectos.push({
+          producto_id: pid,
+          nombre: p.nombre,
+          modo_precio: p.modo_precio,
+          ...efecto,
+          correccion_usd_cents: efecto.aplicado_usd_cents,
+        });
+      }
+      const envio = input.envio_total_usd_cents;
+      const otros = input.otros_costos_usd_cents ?? 0;
+      db.compras = db.compras.map((c) =>
+        c.id === compra.id
+          ? {
+              ...c,
+              fecha: input.fecha,
+              lineas,
+              envio_total_usd_cents: envio,
+              otros_costos_usd_cents: otros,
+              ...totalesDe(lineas, envio, otros),
+              peso_total_mlb: input.peso_total_mlb ?? 0,
+              notas: input.notas,
+              unidades_totales: lineas.reduce((a, l) => a + l.cantidad, 0),
+              corregido_en: new Date().toISOString(),
+            }
+          : c
+      );
+      return ok({
+        ...grupo(),
+        codigo: compra.codigo,
+        productos_afectados: efectos.length,
+        productos: efectos,
+        encargos_actualizados: 0,
+      });
+    },
+    reconstruir: () =>
+      ok({
+        lineas: [],
+        subtotal_productos_usd_cents: 0,
+        tax_total_usd_cents: 0,
+        envio_total_usd_cents: 0,
+        otros_costos_usd_cents: 0,
+        total_usd_cents: 0,
+        unidades_totales: 0,
+        avisos: ['El simulador no tiene paquetes de antes del cambio.'],
+      }),
+    completarReconstruccion: () => ok({ ...grupo(), lineas: 0 }),
+    historialProducto: (producto_id) =>
+      ok(
+        db.compras.flatMap((c) =>
+          c.lineas
+            .filter((l) => l.producto_id === producto_id && l.destino === 'INVENTARIO')
+            .map((linea) => ({ compra_id: c.id, codigo: c.codigo, fecha: c.fecha, estado: c.estado, linea }))
+        )
+      ),
     archivar: (id) => {
-      db.compras = db.compras.filter((c) => c.id !== id);
+      const c = db.compras.find((x) => x.id === id);
+      if (c?.estado === 'RECIBIDA' && c.lineas.length > 0) {
+        return Promise.resolve({
+          success: false as const,
+          error: 'Este paquete ya está en el inventario y no se puede eliminar. Si algo está mal, usá "Corregir".',
+        });
+      }
+      db.compras = db.compras.filter((x) => x.id !== id);
       return ok(grupo());
     },
   },
@@ -738,7 +956,7 @@ const api: ApiPuente = {
           if (!l.producto_id) continue;
           db.productos = db.productos.map((p) =>
             p.id === l.producto_id
-              ? recalcularProducto({
+              ? sinCambiarPrecio({
                   ...p,
                   existencias: Math.max(0, p.existencias - l.cantidad),
                   valor_inventario_usd_cents: Math.max(
@@ -790,6 +1008,9 @@ const api: ApiPuente = {
       }
 
       const saldoUsdCents = Math.max(0, total - pagadoUsdCents);
+      const anticipoEsperado = esEncargo
+        ? Math.round((total * (input.anticipo_bp ?? db.parametros.anticipo_defecto_bp)) / 10000)
+        : 0;
 
       db.ventas.unshift({
         id,
@@ -798,16 +1019,22 @@ const api: ApiPuente = {
         cliente_nombre: db.clientes.find((c) => c.id === input.cliente_id)?.nombre,
         fecha: input.fecha,
         tipo: input.tipo,
-        estado: esEncargo ? (saldoUsdCents === 0 ? 'PENDIENTE' : 'COTIZADA') : input.entregar_ahora === false ? 'PENDIENTE' : 'ENTREGADA',
+        estado: esEncargo
+          ? estadoInicialEncargo({
+              total_usd_cents: total,
+              pagado_usd_cents: pagadoUsdCents,
+              anticipo_esperado_usd_cents: anticipoEsperado,
+            })
+          : input.entregar_ahora === false
+            ? 'PENDIENTE'
+            : 'ENTREGADA',
         tasa_cambio_cents: db.parametros.tasa_cambio_cents,
         total_usd_cents: total,
         costo_total_usd_cents: costo,
         ganancia_usd_cents: total - costo,
         pagado_usd_cents: pagadoUsdCents,
         saldo_usd_cents: saldoUsdCents,
-        anticipo_esperado_usd_cents: esEncargo
-          ? Math.round((total * (input.anticipo_bp ?? db.parametros.anticipo_defecto_bp)) / 10000)
-          : 0,
+        anticipo_esperado_usd_cents: anticipoEsperado,
         notas: input.notas,
         activo: true,
         lineas,

@@ -302,7 +302,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
         const cols: Columna<(typeof enRango)[number]>[] = [
           { titulo: 'Paquete', valor: (c) => c.codigo },
           { titulo: 'Fecha', valor: (c) => c.fecha },
-          { titulo: 'Estado', valor: (c) => (c.estado === 'RECIBIDA' ? 'Recibido' : 'Borrador') },
+          { titulo: 'Estado', valor: (c) => (c.estado === 'RECIBIDA' ? 'En inventario' : 'Cargando') },
           { titulo: 'Productos (USD)', valor: (c) => dinero(c.subtotal_productos_usd_cents) },
           { titulo: 'Impuesto (USD)', valor: (c) => dinero(c.tax_total_usd_cents) },
           { titulo: 'Envio (USD)', valor: (c) => dinero(c.envio_total_usd_cents) },

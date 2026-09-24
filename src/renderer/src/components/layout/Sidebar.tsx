@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   LayoutDashboard,
   Boxes,
-  PackagePlus,
   ShoppingBag,
   ClipboardList,
   Users,
@@ -41,7 +40,7 @@ interface SidebarProps {
 export const TITULOS: Record<NavTab, string> = {
   panel: 'Inicio',
   inventario: 'Inventario',
-  paquetes: 'Paquetes',
+  paquetes: 'Inventario',
   ventas: 'Ventas',
   encargos: 'Encargos',
   cobranza: 'Cobros y Abonos',
@@ -87,8 +86,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     tono?: 'danger' | 'warning';
   }[] = [
     { id: 'panel', icon: LayoutDashboard },
+    // Paquetes es una pestaña de Inventario: la mercadería entra por ahí.
     { id: 'inventario', icon: Boxes, badge: avisos.bajoStock, tono: 'warning' },
-    { id: 'paquetes', icon: PackagePlus },
     { id: 'ventas', icon: ShoppingBag },
     { id: 'encargos', icon: ClipboardList, badge: avisos.encargosPendientes, tono: 'warning' },
     { id: 'cobranza', icon: HandCoins, badge: avisos.porCobrar, tono: 'danger' },
@@ -140,7 +139,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <nav className={cn('space-y-1 flex-1', colapsada ? 'p-1.5' : 'p-3')} aria-label="Menú principal">
         {items.map((item) => {
           const Icon = item.icon;
-          const activo = activeTab === item.id;
+          const activo =
+            activeTab === item.id || (item.id === 'inventario' && activeTab === 'paquetes');
           const tieneBadge = item.badge !== undefined && item.badge > 0;
 
           return (

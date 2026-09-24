@@ -143,6 +143,14 @@ export function registrarHandlers(): void {
     ProductosRepo.movimientos(producto_id)
   );
 
+  manejar(IPC.PRODUCTOS_PRECIOS_DESACTUALIZADOS, () => ProductosRepo.preciosDesactualizados());
+
+  manejar(IPC.PRODUCTOS_APLICAR_PRECIOS, async (ids: number[]) => {
+    const evento_grupo_id = nuevoGrupo();
+    const actualizados = await ProductosRepo.aplicarPrecios(ids, evento_grupo_id);
+    return { evento_grupo_id, actualizados };
+  });
+
   manejar(IPC.PRODUCTOS_SIMULAR_PRECIO, async (input: Parameters<typeof calcularPrecio>[0]) => {
     const params = await ParametrosRepo.getParametros();
     return calcularPrecio({
@@ -179,6 +187,27 @@ export function registrarHandlers(): void {
     await ComprasRepo.archivar(id, evento_grupo_id);
     return { evento_grupo_id };
   });
+
+  manejar(
+    IPC.COMPRAS_CORREGIR,
+    async (input: Parameters<typeof ComprasRepo.corregir>[0]) => {
+      const evento_grupo_id = nuevoGrupo();
+      const r = await ComprasRepo.corregir(input, evento_grupo_id);
+      return { evento_grupo_id, ...r };
+    }
+  );
+
+  manejar(IPC.COMPRAS_RECONSTRUIR, (id: number) => ComprasRepo.reconstruir(id));
+
+  manejar(IPC.COMPRAS_COMPLETAR_RECONSTRUCCION, async (id: number) => {
+    const evento_grupo_id = nuevoGrupo();
+    const lineas = await ComprasRepo.completarReconstruccion(id, evento_grupo_id);
+    return { evento_grupo_id, lineas };
+  });
+
+  manejar(IPC.COMPRAS_HISTORIAL_PRODUCTO, (producto_id: number) =>
+    ComprasRepo.historialDeProducto(producto_id)
+  );
 
   // -------------------------------------------------------------------------
   // Ventas

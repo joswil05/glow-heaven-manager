@@ -153,20 +153,15 @@ export interface Producto {
   valor_inventario_usd_cents: number;
   /** Derivado de valor / existencias. */
   costo_unitario_usd_cents: number;
-  /** Precio en la tienda + impuesto, por unidad. Sin flete. */
-  costo_base_unitario_usd_cents?: number;
-  /** El flete del paquete que le tocó a este producto, en total. Es el exacto. */
-  flete_total_usd_cents?: number;
-  /** El flete por unidad, redondeado. Sólo para mostrar. */
-  flete_unitario_usd_cents?: number;
   /**
-   * Lo que se escribió en la tienda, por unidad. Sin impuesto y sin flete.
-   *
-   * Se guarda aparte aunque se pueda despejar del costo base, porque es el
-   * número que la persona escribió y el que hay que devolverle al editar. La
-   * ficha mostraba el costo con todo adentro bajo la etiqueta "lo que costó en
-   * la tienda", y guardar sin tocar nada le sumaba impuesto y flete otra vez.
+   * HEREDADOS de `v2.11`, cuando el flete se le repartía al producto. Ya no
+   * los escribe ni los lee ningún cálculo: el costo sale de las líneas de los
+   * paquetes. Quedan en los documentos viejos y sólo los usa la
+   * reconstrucción del contenido de un paquete anterior al cambio.
    */
+  costo_base_unitario_usd_cents?: number;
+  flete_total_usd_cents?: number;
+  flete_unitario_usd_cents?: number;
   precio_tienda_unitario_usd_cents?: number;
   /** Todos los paquetes que lo trajeron alguna vez. `paquete_id` es el último. */
   paquetes?: number[];
@@ -179,15 +174,13 @@ export interface Producto {
 
   stock_minimo: number;
   peso_unitario_mlb: number;
-  /** Si viene en paquete con varias unidades (ej. 5 boxers por pack). */
+  /** Si se vende también por pack, cuántas unidades trae (ej. 5 boxers). */
   unidades_por_paquete?: number;
-  /** Cantidad de packs comprados en la adquisición inicial (ej. 2 packs de 5). */
+  /** HEREDADOS: la compra del pack ahora vive en la línea del paquete. */
   packs_comprados?: number;
-  /** Costo de compra en USA por el paquete completo (en centavos USD). */
   costo_pack_usa_usd_cents?: number;
-  /** Si se aplicó tax de USA (7%) al calcular el costo unitario del pack. */
   aplicar_tax_usa?: boolean;
-  /** Paquete de courier del que provino (opcional). */
+  /** El último paquete que lo repuso. */
   paquete_id?: number;
   /**
    * Miniatura del producto como data URL. Se guarda ya reducida (400px de
@@ -236,29 +229,96 @@ export interface CompraLinea {
   descripcion: string;
   cantidad: number;
 
+  /** Lo que costó la línea completa en la tienda, sin impuesto. */
   precio_linea_usd_cents: number;
   tax_linea_usd_cents: number;
+  /** La tienda no cobró impuesto por esta línea. */
+  exento?: boolean;
   peso_linea_mlb: number;
+  /** El peso salió del reparto, no lo escribió nadie. */
+  peso_estimado?: boolean;
   envio_asignado_usd_cents: number;
   otros_asignados_usd_cents: number;
+  /** Tienda + impuesto + flete + otros, de la línea completa. Es el exacto. */
   costo_linea_usd_cents: number;
+  /** El costo por unidad, redondeado. Para mostrar. */
   costo_unitario_usd_cents: number;
 
   destino: DestinoLinea;
   venta_id?: number;
+  /** La línea del encargo que trae esto. Sin ella se busca por descripción. */
+  venta_linea_id?: number;
   orden: number;
 
   // Complementarios para mostrar
   producto_nombre?: string;
   cliente_nombre?: string;
 
-  // Precio de venta manual elegido por el usuario para este producto
-  precio_venta_usd_cents?: number;
-  // Soporte de multipacks (ej. paquetes de boxers)
+  // Cómo se escribió, para devolverlo igual al editar
   es_multipack?: boolean;
   packs_comprados?: number;
   unidades_por_pack?: number;
   precio_por_pack_usd_cents?: number;
+}
+
+/** Cómo quedó un producto después de que le entró (o se corrigió) un paquete. */
+export interface EfectoIngreso {
+  producto_id: number;
+  nombre: string;
+  modo_precio: ModoPrecio;
+  existencias_antes: number;
+  existencias_despues: number;
+  valor_antes_usd_cents: number;
+  valor_despues_usd_cents: number;
+  costo_antes_usd_cents: number;
+  costo_despues_usd_cents: number;
+  precio_antes_usd_cents: number;
+  precio_despues_usd_cents: number;
+  bajo_costo: boolean;
+  /** En una corrección: lo que se le sumó o restó al valor de la bodega. */
+  correccion_usd_cents?: number;
+}
+
+export interface ResultadoIngreso {
+  codigo: string;
+  productos_afectados: number;
+  productos: EfectoIngreso[];
+  /** Encargos que congelaron su costo real con este paquete. */
+  encargos_actualizados: number;
+}
+
+/** Una línea en la que vino un producto, con el paquete que la trajo. */
+export interface EntradaDeProducto {
+  compra_id: number;
+  codigo: string;
+  fecha: string;
+  estado: EstadoCompra;
+  linea: CompraLinea;
+}
+
+/** El contenido de un paquete anterior al cambio, reconstruido para revisarlo. */
+export interface ReconstruccionPaquete {
+  lineas: CompraLinea[];
+  subtotal_productos_usd_cents: number;
+  tax_total_usd_cents: number;
+  envio_total_usd_cents: number;
+  otros_costos_usd_cents: number;
+  total_usd_cents: number;
+  unidades_totales: number;
+  /** Productos anotados en el paquete que no se pudieron incluir, y por qué. */
+  avisos: string[];
+}
+
+/** Un producto cuyo precio guardado no es el que corresponde a su costo. */
+export interface PrecioDesactualizado {
+  producto_id: number;
+  codigo: string;
+  nombre: string;
+  modo_precio: ModoPrecio;
+  existencias: number;
+  costo_unitario_usd_cents: number;
+  precio_actual_usd_cents: number;
+  precio_calculado_usd_cents: number;
 }
 
 export interface Compra {
@@ -275,11 +335,24 @@ export interface Compra {
   tax_total_usd_cents: number;
   total_usd_cents: number;
   peso_total_mlb: number;
+  /** Cómo se repartió el flete: por peso, por unidades, o no había flete. */
+  criterio_flete?: 'PESO' | 'UNIDADES' | 'SIN_FLETE';
 
   tasa_cambio_cents: number;
   notas?: string;
   activo: boolean;
   creado_en?: string;
+  /** Cuándo pasó al inventario. */
+  cerrado_en?: string;
+  /** La última vez que se corrigió después de estar en el inventario. */
+  corregido_en?: string;
+  /**
+   * El contenido se reconstruyó de los productos: es un paquete de antes de
+   * que los paquetes guardaran lo que traían.
+   */
+  reconstruido?: boolean;
+  /** Cómo quedó cada producto al entrar este paquete. */
+  resumen_ingreso?: EfectoIngreso[];
 }
 
 export interface CompraCompleta extends Compra {
@@ -391,8 +464,12 @@ export interface PagoCompleto extends Pago {
 
 export interface ResumenFinanciero {
   inversion_inventario_usd_cents: number;
-  inversion_en_camino_usd_cents: number;
   por_cobrar_usd_cents: number;
+  /**
+   * Encargos cotizados que todavía no cubrieron su anticipo. No es una deuda:
+   * la clienta no confirmó. Se muestra aparte para no inflar lo que te deben.
+   */
+  cotizado_sin_confirmar_usd_cents: number;
   anticipos_por_entregar_usd_cents: number;
   unidades_en_inventario: number;
   productos_activos: number;
@@ -457,7 +534,11 @@ export interface PanelData {
   ganancia_mes_anterior: GananciaMes | null;
   historico: GananciaMes[];
   por_cobrar: FilaPorCobrar[];
+  /** Cuántas ventas tienen saldo. `por_cobrar` trae sólo las primeras diez. */
+  total_por_cobrar: number;
   bajo_stock: FilaBajoStock[];
+  /** Cuántos productos están en el mínimo. `bajo_stock` trae sólo diez. */
+  total_bajo_stock: number;
   mas_vendidos: FilaRotacion[];
   sin_rotacion: FilaRotacion[];
   alertas: Alerta[];

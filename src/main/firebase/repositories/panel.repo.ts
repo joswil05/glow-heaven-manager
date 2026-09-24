@@ -7,6 +7,7 @@ import { formatearMoneda } from '../../../core/moneda';
 import { hoyISO, mesISO, haceDias } from '../../../core/fechas';
 import { ResumenesRepoFirestore } from './resumenes.repo';
 import { ParametrosRepoFirestore } from './parametros.repo';
+import { esDeuda, esCotizacion } from '../../../core/cobranza';
 import type { ParametrosSistema } from '../../../shared/types';
 import type {
   PanelData,
@@ -16,7 +17,6 @@ import type {
   FilaBajoStock,
   FilaRotacion,
   Alerta,
-  Compra,
   ProductoConStock,
   ClienteDetalle,
 } from '../../../shared/types';
@@ -37,7 +37,6 @@ interface Instantanea {
   /** Solo los ultimos 90 dias, en orden. Para rotacion y tendencia. */
   ventasRecientes: VentaDoc[];
   clientes: ClienteDetalle[];
-  comprasEnCamino: Compra[];
 }
 
 function mesActual(): string {
@@ -101,7 +100,7 @@ async function tomarInstantanea(forzarRefresco = false): Promise<Instantanea> {
   // `ResumenesRepoFirestore` con resúmenes por mes.
   const desde90d = haceDias(90);
 
-  const [productos, recientesSnap, conSaldoSnap, encargosSnap, clientes, comprasSnap] =
+  const [productos, recientesSnap, conSaldoSnap, encargosSnap, clientes] =
     await Promise.all([
       ProductosRepoFirestore.listar(),
       getDocs(
@@ -125,13 +124,9 @@ async function tomarInstantanea(forzarRefresco = false): Promise<Instantanea> {
         query(collection(db, 'ventas'), where('activo', '==', true), where('tipo', '==', 'ENCARGO'))
       ),
       ClientesRepoFirestore.listar(),
-      getDocs(
-        query(
-          collection(db, 'compras'),
-          where('activo', '==', true),
-          where('estado', '==', 'EN_CAMINO')
-        )
-      ),
+      // Ya no se consultan los paquetes "en camino": ninguna pantalla crea
+      // uno, así que la consulta siempre volvía vacía y costaba una lectura
+      // por cada apertura del panel.
     ]);
 
   const leer = (snap: { docs: { data: () => unknown }[] }) =>
@@ -151,9 +146,6 @@ async function tomarInstantanea(forzarRefresco = false): Promise<Instantanea> {
     ventas: [...porId.values()],
     ventasRecientes: recientes,
     clientes: clientes.filter((c) => c.activo !== false),
-    comprasEnCamino: comprasSnap.docs
-      .map((d) => d.data() as Compra)
-      .filter((c) => c.activo !== false),
   };
 
   instantaneaCache = { data: datos, timestamp: ahora };
@@ -166,11 +158,16 @@ async function tomarInstantanea(forzarRefresco = false): Promise<Instantanea> {
 
 function calcularResumen(s: Instantanea): ResumenFinanciero {
   let por_cobrar_usd_cents = 0;
+  let cotizado_sin_confirmar_usd_cents = 0;
   let anticipos_por_entregar_usd_cents = 0;
 
   for (const v of s.ventas) {
-    if (v.estado !== 'CANCELADA' && (v.saldo_usd_cents || 0) > 0) {
+    // Un encargo cotizado no es deuda: la clienta no confirmó. Se cuenta
+    // aparte para que "Te deben" diga sólo lo que de verdad te deben.
+    if (esDeuda(v)) {
       por_cobrar_usd_cents += v.saldo_usd_cents || 0;
+    } else if (esCotizacion(v)) {
+      cotizado_sin_confirmar_usd_cents += v.saldo_usd_cents || 0;
     }
     if (v.tipo === 'ENCARGO' && (v.estado === 'COTIZADA' || v.estado === 'PENDIENTE')) {
       anticipos_por_entregar_usd_cents += v.pagado_usd_cents || 0;
@@ -185,11 +182,8 @@ function calcularResumen(s: Instantanea): ResumenFinanciero {
           : (p.existencias || 0) * (p.costo_unitario_usd_cents || 0);
       return sum + (val || 0);
     }, 0),
-    inversion_en_camino_usd_cents: s.comprasEnCamino.reduce(
-      (sum, c) => sum + (c.total_usd_cents || 0),
-      0
-    ),
     por_cobrar_usd_cents,
+    cotizado_sin_confirmar_usd_cents,
     anticipos_por_entregar_usd_cents,
     unidades_en_inventario: s.productos.reduce((sum, p) => sum + (p.existencias || 0), 0),
     productos_activos: s.productos.length,
@@ -206,14 +200,21 @@ async function calcularHistorico(s: Instantanea, meses: number): Promise<Gananci
   return ResumenesRepoFirestore.historico(meses, s.ventasRecientes);
 }
 
+/** Todas las ventas que se deben. La lista del panel muestra las primeras. */
+function ventasConDeuda(s: Instantanea): VentaDoc[] {
+  return s.ventas.filter((v) => esDeuda(v));
+}
+
+function productosBajoMinimo(s: Instantanea): ProductoConStock[] {
+  return s.productos.filter((p) => p.stock_minimo > 0 && p.existencias <= p.stock_minimo);
+}
+
 function calcularPorCobrar(s: Instantanea, limite: number): FilaPorCobrar[] {
   const cliMap = new Map(s.clientes.map((c) => [c.id, c]));
   const hoy = hoyISO();
   const lista: FilaPorCobrar[] = [];
 
-  for (const v of s.ventas) {
-    if (v.estado === 'CANCELADA' || (v.saldo_usd_cents || 0) <= 0) continue;
-
+  for (const v of ventasConDeuda(s)) {
     const c = v.cliente_id ? cliMap.get(v.cliente_id) : undefined;
     const pendientes = (v.cuotas || [])
       .filter((q) => (q.pagado_usd_cents || 0) < q.monto_usd_cents)
@@ -245,8 +246,7 @@ function calcularPorCobrar(s: Instantanea, limite: number): FilaPorCobrar[] {
 }
 
 function calcularBajoStock(s: Instantanea, limite: number): FilaBajoStock[] {
-  return s.productos
-    .filter((p) => p.stock_minimo > 0 && p.existencias <= p.stock_minimo)
+  return productosBajoMinimo(s)
     .map((p) => ({
       producto_id: p.id,
       codigo: p.codigo,
@@ -301,8 +301,7 @@ function calcularAlertas(s: Instantanea, parametros?: ParametrosSistema): Alerta
   const diasGracia = parametros?.dias_alerta_mora ?? 15;
   const limiteMora = haceDias(diasGracia);
 
-  for (const v of s.ventas) {
-    if (v.estado === 'CANCELADA') continue;
+  for (const v of ventasConDeuda(s)) {
     const vencidas = (v.cuotas || []).filter(
       (q) => (q.pagado_usd_cents || 0) < q.monto_usd_cents && q.fecha_vencimiento < limiteMora
     );
@@ -371,19 +370,7 @@ function calcularAlertas(s: Instantanea, parametros?: ParametrosSistema): Alerta
     });
   }
 
-  // 5. Paquetes en camino
-  if (s.comprasEnCamino.length > 0) {
-    const total = s.comprasEnCamino.reduce((sum, c) => sum + (c.total_usd_cents || 0), 0);
-    alertas.push({
-      id: 'en-camino',
-      severidad: 'info',
-      titulo: `${s.comprasEnCamino.length} paquete${s.comprasEnCamino.length > 1 ? 's' : ''} en camino`,
-      detalle: `${dinero(total)} invertidos esperando llegar.`,
-      destino: { vista: 'paquetes' },
-    });
-  }
-
-  // 6. Productos vendiéndose bajo costo
+  // 5. Productos vendiéndose bajo costo
   const bajoCosto = s.productos.filter(
     (p) =>
       (p.costo_unitario_usd_cents || 0) > 0 &&
@@ -427,7 +414,11 @@ export class PanelRepoFirestore {
       ganancia_mes_anterior: buscarMes(mesAnterior()),
       historico,
       por_cobrar: calcularPorCobrar(s, 10),
+      // Los conteos van aparte: las tarjetas mostraban el largo de la lista
+      // cortada en diez, y con trece productos en el mínimo decían diez.
+      total_por_cobrar: ventasConDeuda(s).length,
       bajo_stock: calcularBajoStock(s, 10),
+      total_bajo_stock: productosBajoMinimo(s).length,
       mas_vendidos: rotacion
         .filter((r) => r.unidades_vendidas_90d > 0)
         .sort((a, b) => b.unidades_vendidas_90d - a.unidades_vendidas_90d)

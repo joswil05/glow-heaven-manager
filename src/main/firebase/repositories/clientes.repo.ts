@@ -4,6 +4,7 @@ import { EventosRepoFirestore } from './eventos.repo';
 import type { ClienteDetalle } from '../../../shared/types';
 import { formatearMoneda } from '../../../core/moneda';
 import { algunoContiene } from '../../../core/texto';
+import { esDeuda } from '../../../core/cobranza';
 
 export interface GuardarClienteInput {
   id?: number;
@@ -209,6 +210,7 @@ export class ClientesRepoFirestore {
     for (const d of snap.docs) {
       const v = d.data() as {
         estado: string;
+        tipo: string;
         fecha?: string;
         total_usd_cents?: number;
         saldo_usd_cents?: number;
@@ -217,7 +219,9 @@ export class ClientesRepoFirestore {
 
       compras_count += 1;
       total_comprado_usd_cents += v.total_usd_cents ?? 0;
-      if ((v.saldo_usd_cents ?? 0) > 0) {
+      // Con la misma regla que "Te deben en la calle": un encargo cotizado
+      // todavía no es deuda.
+      if (esDeuda(v)) {
         saldo_pendiente_usd_cents += v.saldo_usd_cents ?? 0;
       }
       if (v.fecha && (!ultima_compra || v.fecha > ultima_compra)) {

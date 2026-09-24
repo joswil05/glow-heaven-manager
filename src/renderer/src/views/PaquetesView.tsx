@@ -1,7 +1,26 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Package, Plus, CheckCircle2, FileEdit, Trash2, Boxes, Truck, Scale, Clock, X, Copy, Eye } from 'lucide-react';
+import {
+  Package,
+  Plus,
+  FileEdit,
+  Trash2,
+  Boxes,
+  Scale,
+  Clock,
+  X,
+  Copy,
+  Eye,
+  Wrench,
+  FileSearch,
+} from 'lucide-react';
 import { cn } from '../lib/cn';
-import type { Compra, CompraCompleta, Venta, ParametrosSistema } from '../../../shared/types';
+import type {
+  Compra,
+  CompraCompleta,
+  Venta,
+  ParametrosSistema,
+  Categoria,
+} from '../../../shared/types';
 import {
   Card,
   CardContent,
@@ -17,30 +36,59 @@ import {
 } from '../components/ui';
 import { EmptyState } from '../components/shared/EmptyState';
 import { PaqueteEditor } from './paquetes/PaqueteEditor';
+import { ReconstruccionModal } from './paquetes/ReconstruccionModal';
+import { ResumenIngreso } from './paquetes/ResumenIngreso';
 import { useClickOutside } from '../lib/useClickOutside';
 import { useToast } from '../context/ToastContext';
 import { formatearMoneda, formatearPeso, formatearFecha } from '@core/moneda';
 
+/**
+ * Los paquetes: lo que entró al inventario y lo que costó.
+ *
+ * Vive como pestaña de Inventario, porque es la mitad de la misma pregunta:
+ * Productos dice lo que hay, Paquetes dice de dónde vino y cuánto se pagó.
+ */
+
 interface PaquetesViewProps {
   parametros: ParametrosSistema | null;
+  categorias: Categoria[];
   abrirEditorAlEntrar?: boolean;
   onCambio: () => void;
 }
 
-const ESTADO_TONO: Record<string, Tone> = {
-  BORRADOR: 'neutral',
-  EN_CAMINO: 'warning',
-  RECIBIDA: 'success',
+/**
+ * Los estados guardados no cambiaron (para no migrar documentos), pero lo que
+ * se muestra sí: "recibido" no le hacía sentido a la dueña, porque el paquete
+ * se registra cuando ya está en sus manos.
+ */
+type EstadoVisible = 'CARGANDO' | 'EN_INVENTARIO' | 'SIN_CONTENIDO';
+
+const estadoVisible = (c: Compra): EstadoVisible =>
+  c.estado !== 'RECIBIDA'
+    ? 'CARGANDO'
+    : // `cerrado_en` lo pone el paquete al entrar con sus líneas; los de antes
+      // del cambio no lo tienen, y su contenido está en los productos.
+      c.cerrado_en || c.reconstruido || c.subtotal_productos_usd_cents > 0
+      ? 'EN_INVENTARIO'
+      : 'SIN_CONTENIDO';
+
+const ESTADO_TONO: Record<EstadoVisible, Tone> = {
+  CARGANDO: 'warning',
+  EN_INVENTARIO: 'success',
+  SIN_CONTENIDO: 'neutral',
 };
 
-const ESTADO_TEXTO: Record<string, string> = {
-  BORRADOR: 'Borrador',
-  EN_CAMINO: 'En camino',
-  RECIBIDA: 'Recibido',
+const ESTADO_TEXTO: Record<EstadoVisible, string> = {
+  CARGANDO: 'Cargando',
+  EN_INVENTARIO: 'En inventario',
+  SIN_CONTENIDO: 'Sin contenido',
 };
+
+const $ = (c: number) => formatearMoneda(c, 'USD');
 
 export const PaquetesView: React.FC<PaquetesViewProps> = ({
   parametros,
+  categorias,
   abrirEditorAlEntrar = false,
   onCambio,
 }) => {
@@ -52,9 +100,8 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
   const [editorAbierto, setEditorAbierto] = useState(abrirEditorAlEntrar);
   const [compraEditando, setCompraEditando] = useState<CompraCompleta | null>(null);
   const [detalle, setDetalle] = useState<CompraCompleta | null>(null);
-  const [porConfirmar, setPorConfirmar] = useState<
-    { tipo: 'recibir' | 'archivar'; compra: Compra } | null
-  >(null);
+  const [reconstruyendo, setReconstruyendo] = useState<Compra | null>(null);
+  const [borrando, setBorrando] = useState<Compra | null>(null);
   const [menuContextual, setMenuContextual] = useState<{
     x: number;
     y: number;
@@ -68,7 +115,7 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
     try {
       const [rc, re] = await Promise.all([
         window.api.compras.list(),
-        // Encargos que ya se pueden comprar: el anticipo entró.
+        // Encargos que ya se pueden comprar: el anticipo está cubierto.
         window.api.ventas.list({ tipo: 'ENCARGO', estado: 'PENDIENTE' }),
       ]);
       if (rc.success) setCompras(rc.data);
@@ -89,12 +136,13 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
     }
   }, [abrirEditorAlEntrar]);
 
-  const abrirParaEditar = async (id: number) => {
+  const abrirEditor = async (id: number) => {
     const r = await window.api.compras.get(id);
     if (!r.success || !r.data) {
       showToast({ message: 'No se pudo abrir el paquete.', type: 'error' });
       return;
     }
+    setDetalle(null);
     setCompraEditando(r.data);
     setEditorAbierto(true);
   };
@@ -108,48 +156,35 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
     if (r.success && r.data) setDetalle(r.data);
   };
 
-  const recibir = async (c: Compra) => {
-    const r = await window.api.compras.recibir(c.id);
-    if (!r.success) {
-      showToast({ message: r.error, type: 'error' });
-      return;
-    }
-    showToast({
-      message: `${c.codigo} recibido. ${r.data.productos_afectados} producto(s) al inventario.`,
-      type: 'success',
-    });
-    await cargar();
-    setDetalle(null);
-    onCambio();
-  };
-
-  const archivar = async (c: Compra) => {
+  const borrar = async (c: Compra) => {
     const r = await window.api.compras.archivar(c.id);
     if (!r.success) {
       showToast({ message: r.error, type: 'error' });
       return;
     }
     showUndoToast(`Paquete ${c.codigo} eliminado`, cargar, r.data.evento_grupo_id);
+    setDetalle(null);
     await cargar();
     onCambio();
   };
 
-  const enCamino = compras.filter((c) => c.estado === 'EN_CAMINO');
-  const invertidoEnCamino = enCamino.reduce((a, c) => a + c.total_usd_cents, 0);
-  const recibidos = compras.filter((c) => c.estado === 'RECIBIDA');
-  const gastadoTotal = recibidos.reduce((a, c) => a + c.total_usd_cents, 0);
+  const alGuardar = async () => {
+    await cargar();
+    setDetalle(null);
+    onCambio();
+  };
 
-  const historicoCourier = useMemo(() => {
-    const totalLibrasMlb = compras.reduce((a, c) => a + c.peso_total_mlb, 0);
-    const totalEnvioUsdCents = compras.reduce((a, c) => a + c.envio_total_usd_cents, 0);
-    const totalLbs = totalLibrasMlb / 1000;
-    const costoPromedioPorLb = totalLbs > 0 ? Math.round(totalEnvioUsdCents / totalLbs) : 0;
-    return {
-      totalLibrasMlb,
-      totalEnvioUsdCents,
-      costoPromedioPorLb,
-    };
-  }, [compras]);
+  const enInventario = compras.filter((c) => c.estado === 'RECIBIDA');
+  const sinContenido = compras.filter((c) => estadoVisible(c) === 'SIN_CONTENIDO');
+  const cargandose = compras.filter((c) => c.estado !== 'RECIBIDA');
+  const pagadoTotal = enInventario.reduce((a, c) => a + c.total_usd_cents, 0);
+  const librasTotales = enInventario.reduce((a, c) => a + c.peso_total_mlb, 0);
+
+  const costoPorLibra = useMemo(() => {
+    const flete = enInventario.reduce((a, c) => a + c.envio_total_usd_cents, 0);
+    const lb = librasTotales / 1000;
+    return lb > 0 ? Math.round(flete / lb) : 0;
+  }, [enInventario, librasTotales]);
 
   const columnas: Column<Compra>[] = [
     {
@@ -161,8 +196,8 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
             <Package className="w-4 h-4 text-texto-3" />
           </div>
           <div className="min-w-0">
-            <div className="text-body font-semibold text-texto tracking-tight">{c.codigo}</div>
-            <div className="text-caption font-mono text-texto-3">{formatearFecha(c.fecha)}</div>
+            <div className="text-body font-semibold text-texto tracking-tight whitespace-nowrap">{c.codigo}</div>
+            <div className="text-caption font-mono text-texto-3 whitespace-nowrap">{formatearFecha(c.fecha)}</div>
           </div>
         </div>
       ),
@@ -170,28 +205,27 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
     {
       key: 'estado',
       header: 'Estado',
-      width: '130px',
-      render: (c) => (
-        <Badge tone={ESTADO_TONO[c.estado]} className="gap-1.5 font-medium">
-          <span
-            className={cn(
-              'w-1.5 h-1.5 rounded-full shrink-0',
-              c.estado === 'RECIBIDA'
-                ? 'bg-acento'
-                : c.estado === 'EN_CAMINO'
-                  ? 'bg-alerta animate-pulse'
-                  : 'bg-superficie-2'
-            )}
-          />
-          {ESTADO_TEXTO[c.estado]}
-        </Badge>
-      ),
+      width: '140px',
+      render: (c) => {
+        const e = estadoVisible(c);
+        return (
+          <Badge tone={ESTADO_TONO[e]} className="gap-1.5 font-medium whitespace-nowrap">
+            <span
+              className={cn(
+                'w-1.5 h-1.5 rounded-full shrink-0',
+                e === 'EN_INVENTARIO' ? 'bg-acento' : e === 'CARGANDO' ? 'bg-alerta' : 'bg-texto-3'
+              )}
+            />
+            {ESTADO_TEXTO[e]}
+          </Badge>
+        );
+      },
     },
     {
       key: 'peso',
       header: 'Peso',
       align: 'right',
-      width: '110px',
+      width: '100px',
       render: (c) => (
         <span className="text-label text-texto-2 tabular font-mono">
           {formatearPeso(c.peso_total_mlb)}
@@ -199,93 +233,119 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
       ),
     },
     {
-      key: 'envio',
-      header: 'Envío',
+      key: 'mercaderia',
+      header: 'Tienda + 7%',
       align: 'right',
-      width: '130px',
-      render: (c) => <Money usd_cents={c.envio_total_usd_cents} size="sm" soloUsd />,
+      width: '140px',
+      render: (c) =>
+        estadoVisible(c) === 'SIN_CONTENIDO' ? (
+          <span className="text-caption text-texto-3">sin registrar</span>
+        ) : (
+          <Money
+            usd_cents={c.subtotal_productos_usd_cents + c.tax_total_usd_cents}
+            size="sm"
+            soloUsd
+          />
+        ),
+    },
+    {
+      key: 'envio',
+      header: 'Flete',
+      align: 'right',
+      width: '120px',
+      render: (c) => <Money usd_cents={c.envio_total_usd_cents + c.otros_costos_usd_cents} size="sm" soloUsd />,
     },
     {
       key: 'total',
-      header: 'Total pagado',
+      header: 'Pagado',
       align: 'right',
-      width: '170px',
+      width: '150px',
       render: (c) => <Money usd_cents={c.total_usd_cents} size="sm" />,
     },
     {
       key: 'acciones',
       header: '',
       align: 'right',
-      width: '250px',
-      render: (c) => (
-        <div className="flex items-center justify-end gap-1.5">
-          {c.estado !== 'RECIBIDA' ? (
-            <>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  abrirParaEditar(c.id);
-                }}
-              >
-                <FileEdit className="w-3.5 h-3.5" />
-                <span>Editar</span>
-              </Button>
+      width: '230px',
+      render: (c) => {
+        const e = estadoVisible(c);
+        return (
+          <div className="flex items-center justify-end gap-1.5">
+            {e === 'CARGANDO' && (
               <Button
                 size="sm"
                 variant="primary"
                 className="shadow-xs"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setPorConfirmar({ tipo: 'recibir', compra: c });
+                onClick={(ev) => {
+                  ev.stopPropagation();
+                  abrirEditor(c.id);
                 }}
               >
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Recibí</span>
+                <FileEdit className="w-3.5 h-3.5" />
+                <span>Seguir cargando</span>
               </Button>
-            </>
-          ) : (
-            <span className="text-caption text-texto-3 mr-1 inline-flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5 text-acento" />
-              Recibido
-            </span>
-          )}
-          <Button
-            size="sm"
-            variant="ghost"
-            aria-label={`Eliminar ${c.codigo}`}
-            title="Eliminar paquete"
-            className="text-texto-3 hover:text-danger-600 rounded-lg"
-            onClick={(e) => {
-              e.stopPropagation();
-              setPorConfirmar({ tipo: 'archivar', compra: c });
-            }}
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </Button>
-        </div>
-      ),
+            )}
+            {e === 'EN_INVENTARIO' && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={(ev) => {
+                  ev.stopPropagation();
+                  abrirEditor(c.id);
+                }}
+              >
+                <Wrench className="w-3.5 h-3.5" />
+                <span>Corregir</span>
+              </Button>
+            )}
+            {e === 'SIN_CONTENIDO' && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={(ev) => {
+                  ev.stopPropagation();
+                  setReconstruyendo(c);
+                }}
+              >
+                <FileSearch className="w-3.5 h-3.5" />
+                <span>Completar contenido</span>
+              </Button>
+            )}
+            {e === 'CARGANDO' && (
+              <Button
+                size="sm"
+                variant="ghost"
+                aria-label={`Eliminar ${c.codigo}`}
+                title="Eliminar paquete"
+                className="text-texto-3 hover:text-danger-600 rounded-lg"
+                onClick={(ev) => {
+                  ev.stopPropagation();
+                  setBorrando(c);
+                }}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </Button>
+            )}
+          </div>
+        );
+      },
     },
   ];
+
+  const estadoDetalle = detalle ? estadoVisible(detalle) : null;
 
   return (
     <div className="flex-1 flex overflow-hidden">
       <div className="flex-1 overflow-y-auto p-4 md:px-6 md:py-4 animate-fade-in scroll-smooth">
         <div className="max-w-[1500px] w-full mx-auto space-y-4 stagger-children">
-          {/* Barra superior estilizada idéntica a la del inicio */}
-        <div className="flex items-center justify-between gap-3 pb-1 border-b border-borde/40 text-caption text-texto-3 shrink-0 flex-wrap">
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-texto text-body">Envíos y Paquetes USA</span>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-alerta-suave text-alerta-fuerte border border-alerta-suave">
-              <span className="w-1.5 h-1.5 rounded-full bg-alerta" />
-              {compras.length} paquete{compras.length === 1 ? '' : 's'}
-            </span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="hidden md:inline-block text-[11px] text-texto-3">
-              Prorrateo de flete, peso y taxes
-            </span>
+          <div className="flex items-center justify-between gap-3 pb-1 border-b border-borde/40 text-caption text-texto-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-texto text-body">Paquetes</span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-acento/10 text-acento border border-acento/20">
+                <span className="w-1.5 h-1.5 rounded-full bg-acento" />
+                {compras.length} paquete{compras.length === 1 ? '' : 's'}
+              </span>
+            </div>
             <Button
               variant="primary"
               size="sm"
@@ -299,295 +359,269 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
               <span>Registrar paquete</span>
             </Button>
           </div>
-        </div>
 
-        {compras.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 stagger-children">
-            <StatTile
-              label="Gastado en paquetes"
-              usd_cents={gastadoTotal}
-              tone="purple"
-              icon={Boxes}
-              hint={`${recibidos.length} paquete${recibidos.length === 1 ? '' : 's'} en tu inventario`}
-            />
-            {enCamino.length > 0 ? (
+          {compras.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 stagger-children">
               <StatTile
-                label="Registrado sin recibir"
-                usd_cents={invertidoEnCamino}
-                tone="warning"
-                icon={Truck}
-                hint={`${enCamino.length} paquete${enCamino.length === 1 ? '' : 's'} en camino`}
+                label="Pagado en paquetes"
+                usd_cents={pagadoTotal}
+                tone="purple"
+                icon={Boxes}
+                hint={
+                  sinContenido.length > 0
+                    ? `${sinContenido.length} sin contenido: sólo cuenta su flete. Completalo.`
+                    : `${enInventario.length} paquete${enInventario.length === 1 ? '' : 's'}: tienda + 7% + flete`
+                }
               />
-            ) : (
               <StatTile
                 label="Libras importadas"
-                value={formatearPeso(recibidos.reduce((a, c) => a + c.peso_total_mlb, 0))}
+                value={formatearPeso(librasTotales)}
                 tone="info"
                 icon={Scale}
-                hint="Total consolidado de paquetes"
+                hint={
+                  costoPorLibra > 0
+                    ? `El flete te sale a ${$(costoPorLibra)} por libra`
+                    : cargandose.length > 0
+                      ? `${cargandose.length} paquete${cargandose.length === 1 ? '' : 's'} cargándose`
+                      : 'De los paquetes en inventario'
+                }
               />
-            )}
-            <StatTile
-              label="Encargos por comprar"
-              value={encargos.length}
-              tone={encargos.length > 0 ? 'warning' : 'success'}
-              icon={Clock}
-              hint={
-                encargos.length > 0
-                  ? 'Clientes con anticipo registrado'
-                  : 'Sin compras de encargos pendientes'
+              <StatTile
+                label="Encargos por comprar"
+                value={encargos.length}
+                tone={encargos.length > 0 ? 'warning' : 'success'}
+                icon={Clock}
+                hint={
+                  encargos.length > 0
+                    ? 'Confirmados: el anticipo ya entró'
+                    : 'Sin encargos confirmados pendientes'
+                }
+              />
+            </div>
+          )}
+
+          {cargando ? (
+            <div className="p-12 text-center text-body text-texto-3">Cargando paquetes...</div>
+          ) : compras.length === 0 ? (
+            <EmptyState
+              icon={Package}
+              title="Todavía no hay paquetes"
+              description="Registrá el paquete cuando llegue: lo que trajo, lo que costó en la tienda, cuánto pesó y el flete. Así entra al inventario con su costo real."
+              action={
+                <Button
+                  variant="primary"
+                  onClick={() => {
+                    setCompraEditando(null);
+                    setEditorAbierto(true);
+                  }}
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Registrar el primero</span>
+                </Button>
               }
             />
-          </div>
-        )}
-
-        {cargando ? (
-          <div className="p-12 text-center text-body text-texto-3">Cargando paquetes...</div>
-        ) : compras.length === 0 ? (
-          <EmptyState
-            icon={Package}
-            title="Todavía no registraste ningún paquete"
-            description="Cuando te llegue un envío, registralo acá con lo que venía adentro, el tax y el envío total. El sistema reparte el costo y arma tu inventario."
-            action={
-              <Button
-                variant="primary"
-                onClick={() => {
-                  setCompraEditando(null);
-                  setEditorAbierto(true);
-                }}
-              >
-                <Plus className="w-4 h-4" />
-                <span>Registrar el primer paquete</span>
-              </Button>
-            }
-          />
-        ) : (
-          <div className="space-y-3.5">
-            <div className="p-3.5 rounded-xl border border-borde/80 bg-gradient-to-r from-superficie via-superficie to-alerta/5 shadow-2xs flex items-center justify-between gap-4 flex-wrap">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-alerta-suave text-alerta-fuerte flex items-center justify-center shrink-0">
-                  <Truck className="w-4 h-4" />
-                </div>
-                <div>
-                  <span className="font-semibold text-texto text-label block">Historial y Costos de Courier</span>
-                  <span className="text-caption text-texto-3">Acumulado consolidado de fletes importados</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-4 text-caption">
-                <div>
-                  <span className="text-texto-3 block text-[11px]">Total importado</span>
-                  <span className="font-bold text-texto font-mono">{formatearPeso(historicoCourier.totalLibrasMlb)}</span>
-                </div>
-                <div className="h-6 w-px bg-borde/70" />
-                <div>
-                  <span className="text-texto-3 block text-[11px]">Flete total pagado</span>
-                  <span className="font-bold text-texto font-mono">{formatearMoneda(historicoCourier.totalEnvioUsdCents, 'USD')}</span>
-                </div>
-                <div className="h-6 w-px bg-borde/70" />
-                <div>
-                  <span className="text-texto-3 block text-[11px]">Promedio por libra</span>
-                  <span className="font-bold text-alerta-fuerte font-mono">{formatearMoneda(historicoCourier.costoPromedioPorLb, 'USD')}/lb</span>
-                </div>
-              </div>
-            </div>
-
+          ) : (
             <DataTable
               columns={columnas}
               rows={compras}
               rowKey={(c) => c.id}
               selectedKey={detalle?.id}
               onRowClick={(c) => verDetalle(c.id)}
-              onRowContextMenu={(c, e) => {
-                setMenuContextual({ x: e.clientX, y: e.clientY, compra: c });
-              }}
+              onRowContextMenu={(c, e) => setMenuContextual({ x: e.clientX, y: e.clientY, compra: c })}
             />
-          </div>
-        )}
+          )}
         </div>
       </div>
 
-      {detalle && (
-        <aside ref={lateralRef} className="w-[420px] border-l border-borde bg-superficie flex flex-col shrink-0 animate-drawer shadow-xl z-10">
-          {/* Cabecera pegajosa con botón de cerrar */}
-          <div className="p-5 border-b border-borde bg-superficie-2/40 flex items-start justify-between gap-3 shrink-0">
-            <div className="flex items-start gap-3 min-w-0">
-              <div className="w-12 h-12 rounded-xl bg-acento/10 text-acento-fuerte border border-acento/20 flex items-center justify-center shrink-0 shadow-xs">
-                <Package className="w-6 h-6" />
+      {detalle && estadoDetalle && (
+        <aside
+          ref={lateralRef}
+          className="w-[420px] border-l border-borde bg-superficie flex flex-col shrink-0 animate-drawer shadow-xl z-10"
+        >
+          <div className="p-5 border-b border-borde bg-superficie-2/40 flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h3 className="text-title font-semibold text-texto">{detalle.codigo}</h3>
+                <Badge tone={ESTADO_TONO[estadoDetalle]}>{ESTADO_TEXTO[estadoDetalle]}</Badge>
               </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-title font-bold text-texto tracking-tight">{detalle.codigo}</h3>
-                  <Badge tone={ESTADO_TONO[detalle.estado]} className="gap-1.5 text-[11px]">
-                    <span
-                      className={cn(
-                        'w-1.5 h-1.5 rounded-full shrink-0',
-                        detalle.estado === 'RECIBIDA'
-                          ? 'bg-acento'
-                          : detalle.estado === 'EN_CAMINO'
-                            ? 'bg-alerta animate-pulse'
-                            : 'bg-superficie-2'
-                      )}
-                    />
-                    {ESTADO_TEXTO[detalle.estado]}
-                  </Badge>
-                </div>
-                <p className="text-caption text-texto-3 font-mono mt-0.5">
-                  {formatearFecha(detalle.fecha)} · {formatearPeso(detalle.peso_total_mlb)} ·{' '}
-                  {detalle.unidades_totales} unid.
-                </p>
-              </div>
+              <p className="text-caption text-texto-3 mt-0.5">
+                {formatearFecha(detalle.fecha)} · {formatearPeso(detalle.peso_total_mlb)} ·{' '}
+                {detalle.unidades_totales} unid.
+              </p>
             </div>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setDetalle(null)}
               aria-label="Cerrar detalle"
-              className="text-texto-3 hover:text-texto rounded-lg -mr-1 -mt-1 shrink-0"
+              className="text-texto-3 hover:text-texto rounded-lg -mr-1 -mt-1"
             >
               <X className="w-4 h-4" />
             </Button>
           </div>
 
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
-            {/* Banner de acción rápida para paquetes en camino */}
-            {detalle.estado !== 'RECIBIDA' && (
-              <div className="p-3.5 rounded-xl border border-alerta-suave bg-alerta-suave flex items-center justify-between gap-3 shadow-xs">
-                <div className="min-w-0">
-                  <p className="text-label font-semibold text-alerta">¿Ya llegó a tus manos?</p>
-                  <p className="text-caption text-alerta leading-tight">
-                    Mete las unidades directo a tu inventario activo.
-                  </p>
-                </div>
-                <Button
-                  size="sm"
-                  variant="primary"
-                  onClick={() => setPorConfirmar({ tipo: 'recibir', compra: detalle })}
-                  className="shrink-0 shadow-xs"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Recibir</span>
+            {estadoDetalle === 'CARGANDO' && (
+              <div className="p-3.5 rounded-xl border border-alerta-suave bg-alerta-suave flex items-center justify-between gap-3">
+                <p className="text-caption text-alerta leading-snug">
+                  Se está cargando: nada entró todavía al inventario.
+                </p>
+                <Button size="sm" variant="primary" onClick={() => abrirEditor(detalle.id)}>
+                  Seguir cargando
                 </Button>
               </div>
             )}
 
-            {/* Desglose financiero */}
+            {estadoDetalle === 'SIN_CONTENIDO' && (
+              <div className="p-3.5 rounded-xl border border-borde bg-superficie-2/60 space-y-2">
+                <p className="text-caption text-texto-2 leading-relaxed">
+                  Este paquete se registró antes de que los paquetes guardaran lo que traían: su
+                  total es sólo el flete. Lo que costó la mercadería está en los productos que se
+                  cargaron con él.
+                </p>
+                <Button size="sm" variant="outline" onClick={() => setReconstruyendo(detalle)}>
+                  <FileSearch className="w-3.5 h-3.5" />
+                  <span>Ver y completar su contenido</span>
+                </Button>
+              </div>
+            )}
+
             <Card className="rounded-xl border-borde/80 shadow-xs overflow-hidden">
               <div className="px-4 py-2.5 bg-superficie-2/50 border-b border-borde text-label font-medium text-texto">
-                Desglose financiero
+                Lo que se pagó
               </div>
-              <CardContent className="p-4 space-y-2.5">
-                <FilaResumen etiqueta="Productos / Mercancía" usd={detalle.subtotal_productos_usd_cents} />
-                <FilaResumen etiqueta="Tax USA" usd={detalle.tax_total_usd_cents} />
-                <FilaResumen etiqueta="Flete courier" usd={detalle.envio_total_usd_cents} />
+              <CardContent className="p-4 space-y-2">
+                <Fila etiqueta="Precio de tienda" usd={detalle.subtotal_productos_usd_cents} />
+                <Fila etiqueta={`Impuesto (${(parametros?.tax_bp ?? 700) / 100}%)`} usd={detalle.tax_total_usd_cents} />
+                <Fila etiqueta="Flete del courier" usd={detalle.envio_total_usd_cents} />
                 {detalle.otros_costos_usd_cents > 0 && (
-                  <FilaResumen etiqueta="Otros gastos de gestión" usd={detalle.otros_costos_usd_cents} />
+                  <Fila etiqueta="Otros gastos" usd={detalle.otros_costos_usd_cents} />
                 )}
-                <div className="pt-2.5 border-t border-borde flex items-center justify-between gap-2">
+                <div className="pt-2 border-t border-borde flex items-center justify-between gap-2">
                   <span className="text-body font-bold text-texto">Total pagado</span>
                   <Money usd_cents={detalle.total_usd_cents} size="md" />
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Qué venía adentro */}
-            <Card className="rounded-xl border-borde/80 shadow-xs overflow-hidden">
-              <CardContent className="p-0">
-                <div className="px-4 py-2.5 bg-superficie-2/50 border-b border-borde text-label font-medium text-texto flex items-center justify-between">
-                  <span>Qué venía adentro</span>
-                  {detalle.lineas.length > 0 && (
-                    <span className="text-caption text-texto-3">{detalle.lineas.length} artículo(s)</span>
-                  )}
-                </div>
-                {detalle.lineas.length === 0 ? (
-                  <div className="p-5 text-center space-y-2 bg-superficie">
-                    <p className="text-body font-medium text-texto">
-                      Factura de courier registrada
-                    </p>
-                    <p className="text-caption text-texto-3 leading-relaxed">
-                      Este paquete se registró con flete consolidado. Podés cargar los productos desde el módulo de <strong>Inventario</strong> vinculándolos a este paquete para heredar su tarifa de courier.
-                    </p>
-                  </div>
-                ) : (
-                  <ul className="divide-y divide-borde/60 max-h-[380px] overflow-y-auto">
-                    {detalle.lineas.map((l) => (
-                      <li key={l.id} className="px-4 py-3 hover:bg-superficie-2/20 transition-colors">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <div className="text-body font-medium text-texto truncate">
-                              {l.descripcion}
-                            </div>
-                            <div className="text-caption text-texto-3">
-                              {l.cantidad} unidad(es) · {formatearPeso(l.peso_linea_mlb)}
-                            </div>
-                          </div>
-                          <Badge tone={l.destino === 'ENCARGO' ? 'warning' : 'info'}>
-                            {l.destino === 'ENCARGO'
-                              ? l.cliente_nombre
-                                ? `Encargo: ${l.cliente_nombre}`
-                                : 'Encargo'
-                              : 'Inventario'}
-                          </Badge>
-                        </div>
-
-                        <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-0.5 text-caption">
-                          <Detalle etiqueta="Producto" usd={l.precio_linea_usd_cents} />
-                          <Detalle etiqueta="Tax" usd={l.tax_linea_usd_cents} />
-                          <Detalle etiqueta="Envío" usd={l.envio_asignado_usd_cents} />
-                          <Detalle etiqueta="Costo total" usd={l.costo_linea_usd_cents} fuerte />
-                        </dl>
-
-                        {l.cantidad > 1 && (
-                          <p className="mt-1.5 text-caption font-medium text-acento-fuerte">
-                            Cada unidad te salió en{' '}
-                            {formatearMoneda(l.costo_unitario_usd_cents, 'USD')}
-                          </p>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
+                {detalle.criterio_flete && detalle.criterio_flete !== 'SIN_FLETE' && (
+                  <p className="text-caption text-texto-3">
+                    El flete se repartió por {detalle.criterio_flete === 'PESO' ? 'peso' : 'unidades'}.
+                  </p>
                 )}
               </CardContent>
             </Card>
+
+            <Card className="rounded-xl border-borde/80 shadow-xs overflow-hidden">
+              <div className="px-4 py-2.5 bg-superficie-2/50 border-b border-borde text-label font-medium text-texto flex items-center justify-between">
+                <span>Qué vino adentro</span>
+                {detalle.lineas.length > 0 && (
+                  <span className="text-caption text-texto-3">{detalle.lineas.length} línea(s)</span>
+                )}
+              </div>
+              {detalle.lineas.length === 0 ? (
+                <p className="p-5 text-center text-caption text-texto-3">
+                  {estadoDetalle === 'CARGANDO'
+                    ? 'Todavía no tiene productos.'
+                    : 'No tiene el contenido registrado.'}
+                </p>
+              ) : (
+                <ul className="divide-y divide-borde/60 max-h-[420px] overflow-y-auto">
+                  {detalle.lineas.map((l) => (
+                    <li key={l.id} className="px-4 py-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="text-body font-medium text-texto truncate">
+                            {l.producto_nombre ?? l.descripcion}
+                          </div>
+                          {/* La cuenta de la línea, para comprobarla a mano. */}
+                          <div className="text-caption text-texto-3 tabular">
+                            {l.cantidad} × {$(Math.round(l.precio_linea_usd_cents / Math.max(1, l.cantidad)))}
+                            {' '}+ {$(l.tax_linea_usd_cents)} imp.
+                            {' '}+ {$(l.envio_asignado_usd_cents + l.otros_asignados_usd_cents)} flete
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <div className="text-body font-semibold text-texto tabular">
+                            {$(l.costo_unitario_usd_cents)} c/u
+                          </div>
+                          {l.destino === 'ENCARGO' ? (
+                            <Badge tone="warning">
+                              {l.cliente_nombre ? `Encargo de ${l.cliente_nombre}` : 'Encargo'}
+                            </Badge>
+                          ) : (
+                            <span className="text-caption text-texto-3 tabular">
+                              línea {$(l.costo_linea_usd_cents)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+
+            {detalle.resumen_ingreso && detalle.resumen_ingreso.length > 0 && (
+              <div>
+                <h4 className="text-label font-medium text-texto mb-2">Cómo quedó cada producto al entrar</h4>
+                <ResumenIngreso
+                  compacto
+                  modo="ingreso"
+                  resultado={{
+                    codigo: detalle.codigo,
+                    productos_afectados: detalle.resumen_ingreso.length,
+                    productos: detalle.resumen_ingreso,
+                    encargos_actualizados: 0,
+                  }}
+                />
+              </div>
+            )}
           </div>
+
+          {estadoDetalle === 'EN_INVENTARIO' && (
+            <div className="p-4 border-t border-borde bg-superficie-2/40">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-center rounded-xl"
+                onClick={() => abrirEditor(detalle.id)}
+              >
+                <Wrench className="w-3.5 h-3.5 mr-1.5" />
+                <span>Corregir este paquete</span>
+              </Button>
+            </div>
+          )}
         </aside>
       )}
-
-      <Confirmar
-        abierto={porConfirmar?.tipo === 'recibir'}
-        titulo={`¿Meter ${porConfirmar?.compra.codigo ?? ''} al inventario?`}
-        consecuencias={[
-          'Cada producto entra con su costo ya repartido.',
-          'El paquete queda cerrado: después no se puede editar.',
-        ]}
-        textoConfirmar="Sí, al inventario"
-        onConfirmar={() => porConfirmar && recibir(porConfirmar.compra)}
-        onCerrar={() => setPorConfirmar(null)}
-      />
-
-      <Confirmar
-        abierto={porConfirmar?.tipo === 'archivar'}
-        peligroso
-        titulo={`¿Eliminar paquete ${porConfirmar?.compra.codigo ?? ''}?`}
-        descripcion={
-          porConfirmar?.compra.estado === 'RECIBIDA'
-            ? 'El paquete se eliminará de la lista activa. Los productos que ya ingresaron a tu inventario no se borrarán.'
-            : 'El paquete se eliminará de la lista activa.'
-        }
-        textoConfirmar="Sí, eliminar"
-        onConfirmar={() => porConfirmar && archivar(porConfirmar.compra)}
-        onCerrar={() => setPorConfirmar(null)}
-      />
 
       <PaqueteEditor
         abierto={editorAbierto}
         compra={compraEditando}
-        encargosPendientes={encargos}
         parametros={parametros}
-        onCerrar={() => setEditorAbierto(false)}
-        onGuardado={async () => {
-          await cargar();
-          onCambio();
+        categorias={categorias}
+        onCerrar={() => {
+          setEditorAbierto(false);
+          setCompraEditando(null);
         }}
+        onGuardado={alGuardar}
+      />
+
+      <ReconstruccionModal
+        compra={reconstruyendo}
+        onCerrar={() => setReconstruyendo(null)}
+        onCompletado={alGuardar}
+        onCargarContenido={(c) => abrirEditor(c.id)}
+      />
+
+      <Confirmar
+        abierto={borrando !== null}
+        peligroso
+        titulo={`¿Eliminar ${borrando?.codigo ?? ''}?`}
+        consecuencias={[
+          'Se está cargando: todavía no entró nada al inventario, así que no cambia la bodega.',
+          'Los productos nuevos que creaste para este paquete siguen en el catálogo, sin existencias.',
+        ]}
+        textoConfirmar="Sí, eliminarlo"
+        onConfirmar={() => borrando && borrar(borrando)}
+        onCerrar={() => setBorrando(null)}
       />
 
       {menuContextual && (
@@ -596,63 +630,59 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
           y={menuContextual.y}
           onClose={() => setMenuContextual(null)}
           items={[
-            ...(menuContextual.compra.estado !== 'RECIBIDA'
-              ? [
-                  {
-                    id: 'recibir',
-                    label: 'Marcar como recibido',
-                    icon: <CheckCircle2 className="w-4 h-4" />,
-                    tone: 'success' as const,
-                    onClick: () => setPorConfirmar({ tipo: 'recibir', compra: menuContextual.compra }),
-                  },
-                  {
-                    id: 'editar',
-                    label: 'Editar paquete',
-                    icon: <FileEdit className="w-4 h-4" />,
-                    shortcut: 'Enter',
-                    onClick: () => abrirParaEditar(menuContextual.compra.id),
-                  },
-                ]
-              : []),
             {
-              id: 'ver-detalle',
-              label: 'Ver detalle y artículos',
+              id: 'ver',
+              label: 'Ver detalle',
               icon: <Eye className="w-4 h-4" />,
-              shortcut: 'Espacio',
               onClick: () => verDetalle(menuContextual.compra.id),
             },
+            ...(estadoVisible(menuContextual.compra) === 'CARGANDO'
+              ? [
+                  {
+                    id: 'cargar',
+                    label: 'Seguir cargando',
+                    icon: <FileEdit className="w-4 h-4" />,
+                    onClick: () => abrirEditor(menuContextual.compra.id),
+                  },
+                ]
+              : estadoVisible(menuContextual.compra) === 'EN_INVENTARIO'
+                ? [
+                    {
+                      id: 'corregir',
+                      label: 'Corregir',
+                      icon: <Wrench className="w-4 h-4" />,
+                      onClick: () => abrirEditor(menuContextual.compra.id),
+                    },
+                  ]
+                : [
+                    {
+                      id: 'completar',
+                      label: 'Completar contenido',
+                      icon: <FileSearch className="w-4 h-4" />,
+                      onClick: () => setReconstruyendo(menuContextual.compra),
+                    },
+                  ]),
             'separator' as const,
             {
-              id: 'copiar-codigo',
+              id: 'copiar',
               label: `Copiar código (${menuContextual.compra.codigo})`,
               icon: <Copy className="w-4 h-4" />,
               onClick: () => {
                 navigator.clipboard.writeText(menuContextual.compra.codigo);
-                showToast({ message: 'Código de paquete copiado al portapapeles', type: 'info' });
+                showToast({ message: 'Código copiado', type: 'info' });
               },
             },
-            ...(menuContextual.compra.notas
+            ...(estadoVisible(menuContextual.compra) === 'CARGANDO'
               ? [
                   {
-                    id: 'copiar-notas',
-                    label: 'Copiar notas del paquete',
-                    icon: <Copy className="w-4 h-4" />,
-                    onClick: () => {
-                      navigator.clipboard.writeText(menuContextual.compra.notas ?? '');
-                      showToast({ message: 'Notas copiadas al portapapeles', type: 'info' });
-                    },
+                    id: 'borrar',
+                    label: 'Eliminar paquete',
+                    icon: <Trash2 className="w-4 h-4" />,
+                    tone: 'danger' as const,
+                    onClick: () => setBorrando(menuContextual.compra),
                   },
                 ]
               : []),
-            'separator' as const,
-            {
-              id: 'archivar',
-              label: 'Eliminar paquete...',
-              icon: <Trash2 className="w-4 h-4" />,
-              tone: 'danger' as const,
-              shortcut: 'Supr',
-              onClick: () => setPorConfirmar({ tipo: 'archivar', compra: menuContextual.compra }),
-            },
           ]}
         />
       )}
@@ -660,26 +690,10 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
   );
 };
 
-const FilaResumen: React.FC<{ etiqueta: string; usd: number }> = ({ etiqueta, usd }) => (
-  <div className="flex items-center justify-between gap-2">
-    <span className="text-label text-texto-2">{etiqueta}</span>
+const Fila: React.FC<{ etiqueta: string; usd: number }> = ({ etiqueta, usd }) => (
+  <div className="flex items-center justify-between gap-2 text-label">
+    <span className="text-texto-2">{etiqueta}</span>
     <Money usd_cents={usd} size="sm" soloUsd />
   </div>
 );
 
-const Detalle: React.FC<{ etiqueta: string; usd: number; fuerte?: boolean }> = ({
-  etiqueta,
-  usd,
-  fuerte = false,
-}) => (
-  <>
-    <dt className="text-texto-3">{etiqueta}</dt>
-    <dd
-      className={
-        fuerte ? 'text-right text-texto font-semibold tabular' : 'text-right text-texto-2 tabular'
-      }
-    >
-      {formatearMoneda(usd, 'USD')}
-    </dd>
-  </>
-);

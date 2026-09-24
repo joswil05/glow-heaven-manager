@@ -179,10 +179,12 @@ describe('el paquete real de $77', () => {
     const { compraId } = await armarPaquete();
     await ComprasRepo.recibir(compraId, g());
 
-    await expect(ComprasRepo.recibir(compraId, g())).rejects.toThrow(/ya estaba recibido/i);
+    await expect(ComprasRepo.recibir(compraId, g())).rejects.toThrow(/ya estaba en el inventario/i);
+    // Un paquete que ya entró no se guarda como borrador: se corrige, que es
+    // lo que sabe llevar la diferencia a la bodega.
     await expect(
       ComprasRepo.guardar({ id: compraId, fecha: HOY, envio_total_usd_cents: 1, lineas: [] }, g())
-    ).rejects.toThrow(/no se puede editar/i);
+    ).rejects.toThrow(/Corregir/);
   });
 });
 
@@ -263,7 +265,10 @@ describe('costo promedio entre paquetes', () => {
     expect(p.costo_unitario_usd_cents).toBe(1058);
   });
 
-  it('permite corregir el costo unitario de compra al editar el producto', async () => {
+  it('editar la ficha no toca el costo: el costo sale de los paquetes', async () => {
+    // Antes la ficha permitía reescribir el costo, y cada guardado lo
+    // recalculaba con el flete redondeado. Ahora editar sólo cambia el
+    // catálogo y el margen; el precio sigue al margen, el costo no se mueve.
     const id = await ProductosRepo.crear(
       {
         nombre: 'Vestido Shein',
@@ -277,21 +282,15 @@ describe('costo promedio entre paquetes', () => {
     const creado = (await ProductosRepo.getById(id))!;
     expect(creado.costo_unitario_usd_cents).toBe(1000);
     expect(creado.valor_inventario_usd_cents).toBe(5000);
+    expect(creado.precio_venta_usd_cents).toBe(1500);
 
-    // Se corrige el costo de compra unitario a $8.00 (800 centavos)
-    await ProductosRepo.actualizar(
-      {
-        id,
-        costo_unitario_usd_cents: 800,
-      },
-      g()
-    );
+    await ProductosRepo.actualizar({ id, nombre: 'Vestido Shein floreado', margen_bp: 8000 }, g());
 
-    const actualizado = (await ProductosRepo.getById(id))!;
-    expect(actualizado.costo_unitario_usd_cents).toBe(800);
-    expect(actualizado.valor_inventario_usd_cents).toBe(4000); // 5 * 800
-    // Al 50% de margen sobre $8.00, precio venta = $12.00 (1200 centavos)
-    expect(actualizado.precio_venta_usd_cents).toBe(1200);
+    const editado = (await ProductosRepo.getById(id))!;
+    expect(editado.costo_unitario_usd_cents).toBe(1000);
+    expect(editado.valor_inventario_usd_cents).toBe(5000);
+    // Al 80% sobre $10.00, $18.00.
+    expect(editado.precio_venta_usd_cents).toBe(1800);
   });
 
   it('crear producto con variantes y costo unitario calcula correctamente el invertido en bodega', async () => {
@@ -303,7 +302,7 @@ describe('costo promedio entre paquetes', () => {
           { talla: 'S', color: 'Azul', existencias: 3 },
           { talla: 'M', color: 'Rojo', existencias: 2 },
         ],
-        costo_unitario_usd_cents: 2000, // $20.00
+        stock_inicial: { cantidad: 5, costo_unitario_usd_cents: 2000 }, // $20.00
         modo_precio: 'MANUAL',
         precio_manual_usd_cents: 3500,
       },
@@ -322,7 +321,6 @@ describe('costo promedio entre paquetes', () => {
       {
         nombre: 'Perfume Lancome',
         stock_inicial: { cantidad: 0, costo_unitario_usd_cents: 4500 },
-        costo_unitario_usd_cents: 4500,
         modo_precio: 'MANUAL',
         precio_manual_usd_cents: 7000,
       },
@@ -622,7 +620,10 @@ describe('panel', () => {
     expect((await PanelRepo.resumen()).por_cobrar_usd_cents).toBe(7000);
   });
 
-  it('separa la inversión parada de lo que está en camino', async () => {
+  it('un paquete que se está cargando no suma a la bodega', async () => {
+    // "En camino" ya no existe: ninguna pantalla creaba ese estado y la
+    // consulta volvía siempre vacía. Lo que importa es que un paquete a medio
+    // cargar no infle lo invertido.
     await ProductosRepo.crear(
       { nombre: 'En bodega', stock_inicial: { cantidad: 5, costo_unitario_usd_cents: 1000 } },
       g()
@@ -630,7 +631,6 @@ describe('panel', () => {
     await ComprasRepo.guardar(
       {
         fecha: HOY,
-        estado: 'EN_CAMINO',
         envio_total_usd_cents: 2000,
         lineas: [
           {
@@ -647,7 +647,6 @@ describe('panel', () => {
 
     const r = await PanelRepo.resumen();
     expect(r.inversion_inventario_usd_cents).toBe(5000);
-    expect(r.inversion_en_camino_usd_cents).toBe(8000 + 560 + 2000);
     expect(r.unidades_en_inventario).toBe(5);
   });
 
@@ -1022,160 +1021,67 @@ describe('el arnés de pruebas es tan estricto como Firestore', () => {
 
 // ---------------------------------------------------------------------------
 
-describe('flujo Opción 1: paquete de courier rápido y multipack de boxers', () => {
-  it('permite registrar paquete solo con datos de courier y luego asociar boxers multipack', async () => {
-    // 1. Guardar paquete courier rápido (10 lb, $70.00 flete = $7.00/lb) sin transcribir productos
+describe('un pack de boxers entra por el paquete', () => {
+  it('entra con su 7% y todo el flete, y el precio escrito a mano no se toca', async () => {
+    // 1 pack de 5 boxers a $12.00, en un paquete de $70 de flete que no trae
+    // nada más. Toda la cuenta sale de la línea del paquete:
+    //
+    //   tienda:   $12.00
+    //   7%:        $0.84
+    //   flete:    $70.00  (es lo único que trajo)
+    //   total:    $82.84  →  $16.57 por boxer
+    const productoId = await ProductosRepo.crear(
+      {
+        nombre: 'Boxers Calvin Klein',
+        unidades_por_paquete: 5,
+        modo_precio: 'MANUAL',
+        precio_manual_usd_cents: 700,
+      },
+      g()
+    );
     const paqueteId = await ComprasRepo.guardar(
       {
         fecha: HOY,
         envio_total_usd_cents: 7000,
         peso_total_mlb: 10000,
-        notas: 'Caja courier Ross con ropa y boxers',
-        lineas: [],
-      },
-      g()
-    );
-
-    const paquete = await ComprasRepo.getById(paqueteId);
-    expect(paquete).not.toBeNull();
-    expect(paquete!.envio_total_usd_cents).toBe(7000);
-    expect(paquete!.peso_total_mlb).toBe(10000);
-    // Nace BORRADOR: guardar el flete antes de tener los productos no puede
-    // ser una decisión irreversible. Cerrarlo es un acto aparte.
-    expect(paquete!.estado).toBe('BORRADOR');
-    expect(paquete!.lineas).toHaveLength(0);
-
-    await ComprasRepo.recibir(paqueteId, g());
-    const cerrado = await ComprasRepo.getById(paqueteId);
-    expect(
-      cerrado!.estado,
-      'el paquete de sólo flete no se pudo cerrar: ese flujo quedó roto'
-    ).toBe('RECIBIDA');
-
-    // 2. En Inventario, "Boxers Calvin Klein": 1 pack de 5, comprado a $12.00.
-    //
-    // Se carga el PRECIO DE LA TIENDA por unidad y nada más. El impuesto y el
-    // flete los pone la aplicación, que es de lo que se trata todo esto: antes
-    // había que calcular el costo aterrizado a mano, y si te olvidabas del
-    // flete —o lo cargabas sin paquete— el margen quedaba inflado sin aviso.
-    //
-    //   precio de tienda:  $12.00 / 5   = $2.40
-    //   impuesto 7%:       round(240×7%) = $0.17   →  base $2.57
-    //   flete:             los $70 del paquete entre las 5 unidades = $14.00
-    //   costo unitario:    $2.57 + $14.00 = $16.57
-    //
-    // Los $70 caen enteros sobre estas 5 unidades porque es lo único que se
-    // cargó en el paquete. Si después se le agregan más productos, el reparto
-    // se rehace solo y a éste le baja.
-    const precioTiendaUnit = 240;
-    const baseConImpuesto = 257;
-    const fleteUnit = 1400;
-    const costoAterrizadoUnit = baseConImpuesto + fleteUnit;
-
-    const productoId = await ProductosRepo.crear(
-      {
-        nombre: 'Boxers Calvin Klein Multipack',
-        paquete_id: paqueteId,
-        unidades_por_paquete: 5,
-        peso_unitario_mlb: 200,
-        modo_precio: 'MANUAL',
-        precio_manual_usd_cents: 700, // $7.00 venta individual
-        precio_venta_usd_cents: 700,
-        precio_tienda_unitario_usd_cents: precioTiendaUnit,
-        stock_inicial: {
-          cantidad: 5, // Entran 5 unidades físicas
-          costo_unitario_usd_cents: precioTiendaUnit,
-        },
-      },
-      g()
-    );
-
-    const producto = await ProductosRepo.getById(productoId);
-    expect(producto).not.toBeNull();
-    expect(producto!.existencias).toBe(5);
-    expect(producto!.unidades_por_paquete).toBe(5);
-    expect(producto!.paquete_id).toBe(paqueteId);
-    expect(producto!.costo_base_unitario_usd_cents, 'precio de tienda + 7%').toBe(baseConImpuesto);
-    expect(producto!.flete_unitario_usd_cents, 'los $70 del paquete entre 5').toBe(fleteUnit);
-    expect(producto!.costo_unitario_usd_cents).toBe(costoAterrizadoUnit);
-    expect(producto!.precio_venta_usd_cents).toBe(700);
-
-    // 3. Venta de 1 boxer individual por $7.00
-    await VentasRepo.crear(
-      {
-        fecha: HOY,
-        tipo: 'INVENTARIO',
         lineas: [
           {
             producto_id: productoId,
-            cantidad: 1,
-            precio_unitario_usd_cents: 700,
+            descripcion: 'Boxers Calvin Klein',
+            cantidad: 5,
+            precio_linea_usd_cents: 1200,
+            destino: 'INVENTARIO',
+            es_multipack: true,
+            packs_comprados: 1,
+            unidades_por_pack: 5,
+            precio_por_pack_usd_cents: 1200,
           },
         ],
       },
       g()
     );
 
-    const prodDespuesVenta1 = await ProductosRepo.getById(productoId);
-    expect(prodDespuesVenta1!.existencias).toBe(4); // Quedan 4 boxers
+    const r = await ComprasRepo.recibir(paqueteId, g());
+    const p = (await ProductosRepo.getById(productoId))!;
+    expect(p.existencias).toBe(5);
+    expect(p.valor_inventario_usd_cents).toBe(1200 + 84 + 7000);
+    expect(p.costo_unitario_usd_cents).toBe(1657);
+    expect(p.precio_venta_usd_cents, 'un precio escrito a mano no se toca').toBe(700);
+    expect(r.productos[0].bajo_costo, 'y se avisa que quedó debajo del costo').toBe(true);
 
-    // 4. Venta de las 4 unidades restantes
+    // La línea guarda cómo se compró, para devolverla igual al editar.
+    const c = (await ComprasRepo.getById(paqueteId))!;
+    expect(c.lineas[0].es_multipack).toBe(true);
+    expect(c.lineas[0].packs_comprados).toBe(1);
+    expect(c.lineas[0].precio_por_pack_usd_cents).toBe(1200);
+    expect(c.total_usd_cents, 'el paquete dice lo que se pagó').toBe(8284);
+
     await VentasRepo.crear(
-      {
-        fecha: HOY,
-        tipo: 'INVENTARIO',
-        lineas: [
-          {
-            producto_id: productoId,
-            cantidad: 4,
-            precio_unitario_usd_cents: 650, // descuento por llevar 4
-          },
-        ],
-      },
+      { fecha: HOY, tipo: 'INVENTARIO', lineas: [{ producto_id: productoId, cantidad: 5, precio_unitario_usd_cents: 700 }] },
       g()
     );
-
-    const prodFinal = await ProductosRepo.getById(productoId);
-    expect(prodFinal!.existencias).toBe(0);
+    expect((await ProductosRepo.getById(productoId))!.existencias).toBe(0);
   });
-
-  it('guarda y preserva la configuración de multipack (packs comprados, costo usa y tax) al crear y editar', async () => {
-    const id = await ProductosRepo.crear(
-      {
-        nombre: 'Boxers Tommy Hilfiger Pack de 5',
-        unidades_por_paquete: 5,
-        packs_comprados: 2,
-        costo_pack_usa_usd_cents: 1200,
-        aplicar_tax_usa: true,
-        stock_inicial: { cantidad: 10, costo_unitario_usd_cents: 257 },
-      },
-      g()
-    );
-
-    let p = (await ProductosRepo.getById(id))!;
-    expect(p.existencias).toBe(10);
-    expect(p.unidades_por_paquete).toBe(5);
-    expect(p.packs_comprados).toBe(2);
-    expect(p.costo_pack_usa_usd_cents).toBe(1200);
-    expect(p.aplicar_tax_usa).toBe(true);
-
-    // Al editar se actualiza la configuración
-    await ProductosRepo.actualizar(
-      {
-        id,
-        packs_comprados: 3,
-        costo_pack_usa_usd_cents: 1500,
-      },
-      g()
-    );
-
-    p = (await ProductosRepo.getById(id))!;
-    expect(p.packs_comprados).toBe(3);
-    expect(p.costo_pack_usa_usd_cents).toBe(1500);
-    expect(p.unidades_por_paquete).toBe(5);
-    expect(p.aplicar_tax_usa).toBe(true);
-  });
-
 
   it('permite registrar una venta pagada al contado sin dejar deuda pendiente', async () => {
     const clienteId = await ClientesRepo.guardar(
@@ -1216,34 +1122,35 @@ describe('flujo Opción 1: paquete de courier rápido y multipack de boxers', ()
     expect(venta!.saldo_usd_cents).toBe(0);
     expect(venta!.estado).toBe('ENTREGADA');
 
-    // El cliente no debe tener saldo pendiente
     const cliente = await ClientesRepo.getById(clienteId);
     expect(cliente!.saldo_pendiente_usd_cents).toBe(0);
     expect(cliente!.total_comprado_usd_cents).toBe(4000);
 
-    // Debe existir el comprobante de pago vinculado a la venta
     expect(venta!.pagos).toHaveLength(1);
     expect(venta!.pagos[0].monto_usd_cents).toBe(4000);
     expect(venta!.pagos[0].metodo).toBe('EFECTIVO');
   });
 
-  it('permite archivar/eliminar un paquete que ya estaba en estado RECIBIDA', async () => {
-    const paqueteId = await ComprasRepo.guardar(
+  it('un paquete en el inventario no se elimina; uno que se está cargando sí', async () => {
+    const producto = await ProductosRepo.crear({ nombre: 'Gloss' }, g());
+    const lineas = [
       {
-        fecha: HOY,
-        envio_total_usd_cents: 1400,
-        peso_total_mlb: 2000,
-        lineas: [],
-        estado: 'RECIBIDA',
+        producto_id: producto,
+        descripcion: 'Gloss',
+        cantidad: 2,
+        precio_linea_usd_cents: 1000,
+        destino: 'INVENTARIO' as const,
       },
-      g()
-    );
+    ];
 
-    // No debe lanzar error aunque esté recibida
-    await expect(ComprasRepo.archivar(paqueteId, g())).resolves.not.toThrow();
+    const cargandose = await ComprasRepo.guardar({ fecha: HOY, envio_total_usd_cents: 500, lineas }, g());
+    await ComprasRepo.archivar(cargandose, g());
+    expect((await ComprasRepo.listar()).some((p) => p.id === cargandose)).toBe(false);
 
-    const paquetesActivos = await ComprasRepo.listar();
-    expect(paquetesActivos.some((p) => p.id === paqueteId)).toBe(false);
+    const recibido = await ComprasRepo.guardar({ fecha: HOY, envio_total_usd_cents: 500, lineas }, g());
+    await ComprasRepo.recibir(recibido, g());
+    await expect(ComprasRepo.archivar(recibido, g())).rejects.toThrow(/Corregir/);
+    expect((await ComprasRepo.listar()).some((p) => p.id === recibido)).toBe(true);
   });
 
   it('eliminarDefinitivo purga el producto por completo de la base de datos', async () => {
@@ -1251,8 +1158,7 @@ describe('flujo Opción 1: paquete de courier rápido y multipack de boxers', ()
       {
         nombre: 'Producto de prueba a borrar',
         precio_venta_usd_cents: 1500,
-        costo_unitario_usd_cents: 800,
-        variantes: [{ existencias: 3 }],
+        stock_inicial: { cantidad: 3, costo_unitario_usd_cents: 800 },
       },
       g()
     );
@@ -1269,5 +1175,3 @@ describe('flujo Opción 1: paquete de courier rápido y multipack de boxers', ()
     expect(lista.some((p) => p.id === pId)).toBe(false);
   });
 });
-
-

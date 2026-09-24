@@ -290,7 +290,9 @@ def caso_recorrido(page: Page) -> list[str]:
     for pantalla in ("Inicio", "Inventario", "Paquetes", "Ventas", "Encargos",
                      "Cobros y Abonos", "Clientes"):
         try:
-            page.get_by_role("button", name=pantalla, exact=False).first.click()
+            # Paquetes es una pestaña de Inventario, no una entrada del menú.
+            rol = "tab" if pantalla == "Paquetes" else "button"
+            page.get_by_role(rol, name=pantalla, exact=False).first.click()
             page.wait_for_timeout(700)
         except Exception as err:
             fallas.append(f"no se pudo abrir '{pantalla}': {str(err)[:120]}")
@@ -301,6 +303,48 @@ def caso_recorrido(page: Page) -> list[str]:
             fallas.append(f"'{pantalla}' quedó prácticamente vacía")
         if "Algo se rompió" in texto or "Something went wrong" in texto:
             fallas.append(f"'{pantalla}' mostró la pantalla de error")
+    return fallas
+
+
+@caso("un paquete registrado desde la pantalla entra con su 7% y su flete")
+def caso_registrar_paquete(page: Page) -> list[str]:
+    fallas = []
+    pid = page.evaluate("""async () => {
+      const r = await window.api.productos.crear({ nombre: 'Crema Nivea de prueba', modo_precio: 'MARGEN' });
+      return r.data.id;
+    }""")
+
+    page.get_by_role("button", name="Inventario", exact=False).first.click()
+    page.wait_for_timeout(800)
+    page.get_by_role("button", name="Registrar paquete").first.click()
+    page.wait_for_selector("text=Qué vino adentro", timeout=8000)
+
+    page.get_by_label("Buscar producto para agregar").fill("Crema Nivea")
+    page.get_by_role("button", name="Crema Nivea de prueba", exact=False).first.click()
+    page.get_by_label("Unidades de Crema Nivea de prueba").fill("10")
+    page.get_by_label("Precio por unidad en la tienda").fill("5.00")
+    page.get_by_label("Flete pagado").fill("10.00")
+    page.wait_for_timeout(400)
+
+    # La cuenta completa a la vista: $50 de tienda + $3.50 + $10 de flete.
+    pie = page.inner_text("footer")
+    for esperado in ("Mercadería $50.00", "Impuesto $3.50", "Flete $10.00", "Pagado $63.50"):
+        if esperado not in pie:
+            fallas.append(f"el pie del paquete no dice '{esperado}' (dice: {pie[:160]!r})")
+
+    page.get_by_role("button", name="Pasar al inventario").click()
+    page.get_by_role("button", name="Sí, pasarlo al inventario").click()
+    page.wait_for_selector("text=está en el inventario", timeout=8000)
+    page.get_by_role("button", name="Listo").click()
+    page.wait_for_timeout(800)
+
+    p = page.evaluate("async (id) => (await window.api.productos.get(id)).data", pid)
+    if p["existencias"] != 10:
+        fallas.append(f"entraron {p['existencias']} unidades, no 10")
+    if p["valor_inventario_usd_cents"] != 6350:
+        fallas.append(f"la bodega del producto vale {p['valor_inventario_usd_cents']} centavos, no 6350")
+    if p["precio_venta_usd_cents"] <= 635:
+        fallas.append("el precio no se calculó con el costo que trajo el paquete")
     return fallas
 
 

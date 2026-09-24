@@ -1,13 +1,22 @@
 /**
- * Que el flete del paquete llegue al costo de cada producto.
+ * Que el flete del paquete llegue al costo de cada producto, contra el
+ * Firestore de verdad.
  *
- * Es el caso real que motivó todo esto: un paquete con $77.00 de flete, los
- * productos cargados a mano desde Inventario, y esos $77 sin llegar nunca a
- * ninguna parte. La aplicación decía que la bodega valía $279.65 cuando valía
- * $370.16, y que se iban a ganar $273.35 cuando eran $182.84.
+ * Es el caso real que motivó todo esto: un paquete con $77.00 de flete y 45
+ * unidades. En `v2.11` el paquete se anotaba sin contenido y el flete se le
+ * repartía después a los productos que lo tuvieran anotado; eso suponía que
+ * un producto viene de un solo paquete, y con el segundo el reparto se
+ * inflaba. Desde `v2.12` el paquete trae sus líneas y el flete se reparte UNA
+ * vez, entre ellas, al pasar al inventario.
  *
- * El error no se veía: cada número por separado era coherente con los demás.
- * Sólo se notaba comparando con el recibo del courier.
+ * Contra el emulador importa algo que el Firestore falso no ve: pasar un
+ * paquete al inventario es una sola transacción que lee el paquete, cada
+ * producto y cada encargo, y recién después escribe. Firestore rechaza una
+ * transacción que escribe antes de terminar de leer.
+ *
+ * Los montos no dividen exacto a propósito. Con $10 entre 10 unidades los
+ * errores de redondeo pasaban en verde: así las pruebas anteriores no vieron
+ * que guardar una ficha le sacaba 5 centavos a la bodega.
  */
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { emuladorVivo, iniciarSesion, baseLimpia, repos, g, HOY } from './arnes';
@@ -19,28 +28,39 @@ beforeAll(async () => {
   await iniciarSesion();
 }, 60_000);
 
-/** Un paquete anotado como lo anota ella: sólo el flete y el peso. */
-async function paqueteCon(envio_total_usd_cents: number): Promise<number> {
-  const { Compras } = await repos();
-  return Compras.guardar({ fecha: HOY, envio_total_usd_cents, lineas: [] }, g());
+async function producto(nombre: string): Promise<number> {
+  const { Productos } = await repos();
+  return Productos.crear({ nombre, modo_precio: 'MARGEN' }, g());
 }
 
-/** Un producto cargado desde Inventario, con su precio de tienda. */
-async function cargarProducto(
-  nombre: string,
-  unidades: number,
-  precioTiendaCents: number,
-  paquete_id?: number
+async function paquete(
+  envio: number,
+  lineas: { producto_id: number; descripcion: string; cantidad: number; tienda: number }[]
 ): Promise<number> {
-  const { Productos } = await repos();
-  return Productos.crear(
+  const { Compras } = await repos();
+  const id = await Compras.guardar(
     {
-      nombre,
-      paquete_id,
-      precio_tienda_unitario_usd_cents: precioTiendaCents,
-      stock_inicial: { cantidad: unidades, costo_unitario_usd_cents: precioTiendaCents },
+      fecha: HOY,
+      envio_total_usd_cents: envio,
+      lineas: lineas.map((l) => ({
+        producto_id: l.producto_id,
+        descripcion: l.descripcion,
+        cantidad: l.cantidad,
+        precio_linea_usd_cents: l.cantidad * l.tienda,
+        destino: 'INVENTARIO' as const,
+      })),
     },
     g()
+  );
+  await Compras.recibir(id, g());
+  return id;
+}
+
+async function bodega(): Promise<number> {
+  const { Productos } = await repos();
+  return (await Productos.listar({ incluirInactivos: true })).reduce(
+    (s, p) => s + (p.valor_inventario_usd_cents ?? 0),
+    0
   );
 }
 
@@ -51,176 +71,132 @@ describe('el flete llega al costo', () => {
   });
 
   it.skipIf(!disponible)(
-    'un producto cargado a mano paga su impuesto, aunque no venga de un paquete',
+    'el paquete real: $77 entre 45 unidades, y la bodega vale lo que se pagó',
     async () => {
-      // Antes el impuesto sólo se aplicaba si marcabas "es un pack". Un
-      // producto suelto entraba con el precio de la tienda pelado.
-      const { Productos } = await repos();
-      const id = await cargarProducto('Cartera suelta', 1, 2500);
-      const p = await Productos.getById(id);
+      const { Compras, Panel } = await repos();
+      const talladores = await producto('Talladores');
+      const cartera = await producto('Cartera');
+      const id = await paquete(7700, [
+        { producto_id: talladores, descripcion: 'Talladores', cantidad: 40, tienda: 340 },
+        { producto_id: cartera, descripcion: 'Cartera', cantidad: 5, tienda: 2500 },
+      ]);
 
-      expect(p!.costo_unitario_usd_cents, '$25.00 + 7% = $26.75').toBe(2675);
-    },
-    60_000
-  );
-
-  it.skipIf(!disponible)(
-    'el flete del paquete se reparte entre lo que trajo',
-    async () => {
-      const { Productos } = await repos();
-      const paquete = await paqueteCon(7700);
-
-      // Dos productos, 45 unidades en total, como el caso real.
-      await cargarProducto('Talladores', 40, 340, paquete);
-      await cargarProducto('Cartera', 5, 2500, paquete);
-
-      const productos = await Productos.listar({ paquete_id: paquete });
-      const fleteTotal = productos.reduce(
-        (s, p) => s + (p.flete_unitario_usd_cents ?? 0) * p.existencias,
-        0
-      );
-
-      expect(
-        Math.abs(fleteTotal - 7700),
-        `se repartieron $${(fleteTotal / 100).toFixed(2)} de los $77.00 pagados`
-      ).toBeLessThanOrEqual(45);
-    },
-    120_000
-  );
-
-  it.skipIf(!disponible)(
-    'el costo es precio + impuesto + flete, y se puede ver desglosado',
-    async () => {
-      const { Productos } = await repos();
-      const paquete = await paqueteCon(1000);
-      const id = await cargarProducto('Uno solo', 10, 1000, paquete);
-
-      const p = await Productos.getById(id);
-      // $10.00 de tienda + 7% = $10.70 de base. $10.00 de flete entre 10
-      // unidades = $1.00 cada una.
-      expect(p!.costo_base_unitario_usd_cents).toBe(1070);
-      expect(p!.flete_unitario_usd_cents).toBe(100);
-      expect(p!.costo_unitario_usd_cents).toBe(1170);
-      expect(
-        p!.costo_base_unitario_usd_cents! + p!.flete_unitario_usd_cents!,
-        'el desglose que se muestra tiene que sumar el costo que se usa'
-      ).toBe(p!.costo_unitario_usd_cents);
-    },
-    90_000
-  );
-
-  it.skipIf(!disponible)(
-    'agregar un producto al paquete le baja el flete a los que ya estaban',
-    async () => {
-      // Es lo que hace que no haga falta apretar ningún botón: se carga con
-      // calma y el reparto se acomoda solo.
-      const { Productos } = await repos();
-      const paquete = await paqueteCon(1000);
-
-      const primero = await cargarProducto('Primero', 10, 500, paquete);
-      const soloUno = await Productos.getById(primero);
-      expect(soloUno!.flete_unitario_usd_cents, 'solo, carga los $10 enteros').toBe(100);
-
-      await cargarProducto('Segundo', 10, 500, paquete);
-      const ahora = await Productos.getById(primero);
-      expect(
-        ahora!.flete_unitario_usd_cents,
-        'con el segundo adentro, el flete por unidad tiene que bajar a la mitad'
-      ).toBe(50);
-    },
-    120_000
-  );
-
-  it.skipIf(!disponible)(
-    'el valor de la bodega sube con el flete, no se queda con el precio de tienda',
-    async () => {
-      const { Productos, Panel } = await repos();
-      const paquete = await paqueteCon(1000);
-      await cargarProducto('Cosa', 10, 1000, paquete);
-
-      const productos = await Productos.listar({});
-      const valor = productos.reduce((s, p) => s + (p.valor_inventario_usd_cents ?? 0), 0);
-
-      // 10 unidades a $11.70 = $117.00, no $100.00.
-      expect(valor).toBe(11700);
+      const c = (await Compras.getById(id))!;
+      expect(c.estado).toBe('RECIBIDA');
+      expect(c.lineas.reduce((s, l) => s + l.envio_asignado_usd_cents, 0)).toBe(7700);
+      expect(c.total_usd_cents).toBe(35627);
+      expect(await bodega(), 'lo que entró es lo que se pagó, al centavo').toBe(35627);
 
       Panel.invalidarCache();
       const panel = await Panel.cargar(true);
       expect(
         panel.resumen.inversion_inventario_usd_cents,
         'el panel tiene que mostrar lo mismo que el inventario'
-      ).toBe(valor);
+      ).toBe(35627);
+    },
+    120_000
+  );
+
+  it.skipIf(!disponible)(
+    'el costo es tienda + impuesto + flete, y el precio sale de ahí',
+    async () => {
+      const { Productos, Parametros } = await repos();
+      const cartera = await producto('Cartera');
+      await paquete(1000, [{ producto_id: cartera, descripcion: 'Cartera', cantidad: 10, tienda: 1000 }]);
+
+      const p = (await Productos.getById(cartera))!;
+      // $100 de tienda + $7 de impuesto + $10 de flete = $117, entre 10.
+      expect(p.valor_inventario_usd_cents).toBe(11700);
+      expect(p.costo_unitario_usd_cents).toBe(1170);
+
+      const params = await Parametros.getParametros();
+      const margen = params.margen_defecto_bp;
+      const esperado = Math.ceil(Math.round((1170 * (10000 + margen)) / 10000) / params.paso_redondeo_usd_cents) * params.paso_redondeo_usd_cents;
+      expect(p.precio_venta_usd_cents, 'el precio lleva el flete adentro').toBe(esperado);
     },
     90_000
+  );
+
+  it.skipIf(!disponible)(
+    'reponer con otro paquete suma su costo, y el flete nunca pasa del pagado',
+    async () => {
+      const { Compras, Productos, Ventas } = await repos();
+      const cartera = await producto('Cartera');
+      await paquete(7700, [{ producto_id: cartera, descripcion: 'Cartera', cantidad: 5, tienda: 2500 }]);
+      await Ventas.crear({ fecha: HOY, tipo: 'INVENTARIO', lineas: [{ producto_id: cartera, cantidad: 3 }] }, g());
+      const antes = (await Productos.getById(cartera))!;
+
+      const labial = await producto('Labial');
+      const pq2 = await paquete(5000, [
+        { producto_id: cartera, descripcion: 'Cartera', cantidad: 10, tienda: 2500 },
+        { producto_id: labial, descripcion: 'Labial', cantidad: 10, tienda: 500 },
+      ]);
+
+      const c2 = (await Compras.getById(pq2))!;
+      expect(c2.lineas.reduce((s, l) => s + l.envio_asignado_usd_cents, 0)).toBe(5000);
+      const despues = (await Productos.getById(cartera))!;
+      expect(despues.existencias).toBe(12);
+      expect(despues.valor_inventario_usd_cents).toBe(antes.valor_inventario_usd_cents + 29250);
+    },
+    150_000
+  );
+
+  it.skipIf(!disponible)(
+    'vender no cambia el precio de lo que queda',
+    async () => {
+      const { Productos, Ventas } = await repos();
+      const cartera = await producto('Cartera');
+      await paquete(7700, [{ producto_id: cartera, descripcion: 'Cartera', cantidad: 5, tienda: 2500 }]);
+      const antes = (await Productos.getById(cartera))!.precio_venta_usd_cents;
+      await Ventas.crear({ fecha: HOY, tipo: 'INVENTARIO', lineas: [{ producto_id: cartera, cantidad: 1 }] }, g());
+      expect((await Productos.getById(cartera))!.precio_venta_usd_cents).toBe(antes);
+    },
+    120_000
   );
 
   it.skipIf(!disponible)(
     'abrir la ficha y guardar sin tocar nada no cambia el costo',
     async () => {
-      // Es lo que se rompió: la ficha mostraba el costo con impuesto y flete
-      // adentro bajo la etiqueta "lo que pagaste en la tienda", así que guardar
-      // sin cambiar nada se los sumaba otra vez. Dos guardados y el costo se
-      // iba al doble, sin que nadie tocara un número.
       const { Productos } = await repos();
-      const paquete = await paqueteCon(1000);
-      const id = await cargarProducto('Cartera', 10, 1000, paquete);
+      const talladores = await producto('Talladores');
+      const cartera = await producto('Cartera');
+      await paquete(7700, [
+        { producto_id: talladores, descripcion: 'Talladores', cantidad: 40, tienda: 340 },
+        { producto_id: cartera, descripcion: 'Cartera', cantidad: 5, tienda: 2500 },
+      ]);
+      const antes = await bodega();
 
-      const antes = await Productos.getById(id);
-      const precioQueEscribio = antes!.precio_tienda_unitario_usd_cents;
-      expect(precioQueEscribio, 'lo que se escribió tiene que quedar guardado').toBe(1000);
+      for (let i = 0; i < 3; i++) {
+        for (const id of [talladores, cartera]) {
+          const p = (await Productos.getById(id))!;
+          await Productos.actualizar({ id, nombre: p.nombre, margen_bp: p.margen_bp }, g());
+        }
+      }
+      expect(await bodega(), 'la bodega se movió de tanto abrir y guardar fichas').toBe(antes);
+    },
+    150_000
+  );
 
-      // Lo que hace la pantalla: devolver ese precio y volver a guardarlo.
-      await Productos.actualizar(
-        { id, precio_tienda_unitario_usd_cents: precioQueEscribio },
+  it.skipIf(!disponible)(
+    'corregir el flete mueve sólo lo que queda en bodega',
+    async () => {
+      const { Compras, Productos, Ventas } = await repos();
+      const perfume = await producto('Perfume');
+      const id = await paquete(1000, [{ producto_id: perfume, descripcion: 'Perfume', cantidad: 10, tienda: 2000 }]);
+      await Ventas.crear({ fecha: HOY, tipo: 'INVENTARIO', lineas: [{ producto_id: perfume, cantidad: 4 }] }, g());
+      const antes = (await Productos.getById(perfume))!;
+      const c = (await Compras.getById(id))!;
+
+      await Compras.corregir(
+        { id, fecha: c.fecha, envio_total_usd_cents: 3000, lineas: c.lineas.map((l) => ({ ...l, peso_linea_mlb: null })) },
         g()
       );
 
-      const despues = await Productos.getById(id);
-      expect(despues!.costo_unitario_usd_cents).toBe(antes!.costo_unitario_usd_cents);
-      expect(despues!.costo_base_unitario_usd_cents).toBe(antes!.costo_base_unitario_usd_cents);
-      expect(despues!.valor_inventario_usd_cents).toBe(antes!.valor_inventario_usd_cents);
+      // $20 más de flete; 6 de las 10 unidades siguen en bodega: $12.
+      expect((await Productos.getById(perfume))!.valor_inventario_usd_cents).toBe(
+        antes.valor_inventario_usd_cents + 1200
+      );
     },
-    120_000
-  );
-
-  it.skipIf(!disponible)(
-    'guardar tres veces seguidas tampoco lo mueve',
-    async () => {
-      // Una sola pasada podría cuadrar por casualidad. Lo que importa es que
-      // sea estable: editar un producto es algo que se hace muchas veces.
-      const { Productos } = await repos();
-      const paquete = await paqueteCon(2000);
-      const id = await cargarProducto('Perfume', 4, 2500, paquete);
-
-      const original = await Productos.getById(id);
-      for (let i = 0; i < 3; i++) {
-        const actual = await Productos.getById(id);
-        await Productos.actualizar(
-          { id, precio_tienda_unitario_usd_cents: actual!.precio_tienda_unitario_usd_cents },
-          g()
-        );
-      }
-
-      const final = await Productos.getById(id);
-      expect(
-        final!.costo_unitario_usd_cents,
-        'el costo se movió solo de tanto abrir y guardar la ficha'
-      ).toBe(original!.costo_unitario_usd_cents);
-    },
-    120_000
-  );
-
-  it.skipIf(!disponible)(
-    'un paquete sin flete no cambia nada',
-    async () => {
-      const { Productos } = await repos();
-      const paquete = await paqueteCon(0);
-      const id = await cargarProducto('Sin flete', 5, 1000, paquete);
-
-      const p = await Productos.getById(id);
-      expect(p!.flete_unitario_usd_cents).toBe(0);
-      expect(p!.costo_unitario_usd_cents).toBe(1070); // sólo precio + impuesto
-    },
-    90_000
+    150_000
   );
 });

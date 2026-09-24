@@ -161,9 +161,17 @@ export async function revisarInvariantes(): Promise<Falla[]> {
   // Clientas
   // -------------------------------------------------------------------------
 
+  // Qué es deuda, escrito acá a propósito y no importado del código: si la
+  // regla del código se torciera, la invariante tiene que notarlo. Un encargo
+  // cotizado no es deuda hasta que la clienta confirma cubriendo el anticipo.
+  const esDeuda = (v: Venta) =>
+    v.estado !== 'CANCELADA' && !(v.tipo === 'ENCARGO' && v.estado === 'COTIZADA');
+
   for (const c of foto.clientes) {
     const suyas = foto.ventas.filter((v) => v.cliente_id === c.id && v.estado !== 'CANCELADA');
-    const debe = suyas.reduce((s, v) => s + Math.max(0, v.saldo_usd_cents || 0), 0);
+    const debe = suyas
+      .filter((v) => esDeuda(v))
+      .reduce((s, v) => s + Math.max(0, v.saldo_usd_cents || 0), 0);
 
     // Lo que dice la ficha de la clienta tiene que ser lo que suman sus
     // ventas. Es el número que se mira para ir a cobrar.
@@ -215,8 +223,21 @@ export async function revisarInvariantes(): Promise<Falla[]> {
   const panel = await Panel.cargar(true);
 
   const porCobrarReal = foto.ventas
-    .filter((v) => v.estado !== 'CANCELADA')
+    .filter((v) => esDeuda(v))
     .reduce((s, v) => s + Math.max(0, v.saldo_usd_cents || 0), 0);
+
+  // Lo cotizado se muestra aparte, y tiene que ser exactamente lo que falta
+  // de los encargos sin confirmar: ni se pierde ni se cuenta dos veces.
+  const cotizadoReal = foto.ventas
+    .filter((v) => v.tipo === 'ENCARGO' && v.estado === 'COTIZADA')
+    .reduce((s, v) => s + Math.max(0, v.saldo_usd_cents || 0), 0);
+  if (panel.resumen.cotizado_sin_confirmar_usd_cents !== cotizadoReal) {
+    agregar(
+      'el panel separa lo cotizado de lo que se debe',
+      `el panel dice ${dinero(panel.resumen.cotizado_sin_confirmar_usd_cents)} cotizado y los ` +
+        `encargos sin confirmar suman ${dinero(cotizadoReal)}`
+    );
+  }
 
   if (panel.resumen.por_cobrar_usd_cents !== porCobrarReal) {
     agregar(

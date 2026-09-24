@@ -149,3 +149,22 @@ export function margenDeVenta(
     margen_sobre_venta_bp: precio > 0 ? Math.round((ganancia * 10000) / precio) : 0,
   };
 }
+
+/**
+ * El margen que le toca a un producto: el suyo si lo tiene, si no el de su
+ * categoría, y si no el global.
+ *
+ * Vive acá y no en el repositorio porque la pantalla del paquete lo necesita
+ * para mostrar el precio que va a quedar antes de guardar nada.
+ */
+export function margenEfectivo(
+  producto: { margen_bp?: number | null; categoria_id?: number | null },
+  categorias: { id: number; margen_defecto_bp: number }[],
+  margen_defecto_bp: number
+): number {
+  if (producto.margen_bp !== undefined && producto.margen_bp !== null) return producto.margen_bp;
+  const cat = producto.categoria_id
+    ? categorias.find((c) => c.id === producto.categoria_id)
+    : undefined;
+  return cat?.margen_defecto_bp ?? margen_defecto_bp;
+}

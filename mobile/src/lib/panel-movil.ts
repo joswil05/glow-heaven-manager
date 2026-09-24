@@ -39,7 +39,10 @@ export async function cargarTendenciaDiaria(dias = 7): Promise<{
   const resumenHoy: ResumenHoy = { total_usd_cents: 0, ganancia_usd_cents: 0, ventas_count: 0 };
 
   for (const v of ventas) {
-    if (v.estado === 'CANCELADA') continue;
+    // Sólo lo entregado, con el mismo criterio que "Ganancia de este mes" en
+    // la computadora. Antes contaba también cotizaciones y ventas sin
+    // entregar, y la suma de los días del celular no daba lo del mes.
+    if (v.estado !== 'ENTREGADA') continue;
     const fecha = (v.fecha || '').slice(0, 10);
     if (!fecha || fecha < desde) continue;
 

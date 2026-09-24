@@ -22,6 +22,14 @@ export interface CompraLineaInput {
   peso_linea_mlb: number;
   /** Tax real de esta línea. Si se omite, se calcula con `tax_bp`. */
   tax_linea_usd_cents?: number;
+  /**
+   * La tienda no cobró impuesto por esto.
+   *
+   * Pasa: hay artículos y tiendas que no lo cobran. Una línea exenta no paga
+   * el porcentaje ni recibe parte del impuesto del recibo cuando se escribe
+   * el total a mano.
+   */
+  exento?: boolean;
 }
 
 export interface CostearPaqueteParams {
@@ -110,6 +118,7 @@ export function costearPaquete(
       cantidad,
       precio_linea_usd_cents: precio,
       peso_linea_mlb: peso,
+      exento: Boolean(l.exento),
       tax_declarado:
         l.tax_linea_usd_cents === undefined || l.tax_linea_usd_cents === null
           ? null
@@ -125,21 +134,30 @@ export function costearPaquete(
   const unidadesTotales = normalizadas.reduce((acc, l) => acc + l.cantidad, 0);
 
   // Tax: si el usuario dio el total del recibo, ese manda y se reparte por
-  // valor. Si no, cada línea paga su porcentaje.
-  const basesValor = normalizadas.map((l) => ({
-    id: l.clave,
-    base_valor: l.precio_linea_usd_cents,
-  }));
+  // valor entre las líneas que pagan impuesto. Si no, cada línea paga su
+  // porcentaje. Una línea exenta no paga nada por ninguno de los dos caminos.
+  const gravadas = normalizadas.filter((l) => !l.exento);
 
-  let taxPorLinea = new Map<number, number>();
+  const taxPorLinea = new Map<number, number>();
+  for (const l of normalizadas) taxPorLinea.set(l.clave, 0);
+
   if (
     params.tax_total_override_usd_cents !== undefined &&
     params.tax_total_override_usd_cents !== null
   ) {
     const taxTotal = Math.max(0, entero(params.tax_total_override_usd_cents));
-    taxPorLinea = repartirMayorResiduo(taxTotal, basesValor);
+    const baseGravada = gravadas.reduce((s, l) => s + l.precio_linea_usd_cents, 0);
+    // Sin nada gravado no hay sobre qué repartir: repartirlo parejo le
+    // cargaría impuesto a lo que la tienda no cobró.
+    if (baseGravada > 0) {
+      const repartido = repartirMayorResiduo(
+        taxTotal,
+        gravadas.map((l) => ({ id: l.clave, base_valor: l.precio_linea_usd_cents }))
+      );
+      for (const [clave, tax] of repartido) taxPorLinea.set(clave, tax);
+    }
   } else {
-    for (const l of normalizadas) {
+    for (const l of gravadas) {
       const calculado =
         l.tax_declarado !== null
           ? l.tax_declarado

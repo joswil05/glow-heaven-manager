@@ -22,7 +22,7 @@ import { cn } from '../../lib/cn';
  * un producto no se "daña" hacia arriba ni una clienta devuelve hacia abajo.
  */
 const MOTIVOS_BAJA = ['Conteo físico', 'Producto dañado', 'Producto perdido', 'Regalo o muestra'];
-const MOTIVOS_ALTA = ['Conteo físico', 'Devolución de clienta', 'Corrección de carga'];
+const MOTIVOS_ALTA = ['Conteo físico', 'Devolución de clienta', 'Corrección de conteo'];
 
 export interface AjusteStock {
   variante_id: number;
@@ -35,9 +35,20 @@ interface Props {
   ajuste: AjusteStock | null;
   onCerrar: () => void;
   onConfirmar: (ajuste: AjusteStock, nuevas: number, motivo: string) => void;
+  /**
+   * Lleva a registrar un paquete. Se ofrece cuando se suben unidades: la
+   * mercadería que se compró entra por un paquete, con su precio de tienda,
+   * su impuesto y su flete. Un ajuste las suma al costo que ya tenía.
+   */
+  onRegistrarPaquete?: () => void;
 }
 
-export const AjustarStockModal: React.FC<Props> = ({ ajuste, onCerrar, onConfirmar }) => {
+export const AjustarStockModal: React.FC<Props> = ({
+  ajuste,
+  onCerrar,
+  onConfirmar,
+  onRegistrarPaquete,
+}) => {
   const [texto, setTexto] = useState('');
   const [motivo, setMotivo] = useState('Conteo físico');
   const campoRef = useRef<HTMLInputElement>(null);
@@ -165,6 +176,30 @@ export const AjustarStockModal: React.FC<Props> = ({ ajuste, onCerrar, onConfirm
                   : `Se descontarán ${Math.abs(diferencia)} unidad(es) del inventario.`}{' '}
                 El cambio quedará registrado en el historial.
               </span>
+            </div>
+          )}
+
+          {valido && diferencia > 0 && (
+            <div className="rounded-xl border border-alerta-suave bg-alerta-suave p-3 text-caption text-alerta space-y-2">
+              <p>
+                <strong className="font-semibold">¿Estas unidades llegaron en un paquete?</strong>{' '}
+                Registralas en el paquete: entran con su precio de tienda, su 7% y su parte del
+                flete. Un ajuste las suma al costo que ya tenía el producto.
+              </p>
+              {onRegistrarPaquete && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="rounded-lg"
+                  onClick={() => {
+                    onCerrar();
+                    onRegistrarPaquete();
+                  }}
+                >
+                  Registrar el paquete
+                </Button>
+              )}
             </div>
           )}
         </div>

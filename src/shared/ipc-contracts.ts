@@ -14,11 +14,14 @@ import type {
   DestinoLinea,
   TipoVenta,
   EstadoVenta,
-  EstadoCompra,
   MetodoPago,
   MonedaPago,
   TipoDescuento,
   Acceso,
+  ResultadoIngreso,
+  ReconstruccionPaquete,
+  EntradaDeProducto,
+  PrecioDesactualizado,
 } from './types';
 
 /**
@@ -57,16 +60,14 @@ export interface VarianteInput {
   existencias?: number;
 }
 
+/**
+ * La ficha de un producto: catálogo y cómo se decide su precio.
+ *
+ * No lleva costo ni existencias: la mercadería entra por un paquete, que es el
+ * que sabe cuánto costó en la tienda, su impuesto y su flete.
+ */
 export interface CrearProductoInput {
   nombre: string;
-  /**
-   * El precio de la TIENDA por unidad, sin impuesto ni flete.
-   *
-   * Cuando viene, la aplicación le suma el impuesto configurado y después el
-   * paquete le reparte su flete. Es lo que evita tener que calcular el costo
-   * aterrizado de memoria y equivocarse sin enterarse.
-   */
-  precio_tienda_unitario_usd_cents?: number;
   categoria_id?: number;
   tiene_variantes?: boolean;
   variantes?: VarianteInput[];
@@ -74,18 +75,13 @@ export interface CrearProductoInput {
   margen_bp?: number;
   multiplicador_bp?: number;
   precio_manual_usd_cents?: number;
-  costo_unitario_usd_cents?: number;
   stock_minimo?: number;
   peso_unitario_mlb?: number;
+  /** Si se vende también por pack, cuántas unidades trae. */
   unidades_por_paquete?: number;
-  packs_comprados?: number;
-  costo_pack_usa_usd_cents?: number;
-  aplicar_tax_usa?: boolean;
-  paquete_id?: number;
   precio_venta_usd_cents?: number;
   foto?: string;
   notas?: string;
-  stock_inicial?: { cantidad: number; costo_unitario_usd_cents: number };
 }
 
 export type ActualizarProductoInput = Partial<CrearProductoInput> & { id: number };
@@ -134,17 +130,22 @@ export interface SimularPrecioOutput {
 // ---------------------------------------------------------------------------
 
 export interface LineaCompraInput {
+  /** El id de una línea que ya existía. Sin id, es nueva. */
   id?: number;
   producto_id?: number;
   variante_id?: number;
   descripcion: string;
+  /** Unidades que entran. Un pack de 5 comprado dos veces son 10. */
   cantidad: number;
+  /** Lo que costó la línea completa en la tienda, sin impuesto. */
   precio_linea_usd_cents: number;
-  tax_linea_usd_cents?: number;
-  peso_linea_mlb: number;
+  /** La tienda no cobró impuesto por esto. */
+  exento?: boolean;
+  /** Peso de la línea escrito a mano. `null`: se estima. */
+  peso_linea_mlb?: number | null;
   destino: DestinoLinea;
   venta_id?: number;
-  precio_venta_usd_cents?: number;
+  venta_linea_id?: number;
   es_multipack?: boolean;
   packs_comprados?: number;
   unidades_por_pack?: number;
@@ -154,10 +155,10 @@ export interface LineaCompraInput {
 export interface GuardarCompraInput {
   id?: number;
   fecha: string;
-  estado?: EstadoCompra;
   envio_total_usd_cents: number;
   otros_costos_usd_cents?: number;
-  tax_total_override_usd_cents?: number;
+  /** El impuesto total del recibo. `null` es "no hay dato", no cero. */
+  tax_total_override_usd_cents?: number | null;
   notas?: string;
   peso_total_mlb?: number;
   lineas: LineaCompraInput[];
@@ -184,6 +185,7 @@ export interface PreviewCompra {
   total_pagado_usd_cents: number;
   peso_total_mlb: number;
   unidades_totales: number;
+  criterio_flete: 'PESO' | 'UNIDADES' | 'SIN_FLETE';
 }
 
 // ---------------------------------------------------------------------------
@@ -350,14 +352,26 @@ export interface ApiPuente {
     eliminarDefinitivo(id: number): Promise<Resultado<ConGrupo>>;
     movimientos(producto_id: number): Promise<Resultado<MovimientoInventario[]>>;
     simularPrecio(input: SimularPrecioInput): Promise<Resultado<SimularPrecioOutput>>;
+    /** Los productos cuyo precio no corresponde a su costo actual. */
+    preciosDesactualizados(): Promise<Resultado<PrecioDesactualizado[]>>;
+    /** Aplica el precio que corresponde a su costo a los elegidos. */
+    aplicarPrecios(ids: number[]): Promise<Resultado<ConGrupo & { actualizados: number }>>;
   };
   compras: {
     list(): Promise<Resultado<Compra[]>>;
     get(id: number): Promise<Resultado<CompraCompleta | null>>;
     guardar(input: GuardarCompraInput): Promise<Resultado<ConGrupo & { id: number }>>;
     previsualizar(input: GuardarCompraInput): Promise<Resultado<PreviewCompra>>;
-    recibir(id: number): Promise<Resultado<ConGrupo & { productos_afectados: number }>>;
+    /** Pasa el paquete al inventario. */
+    recibir(id: number): Promise<Resultado<ConGrupo & ResultadoIngreso>>;
     archivar(id: number): Promise<Resultado<ConGrupo>>;
+    /** Corrige un paquete que ya está en el inventario. */
+    corregir(input: GuardarCompraInput & { id: number }): Promise<Resultado<ConGrupo & ResultadoIngreso>>;
+    /** El contenido reconstruido de un paquete de antes del cambio, sin guardarlo. */
+    reconstruir(id: number): Promise<Resultado<ReconstruccionPaquete>>;
+    completarReconstruccion(id: number): Promise<Resultado<ConGrupo & { lineas: number }>>;
+    /** Los paquetes en los que vino un producto, con su línea. */
+    historialProducto(producto_id: number): Promise<Resultado<EntradaDeProducto[]>>;
   };
   ventas: {
     list(filtros?: FiltrosVenta): Promise<Resultado<Venta[]>>;

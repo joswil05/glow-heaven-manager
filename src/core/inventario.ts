@@ -139,3 +139,46 @@ export function ajustarExistencias(
   };
 }
 
+
+export interface ResultadoCorreccion {
+  valor_total_usd_cents: number;
+  /** Lo que de verdad se sumó (o restó) al valor, después de redondear. */
+  aplicado_usd_cents: number;
+  /** Cuántas de las unidades de la línea seguían en bodega. */
+  unidades_afectadas: number;
+}
+
+/**
+ * Corrige el costo de una línea de paquete que ya entró al inventario.
+ *
+ * La diferencia se aplica sólo a las unidades de esa línea que siguen en la
+ * bodega. Las que ya se vendieron se llevaron su costo congelado, y cambiarlo
+ * ahora reescribiría la ganancia de esas ventas.
+ *
+ * Con promedio ponderado no se sabe de qué paquete es cada unidad. Se supone
+ * que lo que queda es lo más nuevo: de una línea de 10 unidades, si el
+ * producto tiene 8, se corrigen 8. Es exacto cuando se corrige el último
+ * paquete, que es el caso normal: los errores se notan al cargarlo.
+ */
+export function corregirCostoDeLinea(
+  estado: EstadoInventario,
+  diferencia_usd_cents: number,
+  unidades_de_la_linea: number
+): ResultadoCorreccion {
+  const existencias = Math.max(0, entero(estado.existencias));
+  const valor = Math.max(0, entero(estado.valor_total_usd_cents));
+  const unidades = Math.max(1, entero(unidades_de_la_linea, 1));
+  const afectadas = Math.min(existencias, unidades);
+  const diferencia = entero(diferencia_usd_cents);
+
+  if (afectadas === 0 || diferencia === 0) {
+    return { valor_total_usd_cents: valor, aplicado_usd_cents: 0, unidades_afectadas: afectadas };
+  }
+
+  const nuevo = Math.max(0, valor + Math.round((diferencia * afectadas) / unidades));
+  return {
+    valor_total_usd_cents: nuevo,
+    aplicado_usd_cents: nuevo - valor,
+    unidades_afectadas: afectadas,
+  };
+}

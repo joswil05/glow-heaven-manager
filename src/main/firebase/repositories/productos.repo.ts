@@ -13,14 +13,14 @@ import {
   siguienteId,
   idOrdenable,
   leerDoc,
+  leerVarios,
   aplicarLote,
   sinUndefined,
   type OperacionLote,
 } from '../client';
-import { calcularPrecio } from '../../../core/precios';
+import { calcularPrecio, margenEfectivo as margenDe } from '../../../core/precios';
 import { algunoContiene } from '../../../core/texto';
-import { desglosarCosto } from '../../../core/costo-producto';
-import { recalcularFleteDePaquete, sumarUnidadesAlPaquete } from './flete.repo';
+import { precioParaCosto } from '../../../core/paquete';
 import { costoUnitario, registrarSalida, ajustarExistencias } from '../../../core/inventario';
 import { ParametrosRepoFirestore } from './parametros.repo';
 import { EventosRepoFirestore } from './eventos.repo';
@@ -31,6 +31,7 @@ import type {
   MovimientoInventario,
   Categoria,
   ParametrosSistema,
+  PrecioDesactualizado,
 } from '../../../shared/types';
 
 export interface VarianteInput {
@@ -49,32 +50,35 @@ export interface CrearProductoInput {
   margen_bp?: number;
   multiplicador_bp?: number;
   precio_manual_usd_cents?: number;
-  costo_unitario_usd_cents?: number;
   precio_venta_usd_cents?: number;
   stock_minimo?: number;
-  /**
-   * Lo que se pagó EN LA TIENDA por unidad, sin impuesto ni flete.
-   *
-   * Existe aparte de `costo_unitario_usd_cents` porque significan cosas
-   * distintas: aquél es el costo final y éste es el punto de partida. Cuando
-   * viene éste, el repositorio le suma el impuesto configurado y después el
-   * paquete le reparte el flete. Cuando viene aquél, se toma como final —es lo
-   * que hace `recibir`, que ya viene costeado.
-   */
-  precio_tienda_unitario_usd_cents?: number;
   peso_unitario_mlb?: number;
+  /** Si se vende también por pack, cuántas unidades trae. */
   unidades_por_paquete?: number;
-  packs_comprados?: number;
-  costo_pack_usa_usd_cents?: number;
-  aplicar_tax_usa?: boolean;
-  paquete_id?: number;
   /** Miniatura como data URL, o cadena vacía para quitarla. */
   foto?: string;
   notas?: string;
+  /**
+   * Existencias con las que nace, al costo final que se indique.
+   *
+   * La pantalla ya no lo usa: la mercadería entra por un paquete. Queda para
+   * cargar datos desde afuera y para las pruebas.
+   */
   stock_inicial?: { cantidad: number; costo_unitario_usd_cents: number };
 }
 
-export type ActualizarProductoInput = Partial<CrearProductoInput> & { id: number };
+/**
+ * Lo que se puede cambiar de un producto que ya existe: su ficha de catálogo y
+ * cómo se decide su precio. El costo NO: sale de los paquetes que lo trajeron.
+ *
+ * Antes la ficha permitía reescribir el costo, y cada guardado lo recalculaba
+ * con el flete redondeado por unidad: abrir y guardar dos fichas bajaba la
+ * bodega 5 centavos, y un producto que entró por un paquete quedaba con costo
+ * cero. Un costo mal cargado se arregla corrigiendo su paquete.
+ */
+export type ActualizarProductoInput = Partial<Omit<CrearProductoInput, 'stock_inicial'>> & {
+  id: number;
+};
 
 export interface FiltrosProducto {
   busqueda?: string;
@@ -103,34 +107,19 @@ export interface ProductoDoc {
   categoria_id?: number;
   tiene_variantes: boolean;
   variantes: ProductoVariante[];
+  /** La fuente de verdad del costo: lo que valen al costo las existencias. */
   valor_inventario_usd_cents: number;
+  /** Derivado: valor ÷ existencias. */
   costo_unitario_usd_cents: number;
   /**
-   * Lo que se pagó en la tienda por unidad, con impuesto y sin flete.
-   *
-   * Va aparte del costo total para que el flete se pueda volver a repartir
-   * cuando el paquete recibe otro producto, sin tener que despejarlo al revés
-   * del total —cuenta en la que el redondeo se acumula hasta descuadrar—.
+   * HEREDADOS de `v2.11`, cuando el flete se le repartía al producto después
+   * de cargarlo. Nadie los escribe ni los usa para calcular. Los lee sólo
+   * `ComprasRepo.reconstruir`, para rearmar el contenido de un paquete de esa
+   * época tal como la bodega lo registró.
    */
   costo_base_unitario_usd_cents?: number;
-  /**
-   * El flete del paquete que le tocó a ESTE producto, en total.
-   *
-   * Es el dato exacto. `flete_unitario_usd_cents` es esta cifra dividida entre
-   * las unidades, redondeada, y existe sólo para mostrarla: guardar el por
-   * unidad como fuente de verdad perdía centavos en cada división.
-   */
   flete_total_usd_cents?: number;
-  /** El flete por unidad, redondeado. Para mostrar. */
   flete_unitario_usd_cents?: number;
-  /**
-   * Lo que se escribió en la tienda, por unidad. Sin impuesto y sin flete.
-   *
-   * Se guarda aparte aunque se pueda despejar del costo base, porque es el
-   * número que la persona escribió y el que hay que devolverle al editar. La
-   * ficha mostraba el costo con todo adentro bajo la etiqueta "lo que costó en
-   * la tienda", y guardar sin tocar nada le sumaba impuesto y flete otra vez.
-   */
   precio_tienda_unitario_usd_cents?: number;
   /**
    * TODOS los paquetes que trajeron este producto alguna vez.
@@ -192,9 +181,21 @@ function margenEfectivo(
   categorias: Categoria[],
   parametros: ParametrosSistema
 ): number {
-  if (p.margen_bp !== undefined && p.margen_bp !== null) return p.margen_bp;
-  const cat = p.categoria_id ? categorias.find((c) => c.id === p.categoria_id) : undefined;
-  return cat?.margen_defecto_bp ?? parametros.margen_defecto_bp;
+  return margenDe(p, categorias, parametros.margen_defecto_bp);
+}
+
+/**
+ * El costo por unidad que se muestra y con el que se calcula el precio.
+ *
+ * Sin existencias no hay de dónde derivarlo, y se usa el último conocido: un
+ * producto agotado no pasa a costar cero.
+ */
+function costoActual(p: Pick<ProductoDoc, 'variantes' | 'valor_inventario_usd_cents' | 'costo_unitario_usd_cents'>): number {
+  const c = costoUnitario({
+    existencias: existenciasDe(p),
+    valor_total_usd_cents: p.valor_inventario_usd_cents ?? 0,
+  });
+  return c > 0 ? c : Math.max(0, p.costo_unitario_usd_cents ?? 0);
 }
 
 export class ProductosRepoFirestore {
@@ -300,31 +301,20 @@ export class ProductosRepoFirestore {
           ];
 
     const totalExistencias = variantes.reduce((s, v) => s + v.existencias, 0);
+
+    // El costo llega con el primer paquete. Un producto que nace sin
+    // existencias nace sin costo, y está bien: no hay nada en la bodega que
+    // valga algo.
+    const costoIndicado = Math.max(0, Math.round(stockInicial?.costo_unitario_usd_cents ?? 0));
     let costo = costoUnitario({
       existencias: totalExistencias,
       valor_total_usd_cents: valorInicial,
     });
-
-    const costoEntrante = input.costo_unitario_usd_cents ?? stockInicial?.costo_unitario_usd_cents;
-    if (costo === 0 && costoEntrante && costoEntrante > 0) {
-      costo = Math.max(0, Math.round(costoEntrante));
+    if (costo === 0 && costoIndicado > 0) {
+      costo = costoIndicado;
       if (valorInicial === 0 && totalExistencias > 0) {
         valorInicial = totalExistencias * costo;
       }
-    }
-
-    // El precio de la tienda no es el costo: hay que sumarle el impuesto que
-    // cobra la tienda, con la tasa que ella configuró y no una fija. El flete
-    // llega después, cuando el paquete reparte el suyo.
-    let costoBase = costo;
-    if (input.precio_tienda_unitario_usd_cents !== undefined) {
-      const desglose = desglosarCosto({
-        base_usd_cents: input.precio_tienda_unitario_usd_cents,
-        tax_bp: parametros.tax_bp,
-      });
-      costoBase = desglose.total_usd_cents;
-      costo = costoBase;
-      valorInicial = totalExistencias * costo;
     }
 
     const modoPrecio = input.modo_precio ?? (input.precio_venta_usd_cents ? 'MANUAL' : 'MARGEN');
@@ -356,10 +346,6 @@ export class ProductosRepoFirestore {
       variantes: variantes.map((v) => sinUndefined(v as unknown as Record<string, unknown>)) as unknown as ProductoVariante[],
       valor_inventario_usd_cents: valorInicial,
       costo_unitario_usd_cents: costo,
-      costo_base_unitario_usd_cents: costoBase,
-      flete_unitario_usd_cents: 0,
-      precio_tienda_unitario_usd_cents:
-        input.precio_tienda_unitario_usd_cents ?? costoBase,
       modo_precio: modoPrecio,
       margen_bp: input.margen_bp,
       multiplicador_bp: input.multiplicador_bp,
@@ -368,11 +354,7 @@ export class ProductosRepoFirestore {
       stock_minimo: input.stock_minimo ?? parametros.stock_minimo_defecto,
       peso_unitario_mlb: input.peso_unitario_mlb ?? 0,
       unidades_por_paquete: input.unidades_por_paquete,
-      packs_comprados: input.packs_comprados,
-      costo_pack_usa_usd_cents: input.costo_pack_usa_usd_cents,
-      aplicar_tax_usa: input.aplicar_tax_usa,
-      paquete_id: input.paquete_id,
-      paquetes: input.paquete_id ? [input.paquete_id] : [],
+      paquetes: [],
       foto: input.foto?.trim() || undefined,
       notas: input.notas?.trim() || undefined,
       activo: true,
@@ -398,22 +380,13 @@ export class ProductosRepoFirestore {
           cantidad: stockInicial.cantidad,
           costo_total_usd_cents: valorInicial,
           existencias_despues: totalExistencias,
-          referencia_tipo: input.paquete_id ? 'COMPRA' : 'AJUSTE',
-          referencia_id: input.paquete_id,
-          detalle: input.paquete_id ? `Paquete #${input.paquete_id}` : 'Existencias iniciales',
+          referencia_tipo: 'AJUSTE',
+          detalle: 'Existencias iniciales',
         })
       );
     }
 
     await aplicarLote(operaciones);
-
-    // El paquete reparte su flete entre todo lo que trajo, incluido esto que
-    // acaba de entrar. Se hace después de guardar para que el producto nuevo
-    // ya cuente en el reparto; antes, cargaría flete de más el que ya estaba.
-    if (input.paquete_id && totalExistencias > 0) {
-      await sumarUnidadesAlPaquete(input.paquete_id, totalExistencias);
-      await this.repartirFleteDelPaquete(input.paquete_id);
-    }
 
     await EventosRepoFirestore.registrarEvento({
       evento_grupo_id,
@@ -424,25 +397,6 @@ export class ProductosRepoFirestore {
     });
 
     return nuevoId;
-  }
-
-  /**
-   * Reparte de nuevo el flete de un paquete entre sus productos.
-   *
-   * Vive acá y no en el módulo del flete porque necesita leer los productos, y
-   * eso ya lo sabe hacer este repositorio.
-   */
-  static async repartirFleteDelPaquete(paquete_id: number): Promise<void> {
-    const db = getFirestoreDb();
-    const snap = await getDocs(
-      query(
-        collection(db, 'productos'),
-        where('activo', '==', true),
-        where('paquete_id', '==', paquete_id)
-      )
-    );
-    const productos = snap.docs.map((d) => d.data() as ProductoDoc);
-    await recalcularFleteDePaquete(paquete_id, productos);
   }
 
   static async actualizar(
@@ -462,8 +416,14 @@ export class ProductosRepoFirestore {
     const nuevaCategoria =
       input.categoria_id !== undefined ? input.categoria_id : p.categoria_id;
     const nuevoMargen = input.margen_bp !== undefined ? input.margen_bp : p.margen_bp;
+    const nuevoMultiplicador =
+      input.multiplicador_bp !== undefined ? input.multiplicador_bp : p.multiplicador_bp;
+    const nuevoManual =
+      input.precio_manual_usd_cents !== undefined
+        ? input.precio_manual_usd_cents
+        : p.precio_manual_usd_cents;
 
-    // Las existencias no se editan acá: cambian con ventas, paquetes y el
+    // Las existencias no se editan acá: cambian con paquetes, ventas y el
     // ajuste manual, que sí dejan movimiento. Editar el producto solo puede
     // agregar o quitar variantes.
     let variantes = p.variantes || [];
@@ -481,71 +441,30 @@ export class ProductosRepoFirestore {
           producto_id: input.id,
           talla: v.talla?.trim() || undefined,
           color: v.color?.trim() || undefined,
-          existencias: existente ? existente.existencias : Math.max(0, Math.round(v.existencias ?? 0)),
+          existencias: existente ? existente.existencias : 0,
           activo: true,
         };
       });
     }
 
-    const existencias = existenciasDe({ variantes });
-
-    // Si se especifica un costo unitario explícito (ej: corrección de precio de compra al editar),
-    // se toma ese valor y se recalcula el valor total del inventario.
-    let costo: number;
-    let nuevoValorInventario = p.valor_inventario_usd_cents ?? 0;
-
-    // Lo que se corrige al editar es el PRECIO DE LA TIENDA, no el costo.
-    //
-    // El costo se calcula: precio + impuesto + flete. Dejar que se escriba el
-    // costo final a mano rompe la cadena —el número deja de tener procedencia—
-    // y además se pisa solo: la pantalla mostraba el costo con flete adentro
-    // bajo una etiqueta que decía "lo que costó en la tienda", así que
-    // guardarlo sin tocar nada le sumaba el impuesto y el flete otra vez.
-    let costoBase = p.costo_base_unitario_usd_cents ?? p.costo_unitario_usd_cents ?? 0;
-    const fleteUnitario = p.flete_unitario_usd_cents ?? 0;
-
-    if (input.precio_tienda_unitario_usd_cents !== undefined) {
-      costoBase = desglosarCosto({
-        base_usd_cents: input.precio_tienda_unitario_usd_cents,
-        tax_bp: parametros.tax_bp,
-      }).total_usd_cents;
-      costo = costoBase + fleteUnitario;
-      nuevoValorInventario = existencias * costo;
-    } else if (input.costo_unitario_usd_cents !== undefined) {
-      costo = Math.max(0, Math.round(input.costo_unitario_usd_cents));
-      costoBase = Math.max(0, costo - fleteUnitario);
-      nuevoValorInventario = existencias * costo;
-    } else {
-      costo = costoUnitario({
-        existencias,
-        valor_total_usd_cents: p.valor_inventario_usd_cents ?? 0,
-      });
-      // Si las existencias son 0, mantener el costo unitario previo del producto
-      if (costo === 0 && p.costo_unitario_usd_cents) {
-        costo = p.costo_unitario_usd_cents;
-      }
-      // Si el inventario no tenía valor registrado pero hay existencias y costo:
-      if (nuevoValorInventario <= 0 && existencias > 0 && costo > 0) {
-        nuevoValorInventario = existencias * costo;
-      }
-    }
-
-    const calculo = calcularPrecio({
-      costo_unitario_usd_cents: costo,
-      modo: nuevoModo,
-      margen_bp: margenEfectivo(
-        { margen_bp: nuevoMargen, categoria_id: nuevaCategoria },
-        categorias,
-        parametros
-      ),
-      multiplicador_bp:
-        input.multiplicador_bp !== undefined ? input.multiplicador_bp : p.multiplicador_bp,
-      precio_manual_usd_cents:
-        input.precio_manual_usd_cents !== undefined
-          ? input.precio_manual_usd_cents
-          : p.precio_manual_usd_cents,
-      paso_redondeo_usd_cents: parametros.paso_redondeo_usd_cents,
-    });
+    // El costo no se toca: sale de los paquetes. El precio sí se recalcula,
+    // porque lo que se está editando puede ser justamente el margen, la
+    // categoría o el modo de precio.
+    const precio = precioParaCosto(
+      {
+        modo_precio: nuevoModo,
+        margen_bp: margenEfectivo(
+          { margen_bp: nuevoMargen, categoria_id: nuevaCategoria },
+          categorias,
+          parametros
+        ),
+        multiplicador_bp: nuevoMultiplicador,
+        precio_manual_usd_cents: nuevoManual,
+        precio_venta_usd_cents: p.precio_venta_usd_cents,
+      },
+      costoActual({ ...p, variantes }),
+      parametros.paso_redondeo_usd_cents
+    );
 
     await aplicarLote([
       {
@@ -562,16 +481,9 @@ export class ProductosRepoFirestore {
           ),
           modo_precio: nuevoModo,
           margen_bp: nuevoMargen ?? null,
-          multiplicador_bp:
-            (input.multiplicador_bp !== undefined ? input.multiplicador_bp : p.multiplicador_bp) ??
-            null,
-          precio_manual_usd_cents:
-            (input.precio_manual_usd_cents !== undefined
-              ? input.precio_manual_usd_cents
-              : p.precio_manual_usd_cents) ?? null,
-          costo_unitario_usd_cents: costo,
-          valor_inventario_usd_cents: nuevoValorInventario,
-          precio_venta_usd_cents: calculo.precio_usd_cents,
+          multiplicador_bp: nuevoMultiplicador ?? null,
+          precio_manual_usd_cents: nuevoManual ?? null,
+          precio_venta_usd_cents: precio,
           stock_minimo: input.stock_minimo !== undefined ? input.stock_minimo : p.stock_minimo,
           peso_unitario_mlb:
             input.peso_unitario_mlb !== undefined ? input.peso_unitario_mlb : p.peso_unitario_mlb,
@@ -579,20 +491,6 @@ export class ProductosRepoFirestore {
             input.unidades_por_paquete !== undefined
               ? input.unidades_por_paquete
               : (p.unidades_por_paquete ?? null),
-          packs_comprados:
-            input.packs_comprados !== undefined
-              ? input.packs_comprados
-              : (p.packs_comprados ?? null),
-          costo_pack_usa_usd_cents:
-            input.costo_pack_usa_usd_cents !== undefined
-              ? input.costo_pack_usa_usd_cents
-              : (p.costo_pack_usa_usd_cents ?? null),
-          aplicar_tax_usa:
-            input.aplicar_tax_usa !== undefined
-              ? input.aplicar_tax_usa
-              : (p.aplicar_tax_usa ?? null),
-          paquete_id:
-            input.paquete_id !== undefined ? input.paquete_id : (p.paquete_id ?? null),
           foto: input.foto !== undefined ? input.foto.trim() || null : (p.foto ?? null),
           notas: input.notas !== undefined ? input.notas?.trim() || null : (p.notas ?? null),
           actualizado_en: new Date().toISOString(),
@@ -608,6 +506,99 @@ export class ProductosRepoFirestore {
       valor_anterior: anterior,
       detalle: `Producto '${input.nombre ?? p.nombre}' actualizado`,
     });
+  }
+
+  /**
+   * Los productos cuyo precio guardado no es el que corresponde a su costo.
+   *
+   * Pasa con productos cargados antes de `v2.12`: el precio se calculaba
+   * antes de que llegara el flete, y después cambiaba solo al vender. No se
+   * corrige por detrás: son los precios que ella les da a sus clientas, así
+   * que se le muestran y ella decide cuáles aplicar.
+   *
+   * Un precio escrito a mano no aparece: ese lo decidió ella.
+   */
+  static async preciosDesactualizados(): Promise<PrecioDesactualizado[]> {
+    const [productos, parametros, categorias] = await Promise.all([
+      this.listar(),
+      ParametrosRepoFirestore.getParametros(),
+      ParametrosRepoFirestore.getCategorias(),
+    ]);
+
+    const salida: PrecioDesactualizado[] = [];
+    for (const p of productos) {
+      if (p.modo_precio === 'MANUAL') continue;
+      const costo = costoActual(p);
+      if (costo <= 0) continue;
+      const calculado = precioParaCosto(
+        { ...p, margen_bp: margenEfectivo(p, categorias, parametros) },
+        costo,
+        parametros.paso_redondeo_usd_cents
+      );
+      if (calculado === p.precio_venta_usd_cents) continue;
+      salida.push({
+        producto_id: p.id,
+        codigo: p.codigo,
+        nombre: p.nombre,
+        modo_precio: p.modo_precio,
+        existencias: p.existencias,
+        costo_unitario_usd_cents: costo,
+        precio_actual_usd_cents: p.precio_venta_usd_cents,
+        precio_calculado_usd_cents: calculado,
+      });
+    }
+    return salida;
+  }
+
+  /**
+   * Aplica el precio que corresponde a su costo a los productos elegidos.
+   *
+   * Recalcula al momento, no usa el número que vio la pantalla: si entre ver
+   * la lista y apretar el botón entró un paquete, manda el costo de ahora.
+   */
+  static async aplicarPrecios(ids: number[], evento_grupo_id: string): Promise<number> {
+    if (ids.length === 0) return 0;
+    const [productos, parametros, categorias] = await Promise.all([
+      leerVarios<ProductoDoc>('productos', ids),
+      ParametrosRepoFirestore.getParametros(),
+      ParametrosRepoFirestore.getCategorias(),
+    ]);
+
+    const ahora = new Date().toISOString();
+    const operaciones: OperacionLote[] = [];
+    const eventos: { id: number; anterior: ProductoDoc; nuevo: number }[] = [];
+
+    for (const p of productos.values()) {
+      if (p.modo_precio === 'MANUAL') continue;
+      const costo = costoActual(p);
+      if (costo <= 0) continue;
+      const nuevo = precioParaCosto(
+        { ...p, margen_bp: margenEfectivo(p, categorias, parametros) },
+        costo,
+        parametros.paso_redondeo_usd_cents
+      );
+      if (nuevo === p.precio_venta_usd_cents) continue;
+      operaciones.push({
+        coleccion: 'productos',
+        id: p.id,
+        merge: true,
+        datos: { precio_venta_usd_cents: nuevo, actualizado_en: ahora },
+      });
+      eventos.push({ id: p.id, anterior: p, nuevo });
+    }
+
+    await aplicarLote(operaciones);
+    for (const e of eventos) {
+      await EventosRepoFirestore.registrarEvento({
+        evento_grupo_id,
+        entidad_tipo: 'productos',
+        entidad_id: e.id,
+        tipo_evento: 'ACTUALIZACION',
+        valor_anterior: e.anterior as unknown as Record<string, unknown>,
+        detalle: `Precio de '${e.anterior.nombre}' ajustado a su costo`,
+      });
+    }
+    return operaciones.length;
   }
 
   /**
@@ -655,11 +646,6 @@ export class ProductosRepoFirestore {
       productoId = Number(candidatos[0].id);
     }
 
-    const [parametros, categorias] = await Promise.all([
-      ParametrosRepoFirestore.getParametros(),
-      ParametrosRepoFirestore.getCategorias(),
-    ]);
-
     const productoRef = doc(db, 'productos', String(productoId));
     let resultado: { anterior: Record<string, unknown>; movimiento: OperacionLote } | null = null;
 
@@ -699,14 +685,6 @@ export class ProductosRepoFirestore {
         costo = p.costo_unitario_usd_cents;
       }
 
-      const calculo = calcularPrecio({
-        costo_unitario_usd_cents: costo,
-        modo: p.modo_precio,
-        margen_bp: margenEfectivo(p, categorias, parametros),
-        multiplicador_bp: p.multiplicador_bp,
-        precio_manual_usd_cents: p.precio_manual_usd_cents,
-        paso_redondeo_usd_cents: parametros.paso_redondeo_usd_cents,
-      });
 
       tx.set(
         productoRef,
@@ -714,7 +692,6 @@ export class ProductosRepoFirestore {
           variantes: variantes.map((v) => sinUndefined(v as unknown as Record<string, unknown>)),
           valor_inventario_usd_cents: nuevoEstado.valor_total_usd_cents,
           costo_unitario_usd_cents: costo,
-          precio_venta_usd_cents: calculo.precio_usd_cents,
           actualizado_en: new Date().toISOString(),
         }),
         { merge: true }
@@ -750,7 +727,11 @@ export class ProductosRepoFirestore {
   }
 
   /**
-   * Entrada de mercadería, en una transacción.
+   * Devuelve unidades al inventario, en una transacción: una venta anulada o
+   * una venta que falló a la mitad.
+   *
+   * La mercadería NUEVA no entra por acá sino por `ComprasRepo.recibir`, que
+   * es el que sabe de impuesto, flete y paquete.
    *
    * Leer y escribir por separado pierde actualizaciones: dos entradas al
    * mismo producto casi a la vez guardan cada una el total que leyó, y una
@@ -764,25 +745,11 @@ export class ProductosRepoFirestore {
     referencia_tipo?: string;
     referencia_id?: number;
     detalle?: string;
-    /**
-     * El paquete que trae esta mercadería, si viene de uno.
-     *
-     * Queda anotado en la ficha del producto como el último paquete que lo
-     * repuso. El negocio funciona por tandas —se vende casi todo y llega un
-     * paquete nuevo— así que esto es lo que contesta "¿esto de qué paquete
-     * es?" mirando la bodega, sin recorrer el historial de movimientos.
-     */
-    paquete_id?: number;
   }): Promise<void> {
     const cantidad = Math.max(0, Math.round(params.cantidad));
     if (cantidad === 0) return;
 
     const db = getFirestoreDb();
-    const [parametros, categorias] = await Promise.all([
-      ParametrosRepoFirestore.getParametros(),
-      ParametrosRepoFirestore.getCategorias(),
-    ]);
-
     const productoRef = doc(db, 'productos', String(params.producto_id));
     let existenciasDespues = 0;
     let varianteUsada = 0;
@@ -821,36 +788,17 @@ export class ProductosRepoFirestore {
         existencias: existenciasDespues,
         valor_total_usd_cents: nuevoValor,
       });
-      const calculo = calcularPrecio({
-        costo_unitario_usd_cents: costo,
-        modo: p.modo_precio,
-        margen_bp: margenEfectivo(p, categorias, parametros),
-        multiplicador_bp: p.multiplicador_bp,
-        precio_manual_usd_cents: p.precio_manual_usd_cents,
-        paso_redondeo_usd_cents: parametros.paso_redondeo_usd_cents,
-      });
 
-      // El costo y el precio se recalculan dentro de la misma transacción:
-      // antes había una segunda lectura y escritura para refrescarlos.
+      // El precio NO se recalcula: esto es una devolución (una venta anulada
+      // o revertida), no mercadería nueva. El precio sólo sigue al costo
+      // cuando entra un paquete o ella cambia el margen; si se moviera con
+      // cada devolución, el precio que le dio a una clienta cambiaría solo.
       tx.set(
         productoRef,
         sinUndefined({
           variantes: variantes.map((v) => sinUndefined(v as unknown as Record<string, unknown>)),
           valor_inventario_usd_cents: nuevoValor,
           costo_unitario_usd_cents: costo,
-          precio_venta_usd_cents: calculo.precio_usd_cents,
-          // Va acá adentro y no en otra escritura: la transacción ya está
-          // tocando este documento.
-          //
-          // `paquete_id` es el último que lo repuso —el que manda para el
-          // costo— y `paquetes` los guarda todos, que es lo que hace que
-          // buscar por un paquete viejo siga encontrándolo.
-          ...(params.paquete_id
-            ? {
-                paquete_id: params.paquete_id,
-                paquetes: [...new Set([...(p.paquetes ?? []), params.paquete_id])],
-              }
-            : {}),
           actualizado_en: new Date().toISOString(),
         }),
         { merge: true }
@@ -876,6 +824,10 @@ export class ProductosRepoFirestore {
    * Salida por venta. Devuelve el costo con el que salió, para congelarlo en
    * la venta: el promedio se mueve con cada paquete y reescribiría la
    * ganancia histórica si se recalculara después.
+   *
+   * No toca el precio. Antes lo recalculaba con el costo del momento, y vender
+   * una unidad le cambiaba el precio a las que quedaban: $39 antes de vender,
+   * $42 después, sin que nadie lo tocara.
    */
   static async salida(params: {
     producto_id: number;
@@ -887,11 +839,6 @@ export class ProductosRepoFirestore {
     permitirNegativo?: boolean;
   }): Promise<{ costo_salida_usd_cents: number; insuficiente: boolean; unidades_retiradas: number }> {
     const db = getFirestoreDb();
-    const [parametros, categorias] = await Promise.all([
-      ParametrosRepoFirestore.getParametros(),
-      ParametrosRepoFirestore.getCategorias(),
-    ]);
-
     const productoRef = doc(db, 'productos', String(params.producto_id));
     let salida = { costo_salida_usd_cents: 0, insuficiente: false, unidades_retiradas: 0 };
     let existenciasDespues = 0;
@@ -949,14 +896,6 @@ export class ProductosRepoFirestore {
       if (costo === 0 && p.costo_unitario_usd_cents && p.costo_unitario_usd_cents > 0) {
         costo = p.costo_unitario_usd_cents;
       }
-      const calculo = calcularPrecio({
-        costo_unitario_usd_cents: costo,
-        modo: p.modo_precio,
-        margen_bp: margenEfectivo(p, categorias, parametros),
-        multiplicador_bp: p.multiplicador_bp,
-        precio_manual_usd_cents: p.precio_manual_usd_cents,
-        paso_redondeo_usd_cents: parametros.paso_redondeo_usd_cents,
-      });
 
       tx.set(
         productoRef,
@@ -964,7 +903,6 @@ export class ProductosRepoFirestore {
           variantes: variantes.map((v) => sinUndefined(v as unknown as Record<string, unknown>)),
           valor_inventario_usd_cents: resultado.valor_total_usd_cents,
           costo_unitario_usd_cents: costo,
-          precio_venta_usd_cents: calculo.precio_usd_cents,
           actualizado_en: new Date().toISOString(),
         }),
         { merge: true }

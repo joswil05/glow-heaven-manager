@@ -280,7 +280,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
                 <span>Registrar un paquete</span>
               </Button>
               <Button variant="secondary" size="sm" onClick={() => onNavegar('inventario')} className="rounded-xl">
-                Cargar productos a mano
+                Ver el inventario
               </Button>
             </div>
           </div>
@@ -344,9 +344,9 @@ export const PanelView: React.FC<PanelViewProps> = ({
               hint={
                 resumen.por_cobrar_usd_cents === 0
                   ? 'Cartera al día'
-                  : data.por_cobrar.length === 1
+                  : data.total_por_cobrar === 1
                     ? '1 venta con saldo'
-                    : `${data.por_cobrar.length} ventas con saldo`
+                    : `${data.total_por_cobrar} ventas con saldo`
               }
               onClick={() => onNavegar('ventas')}
             />
@@ -354,16 +354,16 @@ export const PanelView: React.FC<PanelViewProps> = ({
             {/* 4. POR ACABARSE (STOCK CRÍTICO) */}
             <StatTile
               label="Stock crítico"
-              value={data.bajo_stock.length}
+              value={data.total_bajo_stock}
               size="lg"
-              tone={data.bajo_stock.length > 0 ? 'danger' : 'success'}
+              tone={data.total_bajo_stock > 0 ? 'danger' : 'success'}
               icon={PackageX}
               hint={
-                data.bajo_stock.length === 0
+                data.total_bajo_stock === 0
                   ? 'Existencias óptimas'
-                  : data.bajo_stock.length === 1
+                  : data.total_bajo_stock === 1
                     ? '1 producto agotado o bajo'
-                    : `${data.bajo_stock.length} productos agotados o bajos`
+                    : `${data.total_bajo_stock} productos agotados o bajos`
               }
               onClick={() => onNavegar('inventario')}
             />
@@ -601,6 +601,16 @@ export const PanelView: React.FC<PanelViewProps> = ({
                           <Money usd_cents={resumen.anticipos_por_entregar_usd_cents} size="sm" soloUsd className="font-bold text-alerta font-mono" />
                         </div>
                       )}
+
+                      {/* Lo cotizado va aparte: no es deuda hasta que la clienta
+                          confirma pagando el anticipo. Antes entraba entero en
+                          "Te deben en la calle". */}
+                      {resumen.cotizado_sin_confirmar_usd_cents > 0 && (
+                        <div className="px-3 py-1.5 rounded-lg border border-borde bg-superficie-2/60 flex items-center justify-between text-[11px]">
+                          <span className="font-medium text-texto-2">Encargos cotizados, sin confirmar:</span>
+                          <Money usd_cents={resumen.cotizado_sin_confirmar_usd_cents} size="sm" soloUsd className="font-bold text-texto-2 font-mono" />
+                        </div>
+                      )}
                     </>
                   ) : (
                     <div className="py-5 flex flex-col items-center justify-center text-center gap-1 text-texto-3">
@@ -629,9 +639,9 @@ export const PanelView: React.FC<PanelViewProps> = ({
                       <Users className="w-4 h-4" />
                     </div>
                     <h3 className="text-body font-bold text-texto truncate">Quién te debe</h3>
-                    {data.por_cobrar.length > 0 && (
+                    {data.total_por_cobrar > 0 && (
                       <Badge tone={data.por_cobrar.some((p) => p.cuotas_vencidas > 0) ? 'danger' : 'warning'}>
-                        {data.por_cobrar.length}
+                        {data.total_por_cobrar}
                       </Badge>
                     )}
                   </div>
@@ -646,7 +656,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
                 </div>
               </CardHeader>
               <CardContent className="p-0">
-                {data.por_cobrar.length > 0 ? (
+                {data.total_por_cobrar > 0 ? (
                   <ul className="divide-y divide-borde/40">
                     {data.por_cobrar.slice(0, 4).map((p) => (
                       <li key={p.venta_id}>
@@ -722,8 +732,8 @@ export const PanelView: React.FC<PanelViewProps> = ({
                       <PackageX className="w-4 h-4" />
                     </div>
                     <h3 className="text-body font-bold text-texto truncate">Stock crítico</h3>
-                    {data.bajo_stock.length > 0 ? (
-                      <Badge tone="danger">{data.bajo_stock.length}</Badge>
+                    {data.total_bajo_stock > 0 ? (
+                      <Badge tone="danger">{data.total_bajo_stock}</Badge>
                     ) : (
                       <Badge tone="success">Óptimo</Badge>
                     )}
@@ -739,7 +749,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
                 </div>
               </CardHeader>
               <CardContent className="p-0">
-                {data.bajo_stock.length > 0 ? (
+                {data.total_bajo_stock > 0 ? (
                   <ul className="divide-y divide-borde/40">
                     {data.bajo_stock.slice(0, 4).map((p) => (
                       <li key={p.producto_id}>

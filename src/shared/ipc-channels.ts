@@ -22,6 +22,8 @@ export const IPC = {
   PRODUCTOS_ELIMINAR_DEFINITIVO: 'productos:eliminarDefinitivo',
   PRODUCTOS_MOVIMIENTOS: 'productos:movimientos',
   PRODUCTOS_SIMULAR_PRECIO: 'productos:simularPrecio',
+  PRODUCTOS_PRECIOS_DESACTUALIZADOS: 'productos:preciosDesactualizados',
+  PRODUCTOS_APLICAR_PRECIOS: 'productos:aplicarPrecios',
 
   // Paquetes recibidos
   COMPRAS_LIST: 'compras:list',
@@ -30,6 +32,10 @@ export const IPC = {
   COMPRAS_PREVISUALIZAR: 'compras:previsualizar',
   COMPRAS_RECIBIR: 'compras:recibir',
   COMPRAS_ARCHIVAR: 'compras:archivar',
+  COMPRAS_CORREGIR: 'compras:corregir',
+  COMPRAS_RECONSTRUIR: 'compras:reconstruir',
+  COMPRAS_COMPLETAR_RECONSTRUCCION: 'compras:completarReconstruccion',
+  COMPRAS_HISTORIAL_PRODUCTO: 'compras:historialProducto',
 
   // Ventas y encargos
   VENTAS_LIST: 'ventas:list',

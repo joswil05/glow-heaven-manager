@@ -5,7 +5,6 @@ import { LoginView } from './views/LoginView';
 import { PinLockView } from './views/PinLockView';
 import { PanelView, type DestinoPanel } from './views/PanelView';
 import { InventarioView } from './views/InventarioView';
-import { PaquetesView } from './views/PaquetesView';
 import { VentasView } from './views/VentasView';
 import { ClientesView } from './views/ClientesView';
 import { CobranzaView } from './views/CobranzaView';
@@ -253,7 +252,7 @@ export const App: React.FC = () => {
 
   const avisos = useMemo(
     () => ({
-      bajoStock: panel?.bajo_stock.length ?? 0,
+      bajoStock: panel?.total_bajo_stock ?? 0,
       porCobrar: panel?.por_cobrar.filter((p) => p.cuotas_vencidas > 0).length ?? 0,
       encargosPendientes:
         panel?.alertas.filter((a) => a.id.startsWith('encargo-')).length ?? 0,
@@ -342,7 +341,12 @@ export const App: React.FC = () => {
           />
 
           <main className="flex-1 flex overflow-hidden">
-            <div key={tab} className="flex-1 flex overflow-hidden view-fade-slide">
+            {/* Inventario y Paquetes son la misma sección: cambiar de pestaña no
+                la vuelve a montar. */}
+            <div
+              key={tab === 'paquetes' ? 'inventario' : tab}
+              className="flex-1 flex overflow-hidden view-fade-slide"
+            >
               {tab === 'panel' && (
                 <PanelView
                   error={errorPanel}
@@ -355,19 +359,16 @@ export const App: React.FC = () => {
                 />
               )}
 
-              {tab === 'inventario' && (
+              {(tab === 'inventario' || tab === 'paquetes') && (
                 <InventarioView
                   categorias={categorias}
                   parametros={parametros}
                   productoInicialId={productoSeleccionado}
-                  onCambio={cargar}
-                />
-              )}
-
-              {tab === 'paquetes' && (
-                <PaquetesView
-                  parametros={parametros}
-                  abrirEditorAlEntrar={abrirEditor === 'paquetes'}
+                  pestana={tab === 'paquetes' ? 'paquetes' : 'productos'}
+                  abrirEditorPaquete={abrirEditor === 'paquetes'}
+                  onCambiarPestana={(p, abrir) =>
+                    irA(p === 'paquetes' ? 'paquetes' : 'inventario', undefined, abrir)
+                  }
                   onCambio={cargar}
                 />
               )}

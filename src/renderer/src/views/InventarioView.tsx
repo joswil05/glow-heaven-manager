@@ -15,12 +15,16 @@ import {
   FileEdit,
   Archive,
   MoreVertical,
+  PackagePlus,
+  Tag,
+  Receipt,
 } from 'lucide-react';
 import type {
   ProductoConStock,
   Categoria,
   ParametrosSistema,
   MovimientoInventario,
+  EntradaDeProducto,
 } from '../../../shared/types';
 import {
   Card,
@@ -40,24 +44,93 @@ import {
 import { EmptyState } from '../components/shared/EmptyState';
 import { ProductoModal, type DatosProducto } from './inventario/ProductoModal';
 import { AjustarStockModal, type AjusteStock } from './inventario/AjustarStockModal';
+import { RevisarPreciosModal, preciosParaRevisar } from './inventario/RevisarPreciosModal';
+import { PaquetesView } from './PaquetesView';
 import { useClickOutside } from '../lib/useClickOutside';
 import { useToast } from '../context/ToastContext';
 import { cn } from '../lib/cn';
 import { formatearMoneda, formatearFecha } from '@core/moneda';
 
+/**
+ * Inventario y paquetes, en una sola sección.
+ *
+ * Son la misma pregunta vista de dos lados: Productos dice lo que hay y cuánto
+ * vale; Paquetes dice de dónde vino y cuánto se pagó. La mercadería entra sólo
+ * por un paquete, así que el botón principal de las dos pestañas es registrar
+ * uno.
+ */
+export type PestanaInventario = 'productos' | 'paquetes';
+
 interface InventarioViewProps {
   categorias: Categoria[];
   parametros: ParametrosSistema | null;
   productoInicialId?: number;
+  pestana: PestanaInventario;
+  /** Abre el editor de paquete al entrar a la pestaña Paquetes. */
+  abrirEditorPaquete?: boolean;
+  onCambiarPestana: (pestana: PestanaInventario, abrirEditor?: boolean) => void;
   onCambio: () => void;
 }
 
 type Filtro = 'TODOS' | 'CON_STOCK' | 'BAJO_STOCK' | 'AGOTADOS' | 'DESCATALOGADOS';
 
-export const InventarioView: React.FC<InventarioViewProps> = ({
+export const InventarioView: React.FC<InventarioViewProps> = (props) => {
+  const { pestana, onCambiarPestana, categorias, parametros, abrirEditorPaquete, onCambio } = props;
+
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="px-4 md:px-6 pt-3 shrink-0">
+        <div
+          role="tablist"
+          aria-label="Inventario"
+          className="max-w-[1500px] mx-auto flex items-center gap-1 border-b border-borde"
+        >
+          {(
+            [
+              { id: 'productos', etiqueta: 'Productos', icono: Boxes },
+              { id: 'paquetes', etiqueta: 'Paquetes', icono: PackagePlus },
+            ] as const
+          ).map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              aria-selected={pestana === t.id}
+              onClick={() => onCambiarPestana(t.id)}
+              className={cn(
+                'inline-flex items-center gap-2 px-3.5 py-2 -mb-px border-b-2 text-label font-semibold transition-colors',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento rounded-t-lg',
+                pestana === t.id
+                  ? 'border-acento text-acento-fuerte'
+                  : 'border-transparent text-texto-3 hover:text-texto'
+              )}
+            >
+              <t.icono className="w-4 h-4" />
+              {t.etiqueta}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {pestana === 'paquetes' ? (
+        <PaquetesView
+          parametros={parametros}
+          categorias={categorias}
+          abrirEditorAlEntrar={abrirEditorPaquete}
+          onCambio={onCambio}
+        />
+      ) : (
+        <ProductosDelInventario {...props} />
+      )}
+    </div>
+  );
+};
+
+const ProductosDelInventario: React.FC<InventarioViewProps> = ({
   categorias,
   parametros,
   productoInicialId,
+  onCambiarPestana,
   onCambio,
 }) => {
   const { showToast, showUndoToast } = useToast();
@@ -95,6 +168,9 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
   const [detalleId, setDetalleId] = useState<number | undefined>(productoInicialId);
   const lateralRef = useClickOutside<HTMLElement>(Boolean(detalleId), () => setDetalleId(undefined));
   const [movimientos, setMovimientos] = useState<MovimientoInventario[]>([]);
+  /** Los paquetes en los que vino el producto que se está mirando. */
+  const [entradas, setEntradas] = useState<EntradaDeProducto[]>([]);
+  const [revisandoPrecios, setRevisandoPrecios] = useState(false);
   const [todosLosProductos, setTodosLosProductos] = useState<ProductoConStock[]>([]);
 
   const hayFiltroActivo = Boolean(
@@ -187,10 +263,14 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
   useEffect(() => {
     if (!detalleId) {
       setMovimientos([]);
+      setEntradas([]);
       return;
     }
     window.api.productos.movimientos(detalleId).then((r) => {
       if (r.success) setMovimientos(r.data);
+    });
+    window.api.compras.historialProducto(detalleId).then((r) => {
+      if (r.success) setEntradas(r.data);
     });
   }, [detalleId, productos]);
 
@@ -210,19 +290,33 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
 
   const totales = useMemo(() => {
     const unidades = productos.reduce((a, p) => a + (p.existencias || 0), 0);
-    const valor = productos.reduce((a, p) => {
-      const v =
-        p.valor_inventario_usd_cents && p.valor_inventario_usd_cents > 0
-          ? p.valor_inventario_usd_cents
-          : (p.existencias || 0) * (p.costo_unitario_usd_cents || 0);
-      return a + (v || 0);
-    }, 0);
-    const gananciaPotencial = productos.reduce(
-      (a, p) => a + (p.ganancia_unitaria_usd_cents || 0) * (p.existencias || 0),
-      0
-    );
+    const valorDe = (p: ProductoConStock) =>
+      p.valor_inventario_usd_cents && p.valor_inventario_usd_cents > 0
+        ? p.valor_inventario_usd_cents
+        : (p.existencias || 0) * (p.costo_unitario_usd_cents || 0);
+    const valor = productos.reduce((a, p) => a + (valorDe(p) || 0), 0);
+    // Lo que entraría vendiendo todo menos lo que vale al costo. Antes se
+    // multiplicaba la ganancia por unidad —que usa el costo redondeado— y la
+    // suma se iba unos centavos. Lo descatalogado no se va a vender.
+    const gananciaPotencial = productos
+      .filter((p) => p.activo !== false)
+      .reduce(
+        (a, p) => a + (p.precio_venta_usd_cents || 0) * (p.existencias || 0) - (valorDe(p) || 0),
+        0
+      );
     return { unidades, valor, gananciaPotencial };
   }, [productos]);
+
+  /** Los precios que no corresponden a su costo, calculados sin leer nada más. */
+  const precios = useMemo(
+    () =>
+      preciosParaRevisar(
+        todosLosProductos.length > 0 ? todosLosProductos : productos,
+        categorias,
+        parametros
+      ),
+    [todosLosProductos, productos, categorias, parametros]
+  );
 
   const guardar = async (datos: DatosProducto) => {
     const r = datos.id
@@ -230,6 +324,9 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
       : await window.api.productos.crear(datos as never);
 
     if (!r.success) throw new Error(r.error);
+    // Después de crear o editar, la lista completa también cambió: la de los
+    // totales se relee, no se reusa.
+    setTodosLosProductos([]);
 
     showUndoToast(
       datos.id ? 'Producto actualizado' : `'${datos.nombre}' agregado al inventario`,
@@ -419,13 +516,10 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
       render: (p) => (
         <div className="flex flex-col items-end">
           <Money usd_cents={p.costo_unitario_usd_cents} size="sm" soloUsd />
-          {/* La cuenta, no sólo el resultado. Antes el costo era un número sin
-              procedencia y no había forma de saber si incluía el flete. */}
-          {(p.flete_unitario_usd_cents ?? 0) > 0 && (
-            <span className="text-[11px] text-texto-3 tabular">
-              {formatearMoneda(p.costo_base_unitario_usd_cents ?? 0, 'USD')} + {' '}
-              {formatearMoneda(p.flete_unitario_usd_cents ?? 0, 'USD')} flete
-            </span>
+          {/* De dónde sale está en el detalle, paquete por paquete. La leyenda
+              sólo es cierta si vino en un paquete. */}
+          {((p.paquetes ?? []).length > 0 || p.paquete_id) && (
+            <span className="text-[11px] text-texto-3 whitespace-nowrap">con 7% y flete</span>
           )}
         </div>
       ),
@@ -582,24 +676,54 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
               {productos.length} producto{productos.length === 1 ? '' : 's'}
             </span>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="hidden md:inline-block text-[11px] text-texto-3">
-              Costo unitario real y márgenes
-            </span>
+          <div className="flex items-center gap-2">
             <Button
-              variant="primary"
+              variant="secondary"
               size="sm"
-              className="rounded-xl shadow-xs"
+              className="rounded-xl"
+              title="Sólo la ficha: las unidades entran con un paquete"
               onClick={() => {
                 setProductoEditando(null);
                 setModalAbierto(true);
               }}
             >
               <Plus className="w-4 h-4" />
-              <span>Agregar producto</span>
+              <span>Producto nuevo</span>
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              className="rounded-xl shadow-xs"
+              onClick={() => onCambiarPestana('paquetes', true)}
+            >
+              <PackagePlus className="w-4 h-4" />
+              <span>Registrar paquete</span>
             </Button>
           </div>
         </div>
+
+        {precios.length > 0 && (
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-alerta-suave bg-alerta-suave px-4 py-3">
+            <div className="flex items-start gap-2.5 min-w-0">
+              <Tag className="w-4 h-4 text-alerta shrink-0 mt-0.5" />
+              <p className="text-caption text-alerta leading-snug">
+                <strong className="font-semibold">
+                  {precios.length} producto{precios.length === 1 ? ' tiene' : 's tienen'} un precio
+                  que no corresponde a su costo.
+                </strong>{' '}
+                Se calcularon antes de que el flete entrara al costo. Revisalos antes de cotizar.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="rounded-lg shrink-0"
+              onClick={() => setRevisandoPrecios(true)}
+            >
+              Revisar precios
+            </Button>
+          </div>
+        )}
 
         {/* Métricas ejecutivas unificadas con el inicio */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 stagger-children">
@@ -620,11 +744,11 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
             }}
           />
           <StatTile
-            label="Ganancia potencial esperada"
+            label={hayFiltroActivo ? 'Ganancia potencial (en filtro)' : 'Ganancia potencial'}
             usd_cents={totales.gananciaPotencial}
             tone="success"
             icon={TrendingUp}
-            hint="Calculado a precios de venta actuales"
+            hint="Si vendés todo lo que hay a los precios de hoy"
             onClick={() => {
               setFiltro('TODOS');
             }}
@@ -762,19 +886,13 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
             description={
               busqueda || filtro !== 'TODOS'
                 ? 'Probá con otra búsqueda o quitá los filtros.'
-                : 'Agregá productos a mano, o registrá un paquete y marcalo como recibido para que entren solos.'
+                : 'La mercadería entra con un paquete: registrá el que llegó, con lo que trajo y lo que costó.'
             }
             action={
               !busqueda && filtro === 'TODOS' ? (
-                <Button
-                  variant="primary"
-                  onClick={() => {
-                    setProductoEditando(null);
-                    setModalAbierto(true);
-                  }}
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Agregar el primer producto</span>
+                <Button variant="primary" onClick={() => onCambiarPestana('paquetes', true)}>
+                  <PackagePlus className="w-4 h-4" />
+                  <span>Registrar un paquete</span>
                 </Button>
               ) : undefined
             }
@@ -900,6 +1018,72 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
                 </CardContent>
               </Card>
             )}
+
+            <Card className="rounded-xl border-borde/80 shadow-xs overflow-hidden">
+              <CardContent className="p-0">
+                <div className="px-4 py-2.5 bg-superficie-2/50 border-b border-borde flex items-center gap-2 text-label font-medium text-texto">
+                  <Receipt className="w-3.5 h-3.5 text-texto-3" />
+                  De dónde sale el costo
+                </div>
+                <div className="px-4 py-3 border-b border-borde/60 text-caption text-texto-2 tabular">
+                  {detalle.existencias > 0 ? (
+                    <>
+                      Valor en bodega {formatearMoneda(detalle.valor_inventario_usd_cents, 'USD')} ÷{' '}
+                      {detalle.existencias} unid. ={' '}
+                      <strong className="text-texto">
+                        {formatearMoneda(detalle.costo_unitario_usd_cents, 'USD')}
+                      </strong>{' '}
+                      c/u
+                    </>
+                  ) : (
+                    <>
+                      Agotado. Último costo:{' '}
+                      <strong className="text-texto">
+                        {formatearMoneda(detalle.costo_unitario_usd_cents, 'USD')}
+                      </strong>
+                    </>
+                  )}
+                </div>
+                {entradas.length > 0 ? (
+                  <ul className="divide-y divide-borde/60 max-h-[260px] overflow-y-auto">
+                    {entradas.map((e) => (
+                      <li key={`${e.compra_id}-${e.linea.id}`} className="px-4 py-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-label font-medium text-texto">
+                            {e.codigo}
+                            {e.estado !== 'RECIBIDA' && (
+                              <span className="text-caption text-texto-3 font-normal"> · cargándose</span>
+                            )}
+                          </span>
+                          <span className="text-caption text-texto-3 font-mono">{formatearFecha(e.fecha)}</span>
+                        </div>
+                        <p className="mt-0.5 text-caption text-texto-2 tabular">
+                          {e.linea.cantidad} ×{' '}
+                          {formatearMoneda(
+                            Math.round(e.linea.precio_linea_usd_cents / Math.max(1, e.linea.cantidad)),
+                            'USD'
+                          )}{' '}
+                          + {formatearMoneda(e.linea.tax_linea_usd_cents, 'USD')} imp. +{' '}
+                          {formatearMoneda(
+                            e.linea.envio_asignado_usd_cents + e.linea.otros_asignados_usd_cents,
+                            'USD'
+                          )}{' '}
+                          flete ={' '}
+                          <strong className="text-texto">
+                            {formatearMoneda(e.linea.costo_unitario_usd_cents, 'USD')} c/u
+                          </strong>
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="px-4 py-4 text-caption text-texto-3">
+                    Ningún paquete registrado trae este producto todavía. Si vino en uno de antes del
+                    cambio, completá el contenido de ese paquete en la pestaña Paquetes.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
 
             <Card className="rounded-xl border-borde/80 shadow-xs overflow-hidden">
               <CardContent className="p-0">
@@ -1145,6 +1329,18 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
         ajuste={ajustando}
         onCerrar={() => setAjustando(null)}
         onConfirmar={ajustarStock}
+        onRegistrarPaquete={() => onCambiarPestana('paquetes', true)}
+      />
+
+      <RevisarPreciosModal
+        abierto={revisandoPrecios}
+        lista={precios}
+        onCerrar={() => setRevisandoPrecios(false)}
+        onAplicado={async () => {
+          setTodosLosProductos([]);
+          await cargar();
+          onCambio();
+        }}
       />
 
       <ProductoModal
@@ -1153,7 +1349,6 @@ export const InventarioView: React.FC<InventarioViewProps> = ({
         categorias={categorias}
         margenDefectoBp={parametros?.margen_defecto_bp ?? 4500}
         stockMinimoDefecto={parametros?.stock_minimo_defecto ?? 2}
-        taxBp={parametros?.tax_bp ?? 700}
         pasoRedondeo={parametros?.paso_redondeo_usd_cents ?? 100}
         onCerrar={() => setModalAbierto(false)}
         onGuardar={guardar}

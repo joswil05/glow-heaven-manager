@@ -49,6 +49,7 @@ export interface LineaVentaInput {
 
 import type { PagoInicialInput } from '../../../shared/ipc-contracts';
 import { hoyISO, sumarDiasAFecha } from '../../../core/fechas';
+import { esDeuda, estadoInicialEncargo } from '../../../core/cobranza';
 
 export interface CrearVentaInput {
   cliente_id?: number;
@@ -210,7 +211,8 @@ export class VentasRepoFirestore {
     }
 
     if (filtros.soloConSaldo) {
-      ventas = ventas.filter((v) => (v.saldo_usd_cents || 0) > 0 && v.estado !== 'CANCELADA');
+      // Lo que se debe de verdad: un encargo cotizado todavía no es deuda.
+      ventas = ventas.filter((v) => esDeuda(v));
     }
 
     // `desde` se respeta SIEMPRE, se haya resuelto en el servidor o no. Que
@@ -507,6 +509,7 @@ export class VentasRepoFirestore {
       }
 
       const saldoUsdCents = Math.max(0, total - pagadoUsdCents);
+      const anticipoEsperado = Math.round((total * anticipoBp) / 10000);
 
       const nuevaVenta: VentaDoc = {
         id: ventaId,
@@ -514,8 +517,16 @@ export class VentasRepoFirestore {
         cliente_id: input.cliente_id,
         fecha: input.fecha,
         tipo: input.tipo,
+        // Un encargo nace confirmado si el anticipo quedó cubierto, con la
+        // misma regla que usan los abonos. Antes se miraba "saldo en cero": uno
+        // creado con el anticipo completo quedaba cotizado y no aparecía en
+        // "Encargos por comprar".
         estado: esEncargo
-          ? (saldoUsdCents === 0 ? 'PENDIENTE' : 'COTIZADA')
+          ? estadoInicialEncargo({
+              total_usd_cents: total,
+              pagado_usd_cents: pagadoUsdCents,
+              anticipo_esperado_usd_cents: anticipoEsperado,
+            })
           : input.entregar_ahora === false
             ? 'PENDIENTE'
             : 'ENTREGADA',
@@ -530,7 +541,7 @@ export class VentasRepoFirestore {
         ganancia_usd_cents: total - costoTotal,
         pagado_usd_cents: pagadoUsdCents,
         saldo_usd_cents: saldoUsdCents,
-        anticipo_esperado_usd_cents: Math.round((total * anticipoBp) / 10000),
+        anticipo_esperado_usd_cents: anticipoEsperado,
         notas: input.notas?.trim() || undefined,
         lineas: lineasGuardadas,
         cuotas:

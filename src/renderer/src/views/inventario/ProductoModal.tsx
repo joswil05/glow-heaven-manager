@@ -5,12 +5,12 @@ import {
   Trash2,
   AlertTriangle,
   ImagePlus,
-  Package,
   ChevronLeft,
   ChevronRight,
   Check,
+  PackageOpen,
 } from 'lucide-react';
-import type { Categoria, ProductoConStock, ModoPrecio, Compra } from '../../../../shared/types';
+import type { Categoria, ProductoConStock, ModoPrecio } from '../../../../shared/types';
 import {
   Button,
   Field,
@@ -24,15 +24,25 @@ import {
 } from '../../components/ui';
 import { calcularPrecio } from '@core/precios';
 import { parsearDecimal, parsearACentavos } from '@core/numeros';
-import { formatearMoneda, formatearPeso, formatearFecha } from '@core/moneda';
+import { formatearMoneda } from '@core/moneda';
 import { aMiniatura } from '../../lib/foto';
 import { cn } from '../../lib/cn';
 import { formatearNombreEntidad } from '@shared/formatoTexto';
 
+/**
+ * La ficha de un producto: lo que es, cómo se ve y cómo se decide su precio.
+ *
+ * No tiene costo, existencias ni paquete. Antes los tenía, y de ahí salían
+ * varios errores: el campo del costo decía "producto + tax" al crear y "sin
+ * impuesto" al editar, el pack le sumaba un 7% escrito a mano que después la
+ * aplicación volvía a sumar, y guardar la ficha recalculaba la bodega con el
+ * flete redondeado. La mercadería ahora entra por un paquete, que es el que
+ * sabe lo que costó en la tienda, su impuesto y su flete.
+ */
+
 interface VarianteBorrador {
   talla: string;
   color: string;
-  existencias: string;
 }
 
 interface ProductoModalProps {
@@ -42,11 +52,12 @@ interface ProductoModalProps {
   margenDefectoBp: number;
   /** El mínimo de stock configurado, para que un campo vacío no lo apague. */
   stockMinimoDefecto: number;
-  /** El impuesto de la tienda, en puntos básicos. 700 = 7%. */
-  taxBp: number;
   pasoRedondeo: number;
+  /** Nombre con el que arranca un producto nuevo (lo que se buscó en el paquete). */
+  nombreInicial?: string;
   onCerrar: () => void;
-  onGuardar: (datos: DatosProducto) => Promise<void>;
+  /** Devuelve el id cuando crea un producto nuevo. */
+  onGuardar: (datos: DatosProducto) => Promise<number | void>;
 }
 
 export interface DatosProducto {
@@ -54,24 +65,15 @@ export interface DatosProducto {
   nombre: string;
   categoria_id?: number;
   tiene_variantes: boolean;
-  variantes?: { talla?: string; color?: string; existencias?: number }[];
+  variantes?: { talla?: string; color?: string }[];
   modo_precio: ModoPrecio;
   margen_bp?: number;
   multiplicador_bp?: number;
   precio_manual_usd_cents?: number;
-  costo_unitario_usd_cents?: number;
-  /** El precio de la TIENDA por unidad. El impuesto y el flete los pone la app. */
-  precio_tienda_unitario_usd_cents?: number;
   stock_minimo: number;
-  peso_unitario_mlb: number;
   unidades_por_paquete?: number;
-  packs_comprados?: number;
-  costo_pack_usa_usd_cents?: number;
-  aplicar_tax_usa?: boolean;
-  paquete_id?: number;
   foto?: string;
   notas?: string;
-  stock_inicial?: { cantidad: number; costo_unitario_usd_cents: number };
 }
 
 const MODOS: { valor: ModoPrecio; etiqueta: string }[] = [
@@ -82,10 +84,11 @@ const MODOS: { valor: ModoPrecio; etiqueta: string }[] = [
 
 const PASOS = [
   { id: 1, titulo: 'Básico', subtitulo: 'Foto y nombre' },
-  { id: 2, titulo: 'Existencias', subtitulo: 'Stock y costo' },
-  { id: 3, titulo: 'Precio', subtitulo: 'Margen y venta' },
-  { id: 4, titulo: 'Detalles', subtitulo: 'Tallas y alertas' },
+  { id: 2, titulo: 'Precio', subtitulo: 'Margen y venta' },
+  { id: 3, titulo: 'Detalles', subtitulo: 'Tallas y alertas' },
 ] as const;
+
+type Paso = 1 | 2 | 3;
 
 export const ProductoModal: React.FC<ProductoModalProps> = ({
   abierto,
@@ -93,14 +96,14 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
   categorias,
   margenDefectoBp,
   stockMinimoDefecto,
-  taxBp,
   pasoRedondeo,
+  nombreInicial,
   onCerrar,
   onGuardar,
 }) => {
   const esNuevo = producto === null;
 
-  const [paso, setPaso] = useState<1 | 2 | 3 | 4>(1);
+  const [paso, setPaso] = useState<Paso>(1);
   const [nombre, setNombre] = useState('');
   const [categoriaId, setCategoriaId] = useState<number | undefined>(undefined);
   const [foto, setFoto] = useState('');
@@ -112,27 +115,12 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
   const [multiplicadorTexto, setMultiplicadorTexto] = useState('2');
   const [precioManualTexto, setPrecioManualTexto] = useState('');
   const [stockMinimo, setStockMinimo] = useState(String(stockMinimoDefecto ?? 2));
+  const [sePackea, setSePackea] = useState(false);
+  const [unidadesPorPack, setUnidadesPorPack] = useState('5');
   const [notas, setNotas] = useState('');
-  const [cantidadInicial, setCantidadInicial] = useState('');
-  const [costoInicialTexto, setCostoInicialTexto] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const archivoRef = useRef<HTMLInputElement>(null);
-
-  const [paquetes, setPaquetes] = useState<Compra[]>([]);
-  const [paqueteId, setPaqueteId] = useState<number | undefined>(undefined);
-  const [esPack, setEsPack] = useState(false);
-  const [packsComprados, setPacksComprados] = useState('1');
-  const [unidadesPorPack, setUnidadesPorPack] = useState('5');
-  const [costoPackUsaTexto, setCostoPackUsaTexto] = useState('');
-  const [aplicarTaxUsa, setAplicarTaxUsa] = useState(true);
-
-  useEffect(() => {
-    if (!abierto) return;
-    window.api.compras.list().then((r) => {
-      if (r.success) setPaquetes(r.data);
-    });
-  }, [abierto]);
 
   useEffect(() => {
     if (!abierto) return;
@@ -145,11 +133,7 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
       setFoto(producto.foto ?? '');
       setTieneVariantes(producto.tiene_variantes);
       setVariantes(
-        producto.variantes.map((v) => ({
-          talla: v.talla ?? '',
-          color: v.color ?? '',
-          existencias: String(v.existencias),
-        }))
+        producto.variantes.map((v) => ({ talla: v.talla ?? '', color: v.color ?? '' }))
       );
       setModoPrecio(producto.modo_precio);
       setOtroModoAbierto(producto.modo_precio !== 'MARGEN');
@@ -163,57 +147,12 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
           : ''
       );
       setStockMinimo(String(producto.stock_minimo));
+      const pack = producto.unidades_por_paquete ?? 0;
+      setSePackea(pack > 1);
+      setUnidadesPorPack(String(pack > 1 ? pack : 5));
       setNotas(producto.notas ?? '');
-      setCantidadInicial(String(producto.existencias ?? 0));
-      // Lo que se devuelve para editar es el PRECIO DE LA TIENDA, que es lo que
-      // se escribió. Antes se cargaba el costo con impuesto y flete adentro,
-      // así que guardar sin tocar nada se los sumaba de nuevo.
-      //
-      // Para los productos cargados antes de que existiera el campo, se despeja
-      // del costo base, que es exactamente reversible.
-      setCostoInicialTexto(
-        producto.precio_tienda_unitario_usd_cents !== undefined
-          ? (producto.precio_tienda_unitario_usd_cents / 100).toFixed(2)
-          : producto.costo_base_unitario_usd_cents !== undefined
-            ? (
-                Math.round((producto.costo_base_unitario_usd_cents * 10000) / (10000 + taxBp)) / 100
-              ).toFixed(2)
-            : producto.costo_unitario_usd_cents !== undefined
-              ? (producto.costo_unitario_usd_cents / 100).toFixed(2)
-              : ''
-      );
-      setPaqueteId(producto.paquete_id);
-      const tienePack = Boolean(producto.unidades_por_paquete && producto.unidades_por_paquete > 1);
-      setEsPack(tienePack);
-      const porPack = producto.unidades_por_paquete ? producto.unidades_por_paquete : 5;
-      setUnidadesPorPack(String(porPack));
-
-      // Recuperar packs comprados: si está guardado se usa; si no, se deduce de existencias / unidades_por_paquete
-      const packsGuardadosODeducidos =
-        producto.packs_comprados !== undefined
-          ? producto.packs_comprados
-          : (producto.existencias > 0 && porPack > 0)
-          ? Math.max(1, Math.round(producto.existencias / porPack))
-          : 1;
-      setPacksComprados(String(packsGuardadosODeducidos));
-
-      // Recuperar tax USA aplicado
-      const usaTax = producto.aplicar_tax_usa !== false;
-      setAplicarTaxUsa(usaTax);
-
-      // Recuperar precio del paquete en USA: si está guardado se usa; si no, se deduce de costo unitario
-      if (producto.costo_pack_usa_usd_cents !== undefined && producto.costo_pack_usa_usd_cents > 0) {
-        setCostoPackUsaTexto((producto.costo_pack_usa_usd_cents / 100).toFixed(2));
-      } else if (tienePack && producto.costo_unitario_usd_cents) {
-        const basePackCents = Math.round(
-          (producto.costo_unitario_usd_cents * porPack) / (usaTax ? 1.07 : 1)
-        );
-        setCostoPackUsaTexto((basePackCents / 100).toFixed(2));
-      } else {
-        setCostoPackUsaTexto('');
-      }
     } else {
-      setNombre('');
+      setNombre(nombreInicial ?? '');
       setCategoriaId(categorias[0]?.id);
       setFoto('');
       setTieneVariantes(false);
@@ -224,19 +163,12 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
       setMultiplicadorTexto('2');
       setPrecioManualTexto('');
       setStockMinimo(String(stockMinimoDefecto));
-      setNotas('');
-      setCantidadInicial('');
-      setCostoInicialTexto('');
-      setPaqueteId(undefined);
-      setEsPack(false);
-      setPacksComprados('1');
+      setSePackea(false);
       setUnidadesPorPack('5');
-      setCostoPackUsaTexto('');
-      setAplicarTaxUsa(true);
+      setNotas('');
     }
-  }, [abierto, producto, categorias]);
+  }, [abierto, producto, categorias, nombreInicial, stockMinimoDefecto]);
 
-  // Cierre con Escape
   useEffect(() => {
     if (!abierto) return;
     const alPresionar = (e: KeyboardEvent) => {
@@ -246,81 +178,36 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
     return () => window.removeEventListener('keydown', alPresionar);
   }, [abierto, onCerrar]);
 
-  const paqueteSeleccionado = useMemo(
-    () => paquetes.find((p) => p.id === paqueteId),
-    [paquetes, paqueteId]
-  );
-
-  const calculoPack = useMemo(() => {
-    if (!esPack) return null;
-    const packs = Math.max(1, Math.round(parsearDecimal(packsComprados) ?? 1));
-    const porPack = Math.max(1, Math.round(parsearDecimal(unidadesPorPack) ?? 5));
-    const totalUnidades = packs * porPack;
-    const precioPackCents = parsearACentavos(costoPackUsaTexto, { min: 0 }) ?? 0;
-
-    // Acá sólo se divide el pack entre sus unidades. El impuesto y el flete
-    // los pone el repositorio, con la tasa configurada y el paquete de verdad.
-    // Antes esto sumaba un 7% clavado que ignoraba Configuración, y llamaba
-    // "landed" a un costo que no incluía el flete.
-    const costoBaseUnitCents = precioPackCents > 0 ? Math.round(precioPackCents / porPack) : 0;
-
-    return {
-      packs,
-      porPack,
-      totalUnidades,
-      precioPackCents,
-      costoBaseUnitCents,
-    };
-  }, [esPack, packsComprados, unidadesPorPack, costoPackUsaTexto]);
-
-  useEffect(() => {
-    if (!esPack || !calculoPack) return;
-    if (esNuevo) {
-      setCantidadInicial(String(calculoPack.totalUnidades));
-      if (calculoPack.costoBaseUnitCents > 0) {
-        setCostoInicialTexto((calculoPack.costoBaseUnitCents / 100).toFixed(2));
-      }
-    }
-  }, [esPack, calculoPack, esNuevo]);
-
   const margenEfectivoBp = useMemo(() => {
     if (margenTexto.trim()) return Math.round((parsearDecimal(margenTexto) ?? 0) * 100);
     const cat = categorias.find((c) => c.id === categoriaId);
     return cat?.margen_defecto_bp ?? margenDefectoBp;
   }, [margenTexto, categoriaId, categorias, margenDefectoBp]);
 
-  const costoParsed = costoInicialTexto.trim() ? parsearACentavos(costoInicialTexto, { min: 0 }) : null;
-  const costoPreview =
-    costoParsed !== null
-      ? costoParsed
-      : producto
-      ? producto.costo_unitario_usd_cents
-      : 0;
+  /**
+   * El costo real de hoy: valor de la bodega entre las existencias, que ya
+   * trae el precio de tienda, el impuesto y el flete de cada paquete. Antes la
+   * vista previa usaba el precio de tienda pelado y el margen que se veía acá
+   * no era el que se iba a ganar.
+   */
+  const costoReal = producto?.costo_unitario_usd_cents ?? 0;
 
   const preview = useMemo(
     () =>
       calcularPrecio({
-        costo_unitario_usd_cents: costoPreview,
+        costo_unitario_usd_cents: costoReal,
         modo: modoPrecio,
         margen_bp: margenEfectivoBp,
         multiplicador_bp: Math.round((parsearDecimal(multiplicadorTexto) ?? 2) * 10000),
         precio_manual_usd_cents: parsearACentavos(precioManualTexto, { min: 0 }) ?? 0,
         paso_redondeo_usd_cents: pasoRedondeo,
       }),
-    [
-      costoPreview,
-      modoPrecio,
-      margenEfectivoBp,
-      multiplicadorTexto,
-      precioManualTexto,
-      pasoRedondeo,
-    ]
+    [costoReal, modoPrecio, margenEfectivoBp, multiplicadorTexto, precioManualTexto, pasoRedondeo]
   );
 
   if (!abierto) return null;
 
-  const agregarVariante = () =>
-    setVariantes((prev) => [...prev, { talla: '', color: '', existencias: '0' }]);
+  const agregarVariante = () => setVariantes((prev) => [...prev, { talla: '', color: '' }]);
 
   const actualizarVariante = (i: number, campo: keyof VarianteBorrador, valor: string) =>
     setVariantes((prev) => prev.map((v, idx) => (idx === i ? { ...v, [campo]: valor } : v)));
@@ -341,54 +228,35 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
   };
 
   const validarPaso = (p: number): boolean => {
-    if (p === 1) {
-      if (!nombre.trim()) {
-        setError('Escribí el nombre del producto para continuar.');
-        return false;
-      }
+    if (p === 1 && !nombre.trim()) {
+      setError('Escribí el nombre del producto para continuar.');
+      return false;
     }
-    if (p === 2) {
-      if (esNuevo && cantidadInicial.trim() && !costoInicialTexto.trim()) {
-        setError('Si ponés existencias iniciales, indicá el costo por unidad.');
+    if (p === 2 && modoPrecio === 'MANUAL') {
+      if (!precioManualTexto.trim()) {
+        setError('Escribí el precio de venta.');
         return false;
       }
-      if (costoInicialTexto.trim()) {
-        const cParsed = parsearACentavos(costoInicialTexto, { min: 0 });
-        if (cParsed === null) {
-          setError('El costo por unidad debe ser un monto válido mayor o igual a $0.00.');
-          return false;
-        }
+      if (parsearACentavos(precioManualTexto, { min: 0.01 }) === null) {
+        setError('El precio debe ser un monto válido mayor a $0.00.');
+        return false;
       }
     }
     if (p === 3) {
-      if (modoPrecio === 'MANUAL') {
-        if (!precioManualTexto.trim()) {
-          setError('Escribí el precio de venta manual para el producto.');
-          return false;
-        }
-        const pParsed = parsearACentavos(precioManualTexto, { min: 0.01 });
-        if (pParsed === null) {
-          setError('El precio manual debe ser un monto válido mayor a $0.00.');
-          return false;
-        }
-      }
-      if (esPack && costoPackUsaTexto.trim()) {
-        const packParsed = parsearACentavos(costoPackUsaTexto, { min: 0 });
-        if (packParsed === null) {
-          setError('El costo del pack en USA debe ser un monto válido mayor o igual a $0.00.');
-          return false;
-        }
-      }
-    }
-    if (p === 4) {
       if (tieneVariantes) {
         if (variantes.length === 0) {
-          setError('Agregá al menos una talla, color o tono de maquillaje, o desactivá las variantes.');
+          setError('Agregá al menos una talla, color o tono, o desactivá las variantes.');
           return false;
         }
-        const algunaVacia = variantes.some((v) => !v.talla.trim() && !v.color.trim());
-        if (algunaVacia) {
-          setError('Cada fila debe tener al menos una talla, medida o tono de maquillaje especificado.');
+        if (variantes.some((v) => !v.talla.trim() && !v.color.trim())) {
+          setError('Cada fila debe tener al menos una talla, medida o tono.');
+          return false;
+        }
+      }
+      if (sePackea) {
+        const u = parsearDecimal(unidadesPorPack);
+        if (u === null || u < 2 || !Number.isInteger(u)) {
+          setError('Un pack tiene que traer 2 unidades o más.');
           return false;
         }
       }
@@ -397,77 +265,28 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
     return true;
   };
 
-  const irAPaso = (nuevoPaso: 1 | 2 | 3 | 4) => {
-    if (nuevoPaso > paso) {
-      if (!validarPaso(paso)) return;
-    }
+  const irAPaso = (nuevo: Paso) => {
+    if (nuevo > paso && !validarPaso(paso)) return;
     setError(null);
-    setPaso(nuevoPaso);
+    setPaso(nuevo);
   };
 
   const siguientePaso = () => {
     if (!validarPaso(paso)) return;
-    if (paso < 4) {
-      setPaso((p) => (p + 1) as 1 | 2 | 3 | 4);
-    }
+    if (paso < 3) setPaso((p) => (p + 1) as Paso);
   };
 
   const anteriorPaso = () => {
     setError(null);
-    if (paso > 1) {
-      setPaso((p) => (p - 1) as 1 | 2 | 3 | 4);
-    }
-  };
-
-  const alPresionarEnter = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key !== 'Enter') return;
-    const target = e.target as HTMLElement;
-    if (target.tagName === 'TEXTAREA' || target.tagName === 'BUTTON') return;
-
-    if (target.tagName === 'INPUT' || target.tagName === 'SELECT') {
-      e.preventDefault();
-      const contenedor = e.currentTarget;
-      const campos = Array.from(
-        contenedor.querySelectorAll<HTMLElement>(
-          'input:not([type="hidden"]):not([type="checkbox"]):not([disabled]), select:not([disabled])'
-        )
-      ).filter((el) => el.offsetParent !== null);
-
-      const idx = campos.indexOf(target);
-      if (idx !== -1 && idx + 1 < campos.length) {
-        const siguiente = campos[idx + 1];
-        siguiente.focus();
-        if (siguiente instanceof HTMLInputElement) {
-          siguiente.select?.();
-        }
-      } else {
-        if (paso < 4) {
-          siguientePaso();
-        } else {
-          manejarGuardar();
-        }
-      }
-    }
+    if (paso > 1) setPaso((p) => (p - 1) as Paso);
   };
 
   const manejarGuardar = async () => {
-    if (!validarPaso(1) || !validarPaso(2) || !validarPaso(3) || !validarPaso(4)) {
-      return;
-    }
+    if (!validarPaso(1) || !validarPaso(2) || !validarPaso(3)) return;
 
     setGuardando(true);
     setError(null);
-
     try {
-      const cantidad = Math.round(parsearDecimal(cantidadInicial) ?? 0);
-      const totalVariantes = tieneVariantes
-        ? variantes.reduce((s, v) => s + Math.max(0, Math.round(parsearDecimal(v.existencias) ?? 0)), 0)
-        : 0;
-      const totalUnidades = tieneVariantes ? totalVariantes : cantidad;
-      const costoUnitarioCents = costoInicialTexto.trim()
-        ? parsearACentavos(costoInicialTexto, { min: 0 }) ?? undefined
-        : undefined;
-
       await onGuardar({
         id: producto?.id,
         nombre: formatearNombreEntidad(nombre),
@@ -477,7 +296,6 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
           ? variantes.map((v) => ({
               talla: v.talla.trim() || undefined,
               color: v.color.trim() || undefined,
-              existencias: Math.round(parsearDecimal(v.existencias) ?? 0),
             }))
           : undefined,
         modo_precio: modoPrecio,
@@ -487,38 +305,19 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
             ? Math.round((parsearDecimal(multiplicadorTexto) ?? 2) * 10000)
             : undefined,
         precio_manual_usd_cents:
-          modoPrecio === 'MANUAL' ? parsearACentavos(precioManualTexto, { min: 0.01 }) ?? undefined : undefined,
-        // Lo que ella escribe es el precio de la TIENDA. El impuesto y el flete
-        // los agrega la aplicación, que es de lo que se trata todo esto.
-        costo_unitario_usd_cents: costoUnitarioCents,
-        precio_tienda_unitario_usd_cents: costoUnitarioCents,
+          modoPrecio === 'MANUAL'
+            ? parsearACentavos(precioManualTexto, { min: 0.01 }) ?? undefined
+            : undefined,
         // Un campo vacío no significa "sin mínimo": significa "el de siempre".
-        // Mandando 0 se desactivaba la alerta de stock sin que nadie lo pidiera,
-        // y 12 de los 22 productos quedaron así.
         stock_minimo: stockMinimo.trim()
           ? Math.round(parsearDecimal(stockMinimo) ?? stockMinimoDefecto)
           : stockMinimoDefecto,
-        peso_unitario_mlb: 0,
-        unidades_por_paquete: esPack
-          ? Math.max(1, Math.round(parsearDecimal(unidadesPorPack) ?? 5))
+        unidades_por_paquete: sePackea
+          ? Math.round(parsearDecimal(unidadesPorPack) ?? 5)
           : undefined,
-        packs_comprados: esPack
-          ? Math.max(1, Math.round(parsearDecimal(packsComprados) ?? 1))
-          : undefined,
-        costo_pack_usa_usd_cents:
-          esPack && costoPackUsaTexto.trim()
-            ? parsearACentavos(costoPackUsaTexto, { min: 0 }) ?? undefined
-            : undefined,
-        aplicar_tax_usa: esPack ? aplicarTaxUsa : undefined,
-        paquete_id: paqueteId,
         foto,
         notas: notas.trim() || undefined,
-        stock_inicial:
-          esNuevo && totalUnidades > 0 && costoUnitarioCents !== undefined
-            ? { cantidad: totalUnidades, costo_unitario_usd_cents: costoUnitarioCents }
-            : undefined,
       });
-
       onCerrar();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo guardar el producto.');
@@ -527,731 +326,506 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
     }
   };
 
+  const alPresionarEnter = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Enter') return;
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'TEXTAREA' || target.tagName === 'BUTTON') return;
+    if (target.tagName !== 'INPUT' && target.tagName !== 'SELECT') return;
+
+    e.preventDefault();
+    const campos = Array.from(
+      e.currentTarget.querySelectorAll<HTMLElement>(
+        'input:not([type="hidden"]):not([type="checkbox"]):not([disabled]), select:not([disabled])'
+      )
+    ).filter((el) => el.offsetParent !== null);
+    const idx = campos.indexOf(target);
+    if (idx !== -1 && idx + 1 < campos.length) {
+      const siguiente = campos[idx + 1];
+      siguiente.focus();
+      if (siguiente instanceof HTMLInputElement) siguiente.select?.();
+    } else if (paso < 3) {
+      siguientePaso();
+    } else {
+      manejarGuardar();
+    }
+  };
+
   return (
     <Portal>
       <div
-        className="fixed inset-0 z-[100] flex items-center justify-center bg-velo/60 backdrop-blur-xs p-4 cursor-pointer"
+        className="fixed inset-0 z-[110] flex items-center justify-center bg-velo/60 backdrop-blur-xs p-4 cursor-pointer"
         role="dialog"
         aria-modal="true"
-      aria-labelledby="titulo-producto"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onCerrar();
-      }}
-    >
-      <div
-        onKeyDown={alPresionarEnter}
-        onClick={(e) => e.stopPropagation()}
-        className="bg-superficie rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden border border-borde/80 animate-modal-pop cursor-default"
+        aria-labelledby="titulo-producto"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onCerrar();
+        }}
       >
-        {/* Cabecera principal */}
-        <header className="flex items-center justify-between px-5 py-4 border-b border-borde shrink-0">
-          <div>
-            <h3 id="titulo-producto" className="text-title text-texto">
-              {esNuevo ? 'Agregar producto al inventario' : `Editar ${producto!.nombre}`}
-            </h3>
-            <p className="text-caption text-texto-3">
-              Paso {paso} de 4 · {PASOS[paso - 1].titulo}: {PASOS[paso - 1].subtitulo}
-            </p>
-          </div>
-          <Button variant="ghost" size="sm" onClick={onCerrar} aria-label="Cerrar">
-            <X className="w-4 h-4" />
-          </Button>
-        </header>
+        <div
+          onKeyDown={alPresionarEnter}
+          onClick={(e) => e.stopPropagation()}
+          className="bg-superficie rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden border border-borde/80 animate-modal-pop cursor-default"
+        >
+          <header className="flex items-center justify-between px-5 py-4 border-b border-borde shrink-0">
+            <div>
+              <h3 id="titulo-producto" className="text-title text-texto">
+                {esNuevo ? 'Producto nuevo' : `Editar ${producto!.nombre}`}
+              </h3>
+              <p className="text-caption text-texto-3">
+                Paso {paso} de 3 · {PASOS[paso - 1].titulo}: {PASOS[paso - 1].subtitulo}
+              </p>
+            </div>
+            <Button variant="ghost" size="sm" onClick={onCerrar} aria-label="Cerrar">
+              <X className="w-4 h-4" />
+            </Button>
+          </header>
 
-        {/* Barra de progreso de Pasos (Wizard) */}
-        <div className="px-6 py-3 border-b border-borde bg-superficie-2/50 shrink-0">
-          <div className="flex items-center justify-between max-w-xl mx-auto">
-            {PASOS.map((p, idx) => {
-              const completado = paso > p.id;
-              const activo = paso === p.id;
-              return (
-                <React.Fragment key={p.id}>
-                  <button
-                    type="button"
-                    onClick={() => irAPaso(p.id as 1 | 2 | 3 | 4)}
-                    className="flex items-center gap-2 group cursor-pointer text-left focus-visible:outline-none"
-                  >
-                    <span
-                      className={cn(
-                        'w-7 h-7 rounded-full flex items-center justify-center text-caption font-semibold transition-[background-color,border-color,color,box-shadow,transform,opacity]',
-                        activo
-                          ? 'bg-acento text-acento-texto ring-4 ring-acento/20 shadow-sm'
-                          : completado
-                          ? 'bg-acento/20 text-acento-fuerte'
-                          : 'bg-superficie border border-borde text-texto-3 group-hover:border-borde-fuerte'
-                      )}
+          <div className="px-6 py-3 border-b border-borde bg-superficie-2/50 shrink-0">
+            <div className="flex items-center justify-between max-w-md mx-auto">
+              {PASOS.map((p, idx) => {
+                const completado = paso > p.id;
+                const activo = paso === p.id;
+                return (
+                  <React.Fragment key={p.id}>
+                    <button
+                      type="button"
+                      onClick={() => irAPaso(p.id as Paso)}
+                      className="flex items-center gap-2 group cursor-pointer text-left focus-visible:outline-none"
                     >
-                      {completado ? <Check className="w-3.5 h-3.5" /> : p.id}
-                    </span>
-                    <div className="hidden sm:block">
-                      <p
+                      <span
                         className={cn(
-                          'text-caption leading-tight',
+                          'w-7 h-7 rounded-full flex items-center justify-center text-caption font-semibold transition-[background-color,border-color,color,box-shadow]',
+                          activo
+                            ? 'bg-acento text-acento-texto ring-4 ring-acento/20 shadow-sm'
+                            : completado
+                              ? 'bg-acento/20 text-acento-fuerte'
+                              : 'bg-superficie border border-borde text-texto-3 group-hover:border-borde-fuerte'
+                        )}
+                      >
+                        {completado ? <Check className="w-3.5 h-3.5" /> : p.id}
+                      </span>
+                      <span
+                        className={cn(
+                          'hidden sm:block text-caption leading-tight',
                           activo
                             ? 'text-texto font-semibold'
                             : completado
-                            ? 'text-texto-2 font-medium'
-                            : 'text-texto-3'
+                              ? 'text-texto-2 font-medium'
+                              : 'text-texto-3'
                         )}
                       >
                         {p.titulo}
-                      </p>
-                    </div>
-                  </button>
-                  {idx < PASOS.length - 1 && (
-                    <div
-                      className={cn(
-                        'flex-1 h-0.5 mx-3 transition-colors',
-                        paso > p.id ? 'bg-acento' : 'bg-borde'
-                      )}
-                    />
-                  )}
-                </React.Fragment>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Cuerpo del formulario (con scroll) */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-5">
-          {error && (
-            <div className="flex items-start gap-2 rounded-md border border-danger-200 bg-danger-50 p-3">
-              <AlertTriangle className="w-4 h-4 text-danger-600 shrink-0 mt-0.5" />
-              <p className="text-label text-danger-800">{error}</p>
+                      </span>
+                    </button>
+                    {idx < PASOS.length - 1 && (
+                      <div
+                        className={cn(
+                          'flex-1 h-0.5 mx-3 transition-colors',
+                          paso > p.id ? 'bg-acento' : 'bg-borde'
+                        )}
+                      />
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </div>
-          )}
+          </div>
 
-          {/* PASO 1: Información básica */}
-          {paso === 1 && (
-            <div className="space-y-5 animate-fade-in">
-              <div className="flex items-start gap-5">
-                {/* Selector de foto */}
-                <div className="shrink-0">
-                  <input
-                    ref={archivoRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={elegirFoto}
-                    className="sr-only"
-                    aria-label="Elegir foto del producto"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => archivoRef.current?.click()}
-                    className={cn(
-                      'w-28 h-28 rounded-lg border overflow-hidden flex flex-col items-center justify-center gap-1.5 shadow-sm',
-                      'transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento',
-                      foto
-                        ? 'border-borde bg-superficie'
-                        : 'border-dashed border-borde-fuerte bg-superficie-2 text-texto-3 hover:border-acento hover:text-acento'
-                    )}
-                  >
-                    {foto ? (
-                      <img src={foto} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <>
-                        <ImagePlus className="w-6 h-6 text-texto-3" />
-                        <span className="text-caption font-medium">Agregar foto</span>
-                      </>
-                    )}
-                  </button>
-                  {foto && (
+          <div className="flex-1 overflow-y-auto p-6 space-y-5">
+            {error && (
+              <div className="flex items-start gap-2 rounded-md border border-danger-200 bg-danger-50 p-3">
+                <AlertTriangle className="w-4 h-4 text-danger-600 shrink-0 mt-0.5" />
+                <p className="text-label text-danger-800">{error}</p>
+              </div>
+            )}
+
+            {paso === 1 && (
+              <div className="space-y-5 animate-fade-in">
+                <div className="flex items-start gap-5">
+                  <div className="shrink-0">
+                    <input
+                      ref={archivoRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={elegirFoto}
+                    />
                     <button
                       type="button"
-                      onClick={() => setFoto('')}
-                      className="mt-1.5 w-28 text-caption text-center block text-texto-3 hover:text-danger-700"
+                      onClick={() => archivoRef.current?.click()}
+                      className={cn(
+                        'w-28 h-28 rounded-lg border overflow-hidden flex flex-col items-center justify-center gap-1.5 shadow-sm',
+                        'transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento',
+                        foto
+                          ? 'border-borde bg-superficie'
+                          : 'border-dashed border-borde-fuerte bg-superficie-2 text-texto-3 hover:border-acento hover:text-acento'
+                      )}
                     >
-                      Quitar foto
+                      {foto ? (
+                        <img src={foto} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <>
+                          <ImagePlus className="w-6 h-6 text-texto-3" />
+                          <span className="text-caption font-medium">Agregar foto</span>
+                        </>
+                      )}
                     </button>
-                  )}
-                </div>
+                    {foto && (
+                      <button
+                        type="button"
+                        onClick={() => setFoto('')}
+                        className="mt-1.5 w-28 text-caption text-center block text-texto-3 hover:text-danger-700"
+                      >
+                        Quitar foto
+                      </button>
+                    )}
+                  </div>
 
-                {/* Nombre y Categoría */}
-                <div className="flex-1 space-y-4">
-                  <Field label="Nombre del producto *" hint="Ej: Camiseta Tommy Hilfiger, Boxers Calvin Klein">
-                    <Input
-                      value={nombre}
-                      onChange={(e) => setNombre(e.target.value)}
-                      onBlur={() => setNombre((prev) => formatearNombreEntidad(prev))}
-                      placeholder="Nombre descriptivo"
-                      autoFocus
-                    />
-                  </Field>
-                  <Field label="Categoría">
-                    <Select
-                      value={categoriaId ?? ''}
-                      onChange={(e) =>
-                        setCategoriaId(e.target.value ? Number(e.target.value) : undefined)
-                      }
+                  <div className="flex-1 space-y-4">
+                    <Field
+                      label="Nombre del producto *"
+                      hint="Ej: Camiseta Tommy Hilfiger, Boxers Calvin Klein"
                     >
-                      <option value="">(Sin categoría)</option>
-                      {categorias.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.nombre}
-                        </option>
-                      ))}
-                    </Select>
-                  </Field>
+                      <Input
+                        value={nombre}
+                        onChange={(e) => setNombre(e.target.value)}
+                        onBlur={() => setNombre((prev) => formatearNombreEntidad(prev))}
+                        placeholder="Nombre descriptivo"
+                        autoFocus
+                      />
+                    </Field>
+                    <Field label="Categoría" hint="De la categoría sale el margen, si no le ponés uno propio">
+                      <Select
+                        value={categoriaId ?? ''}
+                        onChange={(e) =>
+                          setCategoriaId(e.target.value ? Number(e.target.value) : undefined)
+                        }
+                      >
+                        <option value="">(Sin categoría)</option>
+                        {categorias.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.nombre}
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
+                  </div>
                 </div>
-              </div>
 
-              {/* Courier o Paquete de Origen */}
-              <div className="rounded-lg border border-borde p-4 bg-superficie-2/40">
-                <Field
-                  label="Caja o Factura courier de origen"
-                  hint="Opcional: asocia este producto al paquete donde vino para trazabilidad"
-                >
-                  <Select
-                    value={paqueteId ?? ''}
-                    onChange={(e) =>
-                      setPaqueteId(e.target.value ? Number(e.target.value) : undefined)
-                    }
-                  >
-                    <option value="">(Ninguno / Compra directa en tienda física)</option>
-                    {paquetes.map((pq) => (
-                      <option key={pq.id} value={pq.id}>
-                        {pq.codigo} ({formatearFecha(pq.fecha)}) · {formatearPeso(pq.peso_total_mlb)} · Flete {formatearMoneda(pq.envio_total_usd_cents, 'USD')}
-                        {pq.notas ? ` — ${pq.notas}` : ''}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-                {paqueteSeleccionado && (
-                  <p className="mt-2 text-caption text-acento-fuerte flex items-center gap-1.5 font-medium">
-                    <Package className="w-3.5 h-3.5 shrink-0" />
-                    Asociado al envío {paqueteSeleccionado.codigo} de fecha {formatearFecha(paqueteSeleccionado.fecha)}.
+                <div className="rounded-lg border border-borde bg-superficie-2/40 p-4 flex items-start gap-3">
+                  <PackageOpen className="w-4 h-4 text-texto-3 mt-0.5 shrink-0" />
+                  <p className="text-caption text-texto-2 leading-relaxed">
+                    {esNuevo
+                      ? 'Acá va sólo la ficha. Las unidades, lo que costaron en la tienda, el 7% y el flete entran con el paquete que las trae.'
+                      : 'El costo de este producto sale de los paquetes que lo trajeron. Si un paquete quedó mal cargado, se corrige desde el paquete.'}
                   </p>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* PASO 2: Existencias y Multipack */}
-          {paso === 2 && (
-            <div className="space-y-5 animate-fade-in">
-              {/* Opción de Multipack */}
-              <div className="rounded-lg border border-borde p-4 space-y-3 bg-superficie shadow-sm">
-                <div className="flex items-center justify-between gap-2">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={esPack}
-                      onChange={(e) => setEsPack(e.target.checked)}
-                      className="w-4 h-4 rounded border-borde-fuerte text-acento focus-visible:ring-2 focus-visible:ring-acento"
-                    />
-                    <span className="text-body font-medium text-texto">
-                      ¿Viene en paquete de varias prendas? (ej. pack de boxers, calcetines)
-                    </span>
-                  </label>
-                  {esPack && <Badge tone="info">Multipack</Badge>}
                 </div>
+              </div>
+            )}
 
-                {esPack && (
-                  <div className="space-y-4 pt-3 border-t border-borde">
-                    <p className="text-caption text-texto-2">
-                      Indicá lo que pagaste por el paquete completo en USA. El sistema calculará el costo unitario de cada prenda y las agregará individuales al inventario para que puedas venderlas sueltas o por pack.
-                    </p>
+            {paso === 2 && (
+              <div className="space-y-5 animate-fade-in">
+                <div className="rounded-lg border border-borde p-4 bg-superficie">
+                  <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+                    <h4 className="text-label font-medium text-texto">Cómo se calcula el precio</h4>
+                    {!otroModoAbierto && (
+                      <button
+                        type="button"
+                        onClick={() => setOtroModoAbierto(true)}
+                        className="text-label text-texto-3 hover:text-acento focus-visible:outline-none"
+                      >
+                        Calcularlo de otra forma
+                      </button>
+                    )}
+                  </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <Field label="Packs comprados" hint="Ej: 1 pack">
+                  {otroModoAbierto && (
+                    <div className="flex gap-2 mb-4" role="radiogroup" aria-label="Cómo calcular el precio">
+                      {MODOS.map((opcion) => (
+                        <button
+                          key={opcion.valor}
+                          type="button"
+                          role="radio"
+                          aria-checked={modoPrecio === opcion.valor}
+                          onClick={() => setModoPrecio(opcion.valor)}
+                          className={cn(
+                            'flex-1 rounded-md border px-3 py-2 text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento',
+                            modoPrecio === opcion.valor
+                              ? 'border-acento bg-acento-suave text-acento-fuerte font-medium'
+                              : 'border-borde text-texto-2 hover:bg-superficie-2'
+                          )}
+                        >
+                          {opcion.etiqueta}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {modoPrecio === 'MARGEN' && (
+                      <Field
+                        label="Ganancia que querés (%)"
+                        hint={
+                          margenTexto.trim()
+                            ? 'Sobre tu costo final'
+                            : `Vacío = el de la categoría (${margenEfectivoBp / 100}%)`
+                        }
+                      >
                         <Input
-                          type="number"
-                          min="1"
-                          value={packsComprados}
-                          onChange={(e) => {
-                            setPacksComprados(e.target.value);
-                            if (esNuevo) {
-                              const p = Math.max(1, Math.round(parsearDecimal(e.target.value) ?? 1));
-                              const u = Math.max(1, Math.round(parsearDecimal(unidadesPorPack) ?? 5));
-                              setCantidadInicial(String(p * u));
-                            }
-                          }}
-                          placeholder="1"
-                          className="text-right"
-                        />
-                      </Field>
-                      <Field label="Unidades por pack" hint="Ej: 5 boxers por paquete">
-                        <Input
-                          type="number"
-                          min="1"
-                          value={unidadesPorPack}
-                          onChange={(e) => {
-                            setUnidadesPorPack(e.target.value);
-                            const porPack = Math.max(1, Math.round(parsearDecimal(e.target.value) ?? 5));
-                            const precioPack = parsearACentavos(costoPackUsaTexto, { min: 0 }) ?? 0;
-                            if (precioPack > 0) {
-                              const base = Math.round(precioPack / porPack);
-                              const tax = aplicarTaxUsa ? Math.round(base * 0.07) : 0;
-                              setCostoInicialTexto(((base + tax) / 100).toFixed(2));
-                            }
-                            if (esNuevo) {
-                              const p = Math.max(1, Math.round(parsearDecimal(packsComprados) ?? 1));
-                              setCantidadInicial(String(p * porPack));
-                            }
-                          }}
-                          placeholder="5"
-                          className="text-right"
-                        />
-                      </Field>
-                      <Field label="Precio del pack en USA ($)" hint="Lo que costó el paquete">
-                        <Input
-                          value={costoPackUsaTexto}
-                          onChange={(e) => {
-                            setCostoPackUsaTexto(e.target.value);
-                            const precioPack = parsearACentavos(e.target.value, { min: 0 }) ?? 0;
-                            const porPack = Math.max(1, Math.round(parsearDecimal(unidadesPorPack) ?? 5));
-                            if (precioPack > 0) {
-                              const base = Math.round(precioPack / porPack);
-                              const tax = aplicarTaxUsa ? Math.round(base * 0.07) : 0;
-                              setCostoInicialTexto(((base + tax) / 100).toFixed(2));
-                            }
-                          }}
-                          placeholder="12.00"
+                          value={margenTexto}
+                          onChange={(e) => setMargenTexto(e.target.value)}
+                          placeholder={String(margenEfectivoBp / 100)}
                           className="text-right"
                           inputMode="decimal"
                         />
                       </Field>
-                    </div>
-
-                    <label className="flex items-center gap-2 text-label text-texto-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={aplicarTaxUsa}
-                        onChange={(e) => {
-                          setAplicarTaxUsa(e.target.checked);
-                          const precioPack = parsearACentavos(costoPackUsaTexto, { min: 0 }) ?? 0;
-                          const porPack = Math.max(1, Math.round(parsearDecimal(unidadesPorPack) ?? 5));
-                          if (precioPack > 0) {
-                            setCostoInicialTexto((Math.round(precioPack / porPack) / 100).toFixed(2));
-                          }
-                        }}
-                        className="w-4 h-4 rounded border-borde-fuerte text-acento"
-                      />
-                      <span>Este producto vino en pack</span>
-                    </label>
-
-                    {calculoPack && calculoPack.precioPackCents > 0 && (
-                      <div className="rounded-lg border border-acento/30 bg-acento-suave/25 p-3.5 text-label space-y-1.5">
-                        <div className="flex justify-between items-center">
-                          <span className="text-texto-3">Stock físico que ingresará:</span>
-                          <span className="font-semibold text-texto">{calculoPack.totalUnidades} unidades individuales</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-texto-3">Costo base USA por unidad:</span>
-                          <span className="tabular font-medium text-texto">
-                            ${(calculoPack.costoBaseUnitCents / 100).toFixed(2)} c/u (${(calculoPack.precioPackCents / 100).toFixed(2)} ÷ {calculoPack.porPack})
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-texto-3">+ Impuesto de la tienda ({(taxBp / 100).toFixed(0)}%):</span>
-                          <span className="tabular text-texto">
-                            +${(Math.round((calculoPack.costoBaseUnitCents * taxBp) / 10000) / 100).toFixed(2)} c/u
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-texto-3">+ Flete del paquete:</span>
-                          <span className="tabular text-texto-3">
-                            {paqueteId ? 'se reparte al guardar' : 'sin paquete, no lleva'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center pt-2 border-t border-borde font-semibold text-acento-fuerte">
-                          <span>Costo antes del flete:</span>
-                          <span className="tabular text-base">
-                            ${((calculoPack.costoBaseUnitCents + Math.round((calculoPack.costoBaseUnitCents * taxBp) / 10000)) / 100).toFixed(2)} por unidad
-                          </span>
-                        </div>
-                      </div>
                     )}
-                  </div>
-                )}
-              </div>
 
-              {/* Existencias iniciales directas.
-                  Con multipack activo este bloque NO se muestra: la cantidad y
-                  el costo por unidad ya salen del cálculo de arriba, y volver a
-                  pedirlos como campos editables era pedir dos veces el mismo
-                  dato. Además cualquier edición manual se perdía, porque el
-                  cálculo del pack los reescribe al tocar cualquier campo. */}
-              {esNuevo && esPack ? (
-                <div className="rounded-lg border border-borde bg-superficie-2/60 p-4">
-                  <h4 className="text-label font-medium text-texto">Existencias y costo inicial</h4>
-                  <p className="text-caption text-texto-3 mt-1">
-                    Se toman del multipack de arriba:{' '}
-                    <strong className="text-texto">
-                      {calculoPack?.totalUnidades ?? 0} unidades
-                    </strong>{' '}
-                    a{' '}
-                    <strong className="text-texto">
-                      ${((calculoPack?.costoBaseUnitCents ?? 0) / 100).toFixed(2)}
-                    </strong>{' '}
-                    cada una. Para cambiarlos, modificá los packs, las unidades por pack o el
-                    precio del pack.
-                  </p>
+                    {modoPrecio === 'MULTIPLICADOR' && (
+                      <Field label="Multiplicar el costo por" hint="Ejemplo: 2 = doble del costo">
+                        <Input
+                          value={multiplicadorTexto}
+                          onChange={(e) => setMultiplicadorTexto(e.target.value)}
+                          placeholder="2"
+                          className="text-right"
+                          inputMode="decimal"
+                        />
+                      </Field>
+                    )}
+
+                    {modoPrecio === 'MANUAL' && (
+                      <Field label="Precio de venta ($)" hint="Se respeta tal cual, sin redondear">
+                        <Input
+                          value={precioManualTexto}
+                          onChange={(e) => setPrecioManualTexto(e.target.value)}
+                          placeholder="0.00"
+                          className="text-right"
+                          inputMode="decimal"
+                        />
+                      </Field>
+                    )}
+
+                    <div
+                      className={cn(
+                        'rounded-md border p-3.5',
+                        preview.bajo_costo && costoReal > 0
+                          ? 'border-danger-200 bg-danger-50'
+                          : 'border-borde bg-superficie-2'
+                      )}
+                    >
+                      {costoReal > 0 ? (
+                        <dl className="space-y-1.5 text-label">
+                          <div className="flex justify-between gap-2">
+                            <dt className="text-texto-3">Te cuesta</dt>
+                            <dd>
+                              <Money usd_cents={costoReal} size="sm" soloUsd />
+                            </dd>
+                          </div>
+                          <p className="text-[11px] text-texto-3 leading-snug -mt-0.5">
+                            {(producto?.paquetes ?? []).length > 0 || producto?.paquete_id
+                              ? 'Tienda + 7% + flete, promedio de lo que tenés'
+                              : 'Promedio de lo que tenés'}
+                          </p>
+                          <div className="flex justify-between gap-2">
+                            <dt className="text-texto-3">Lo vendés en</dt>
+                            <dd className="font-semibold text-texto">
+                              <Money usd_cents={preview.precio_usd_cents} size="sm" soloUsd />
+                            </dd>
+                          </div>
+                          <div className="flex justify-between gap-2 pt-1 border-t border-borde">
+                            <dt className="text-texto-3">Ganás</dt>
+                            <dd className="flex items-center gap-1.5">
+                              <Money
+                                usd_cents={preview.ganancia_usd_cents}
+                                size="sm"
+                                soloUsd
+                                colorearSigno
+                              />
+                              <Badge tone={preview.bajo_costo ? 'danger' : 'success'}>
+                                <Porcentaje bp={preview.margen_sobre_costo_bp} />
+                              </Badge>
+                            </dd>
+                          </div>
+                          {preview.bajo_costo && (
+                            <p className="pt-1 text-caption text-danger-700">
+                              Ese precio está por debajo de lo que te costó.
+                            </p>
+                          )}
+                          {sePackea && preview.precio_usd_cents > 0 && (
+                            <p className="pt-2 mt-1 border-t border-borde text-caption text-texto-2">
+                              Pack de {unidadesPorPack}:{' '}
+                              <span className="font-medium text-texto">
+                                {formatearMoneda(
+                                  preview.precio_usd_cents *
+                                    Math.max(1, Math.round(parsearDecimal(unidadesPorPack) ?? 5)),
+                                  'USD'
+                                )}
+                              </span>
+                            </p>
+                          )}
+                        </dl>
+                      ) : modoPrecio === 'MANUAL' ? (
+                        <p className="text-caption text-texto-2 py-2">
+                          Lo vendés en{' '}
+                          <strong className="text-texto">
+                            {formatearMoneda(preview.precio_usd_cents, 'USD')}
+                          </strong>
+                          . Cuando entre su primer paquete vas a ver cuánto ganás.
+                        </p>
+                      ) : (
+                        <p className="text-caption text-texto-3 py-2 leading-relaxed">
+                          Todavía no tiene costo. El precio se calcula solo con este margen
+                          cuando entre su primer paquete, y lo vas a ver en el resumen.
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              ) : esNuevo ? (
-                <div className="rounded-lg border border-borde bg-superficie-2/60 p-4">
-                  <h4 className="text-label font-medium text-texto">
-                    Existencias y costo inicial
-                  </h4>
-                  <p className="text-caption text-texto-3 mb-3">
-                    Indicá cuántas unidades tenés en mano y cuánto te costó cada una.
+              </div>
+            )}
+
+            {paso === 3 && (
+              <div className="space-y-5 animate-fade-in">
+                <div className="rounded-lg border border-borde p-4 bg-superficie">
+                  <label className="flex items-center gap-2 mb-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={tieneVariantes}
+                      onChange={(e) => {
+                        setTieneVariantes(e.target.checked);
+                        if (e.target.checked && variantes.length === 0) agregarVariante();
+                      }}
+                      className="w-4 h-4 rounded border-borde-fuerte text-acento focus-visible:ring-2 focus-visible:ring-acento"
+                    />
+                    <span className="text-body font-medium text-texto">
+                      ¿Tiene tallas, colores o tonos?
+                    </span>
+                  </label>
+                  <p className="text-caption text-texto-3 mb-3 pl-6">
+                    Para ropa (S, M, L) o maquillaje donde el producto es el mismo y cambia el tono.
+                    Las unidades de cada una entran con el paquete.
                   </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Field label="Cantidad de unidades en mano">
+
+                  {tieneVariantes && (
+                    <div className="space-y-2.5 pt-2">
+                      {variantes.map((v, i) => (
+                        <div key={i} className="flex items-end gap-2">
+                          <Field label={i === 0 ? 'Talla / Medida' : ''} className="flex-1">
+                            <Input
+                              value={v.talla}
+                              onChange={(e) => actualizarVariante(i, 'talla', e.target.value)}
+                              placeholder="Opcional: M, 30ml..."
+                            />
+                          </Field>
+                          <Field label={i === 0 ? 'Color / Tono' : ''} className="flex-1">
+                            <Input
+                              value={v.color}
+                              onChange={(e) => actualizarVariante(i, 'color', e.target.value)}
+                              placeholder="Ej: Tono 120, Beige, Rojo..."
+                            />
+                          </Field>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => quitarVariante(i)}
+                            aria-label={`Quitar variante ${i + 1}`}
+                            className="text-texto-3 hover:text-danger-700 mb-0.5"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                      <Button variant="ghost" size="sm" onClick={agregarVariante}>
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Agregar otra talla / tono</span>
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-lg border border-borde p-4 bg-superficie space-y-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={sePackea}
+                      onChange={(e) => setSePackea(e.target.checked)}
+                      className="w-4 h-4 rounded border-borde-fuerte text-acento"
+                    />
+                    <span className="text-body font-medium text-texto">
+                      ¿Se vende también por pack? (boxers, calcetines)
+                    </span>
+                  </label>
+                  {sePackea && (
+                    <Field label="Unidades por pack" hint="Se vende suelto o por pack completo">
                       <Input
                         type="number"
-                        min="0"
-                        value={cantidadInicial}
-                        onChange={(e) => setCantidadInicial(e.target.value)}
-                        placeholder="0"
-                        className="text-right"
+                        min="2"
+                        value={unidadesPorPack}
+                        onChange={(e) => setUnidadesPorPack(e.target.value)}
+                        className="text-right max-w-xs"
                       />
                     </Field>
-                    <Field
-                      label="Costo por unidad ($)"
-                      hint="Costo final por prenda (producto + tax)"
-                    >
-                      <Input
-                        value={costoInicialTexto}
-                        onChange={(e) => setCostoInicialTexto(e.target.value)}
-                        placeholder="0.00"
-                        className="text-right"
-                        inputMode="decimal"
-                      />
-                    </Field>
-                  </div>
+                  )}
                 </div>
+
+                <div className="rounded-lg border border-borde p-4 bg-superficie">
+                  <Field
+                    label="Aviso de stock mínimo"
+                    hint="Te avisa en el inicio cuando queden pocas unidades (0 para no avisar)"
+                  >
+                    <Input
+                      type="number"
+                      min="0"
+                      value={stockMinimo}
+                      onChange={(e) => setStockMinimo(e.target.value)}
+                      className="text-right max-w-xs"
+                    />
+                  </Field>
+                </div>
+
+                <div className="rounded-lg border border-borde p-4 bg-superficie">
+                  <Field label="Notas">
+                    <Textarea
+                      rows={3}
+                      value={notas}
+                      onChange={(e) => setNotas(e.target.value)}
+                      placeholder="Tienda de compra, detalles de tela o recomendaciones..."
+                    />
+                  </Field>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <footer className="flex items-center justify-between gap-3 px-6 py-4 border-t border-borde bg-superficie shrink-0">
+            <div>
+              {paso > 1 ? (
+                <Button variant="secondary" onClick={anteriorPaso} disabled={guardando}>
+                  <ChevronLeft className="w-4 h-4" />
+                  <span>Atrás</span>
+                </Button>
               ) : (
-                <div className="rounded-lg border border-borde bg-superficie-2/60 p-4 space-y-3">
-                  <div>
-                    <h4 className="text-label font-medium text-texto">
-                      Costo unitario de compra
-                    </h4>
-                    <p className="text-caption text-texto-3">
-                      El impuesto y el flete los calcula la app: acá va sólo lo que pagaste en la tienda.
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-                    <Field
-                      label="Costo por unidad ($)"
-                      hint="Lo que pagaste en la tienda, sin impuesto ni flete"
-                    >
-                      <Input
-                        value={costoInicialTexto}
-                        onChange={(e) => setCostoInicialTexto(e.target.value)}
-                        placeholder="0.00"
-                        className="text-right font-semibold"
-                        inputMode="decimal"
-                      />
-                    </Field>
-
-                    <div className="rounded-lg border border-borde bg-superficie p-3 flex flex-col justify-center text-caption text-texto-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-texto-3">Existencias físicas:</span>
-                        <span className="font-semibold text-texto">
-                          {producto.existencias ?? 0} unidades
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-texto-3 mt-1.5 leading-snug">
-                        Para modificar las existencias físicas en bodega, utilizá el botón <em>"Ajustar existencias"</em> en la lista de inventario.
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                <Button variant="secondary" onClick={onCerrar} disabled={guardando}>
+                  Cancelar
+                </Button>
               )}
             </div>
-          )}
 
-          {/* PASO 3: Precio de venta */}
-          {paso === 3 && (
-            <div className="space-y-5 animate-fade-in">
-              <div className="rounded-lg border border-borde p-4 bg-superficie">
-                <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
-                  <h4 className="text-label font-medium text-texto">Modo de cálculo del precio</h4>
-                  {!otroModoAbierto && (
-                    <button
-                      type="button"
-                      onClick={() => setOtroModoAbierto(true)}
-                      className="text-label text-texto-3 hover:text-acento focus-visible:outline-none"
-                    >
-                      Calcularlo de otra forma
-                    </button>
-                  )}
-                </div>
-
-                {otroModoAbierto && (
-                  <div
-                    className="flex gap-2 mb-4"
-                    role="radiogroup"
-                    aria-label="Cómo calcular el precio"
-                  >
-                    {MODOS.map((opcion) => (
-                      <button
-                        key={opcion.valor}
-                        type="button"
-                        role="radio"
-                        aria-checked={modoPrecio === opcion.valor}
-                        onClick={() => setModoPrecio(opcion.valor)}
-                        className={cn(
-                          'flex-1 rounded-md border px-3 py-2 text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento',
-                          modoPrecio === opcion.valor
-                            ? 'border-acento bg-acento-suave text-acento-fuerte font-medium'
-                            : 'border-borde text-texto-2 hover:bg-superficie-2'
-                        )}
-                      >
-                        {opcion.etiqueta}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {modoPrecio === 'MARGEN' && (
-                    <Field
-                      label="Ganancia que querés (%)"
-                      hint={
-                        margenTexto.trim()
-                          ? 'Sobre tu costo final'
-                          : `Vacío = margen por categoría (${margenEfectivoBp / 100}%)`
-                      }
-                    >
-                      <Input
-                        value={margenTexto}
-                        onChange={(e) => setMargenTexto(e.target.value)}
-                        placeholder={String(margenEfectivoBp / 100)}
-                        className="text-right"
-                        inputMode="decimal"
-                      />
-                    </Field>
-                  )}
-
-                  {modoPrecio === 'MULTIPLICADOR' && (
-                    <Field label="Multiplicar el costo por" hint="Ejemplo: 2 = doble del costo">
-                      <Input
-                        value={multiplicadorTexto}
-                        onChange={(e) => setMultiplicadorTexto(e.target.value)}
-                        placeholder="2"
-                        className="text-right"
-                        inputMode="decimal"
-                      />
-                    </Field>
-                  )}
-
-                  {modoPrecio === 'MANUAL' && (
-                    <Field label="Precio de venta directo ($)" hint="Precio fijo sin redondeo">
-                      <Input
-                        value={precioManualTexto}
-                        onChange={(e) => setPrecioManualTexto(e.target.value)}
-                        placeholder="0.00"
-                        className="text-right"
-                        inputMode="decimal"
-                      />
-                    </Field>
-                  )}
-
-                  {/* Tarjeta de vista previa */}
-                  <div
-                    className={cn(
-                      'rounded-md border p-3.5',
-                      preview.bajo_costo && costoPreview > 0
-                        ? 'border-danger-200 bg-danger-50'
-                        : 'border-borde bg-superficie-2'
-                    )}
-                  >
-                    {costoPreview > 0 ? (
-                      <dl className="space-y-1.5 text-label">
-                        <div className="flex justify-between gap-2">
-                          <dt className="text-texto-3">Te cuesta</dt>
-                          <dd>
-                            <Money usd_cents={costoPreview} size="sm" soloUsd />
-                          </dd>
-                        </div>
-                        <div className="flex justify-between gap-2">
-                          <dt className="text-texto-3">Lo vendés en</dt>
-                          <dd className="font-semibold text-texto">
-                            <Money usd_cents={preview.precio_usd_cents} size="sm" soloUsd />
-                          </dd>
-                        </div>
-                        <div className="flex justify-between gap-2 pt-1 border-t border-borde">
-                          <dt className="text-texto-3">Ganás</dt>
-                          <dd className="flex items-center gap-1.5">
-                            <Money
-                              usd_cents={preview.ganancia_usd_cents}
-                              size="sm"
-                              soloUsd
-                              colorearSigno
-                            />
-                            <Badge tone={preview.bajo_costo ? 'danger' : 'success'}>
-                              <Porcentaje bp={preview.margen_sobre_costo_bp} />
-                            </Badge>
-                          </dd>
-                        </div>
-                        {preview.bajo_costo && (
-                          <p className="pt-1 text-caption text-danger-700">
-                            Ese precio está por debajo de lo que te costó.
-                          </p>
-                        )}
-                        {esPack && preview.precio_usd_cents > 0 && (
-                          <div className="pt-2 mt-1 border-t border-borde text-caption text-texto-2">
-                            <span className="font-semibold text-acento-fuerte">Si vendés el paquete completo ({unidadesPorPack} uds):</span>{' '}
-                            <span className="font-medium text-texto">
-                              {formatearMoneda(
-                                preview.precio_usd_cents *
-                                  Math.max(1, Math.round(parsearDecimal(unidadesPorPack) ?? 5)),
-                                'USD'
-                              )}
-                            </span>
-                          </div>
-                        )}
-                      </dl>
-                    ) : (
-                      <p className="text-caption text-texto-3 py-2 text-center">
-                        Ingresá el costo en el Paso 2 para ver el precio sugerido y ganancia proyectada.
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
+            <div className="flex items-center gap-2">
+              {paso < 3 ? (
+                <Button variant="primary" onClick={siguientePaso}>
+                  <span>Siguiente</span>
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              ) : (
+                <Button variant="primary" onClick={manejarGuardar} disabled={guardando}>
+                  {guardando ? 'Guardando...' : esNuevo ? 'Crear producto' : 'Guardar cambios'}
+                </Button>
+              )}
             </div>
-          )}
-
-          {/* PASO 4: Variantes y Detalles */}
-          {paso === 4 && (
-            <div className="space-y-5 animate-fade-in">
-              {/* Variantes */}
-              <div className="rounded-lg border border-borde p-4 bg-superficie">
-                <label className="flex items-center gap-2 mb-1.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={tieneVariantes}
-                    onChange={(e) => {
-                      setTieneVariantes(e.target.checked);
-                      if (e.target.checked && variantes.length === 0) agregarVariante();
-                    }}
-                    className="w-4 h-4 rounded border-borde-fuerte text-acento focus-visible:ring-2 focus-visible:ring-acento"
-                  />
-                  <span className="text-body font-medium text-texto">
-                    ¿Este producto tiene tallas, colores o tonos de maquillaje?
-                  </span>
-                </label>
-                <p className="text-caption text-texto-3 mb-3 pl-6">
-                  Ideal para ropa (S, M, L) o cosméticos donde el producto es el mismo pero varía el tono (ej. Tono 120 Classic Ivory, 220 Natural Beige, etc.).
-                </p>
-
-                {tieneVariantes && (
-                  <div className="space-y-2.5 pt-2">
-                    {variantes.map((v, i) => (
-                      <div key={i} className="flex items-end gap-2">
-                        <Field label={i === 0 ? 'Talla / Medida' : ''} className="flex-1">
-                          <Input
-                            value={v.talla}
-                            onChange={(e) => actualizarVariante(i, 'talla', e.target.value)}
-                            placeholder="Opcional: M, 30ml..."
-                          />
-                        </Field>
-                        <Field label={i === 0 ? 'Color / Tono de Maquillaje' : ''} className="flex-1">
-                          <Input
-                            value={v.color}
-                            onChange={(e) => actualizarVariante(i, 'color', e.target.value)}
-                            placeholder="Ej: Tono 120, Beige, Rojo..."
-                          />
-                        </Field>
-                        <Field label={i === 0 ? 'Existencias' : ''} className="w-28">
-                          <Input
-                            type="number"
-                            min="0"
-                            value={v.existencias}
-                            onChange={(e) => actualizarVariante(i, 'existencias', e.target.value)}
-                            className="text-right"
-                            disabled={!esNuevo}
-                          />
-                        </Field>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => quitarVariante(i)}
-                          aria-label={`Quitar variante ${i + 1}`}
-                          className="text-texto-3 hover:text-danger-700 mb-0.5"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    ))}
-                    <Button variant="ghost" size="sm" onClick={agregarVariante}>
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Agregar otra talla / tono</span>
-                    </Button>
-                    {!esNuevo && (
-                      <p className="text-caption text-texto-3">
-                        Para cambiar existencias de variantes de un producto existente, usá "Ajustar existencias" en la lista.
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Alerta de Stock Mínimo */}
-              <div className="rounded-lg border border-borde p-4 bg-superficie">
-                <Field
-                  label="Aviso de stock mínimo"
-                  hint="Te avisará en el panel de inicio cuando queden pocas unidades (0 para no avisar)"
-                >
-                  <Input
-                    type="number"
-                    min="0"
-                    value={stockMinimo}
-                    onChange={(e) => setStockMinimo(e.target.value)}
-                    className="text-right max-w-xs"
-                  />
-                </Field>
-              </div>
-
-              {/* Notas */}
-              <div className="rounded-lg border border-borde p-4 bg-superficie">
-                <Field label="Notas y observaciones">
-                  <Textarea
-                    rows={3}
-                    value={notas}
-                    onChange={(e) => setNotas(e.target.value)}
-                    placeholder="Tienda de compra, detalles de tela o recomendaciones..."
-                  />
-                </Field>
-              </div>
-            </div>
-          )}
+          </footer>
         </div>
-
-        {/* Pie de navegación por etapas */}
-        <footer className="flex items-center justify-between gap-3 px-6 py-4 border-t border-borde bg-superficie shrink-0">
-          <div>
-            {paso > 1 ? (
-              <Button variant="secondary" onClick={anteriorPaso} disabled={guardando}>
-                <ChevronLeft className="w-4 h-4" />
-                <span>Atrás</span>
-              </Button>
-            ) : (
-              <Button variant="secondary" onClick={onCerrar} disabled={guardando}>
-                Cancelar
-              </Button>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            {paso < 4 ? (
-              <Button variant="primary" onClick={siguientePaso}>
-                <span>Siguiente</span>
-                <ChevronRight className="w-4 h-4" />
-              </Button>
-            ) : (
-              <Button variant="primary" onClick={manejarGuardar} disabled={guardando}>
-                {guardando ? 'Guardando...' : esNuevo ? 'Agregar al inventario' : 'Guardar cambios'}
-              </Button>
-            )}
-          </div>
-        </footer>
       </div>
-    </div>
     </Portal>
   );
 };

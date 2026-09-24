@@ -298,10 +298,10 @@ export function DashboardView({
                     <span className="h-2 w-2 rounded-full bg-texto-3 shrink-0" />
                     <p className="text-caption sm:text-label font-semibold text-texto-3 truncate">Inventario</p>
                   </div>
-                  {(panel?.bajo_stock.length ?? 0) > 0 && (
+                  {(panel?.total_bajo_stock ?? 0) > 0 && (
                     <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-alerta-suave text-alerta border border-alerta-suave shrink-0 flex items-center gap-0.5">
                       <PackageX size={10} />
-                      {panel!.bajo_stock.length} bajo
+                      {panel!.total_bajo_stock} bajo
                     </span>
                   )}
                 </div>
@@ -396,7 +396,7 @@ export function DashboardView({
           {/* Banner de Estado Operativo / Stock Crítico (Altura fija compacta, cero layout shift) */}
           <section
             onClick={() => {
-              if (panel?.bajo_stock && panel.bajo_stock.length > 0) {
+              if (panel?.bajo_stock && panel.total_bajo_stock > 0) {
                 haptics.impact('light');
                 setMostrarStockSheet(true);
               } else {
@@ -431,14 +431,14 @@ export function DashboardView({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
                       <span className="text-label sm:text-body font-bold text-peligro truncate leading-tight">
-                        Stock crítico ({panel!.bajo_stock.length})
+                        Stock crítico ({panel!.total_bajo_stock})
                       </span>
                       {panel!.bajo_stock.some((i) => i.existencias === 0) && (
                         <span className="h-2 w-2 rounded-full bg-peligro animate-pulse shrink-0" />
                       )}
                     </div>
                     <p className="text-caption text-peligro/80 font-medium truncate mt-0.5 leading-tight">
-                      {panel!.bajo_stock.length === 1
+                      {panel!.total_bajo_stock === 1
                         ? panel!.bajo_stock[0].nombre
                         : `${panel!.bajo_stock.filter((i) => i.existencias === 0).length} agotados`}
                     </p>
@@ -482,8 +482,8 @@ export function DashboardView({
         onCerrar={() => setMostrarStockSheet(false)}
         titulo="Stock Crítico"
         subtitulo={
-          panel?.bajo_stock && panel.bajo_stock.length > 0
-            ? `${panel.bajo_stock.length} producto${panel.bajo_stock.length === 1 ? '' : 's'} que requiere${panel.bajo_stock.length === 1 ? '' : 'n'} atención`
+          panel?.bajo_stock && panel.total_bajo_stock > 0
+            ? `${panel.total_bajo_stock} producto${panel.total_bajo_stock === 1 ? '' : 's'} que requiere${panel.total_bajo_stock === 1 ? '' : 'n'} atención`
             : undefined
         }
         maxHeight="85vh"
@@ -514,7 +514,7 @@ export function DashboardView({
         }
       >
         <div className="flex flex-col gap-2 py-1">
-          {panel?.bajo_stock && panel.bajo_stock.length > 0 ? (
+          {panel?.bajo_stock && panel.total_bajo_stock > 0 ? (
             panel.bajo_stock.map((item) => {
               const estaAgotado = item.existencias === 0;
               return (

@@ -41,6 +41,8 @@ export const api: ApiPuente = {
     eliminarDefinitivo: (id) => ipcRenderer.invoke(IPC.PRODUCTOS_ELIMINAR_DEFINITIVO, id),
     movimientos: (producto_id) => ipcRenderer.invoke(IPC.PRODUCTOS_MOVIMIENTOS, producto_id),
     simularPrecio: (input) => ipcRenderer.invoke(IPC.PRODUCTOS_SIMULAR_PRECIO, input),
+    preciosDesactualizados: () => ipcRenderer.invoke(IPC.PRODUCTOS_PRECIOS_DESACTUALIZADOS),
+    aplicarPrecios: (ids) => ipcRenderer.invoke(IPC.PRODUCTOS_APLICAR_PRECIOS, ids),
   },
   compras: {
     list: () => ipcRenderer.invoke(IPC.COMPRAS_LIST),
@@ -49,6 +51,10 @@ export const api: ApiPuente = {
     previsualizar: (input) => ipcRenderer.invoke(IPC.COMPRAS_PREVISUALIZAR, input),
     recibir: (id) => ipcRenderer.invoke(IPC.COMPRAS_RECIBIR, id),
     archivar: (id) => ipcRenderer.invoke(IPC.COMPRAS_ARCHIVAR, id),
+    corregir: (input) => ipcRenderer.invoke(IPC.COMPRAS_CORREGIR, input),
+    reconstruir: (id) => ipcRenderer.invoke(IPC.COMPRAS_RECONSTRUIR, id),
+    completarReconstruccion: (id) => ipcRenderer.invoke(IPC.COMPRAS_COMPLETAR_RECONSTRUCCION, id),
+    historialProducto: (producto_id) => ipcRenderer.invoke(IPC.COMPRAS_HISTORIAL_PRODUCTO, producto_id),
   },
   ventas: {
     list: (filtros) => ipcRenderer.invoke(IPC.VENTAS_LIST, filtros),
