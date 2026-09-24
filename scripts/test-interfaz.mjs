@@ -7,7 +7,24 @@
  *
  * Necesita el emulador andando:  npm run emulador
  */
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
+/**
+ * Cierra el servidor y todo lo que lanzó.
+ *
+ * Con `shell: true`, en Windows `kill()` mata la consola intermedia y deja
+ * vivo al proceso de adentro. Ese proceso huérfano quedaba con `dist` como
+ * directorio de trabajo, y el siguiente `release:windows` fallaba con EPERM
+ * al querer borrar la carpeta: la trampa que documenta CONTEXTO_SESION.
+ */
+function cerrarServidor(proc) {
+  if (!proc.pid) return;
+  if (process.platform === 'win32') {
+    spawnSync('taskkill', ['/pid', String(proc.pid), '/T', '/F'], { stdio: 'ignore' });
+  } else {
+    proc.kill();
+  }
+}
+
 import { setTimeout as esperar } from 'node:timers/promises';
 
 const HOST_FIRESTORE = process.env.FIRESTORE_EMULATOR_HOST ?? '127.0.0.1:8080';
@@ -80,7 +97,7 @@ try {
   console.log('\n  pruebas de interfaz:\n');
   codigoSalida = await correr('python tests/interfaz/pruebas.py');
 } finally {
-  servidor.kill();
+  cerrarServidor(servidor);
 }
 
 process.exit(codigoSalida);
