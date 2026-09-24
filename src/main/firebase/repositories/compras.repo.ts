@@ -46,6 +46,7 @@ import {
 import { margenEfectivo } from '../../../core/precios';
 import { repartirFlete } from '../../../core/costo-producto';
 import { normalizar } from '../../../core/texto';
+import { formatearMoneda } from '../../../core/moneda';
 import { ParametrosRepoFirestore } from './parametros.repo';
 import { ProductosRepoFirestore, type ProductoDoc } from './productos.repo';
 import { ResumenesRepoFirestore } from './resumenes.repo';
@@ -938,7 +939,9 @@ export class ComprasRepoFirestore {
               existencias_despues: corriendo,
               referencia_tipo: 'COMPRA',
               referencia_id: input.id,
-              detalle: `Corrección del paquete ${compra.codigo}`,
+              // El monto va en el detalle: el movimiento no cambia unidades, y
+              // sin él el historial sólo decía "= 4" sin explicar qué pasó.
+              detalle: `Corrección del paquete ${compra.codigo}: costo ${efecto.aplicado_usd_cents > 0 ? '+' : '-'}${formatearMoneda(Math.abs(efecto.aplicado_usd_cents), 'USD')}`,
               fecha: ahora,
             })
           );

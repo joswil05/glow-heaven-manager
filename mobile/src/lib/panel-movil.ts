@@ -152,5 +152,9 @@ export async function obtenerDatosDashboard(forzar = false): Promise<CacheDashbo
 
 export function invalidarCacheDashboard() {
   cacheDashboardGlobal.tiempo = 0;
+  // El repositorio del panel tiene su propia instantánea de 20 segundos. Sin
+  // limpiarla también, después de una venta el panel se volvía a armar con
+  // los datos de antes y la venta recién hecha no aparecía.
+  PanelRepoFirestore.invalidarCache();
 }
 

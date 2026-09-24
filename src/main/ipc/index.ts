@@ -29,7 +29,18 @@ function manejar<TArgs extends unknown[], TResultado>(
 ): void {
   ipcMain.handle(canal, async (_evento, ...args: TArgs): Promise<Resultado<TResultado>> => {
     try {
-      return { success: true, data: await fn(...args) };
+      const data = await fn(...args);
+      // Toda acción que escribe devuelve su grupo de eventos (y deshacer
+      // también cambia datos). Después de una, el panel no puede servir su
+      // instantánea en caché: sin esto, volver al inicio en menos de 20
+      // segundos mostraba lo que había antes de la venta o del abono.
+      if (
+        canal === IPC.SISTEMA_DESHACER ||
+        (data !== null && typeof data === 'object' && 'evento_grupo_id' in (data as object))
+      ) {
+        PanelRepo.invalidarCache();
+      }
+      return { success: true, data };
     } catch (error) {
       const mensaje =
         error instanceof Error ? error.message : 'Ocurrió un error inesperado.';

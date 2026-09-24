@@ -190,6 +190,21 @@ describe('el costo de abrir el panel móvil', () => {
 
     expect(contadores().lecturas).toBe(0);
   });
+
+  it('después de vender, el panel muestra la venta aunque no hayan pasado 20 segundos', async () => {
+    // La pantalla invalida su caché de 45 segundos después de cada venta o
+    // abono, pero el panel tiene además la suya, de 20 segundos, dentro del
+    // repositorio. Si sólo se limpiaba la primera, el panel se volvía a armar
+    // con la instantánea vieja: la venta recién hecha no aparecía.
+    await venta(hoyISO(), 1000);
+    const antes = await obtenerDatosDashboard(true);
+    expect(antes.hoy.total_usd_cents).toBe(1000);
+
+    await venta(hoyISO(), 2500);
+    invalidarCacheDashboard();
+    const despues = await obtenerDatosDashboard();
+    expect(despues.hoy.total_usd_cents, 'la venta nueva no llegó al panel').toBe(3500);
+  });
 });
 
 describe('los encargos pendientes', () => {
