@@ -2,8 +2,8 @@
 
 > **Para quién es esto**: el modelo o la persona que abre este proyecto sin
 > haber estado en la sesión anterior.
-> **Estado del árbol**: `v2.12.0` en la rama `paquetes-como-entrada`, todo verde
-> y **sin publicar**. Producción corre `v2.11.2`.
+> **Estado del árbol**: `v2.12.2`, publicado en PWA y Windows, todo verde.
+> Probado sobre la app instalada contra la base real (sección 6).
 > **Última actualización**: 24 de septiembre de 2026.
 
 Leé este archivo primero. Después:
@@ -110,32 +110,26 @@ un error.
 
 ## 3. Lo que está pendiente, en orden
 
-### P1: publicar `v2.12.0`, y dos pasos que hace ella en la app
+### Hecho el 24 de septiembre, sobre producción
 
-1. Publicar PWA y Windows (sección 5). No hace falta migrar nada antes: el
-   código nuevo lee los documentos viejos tal como están.
-2. **Completar el contenido de PQ-0001.** Inventario → Paquetes → PQ-0001 →
-   "Completar contenido". Lo arma con los movimientos de entrada y los campos
-   heredados de cada producto, lo muestra entero y sólo con su OK escribe **el
-   paquete** (no toca la bodega). Hasta entonces "Pagado en paquetes" muestra
-   sólo los $77 de flete, y lo dice.
-3. **Revisar precios.** Inventario muestra un aviso con los productos cuyo
-   precio no corresponde a su costo (los que se calcularon sin el flete, o que
-   saltaron al vender). Ella elige cuáles aplicar; se puede deshacer.
+- **PQ-0001 tiene su contenido**: 22 productos, 45 unidades, $273.98 + $19.18
+  + $77.00 = $370.16, el número que se esperaba. La bodega no se movió
+  ($278.77 ese día, después de cuatro ventas).
+- **No había precios que revisar**: los 22 productos tienen precio escrito a
+  mano, y la app no toca un precio que ella decidió. Por eso el precio sin
+  flete (H6) y el que saltaba al vender (H7) nunca le llegaron. Ninguno queda
+  debajo del costo; el de menor margen es el Pack de Calzones Calvin Klein M
+  ($7.41 → $8.00, 8%).
+- 17 de sus movimientos de entrada guardaron el precio sin impuesto (se
+  cargaron antes del recosteo del 16). La reconstrucción no los usa: toma el
+  costo base del producto, que es el correcto.
 
-No se pudo leer producción desde la sesión del 24 de septiembre (los permisos
-de la sesión lo bloquearon), así que no se sabe cuántos productos va a listar
-el paso 3 ni si alguno quedó con el 7% dos veces por la etiqueta vieja del
-formulario. El paso 2 lo va a mostrar: la base de cada línea sale de lo que
-entró a la bodega.
-
-### P2: encargos viejos con el anticipo completo que quedaron cotizados
+### Encargos viejos que hayan quedado cotizados: no hay
 
 Hasta `v2.12` un encargo creado con el anticipo completo nacía `COTIZADA`
-(se miraba "saldo en cero"). Los nuevos nacen `PENDIENTE`. Los viejos siguen
-cotizados hasta que se les registre otro abono, y mientras tanto no cuentan en
-"Te deben" ni en "Encargos por comprar". Si ella tiene alguno, conviene
-revisarlo a mano; no se tocó producción.
+(se miraba "saldo en cero"); los nuevos nacen `PENDIENTE`. Al 24 de
+septiembre producción no tiene ningún encargo (las cuatro ventas son de
+inventario), así que no quedó ninguno mal clasificado.
 
 ### P2: `productos.listar` no tiene tope
 
@@ -211,6 +205,17 @@ error que la app real (por IPC, que siempre manda un arreglo nuevo) no tiene.
 texto tiene que sacar los `\r` antes y devolverlos al escribir, o no
 encuentra nada.
 
+**Abrir la app instalada desde la terminal de VS Code falla en silencio.**
+VS Code le pasa `ELECTRON_RUN_AS_NODE=1` a sus terminales, y el ejecutable
+arranca como Node puro: sale con código 0, sin ventana y sin error. Hay que
+lanzarlo con la variable vacía (`$env:ELECTRON_RUN_AS_NODE = $null`). Para
+manejarla con Playwright: `--remote-debugging-port=9223` y
+`connect_over_cdp`.
+
+**El PIN lo escribe una persona.** La sesión de Google queda guardada entre
+arranques, pero el PIN se pide cada vez que abre la app. No se busca ni se
+saca de ningún lado: se le pide a Joswill que lo escriba en la ventana.
+
 **Una prueba en verde a la primera no demuestra nada.** Las de
 `tests/paquete-como-entrada.test.ts` se validaron sembrando diez errores de
 vuelta, uno por uno: cada uno hizo fallar al menos una. Una de las pruebas no
@@ -225,7 +230,7 @@ prueba que Firestore de verdad acepte lo que el código le manda.
 
 ```bash
 npm run typecheck              # 0 errores, sin excepción
-npm test                       # 295 pruebas, 27 archivos
+npm test                       # 299 pruebas, 27 archivos
 npm run test:emulador          # 91 pruebas contra el emulador de Firestore
 npm run test:interfaz          # la PWA, con Playwright
 npm run test:interfaz-escritorio
@@ -265,7 +270,33 @@ rechazó eso. Lo que hay que saber:
 
 ---
 
-## 6. Cómo trabajar con Joswill
+## 6. Probar sobre la base real, sin dejar rastro
+
+Joswill autorizó crear datos de prueba en producción y borrarlos después. Así
+se hizo el 24 de septiembre, y la base quedó idéntica documento por documento:
+
+1. `node scripts/respaldar-produccion.mjs respaldos/antes-de-probar.json`.
+2. Probar con productos y clientas cuyo nombre empiece con **"Prueba "** (la
+   ficha lo escribe "Prueba Gloss"). **Nunca** reponer ni vender productos
+   reales: borrar el paquete después no les devuelve el costo ni el precio.
+3. Otro respaldo y `node scripts/comparar-respaldos.mjs antes.json
+   despues.json plan.json`. Clasifica como de prueba sólo lo que cuelga de
+   esos nombres. Si algo sale **sin clasificar**, no se limpia: puede ser
+   trabajo real de ella.
+4. Borrar en **un** commit de la API REST, con `currentDocument.updateTime`
+   en cada escritura (si alguien tocó algo en el medio, se rechaza entero), y
+   restaurar `_secuencias` para que la numeración de ella no salte.
+5. Un último respaldo y comparar contra el primero: tiene que dar cero
+   diferencias.
+
+Lo que encontró esa prueba y ninguna suite había visto: el panel mostraba
+números de antes de una venta durante 20 segundos (2.12.1); ajustar
+existencias inventaba centavos, pasar un producto de precio a mano a margen lo
+dejaba a costo, y un paquete podía quedar sin fecha (2.12.2).
+
+---
+
+## 7. Cómo trabajar con Joswill
 
 Él construye esto **para una clienta**, no para sí mismo. Lo que se muestre en
 pantalla es lo que ella va a leer para tomar decisiones de plata.
@@ -293,7 +324,7 @@ pantalla es lo que ella va a leer para tomar decisiones de plata.
 
 ---
 
-## 7. Errores que este proyecto ya cometió, para no repetirlos
+## 8. Errores que este proyecto ya cometió, para no repetirlos
 
 No están acá para castigar a nadie. Están porque el patrón se repite.
 
