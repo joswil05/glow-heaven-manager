@@ -21,14 +21,22 @@ Un mismo paquete puede traer las dos cosas mezcladas.
 
 **El flujo arranca cuando el paquete ya está en las manos.** Alguien compra en
 USA por encargo de la dueña y le manda el bulto; el envío lo cobra el courier
-acá, por libra, y el tax del 7% ya viene sumado en el recibo de la tienda
-gringa. La app no modela el viaje: registrás lo que venía adentro, cuánto
-pesó el paquete y qué pagaste, y en ese mismo gesto el inventario se mueve.
-Por eso `PaqueteEditor` tiene un solo botón de guardar y pide el **peso
-total**, que es el dato que existe de verdad: el peso de cada producto por
-separado no lo tiene nadie, así que se reparte (`repartirPeso` en
-`core/costeo.ts`) usando el peso unitario que ya esté en el inventario y, si
-no, por unidades.
+acá, por libra. La app no modela el viaje: registrás lo que venía adentro,
+cuánto pesó el paquete y qué pagaste.
+
+**El paquete es la única puerta de entrada de mercadería** (desde `v2.12`, ver
+[docs/PLAN_PAQUETES_E_INVENTARIO.md](docs/PLAN_PAQUETES_E_INVENTARIO.md)). Cada
+línea dice qué producto, cuántas unidades y lo que costó en la tienda; el 7% y
+la parte del flete se calculan ahí (`core/paquete.ts`) y en ningún otro lado.
+El paquete se carga con calma (`BORRADOR`, "Cargando") y recién al apretar
+"Pasar al inventario" (`recibir`, estado `RECIBIDA`, "En inventario") entra
+todo en UNA transacción. Un paquete que ya entró no se edita: se **corrige**,
+y la diferencia de costo se aplica sólo a las unidades que siguen en bodega.
+El peso de cada producto casi nunca se conoce: se reparte el de la caja
+(`repartirPeso`) con el peso unitario conocido y, si no, por unidades.
+
+La ficha del producto es catálogo: no tiene costo, existencias ni paquete.
+"Ajustar existencias" es para pérdidas y conteos, no para reponer.
 
 ## Reglas absolutas
 
@@ -41,6 +49,14 @@ no, por unidades.
   PESO entre todas las líneas, sin importar si van a inventario o a un
   encargo. El tax se reparte por VALOR. La suma DEBE cuadrar exacto: usá
   `repartirMayorResiduo`.
+- **La mercadería entra sólo por un paquete.** El costo de una unidad es
+  precio de tienda + 7% + su parte del flete, y sale de la línea del paquete
+  que la trajo. Nada reparte flete a los productos después: en `v2.11` eso
+  suponía que un producto viene de un solo paquete, y con el segundo el
+  reparto se inflaba (un flete de $50 llegó a repartir $110).
+- **El precio sigue al costo sólo cuando entra un paquete o cambia el
+  margen.** Nunca al vender, ajustar o devolver: el precio que ella le dio a
+  una clienta no puede cambiar solo. Un precio escrito a mano no se toca.
 - **La ganancia se mide contra el costo aterrizado**, ya con tax y envío
   adentro. Medirla contra el precio de USA es lo que hacía la versión
   anterior y mentía: un "35%" en pantalla era un 20% real.
@@ -59,6 +75,9 @@ no, por unidades.
   es una acción del usuario, aunque toque diez documentos, y es lo que revierte
   Ctrl+Z. Un repositorio que ignora ese parámetro deja el deshacer muerto sin
   que nada falle.
+- **Un encargo cotizado no es deuda.** Pasa a deberse cuando la clienta cubre
+  el anticipo (`core/cobranza.ts`, la misma regla que usan los abonos). Lo
+  cotizado se muestra aparte.
 - **El saldo de una venta se recalcula desde sus pagos, nunca por
   incrementos.** Sumar y restar sobre el valor guardado acumula errores en
   cuanto se anula un abono.
@@ -85,7 +104,10 @@ no, por unidades.
   lo rechaza en el preload y en la vista al mismo tiempo.
 - Lógica de negocio en `src/core/`: TypeScript puro, sin Electron ni Firebase,
   testeable con Vitest.
+  - `paquete.ts` — la cuenta del paquete y lo que le hace a cada producto.
+    La usan la pantalla (vista previa sin lecturas) y el repositorio.
   - `costeo.ts` — reparto del envío y tax de un paquete
+  - `cobranza.ts` — qué es deuda y en qué estado nace un encargo
   - `precios.ts` — margen sobre costo y redondeo hacia arriba
   - `inventario.ts` — promedio ponderado
   - `prorrateo.ts` — reparto exacto por mayor residuo
@@ -165,12 +187,12 @@ ID viaja dentro de la aplicación, así que nunca fue un secreto.
 
 ## Comandos de verificación
 
-- `npm test` — 110 pruebas contra el Firestore falso. 2 s, sin red.
+- `npm test` — 295 pruebas contra el Firestore falso, sin red.
 - `npm run typecheck` — cero errores con `strict: true`
 - `npm run build` — compila y empaqueta
 - `npm run build:exe` — instalador NSIS. Borrá `release/` antes para
   garantizar que el instalador sea fresco.
-- `npm run emulador` + `npm run test:emulador` — 7 pruebas contra el emulador
+- `npm run emulador` + `npm run test:emulador` — 91 pruebas contra el emulador
   OFICIAL de Firestore, autenticadas y con las reglas aplicadas.
 
 ### Las dos suites, y por qué hacen falta las dos
