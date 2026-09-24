@@ -72,6 +72,17 @@ describe('ajuste manual', () => {
     expect(r.valor_total_usd_cents).toBe(8464); // 8 x $10.58
   });
 
+  it('ajustar no inventa ni pierde centavos cuando el costo no divide exacto', () => {
+    // Visto en la app instalada: 7 unidades por $93.28 ($13.33 c/u, redondeado).
+    // Sacar una por dañada tiene que restar su costo, $13.33, y dejar $79.95.
+    // Recalcular el total como $13.33 × 6 daba $79.98: 3 centavos de la nada.
+    const abajo = ajustarExistencias({ existencias: 7, valor_total_usd_cents: 9328 }, 6);
+    expect(abajo.valor_total_usd_cents).toBe(9328 - 1333);
+
+    const arriba = ajustarExistencias({ existencias: 7, valor_total_usd_cents: 9328 }, 9);
+    expect(arriba.valor_total_usd_cents).toBe(9328 + 2 * 1333);
+  });
+
   it('ajustar a cero deja el valor en cero', () => {
     const r = ajustarExistencias({ existencias: 10, valor_total_usd_cents: 10580 }, 0);
     expect(r).toEqual({ existencias: 0, valor_total_usd_cents: 0 });

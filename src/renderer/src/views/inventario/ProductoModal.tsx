@@ -137,12 +137,15 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
       );
       setModoPrecio(producto.modo_precio);
       setOtroModoAbierto(producto.modo_precio !== 'MARGEN');
-      setMargenTexto(producto.margen_bp !== undefined ? String(producto.margen_bp / 100) : '');
+      // `!= null` y no `!== undefined`: al guardar, un margen vacío se
+      // escribe como null, y null / 100 daba "0". Se vio en la app instalada:
+      // pasar un producto de precio a mano a margen lo dejaba vendiendo a costo.
+      setMargenTexto(producto.margen_bp != null ? String(producto.margen_bp / 100) : '');
       setMultiplicadorTexto(
-        producto.multiplicador_bp !== undefined ? String(producto.multiplicador_bp / 10000) : '2'
+        producto.multiplicador_bp != null ? String(producto.multiplicador_bp / 10000) : '2'
       );
       setPrecioManualTexto(
-        producto.precio_manual_usd_cents !== undefined
+        producto.precio_manual_usd_cents != null
           ? (producto.precio_manual_usd_cents / 100).toFixed(2)
           : ''
       );

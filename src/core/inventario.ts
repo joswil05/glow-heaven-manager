@@ -133,9 +133,21 @@ export function ajustarExistencias(
     return { existencias: 0, valor_total_usd_cents: 0 };
   }
 
+  const actuales = Math.max(0, entero(estado.existencias));
+  if (actuales === 0) {
+    return { existencias: objetivo, valor_total_usd_cents: unitario * objetivo };
+  }
+
+  // Se suma o se resta el costo de las unidades que cambian, igual que una
+  // venta. Recalcular el total como costo redondeado × unidades nuevas
+  // inventaba o perdía centavos: 7 unidades por $93.28, al sacar una dañada,
+  // quedaban en $79.98 en vez de $93.28 − $13.33 = $79.95.
   return {
     existencias: objetivo,
-    valor_total_usd_cents: unitario * objetivo,
+    valor_total_usd_cents: Math.max(
+      0,
+      Math.max(0, entero(estado.valor_total_usd_cents)) + unitario * (objetivo - actuales)
+    ),
   };
 }
 

@@ -271,6 +271,24 @@ describe('corregir un paquete que ya está en el inventario', () => {
     expect(aplicado, 'los demás devuelven parte del flete').toBeLessThan(0);
   });
 
+  it('corregir lo que ya se vendió todo no dice que ajustó productos', async () => {
+    // Visto en la app instalada: la corrección quedaba en el paquete, la
+    // bodega no se movía, y el resumen decía igual "1 producto se ajustó".
+    const p = await producto('Perfume');
+    const { id } = await paqueteRecibido(1000, [linea(p, 'Perfume', 2, 2000)]);
+    await Ventas.crear({ fecha: HOY, tipo: 'INVENTARIO', lineas: [{ producto_id: p, cantidad: 2 }] }, g());
+    const c = (await Compras.getById(id))!;
+    const antes = await bodega();
+
+    const r = await Compras.corregir(
+      { id, fecha: c.fecha, envio_total_usd_cents: 3000, lineas: c.lineas.map((l) => ({ ...l, peso_linea_mlb: null })) },
+      g()
+    );
+    expect(r.productos_afectados).toBe(0);
+    expect(await bodega()).toBe(antes);
+    expect((await Compras.getById(id))!.total_usd_cents, 'el paquete sí registra lo pagado').toBe(4000 + 280 + 3000);
+  });
+
   it('no deja cambiar cantidades ni quitar líneas que ya entraron', async () => {
     const { paquete } = await paqueteReal();
     const c = (await Compras.getById(paquete))!;
@@ -306,6 +324,19 @@ describe('abrir y guardar la ficha no toca el costo', () => {
     const despues = (await Productos.getById(p.id))!;
     expect(despues.valor_inventario_usd_cents).toBe(p.valor_inventario_usd_cents);
     expect(despues.costo_unitario_usd_cents).toBe(p.costo_unitario_usd_cents);
+  });
+});
+
+describe('un paquete sin fecha', () => {
+  it('no se guarda: la fecha ordena y filtra todo lo demás', async () => {
+    // Visto en la app instalada: con la fecha borrada, el editor dejaba pasar
+    // el paquete al inventario.
+    const p = await producto('Gloss');
+    for (const fecha of ['', '2026-13-45', 'ayer']) {
+      await expect(
+        Compras.guardar({ fecha, envio_total_usd_cents: 0, lineas: [linea(p, 'Gloss', 1, 1000)] }, g())
+      ).rejects.toThrow(/fecha/);
+    }
   });
 });
 

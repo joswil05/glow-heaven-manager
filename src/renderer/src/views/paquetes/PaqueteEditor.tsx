@@ -476,6 +476,11 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
   // ---------------------------------------------------------------------------
 
   const armarInput = (exigirLineas: boolean): GuardarCompraInput | null => {
+    // Con la fecha borrada, el paquete quedaba sin fecha y perdido en la lista.
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+      setError('Escribí la fecha en que llegó el paquete.');
+      return null;
+    }
     if (pesoTotalTexto.trim() && parsearDecimal(pesoTotalTexto, { min: 0 }) === null) {
       setError('El peso de la caja no es un número válido.');
       return null;

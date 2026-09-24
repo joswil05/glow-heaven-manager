@@ -221,6 +221,19 @@ function lineaCalculada(
   };
 }
 
+/**
+ * La fecha del paquete ordena la lista y filtra las exportaciones. Sin ella,
+ * el paquete quedaba perdido: se vio con la fecha borrada en el editor.
+ */
+function validarFecha(fecha: string | undefined): void {
+  const ok =
+    typeof fecha === 'string' &&
+    /^\d{4}-\d{2}-\d{2}$/.test(fecha) &&
+    !Number.isNaN(new Date(`${fecha}T12:00:00Z`).getTime()) &&
+    new Date(`${fecha}T12:00:00Z`).toISOString().slice(0, 10) === fecha;
+  if (!ok) throw new Error('Escribí la fecha en que llegó el paquete.');
+}
+
 function validarLinea(l: LineaCompraInput): void {
   const nombre = l.descripcion?.trim() || 'una línea';
   if (!Number.isInteger(l.cantidad) || l.cantidad < 1) {
@@ -415,6 +428,7 @@ export class ComprasRepoFirestore {
       }
     }
 
+    validarFecha(input.fecha);
     for (const l of input.lineas) validarLinea(l);
 
     const params = await ParametrosRepoFirestore.getParametros();
@@ -816,6 +830,7 @@ export class ComprasRepoFirestore {
       );
     }
 
+    validarFecha(input.fecha);
     for (const l of input.lineas) validarLinea(l);
     const conId = conIds(input.lineas, viejas);
     const porIdViejas = new Map(viejas.map((l) => [l.id, l]));
@@ -922,6 +937,9 @@ export class ComprasRepoFirestore {
           nuevas.map((l) => ({ cantidad: l.cantidad, costo_linea_usd_cents: l.costo_linea_usd_cents })),
           parametros.paso_redondeo_usd_cents
         );
+        // Si todo lo de esa línea ya se vendió, la corrección queda en el
+        // paquete y el producto no cambia: no se lo cuenta como ajustado.
+        if (efecto.aplicado_usd_cents === 0 && nuevas.length === 0) continue;
 
         const variantes: ProductoVariante[] = [...(p.variantes || [])].map((v) => ({ ...v }));
         let corriendo = existenciasDe(p);

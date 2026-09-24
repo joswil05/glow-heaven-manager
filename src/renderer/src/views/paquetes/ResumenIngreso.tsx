@@ -94,7 +94,9 @@ export const ResumenIngreso: React.FC<Props> = ({ resultado, modo, compacto = fa
           </p>
           <p className="text-caption text-texto-2 mt-0.5">
             {resultado.productos_afectados === 0
-              ? 'Ningún producto del inventario cambió.'
+              ? modo === 'correccion'
+                ? 'La corrección quedó en el paquete. Lo que cambió ya se había vendido, así que la bodega no se mueve.'
+                : 'Ningún producto del inventario cambió.'
               : resultado.productos_afectados === 1
                 ? `1 producto ${modo === 'ingreso' ? 'recibió mercadería' : 'se ajustó'}.`
                 : `${resultado.productos_afectados} productos ${modo === 'ingreso' ? 'recibieron mercadería' : 'se ajustaron'}.`}
