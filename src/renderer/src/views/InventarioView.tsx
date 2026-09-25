@@ -965,14 +965,43 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
                 </div>
                 <div className="px-4 py-3 border-b border-borde/60 text-caption text-texto-2 tabular">
                   {detalle.existencias > 0 ? (
-                    <>
-                      Valor en bodega {formatearMoneda(detalle.valor_inventario_usd_cents, 'USD')} ÷{' '}
-                      {detalle.existencias} unid. ={' '}
-                      <strong className="text-texto">
-                        {formatearMoneda(detalle.costo_unitario_usd_cents, 'USD')}
-                      </strong>{' '}
-                      c/u
-                    </>
+                    // Lo que queda, lote por lote: sale primero el de arriba. El
+                    // precio se calcula sobre el más caro.
+                    <div className="space-y-1">
+                      {(detalle.lotes ?? [])
+                        .filter((l) => l.cantidad > 0)
+                        .map((l) => (
+                          <div key={l.id} className="flex items-center justify-between gap-2">
+                            <span>
+                              {l.compra_codigo ??
+                                (l.origen === 'AJUSTE' ? 'Conteo' : l.origen === 'DEVOLUCION' ? 'Devolución' : 'Anterior')}
+                              {l.fecha && l.fecha > '2000-01-01' ? ` · ${formatearFecha(l.fecha)}` : ''}
+                              {detalle.tiene_variantes
+                                ? ` · ${
+                                    [
+                                      detalle.variantes.find((v) => v.id === l.variante_id)?.talla,
+                                      detalle.variantes.find((v) => v.id === l.variante_id)?.color,
+                                    ]
+                                      .filter(Boolean)
+                                      .join(' ') || 'única'
+                                  }`
+                                : ''}
+                            </span>
+                            <span>
+                              {l.cantidad} ×{' '}
+                              <strong className="text-texto">
+                                {formatearMoneda(Math.round(l.valor_usd_cents / l.cantidad), 'USD')}
+                              </strong>
+                            </span>
+                          </div>
+                        ))}
+                      {new Set((detalle.lotes ?? []).filter((l) => l.cantidad > 0).map((l) => Math.round(l.valor_usd_cents / l.cantidad))).size > 1 && (
+                        <p className="pt-1 text-texto-3">
+                          El precio se calcula sobre {formatearMoneda(detalle.costo_unitario_usd_cents, 'USD')}, el
+                          lote más caro.
+                        </p>
+                      )}
+                    </div>
                   ) : (
                     <>
                       Agotado. Último costo:{' '}

@@ -307,3 +307,22 @@ llegar, el costo real reemplaza al estimado.
    auditorías, y la base real con datos "Prueba" borrados después.
 
 Los pasos 2 a 6 salen juntos como `2.14.0`.
+
+### Estado al 25 de septiembre
+
+Hechos los pasos 1 a 5 y la parte local del 6: typecheck de las dos apps, 355
+pruebas contra el Firestore falso, 91 contra el emulador (con la invariante de
+lotes en el simulador de producción), las dos suites de pantalla (la de
+escritorio suma el caso del encargo que viene en camino y se anula) y las
+tres auditorías. El simulador del navegador imita lotes y piezas para que las
+pantallas se puedan revisar con datos.
+
+Falta publicar y la prueba sobre la base real.
+
+Cambios respecto de lo escrito arriba, al verlo en pantalla:
+
+- Un encargo cotizado con piezas compradas dice "Cotizado · en camino" o
+  "Cotizado · llegó": con sólo "Cotizado" no se veía que ya venía.
+- El detalle del encargo muestra la etapa (la misma de la lista), no el
+  estado guardado.
+- El contador de arriba cuenta lo que muestra el filtro de etapa.

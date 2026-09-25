@@ -26,6 +26,7 @@ import {
   calcularPaquete,
   efectoDeEntradas,
   efectoDeCorreccion,
+  loteDeLinea,
   type EfectoEnProducto,
   type LineaPaquete,
   type ProductoAntesDelPaquete,
@@ -249,7 +250,15 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
       ]);
       if (!vivo) return;
       if (rEnc.success) {
-        setEncargos(rEnc.data.filter((v) => v.estado === 'COTIZADA' || v.estado === 'PENDIENTE'));
+        // Sólo los que tienen piezas que todavía no vienen en ningún paquete.
+        // Los confirmados primero: los cotizados se pueden comprar, pero la
+        // clienta todavía no pagó el anticipo.
+        setEncargos(
+          rEnc.data
+            .filter((v) => v.estado === 'COTIZADA' || v.estado === 'PENDIENTE')
+            .filter((v) => !v.piezas || v.piezas.compradas < v.piezas.total)
+            .sort((a, b) => (a.estado === b.estado ? 0 : a.estado === 'PENDIENTE' ? -1 : 1))
+        );
       }
       const mapa = new Map(lista.map((p) => [p.id, p]));
       if (compra) {
@@ -356,14 +365,22 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
         margen_bp: margenEfectivo(p, categorias, parametros?.margen_defecto_bp ?? 4500),
         multiplicador_bp: p.multiplicador_bp,
         precio_manual_usd_cents: p.precio_manual_usd_cents,
+        // Los lotes que ya tiene: el precio se calcula sobre el más caro que
+        // quede después del paquete, igual que al guardarlo.
+        lotes: p.lotes,
       };
       const suyas = lineas.filter((l) => l.destino === 'INVENTARIO' && l.producto_id === pid);
       const paso = parametros?.paso_redondeo_usd_cents ?? 100;
+      const tallaPorDefecto = p.variantes.find((v) => v.activo !== false)?.id ?? 1;
       const entradas = suyas
         .filter((l) => !l.bloqueada)
-        .map((l) => calcPorClave.get(l.clave))
-        .filter((c): c is NonNullable<typeof c> => Boolean(c))
-        .map((c) => ({ cantidad: c.cantidad, costo_linea_usd_cents: c.costo_linea_usd_cents }));
+        .map((l) => ({ l, c: calcPorClave.get(l.clave) }))
+        .filter((x): x is { l: LineaEnPantalla; c: NonNullable<typeof x.c> } => Boolean(x.c))
+        .map(({ l, c }) => ({
+          cantidad: c.cantidad,
+          costo_linea_usd_cents: c.costo_linea_usd_cents,
+          variante_id: l.variante_id ?? tallaPorDefecto,
+        }));
 
       if (esCorreccion) {
         const cambios = suyas
@@ -373,6 +390,11 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
             return {
               unidades_de_la_linea: c?.cantidad ?? 0,
               diferencia_usd_cents: (c?.costo_linea_usd_cents ?? 0) - (l.costoLineaAnterior ?? 0),
+              lote_id:
+                compra && l.id !== undefined
+                  ? loteDeLinea(p.lotes ?? [], compra.id, l.id, l.variante_id)?.id
+                  : undefined,
+              nuevo_costo_unitario_usd_cents: c?.costo_unitario_usd_cents,
             };
           })
           .filter((c) => c.diferencia_usd_cents !== 0);
@@ -457,8 +479,16 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
       return;
     }
     const ya = new Set(lineas.filter((l) => l.venta_id === v.id).map((l) => l.venta_linea_id));
-    const nuevas = r.data.lineas
-      .filter((vl) => !ya.has(vl.id))
+    // Una pieza que ya viene en otro paquete no se ofrece: no puede venir en dos.
+    const libres = r.data.lineas.filter(
+      (vl) => !ya.has(vl.id) && (!vl.compra_id || vl.compra_id === compra?.id)
+    );
+    if (libres.length === 0) {
+      showToast({ message: 'Todas sus piezas ya vienen en un paquete.', type: 'info' });
+      setVerEncargos(false);
+      return;
+    }
+    const nuevas = libres
       .map((vl) =>
         lineaVacia({
           descripcion: vl.descripcion,
@@ -987,13 +1017,16 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                                           {$(efecto.precio_despues_usd_cents)}
                                         </span>
                                       )}
-                                      {/* El precio sale del costo promedio con lo que ya había.
-                                          Sólo se muestra cuando no coincide con el de esta línea. */}
+                                      {/* El precio sale del lote más caro que queda. Cuando no es
+                                          el de esta línea (quedaba algo más caro), se dice cuál. */}
                                       {efecto.bajo_costo ? (
                                         <div className="text-caption mt-0.5 text-danger-700">debajo del costo</div>
                                       ) : efecto.costo_despues_usd_cents !== (c?.costo_unitario_usd_cents ?? 0) ? (
-                                        <div className="text-caption mt-0.5 text-texto-3">
-                                          promedio {$(efecto.costo_despues_usd_cents)}
+                                        <div
+                                          className="text-caption mt-0.5 text-texto-3"
+                                          title="El precio se calcula sobre el lote más caro que queda"
+                                        >
+                                          sobre {$(efecto.costo_despues_usd_cents)}
                                         </div>
                                       ) : null}
                                     </div>
@@ -1095,8 +1128,13 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                         </Button>
                         {verEncargos && (
                           <ul className="absolute z-20 right-0 mt-1 w-80 max-h-72 overflow-y-auto rounded-xl border border-borde bg-superficie shadow-xl">
-                            {encargos.map((v) => (
+                            {encargos.map((v, i) => (
                               <li key={v.id}>
+                                {(i === 0 || encargos[i - 1].estado !== v.estado) && (
+                                  <div className="px-3 pt-2 pb-1 text-caption font-medium text-texto-3">
+                                    {v.estado === 'PENDIENTE' ? 'Confirmados' : 'Sin confirmar'}
+                                  </div>
+                                )}
                                 <button
                                   type="button"
                                   onClick={() => agregarEncargo(v)}
@@ -1106,8 +1144,10 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                                     {v.cliente_nombre ?? 'Sin clienta'} · {v.codigo}
                                   </span>
                                   <span className="text-caption text-texto-3">
-                                    {v.estado === 'PENDIENTE' ? 'Confirmado' : 'Cotizado'} ·{' '}
-                                    {$(v.total_usd_cents)}
+                                    {v.piezas
+                                      ? `${v.piezas.total - v.piezas.compradas} de ${v.piezas.total} por comprar`
+                                      : 'Por comprar'}{' '}
+                                    · {$(v.total_usd_cents)}
                                   </span>
                                 </button>
                               </li>

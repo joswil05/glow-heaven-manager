@@ -33,6 +33,9 @@ import { formatearNombreEntidad } from '@shared/formatoTexto';
 import { hoyISO } from '@core/fechas';
 import { algunoContiene } from '@core/texto';
 import { monedaPorDefecto, metodoPorDefecto } from '@core/preferencias';
+import { sacarFIFO, type Lote } from '@core/lotes';
+import { calcularPrecio } from '@core/precios';
+import { costoEstimadoDePieza } from '@core/encargos';
 
 interface LineaBorrador {
   clave: string;
@@ -43,6 +46,9 @@ interface LineaBorrador {
   precio: string;
   es_paquete: boolean;
   costo_estimado: string;
+  /** Encargos: con qué se cotiza. De acá sale el costo estimado. */
+  tienda?: string;
+  peso?: string;
 }
 
 interface VentaEditorProps {
@@ -170,10 +176,20 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
       (a, l) => a + aCentavos(l.precio) * Math.max(1, Math.round(num(l.cantidad))),
       0
     );
+    // Lo que costarían las unidades que van a salir: las del lote más viejo,
+    // igual que al registrar la venta. Dos líneas del mismo producto se
+    // descuentan una detrás de la otra.
+    const lotesEnJuego = new Map<number, Lote[]>();
     const costo = lineas.reduce((a, l) => {
       const cantidad = Math.max(1, Math.round(num(l.cantidad)));
       if (l.producto_id && !esEncargo) {
         const p = productos.find((x) => x.id === l.producto_id);
+        if (p?.lotes) {
+          const talla = l.variante_id ?? p.variantes.find((v) => v.activo !== false)?.id ?? 1;
+          const r = sacarFIFO(lotesEnJuego.get(p.id) ?? p.lotes, talla, cantidad, 'BAJA');
+          lotesEnJuego.set(p.id, r.lotes);
+          return a + r.costo_usd_cents + r.faltantes * (p.costo_unitario_usd_cents ?? 0);
+        }
         return a + (p?.costo_unitario_usd_cents ?? 0) * cantidad;
       }
       return a + aCentavos(l.costo_estimado) * cantidad;
@@ -271,6 +287,24 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
 
   const actualizarLinea = (clave: string, campo: keyof LineaBorrador, valor: unknown) =>
     setLineas((prev) => prev.map((l) => (l.clave === clave ? { ...l, [campo]: valor } : l)));
+
+  /** Cotizar una pieza de encargo: con tienda y peso se estima el costo. */
+  const cotizar = (clave: string, cambios: Pick<LineaBorrador, 'tienda'> | Pick<LineaBorrador, 'peso'>) =>
+    setLineas((prev) =>
+      prev.map((l) => {
+        if (l.clave !== clave) return l;
+        const nueva = { ...l, ...cambios };
+        const tienda = aCentavos(nueva.tienda ?? '');
+        if (tienda <= 0) return nueva;
+        const costo = costoEstimadoDePieza({
+          tienda_usd_cents: tienda,
+          peso_mlb: Math.round(num(nueva.peso ?? '') * 1000),
+          tax_bp: parametros?.tax_bp ?? 700,
+          tarifa_cents_lb: parametros?.tarifa_envio_cents_lb ?? 700,
+        });
+        return { ...nueva, costo_estimado: (costo / 100).toFixed(2) };
+      })
+    );
 
   const elegirProducto = (clave: string, p: ProductoConStock) => {
     setLineas((prev) =>
@@ -511,6 +545,12 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
           costo_estimado_unitario_usd_cents:
             esEncargo && l.costo_estimado.trim()
               ? (parsearACentavos(l.costo_estimado, { min: 0 }) ?? undefined)
+              : undefined,
+          precio_tienda_usd_cents:
+            esEncargo && l.tienda?.trim() ? (parsearACentavos(l.tienda, { min: 0 }) ?? undefined) : undefined,
+          peso_mlb:
+            esEncargo && l.peso?.trim()
+              ? Math.round((parsearDecimal(l.peso, { min: 0 }) ?? 0) * 1000) || undefined
               : undefined,
         })),
       });
@@ -846,6 +886,56 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                           </div>
                         )}
                       </div>
+
+                      {/* Cotizar con números: precio en la tienda y peso. De ahí
+                          sale el costo estimado (tienda + impuesto + flete por
+                          libra) y un precio sugerido con el margen de siempre. */}
+                      {esEncargo && (() => {
+                        const costo = aCentavos(l.costo_estimado);
+                        const sugerido =
+                          costo > 0
+                            ? calcularPrecio({
+                                costo_unitario_usd_cents: costo,
+                                modo: 'MARGEN',
+                                margen_bp: parametros?.margen_defecto_bp ?? 4500,
+                                paso_redondeo_usd_cents: parametros?.paso_redondeo_usd_cents ?? 100,
+                              }).precio_usd_cents
+                            : 0;
+                        return (
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            <Field label="Precio en la tienda ($)">
+                              <Input
+                                value={l.tienda ?? ''}
+                                onChange={(e) => cotizar(l.clave, { tienda: e.target.value })}
+                                placeholder="0.00"
+                                className="text-right"
+                                inputMode="decimal"
+                              />
+                            </Field>
+                            <Field label="Peso aprox. (lb)">
+                              <Input
+                                value={l.peso ?? ''}
+                                onChange={(e) => cotizar(l.clave, { peso: e.target.value })}
+                                placeholder="0.0"
+                                className="text-right"
+                                inputMode="decimal"
+                              />
+                            </Field>
+                            {sugerido > 0 && (
+                              <div className="sm:col-span-2 flex items-end gap-2 pb-2 text-caption text-texto-2">
+                                <span className="tabular">Precio sugerido {formatearMoneda(sugerido, 'USD')}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => actualizarLinea(l.clave, 'precio', (sugerido / 100).toFixed(2))}
+                                  className="text-acento hover:underline"
+                                >
+                                  Usar
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
 
                       {/* Botón rápido para vender paquete completo */}
                       {producto &&

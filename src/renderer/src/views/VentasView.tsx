@@ -26,6 +26,7 @@ import type {
   ParametrosSistema,
   TipoVenta,
   EstadoVenta,
+  OpcionesAnulacion,
 } from '../../../shared/types';
 import {
   Button,
@@ -39,6 +40,8 @@ import {
   type Tone,
 } from '../components/ui';
 import { EmptyState } from '../components/shared/EmptyState';
+import { AnularEncargoModal } from './ventas/AnularEncargoModal';
+import { etapaEncargo, textoEtapa, estadoPieza, type EtapaEncargo } from '@core/encargos';
 import { VentaEditor } from './ventas/VentaEditor';
 import { PagoModal } from '../components/PagoModal';
 import { DocumentoModal } from '../components/DocumentoModal';
@@ -73,7 +76,23 @@ const ESTADO_TEXTO: Record<EstadoVenta, string> = {
   CANCELADA: 'Cancelada',
 };
 
-type Filtro = 'TODAS' | 'CON_SALDO' | 'PENDIENTES' | 'ENTREGADAS';
+type Filtro = 'TODAS' | 'CON_SALDO' | 'PENDIENTES' | 'EN_CAMINO' | 'POR_ENTREGAR' | 'ENTREGADAS';
+
+/** La etapa que muestra cada filtro de encargos (todos son "pendientes" guardados). */
+const ETAPA_DEL_FILTRO: Partial<Record<Filtro, EtapaEncargo>> = {
+  PENDIENTES: 'POR_COMPRAR',
+  EN_CAMINO: 'EN_CAMINO',
+  POR_ENTREGAR: 'POR_ENTREGAR',
+};
+
+const TONO_ETAPA: Record<EtapaEncargo, Tone> = {
+  COTIZADO: 'neutral',
+  POR_COMPRAR: 'warning',
+  EN_CAMINO: 'info',
+  POR_ENTREGAR: 'success',
+  ENTREGADO: 'success',
+  ANULADO: 'danger',
+};
 
 /**
  * Cuántas ventas se traen de una.
@@ -117,6 +136,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
   const [pagoAbierto, setPagoAbierto] = useState(false);
   const [documentoAbierto, setDocumentoAbierto] = useState(false);
   const [anulando, setAnulando] = useState<Venta | VentaCompleta | null>(null);
+  const [entregandoSinCompra, setEntregandoSinCompra] = useState<Venta | VentaCompleta | null>(null);
   const [menuContextual, setMenuContextual] = useState<{
     x: number;
     y: number;
@@ -142,7 +162,11 @@ export const VentasView: React.FC<VentasViewProps> = ({
   }, [periodo]);
 
   const estadoDelFiltro: EstadoVenta | undefined =
-    filtro === 'PENDIENTES' ? 'PENDIENTE' : filtro === 'ENTREGADAS' ? 'ENTREGADA' : undefined;
+    filtro === 'PENDIENTES' || filtro === 'EN_CAMINO' || filtro === 'POR_ENTREGAR'
+      ? 'PENDIENTE'
+      : filtro === 'ENTREGADAS'
+        ? 'ENTREGADA'
+        : undefined;
 
   /**
    * Cuáles listas se traen de a pedazos y cuáles enteras.
@@ -297,7 +321,11 @@ export const VentasView: React.FC<VentasViewProps> = ({
   }, [busqueda]);
 
   const ventasPeriodo = useMemo(() => {
-    if (!busqueda.trim()) return ventas;
+    // En encargos, "por comprar", "en camino" y "por entregar" son todos
+    // pendientes guardados: la etapa se deriva de sus piezas.
+    const etapa = esEncargo ? ETAPA_DEL_FILTRO[filtro] : undefined;
+    const deLaEtapa = (lista: Venta[]) => (etapa ? lista.filter((v) => etapaEncargo(v) === etapa) : lista);
+    if (!busqueda.trim()) return deLaEtapa(ventas);
 
     const coincide = (v: Venta) => algunoContiene([v.codigo, v.cliente_nombre], busqueda);
 
@@ -306,11 +334,13 @@ export const VentasView: React.FC<VentasViewProps> = ({
     for (const v of ventas.filter(coincide)) porId.set(v.id, v);
     for (const v of fueraDelPeriodo ?? []) porId.set(v.id, v);
 
-    return [...porId.values()].sort((a, b) => {
-      const cmp = (b.fecha || '').localeCompare(a.fecha || '');
-      return cmp !== 0 ? cmp : b.id - a.id;
-    });
-  }, [ventas, busqueda, fueraDelPeriodo]);
+    return deLaEtapa(
+      [...porId.values()].sort((a, b) => {
+        const cmp = (b.fecha || '').localeCompare(a.fecha || '');
+        return cmp !== 0 ? cmp : b.id - a.id;
+      })
+    );
+  }, [ventas, busqueda, fueraDelPeriodo, esEncargo, filtro]);
 
   const totales = useMemo(() => {
     const activas = ventasPeriodo.filter((v) => v.estado !== 'CANCELADA');
@@ -355,8 +385,8 @@ export const VentasView: React.FC<VentasViewProps> = ({
     window.open(url, '_blank');
   };
 
-  const cambiarEstado = async (v: Venta, estado: EstadoVenta) => {
-    const r = await window.api.ventas.cambiarEstado(v.id, estado);
+  const cambiarEstado = async (v: Venta, estado: EstadoVenta, opciones?: OpcionesAnulacion) => {
+    const r = await window.api.ventas.cambiarEstado(v.id, estado, opciones);
     if (!r.success) {
       showToast({ message: r.error, type: 'error' });
       return;
@@ -403,7 +433,14 @@ export const VentasView: React.FC<VentasViewProps> = ({
       key: 'estado',
       header: 'Estado',
       width: '130px',
-      render: (v) => (
+      render: (v) =>
+        // Un encargo muestra en qué va (por comprar, en camino, por entregar),
+        // que sale de sus piezas; una venta, su estado.
+        v.tipo === 'ENCARGO' ? (
+          <Badge tone={TONO_ETAPA[etapaEncargo(v)]} className="font-medium whitespace-nowrap">
+            {textoEtapa(etapaEncargo(v), v.piezas)}
+          </Badge>
+        ) : (
         <Badge tone={ESTADO_TONO[v.estado]} className="gap-1.5 font-medium">
           <span
             className={cn(
@@ -419,7 +456,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
           />
           {ESTADO_TEXTO[v.estado]}
         </Badge>
-      ),
+        ),
     },
     {
       key: 'total',
@@ -500,6 +537,13 @@ export const VentasView: React.FC<VentasViewProps> = ({
     { id: 'TODAS', etiqueta: 'Todas' },
     { id: 'CON_SALDO', etiqueta: 'Con saldo' },
     { id: 'PENDIENTES', etiqueta: esEncargo ? 'Por comprar' : 'Por entregar' },
+    // Un encargo pasa por dos etapas más antes de entregarse.
+    ...(esEncargo
+      ? ([
+          { id: 'EN_CAMINO', etiqueta: 'En camino' },
+          { id: 'POR_ENTREGAR', etiqueta: 'Por entregar' },
+        ] as { id: Filtro; etiqueta: string }[])
+      : []),
     { id: 'ENTREGADAS', etiqueta: 'Entregadas' },
   ];
 
@@ -510,7 +554,11 @@ export const VentasView: React.FC<VentasViewProps> = ({
         {/* El título ya está en la barra de arriba: acá sólo lo que se hace. */}
         <div className="flex items-center justify-between gap-3 shrink-0 flex-wrap">
           <span className="text-label text-texto-3 tabular">
-            {ventas.filter((v) => v.estado !== 'CANCELADA').length} activas
+            {(() => {
+              // Las que se ven: el filtro de etapa de los encargos se aplica acá.
+              const n = ventasPeriodo.filter((v) => v.estado !== 'CANCELADA').length;
+              return `${n} activa${n === 1 ? '' : 's'}`;
+            })()}
           </span>
           <div className="flex items-center gap-3">
             <Button
@@ -720,21 +768,28 @@ export const VentasView: React.FC<VentasViewProps> = ({
                   <h3 className="text-title font-bold text-texto tracking-tight truncate">
                     {ventaDetalle.cliente_nombre ?? 'Mostrador'}
                   </h3>
-                  <Badge tone={ESTADO_TONO[ventaDetalle.estado]} className="gap-1.5 text-[11px] shrink-0">
-                    <span
-                      className={cn(
-                        'w-1.5 h-1.5 rounded-full shrink-0',
-                        ventaDetalle.estado === 'ENTREGADA'
-                          ? 'bg-acento'
-                          : ventaDetalle.estado === 'PENDIENTE'
-                            ? 'bg-alerta'
-                            : ventaDetalle.estado === 'CANCELADA'
-                              ? 'bg-peligro'
-                              : 'bg-superficie-2'
-                      )}
-                    />
-                    {ESTADO_TEXTO[ventaDetalle.estado]}
-                  </Badge>
+                  {/* Igual que en la lista: un encargo dice en qué va. */}
+                  {esEncargo ? (
+                    <Badge tone={TONO_ETAPA[etapaEncargo(ventaDetalle)]} className="text-[11px] shrink-0 whitespace-nowrap">
+                      {textoEtapa(etapaEncargo(ventaDetalle), ventaDetalle.piezas)}
+                    </Badge>
+                  ) : (
+                    <Badge tone={ESTADO_TONO[ventaDetalle.estado]} className="gap-1.5 text-[11px] shrink-0">
+                      <span
+                        className={cn(
+                          'w-1.5 h-1.5 rounded-full shrink-0',
+                          ventaDetalle.estado === 'ENTREGADA'
+                            ? 'bg-acento'
+                            : ventaDetalle.estado === 'PENDIENTE'
+                              ? 'bg-alerta'
+                              : ventaDetalle.estado === 'CANCELADA'
+                                ? 'bg-peligro'
+                                : 'bg-superficie-2'
+                        )}
+                      />
+                      {ESTADO_TEXTO[ventaDetalle.estado]}
+                    </Badge>
+                  )}
                 </div>
                 <p className="text-caption text-texto-3 tabular mt-0.5">
                   {ventaDetalle.codigo} · {formatearFecha(ventaDetalle.fecha)}
@@ -833,6 +888,19 @@ export const VentasView: React.FC<VentasViewProps> = ({
                           {l.cantidad} × {formatearMoneda(l.precio_unitario_usd_cents, 'USD')}
                           {l.es_paquete && ' · paquete completo'}
                         </div>
+                        {/* De dónde sale cada pieza de un encargo. */}
+                        {esEncargo && ventaDetalle.estado !== 'CANCELADA' && ventaDetalle.estado !== 'ENTREGADA' && (
+                          <div className="text-caption text-texto-2">
+                            {(() => {
+                              const e = estadoPieza(l);
+                              if (e === 'LLEGO')
+                                return `Llegó en ${l.compra_codigo ?? 'su paquete'}${l.llego_el ? ` el ${formatearFecha(l.llego_el)}` : ''}`;
+                              if (e === 'EN_CAMINO') return `Viene en ${l.compra_codigo ?? 'un paquete'}`;
+                              if (e === 'DE_BODEGA') return 'Sale de la bodega';
+                              return 'Por comprar';
+                            })()}
+                          </div>
+                        )}
                       </div>
                       <span className="text-body font-semibold text-texto tabular shrink-0">
                         {formatearMoneda(l.subtotal_usd_cents, 'USD')}
@@ -927,14 +995,26 @@ export const VentasView: React.FC<VentasViewProps> = ({
                 </div>
               )}
 
-              {ventaDetalle.estado === 'PENDIENTE' && (
+              {ventaDetalle.estado === 'PENDIENTE' && esEncargo && etapaEncargo(ventaDetalle) === 'EN_CAMINO' && (
+                <p className="text-caption text-texto-3 text-center p-2 rounded-lg bg-superficie-2">
+                  Se entrega cuando llegue todo.
+                </p>
+              )}
+
+              {ventaDetalle.estado === 'PENDIENTE' && !(esEncargo && etapaEncargo(ventaDetalle) === 'EN_CAMINO') && (
                 <Button
                   variant="secondary"
                   className="w-full"
-                  onClick={() => cambiarEstado(ventaDetalle, 'ENTREGADA')}
+                  onClick={() =>
+                    // Una pieza sin compra registrada se puede entregar, pero
+                    // queda con el costo estimado: se avisa antes.
+                    esEncargo && etapaEncargo(ventaDetalle) === 'POR_COMPRAR'
+                      ? setEntregandoSinCompra(ventaDetalle)
+                      : cambiarEstado(ventaDetalle, 'ENTREGADA')
+                  }
                 >
                   <PackageCheck className="w-4 h-4 text-acento" />
-                  <span>Marcar como entregada</span>
+                  <span>Marcar como {esEncargo ? 'entregado' : 'entregada'}</span>
                 </Button>
               )}
 
@@ -975,8 +1055,27 @@ export const VentasView: React.FC<VentasViewProps> = ({
         }}
       />
 
+      <AnularEncargoModal
+        venta={esEncargo ? anulando : null}
+        onConfirmar={(opciones) => anulando && cambiarEstado(anulando, 'CANCELADA', opciones)}
+        onCerrar={() => setAnulando(null)}
+      />
+
       <Confirmar
-        abierto={anulando !== null}
+        abierto={entregandoSinCompra !== null}
+        titulo={`¿Entregar ${entregandoSinCompra?.codigo ?? ''} sin compra registrada?`}
+        consecuencias={[
+          'Hay piezas que no están en ningún paquete.',
+          'Se entregan con el costo que estimaste al cotizar.',
+        ]}
+        textoConfirmar="Entregar igual"
+        textoCancelar="Cancelar"
+        onConfirmar={() => entregandoSinCompra && cambiarEstado(entregandoSinCompra, 'ENTREGADA')}
+        onCerrar={() => setEntregandoSinCompra(null)}
+      />
+
+      <Confirmar
+        abierto={!esEncargo && anulando !== null}
         peligroso
         titulo={`¿Anular ${anulando?.codigo ?? ''}?`}
         consecuencias={[

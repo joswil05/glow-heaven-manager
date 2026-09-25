@@ -31,8 +31,12 @@ import {
   efectoDeEntradas,
   efectoDeCorreccion,
   precioParaCosto,
+  idLoteDeLinea,
+  loteDeLinea,
   type ProductoAntesDelPaquete,
 } from '@core/paquete';
+import { normalizarLotes, sacarFIFO, costoBase, valorDeLotes, type Lote } from '@core/lotes';
+import { piezasDe, estadoPieza } from '@core/encargos';
 import { algunoContiene, normalizar } from '@core/texto';
 import { esDeuda, esCotizacion, estadoInicialEncargo } from '@core/cobranza';
 import { hoyISO, sumarDiasAFecha } from '@core/fechas';
@@ -317,19 +321,60 @@ function armarPanel(): PanelData {
 
 /** Deriva el costo del valor sin tocar el precio: lo que hace una venta. */
 function sinCambiarPrecio(p: ProductoConStock): ProductoConStock {
-  const costo =
-    p.existencias > 0
-      ? Math.round(p.valor_inventario_usd_cents / p.existencias)
-      : p.costo_unitario_usd_cents;
+  // El costo es el del lote más caro que queda, como en el repositorio.
+  const lotes = lotesDelMock(p);
+  const base = costoBase(lotes);
+  const costo = base > 0 ? base : p.costo_unitario_usd_cents;
   return {
     ...p,
+    lotes,
     costo_unitario_usd_cents: costo,
     ganancia_unitaria_usd_cents: p.precio_venta_usd_cents - costo,
   };
 }
 
+/**
+ * Los lotes de un producto del simulador, cuadrados con sus existencias. Como
+ * en el repositorio: a uno que no los tiene se le arma el saldo, y una venta
+ * que bajó existencias sin tocarlos se descuenta del lote más viejo.
+ */
+function lotesDelMock(p: ProductoConStock) {
+  return normalizarLotes({
+    variantes: p.variantes.length > 0 ? p.variantes : [{ id: p.id * 10, existencias: p.existencias }],
+    valor_inventario_usd_cents: p.valor_inventario_usd_cents,
+    costo_unitario_usd_cents: p.costo_unitario_usd_cents,
+    lotes: p.lotes,
+    paquete_id: p.paquete_id,
+  }).lotes;
+}
+
+/** Marca en sus encargos las piezas que trae un paquete, y cuándo llegaron. */
+function marcarPiezas(compra: Pick<CompraCompleta, 'id' | 'codigo' | 'lineas'>, llego_el?: string) {
+  db.ventas = db.ventas.map((v) => {
+    if (v.tipo !== 'ENCARGO') return v;
+    let cambio = false;
+    const lineas = v.lineas.map((vl) => {
+      const cl = compra.lineas.find((x) => x.venta_id === v.id && x.venta_linea_id === vl.id);
+      if (cl) {
+        cambio = true;
+        return { ...vl, compra_id: compra.id, compra_codigo: compra.codigo, compra_linea_id: cl.id, llego_el };
+      }
+      if (vl.compra_id === compra.id) {
+        cambio = true;
+        return { ...vl, compra_id: undefined, compra_codigo: undefined, compra_linea_id: undefined, llego_el: undefined };
+      }
+      return vl;
+    });
+    return cambio ? { ...v, lineas, piezas: piezasDe(lineas) } : v;
+  });
+}
+
+/** Un producto como lo entrega el repositorio: con sus lotes cuadrados. */
+const conLotes = (p: ProductoConStock): ProductoConStock => ({ ...p, lotes: lotesDelMock(p) });
+
 function antesDelPaquete(p: ProductoConStock): ProductoAntesDelPaquete {
   return {
+    lotes: lotesDelMock(p),
     existencias: p.existencias,
     valor_inventario_usd_cents: p.valor_inventario_usd_cents,
     costo_unitario_usd_cents: p.costo_unitario_usd_cents,
@@ -523,9 +568,12 @@ const api: ApiPuente = {
       // Una copia, como la que llega por IPC. Devolver el mismo arreglo que
       // se modifica en el lugar hacía que React no viera un producto recién
       // creado.
-      return ok([...r]);
+      return ok(r.map(conLotes));
     },
-    get: (id) => ok(db.productos.find((p) => p.id === id) ?? null),
+    get: (id) => {
+      const p = db.productos.find((x) => x.id === id);
+      return ok(p ? conLotes(p) : null);
+    },
     crear: (input) => {
       // Igual que el repositorio: la ficha es catálogo. Nace sin existencias
       // ni costo; la mercadería entra por un paquete.
@@ -661,7 +709,31 @@ const api: ApiPuente = {
   },
   compras: {
     list: () => ok(db.compras as Compra[]),
-    get: (id) => ok(db.compras.find((c) => c.id === id) ?? null),
+    get: (id) => {
+      const c = db.compras.find((x) => x.id === id);
+      if (!c) return ok(null);
+      // Como el repositorio: cada línea recibida dice cuánto queda de su lote.
+      const lineas = c.lineas.map((l) => {
+        if (c.estado !== 'RECIBIDA' || l.destino !== 'INVENTARIO' || !l.producto_id) return l;
+        const p = db.productos.find((x) => x.id === l.producto_id);
+        const lote = p ? loteDeLinea(lotesDelMock(p), c.id, l.id, l.variante_id) : undefined;
+        if (!lote) return l;
+        const propio = lote.id === idLoteDeLinea(c.id, l.id);
+        return {
+          ...l,
+          lote_quedan: Math.min(lote.cantidad, l.cantidad),
+          lote_propio: propio,
+          ...(propio
+            ? {
+                lote_vendidas: lote.vendidas,
+                lote_ingreso_usd_cents: lote.ingreso_usd_cents,
+                lote_costo_vendido_usd_cents: lote.costo_vendido_usd_cents,
+              }
+            : {}),
+        };
+      });
+      return ok({ ...c, lineas });
+    },
     guardar: (input) => {
       const previa = input.id ? db.compras.find((c) => c.id === input.id) : undefined;
       if (previa?.estado === 'RECIBIDA') {
@@ -689,6 +761,7 @@ const api: ApiPuente = {
         lineas,
       };
       db.compras = [compra, ...db.compras.filter((c) => c.id !== id)];
+      marcarPiezas(compra);
       return ok({ ...grupo(), id });
     },
     previsualizar: (input) => {
@@ -747,13 +820,26 @@ const api: ApiPuente = {
         const suyas = lineas.filter((l) => l.destino === 'INVENTARIO' && l.producto_id === pid);
         const efecto = efectoDeEntradas(
           antesDelPaquete(p),
-          suyas.map((l) => ({ cantidad: l.cantidad, costo_linea_usd_cents: l.costo_linea_usd_cents })),
+          suyas.map((l) => ({
+            cantidad: l.cantidad,
+            costo_linea_usd_cents: l.costo_linea_usd_cents,
+            variante_id: l.variante_id ?? p.variantes[0]?.id ?? p.id * 10,
+            lote: {
+              id: idLoteDeLinea(id, l.id),
+              fecha: compra.fecha,
+              orden: id * 10000 + l.id,
+              compra_id: id,
+              compra_codigo: compra.codigo,
+              compra_linea_id: l.id,
+            },
+          })),
           db.parametros.paso_redondeo_usd_cents
         );
         let nuevo = p;
         for (const l of suyas) nuevo = meterUnidades(nuevo, l.cantidad, l.variante_id);
         nuevo = {
           ...nuevo,
+          lotes: efecto.lotes_despues,
           valor_inventario_usd_cents: efecto.valor_despues_usd_cents,
           costo_unitario_usd_cents: efecto.costo_despues_usd_cents,
           precio_venta_usd_cents: efecto.precio_despues_usd_cents,
@@ -769,6 +855,7 @@ const api: ApiPuente = {
       db.compras = db.compras.map((c) =>
         c.id === id ? { ...c, lineas, estado: 'RECIBIDA', resumen_ingreso: efectos, cerrado_en: new Date().toISOString() } : c
       );
+      marcarPiezas({ ...compra, lineas }, hoyISO());
       return ok({
         ...grupo(),
         codigo: compra.codigo,
@@ -790,25 +877,41 @@ const api: ApiPuente = {
         const p = db.productos.find((x) => x.id === pid);
         if (!p) continue;
         const suyas = lineas.filter((l) => l.destino === 'INVENTARIO' && l.producto_id === pid);
+        const antes = antesDelPaquete(p);
         const cambios = suyas
           .filter((l) => viejas.has(l.id))
           .map((l) => ({
             unidades_de_la_linea: l.cantidad,
             diferencia_usd_cents: l.costo_linea_usd_cents - viejas.get(l.id)!.costo_linea_usd_cents,
+            lote_id: loteDeLinea(antes.lotes ?? [], compra.id, l.id, l.variante_id)?.id,
+            nuevo_costo_unitario_usd_cents: l.costo_unitario_usd_cents,
           }))
           .filter((c) => c.diferencia_usd_cents !== 0);
         const nuevas = suyas.filter((l) => !viejas.has(l.id));
         if (cambios.length === 0 && nuevas.length === 0) continue;
         const efecto = efectoDeCorreccion(
-          antesDelPaquete(p),
+          antes,
           cambios,
-          nuevas.map((l) => ({ cantidad: l.cantidad, costo_linea_usd_cents: l.costo_linea_usd_cents })),
+          nuevas.map((l) => ({
+            cantidad: l.cantidad,
+            costo_linea_usd_cents: l.costo_linea_usd_cents,
+            variante_id: l.variante_id ?? p.variantes[0]?.id ?? p.id * 10,
+            lote: {
+              id: idLoteDeLinea(compra.id, l.id),
+              fecha: compra.fecha,
+              orden: compra.id * 10000 + l.id,
+              compra_id: compra.id,
+              compra_codigo: compra.codigo,
+              compra_linea_id: l.id,
+            },
+          })),
           db.parametros.paso_redondeo_usd_cents
         );
         let nuevo = p;
         for (const l of nuevas) nuevo = meterUnidades(nuevo, l.cantidad, l.variante_id);
         nuevo = {
           ...nuevo,
+          lotes: efecto.lotes_despues,
           valor_inventario_usd_cents: efecto.valor_despues_usd_cents,
           costo_unitario_usd_cents: efecto.costo_despues_usd_cents,
           precio_venta_usd_cents: efecto.precio_despues_usd_cents,
@@ -878,6 +981,7 @@ const api: ApiPuente = {
         });
       }
       db.compras = db.compras.filter((x) => x.id !== id);
+      if (c) marcarPiezas({ ...c, lineas: [] });
       return ok(grupo());
     },
   },
@@ -923,13 +1027,29 @@ const api: ApiPuente = {
     get: (id) => ok(db.ventas.find((v) => v.id === id) ?? null),
     crear: (input) => {
       const id = db.siguienteId++;
+      // Una venta saca de los lotes más viejos y cuesta lo que costaron ellos.
+      const lotesEnJuego = new Map<number, Lote[]>();
       const lineas = input.lineas.map((l, i) => {
         const producto = l.producto_id
           ? db.productos.find((p) => p.id === l.producto_id)
           : undefined;
         const precio = l.precio_unitario_usd_cents ?? producto?.precio_venta_usd_cents ?? 0;
-        const costo =
+        let costo =
           l.costo_estimado_unitario_usd_cents ?? producto?.costo_unitario_usd_cents ?? 0;
+        let costoTotal = costo * l.cantidad;
+        if (producto && input.tipo !== 'ENCARGO') {
+          const variante = l.variante_id ?? producto.variantes[0]?.id ?? producto.id * 10;
+          const salida = sacarFIFO(
+            lotesEnJuego.get(producto.id) ?? lotesDelMock(producto),
+            variante,
+            l.cantidad,
+            'VENTA',
+            precio * l.cantidad
+          );
+          lotesEnJuego.set(producto.id, salida.lotes);
+          costoTotal = salida.costo_usd_cents;
+          costo = l.cantidad > 0 ? Math.round(costoTotal / l.cantidad) : 0;
+        }
         return {
           id: i + 1,
           venta_id: id,
@@ -940,7 +1060,7 @@ const api: ApiPuente = {
           precio_unitario_usd_cents: precio,
           costo_unitario_usd_cents: costo,
           subtotal_usd_cents: precio * l.cantidad,
-          costo_total_usd_cents: costo * l.cantidad,
+          costo_total_usd_cents: costoTotal,
           es_paquete: l.es_paquete ?? false,
           orden: i,
         };
@@ -958,13 +1078,11 @@ const api: ApiPuente = {
             p.id === l.producto_id
               ? sinCambiarPrecio({
                   ...p,
+                  lotes: lotesEnJuego.get(p.id),
                   existencias: Math.max(0, p.existencias - l.cantidad),
-                  valor_inventario_usd_cents: Math.max(
-                    0,
-                    p.valor_inventario_usd_cents - l.costo_total_usd_cents
-                  ),
+                  valor_inventario_usd_cents: valorDeLotes(lotesEnJuego.get(p.id) ?? []),
                   variantes: p.variantes.map((v, i) =>
-                    i === 0
+                    (l.variante_id ? v.id === l.variante_id : i === 0)
                       ? { ...v, existencias: Math.max(0, v.existencias - l.cantidad) }
                       : v
                   ),
@@ -1038,6 +1156,7 @@ const api: ApiPuente = {
         notas: input.notas,
         activo: true,
         lineas,
+        piezas: esEncargo ? piezasDe(lineas) : undefined,
         pagos: pagosIniciales,
         cuotas: input.plan_cuotas
           ? Array.from({ length: input.plan_cuotas.cantidad }, (_, i) => ({
@@ -1065,8 +1184,34 @@ const api: ApiPuente = {
 
       return ok({ ...grupo(), id });
     },
-    cambiarEstado: (id, estado) => {
+    cambiarEstado: (id, estado, opciones = {}) => {
       const venta = db.ventas.find((v) => v.id === id);
+      // Las mismas reglas del repositorio para las piezas de un encargo.
+      if (venta?.tipo === 'ENCARGO') {
+        const lineas = venta.lineas ?? [];
+        const enCamino = lineas.find((l) => estadoPieza(l) === 'EN_CAMINO');
+        if (estado === 'ENTREGADA' && enCamino) {
+          return Promise.resolve({
+            success: false as const,
+            error: `'${enCamino.descripcion}' todavía no llegó: viene en ${enCamino.compra_codigo ?? 'un paquete'}.`,
+          });
+        }
+        const sinDecidir = lineas.find((l) => estadoPieza(l) === 'LLEGO' && !opciones.piezas?.[l.id]);
+        if (estado === 'CANCELADA' && sinDecidir) {
+          return Promise.resolve({
+            success: false as const,
+            error: `'${sinDecidir.descripcion}' ya llegó. Anulá el encargo desde la computadora para decidir qué pasa con la pieza.`,
+          });
+        }
+      }
+      // Anular devuelve lo que pagó, salvo que ella se quede con el anticipo.
+      if (venta && estado === 'CANCELADA' && opciones.anticipo !== 'RETENER') {
+        db.ventas = db.ventas.map((v) =>
+          v.id === id
+            ? { ...v, pagos: v.pagos.map((p) => ({ ...p, activo: false })), pagado_usd_cents: 0, saldo_usd_cents: v.total_usd_cents }
+            : v
+        );
+      }
       // El mock no mueve inventario, pero imita el contrato: una venta con
       // productos que se anula movería mercadería y no sería reversible.
       const movioMercaderia =

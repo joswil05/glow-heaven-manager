@@ -41,6 +41,7 @@ import { ResumenIngreso } from './paquetes/ResumenIngreso';
 import { useClickOutside } from '../lib/useClickOutside';
 import { useToast } from '../context/ToastContext';
 import { formatearMoneda, formatearPeso, formatearFecha } from '@core/moneda';
+import { etapaEncargo } from '@core/encargos';
 
 /**
  * Los paquetes: lo que entró al inventario y lo que costó.
@@ -127,7 +128,8 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
         window.api.ventas.list({ tipo: 'ENCARGO', estado: 'PENDIENTE' }),
       ]);
       if (rc.success) setCompras(rc.data);
-      if (re.success) setEncargos(re.data);
+      // Los que de verdad falta comprar: los que ya vienen en un paquete no.
+      if (re.success) setEncargos(re.data.filter((v) => etapaEncargo(v) === 'POR_COMPRAR'));
     } finally {
       setCargando(false);
     }
@@ -566,6 +568,10 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
                             <Badge tone="warning">
                               {l.cliente_nombre ? `Encargo de ${l.cliente_nombre}` : 'Encargo'}
                             </Badge>
+                          ) : l.lote_quedan !== undefined ? (
+                            <span className="text-caption text-texto-3 tabular">
+                              {l.lote_quedan === 0 ? 'ya no queda' : `quedan ${l.lote_quedan} de ${l.cantidad}`}
+                            </span>
                           ) : (
                             <span className="text-caption text-texto-3 tabular">
                               línea {$(l.costo_linea_usd_cents)}
@@ -578,6 +584,32 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
                 </ul>
               )}
             </Card>
+
+            {/* Lo que dejó lo que se vendió de este paquete. Sólo las líneas
+                con lote propio (2.14 en adelante): las anteriores quedaron
+                dentro del saldo de su producto y no se sabe qué fue de cada una. */}
+            {(() => {
+              const propias = detalle.lineas.filter((l) => l.lote_propio);
+              const vendidas = propias.reduce((s, l) => s + (l.lote_vendidas ?? 0), 0);
+              if (propias.length === 0) return null;
+              const ingreso = propias.reduce((s, l) => s + (l.lote_ingreso_usd_cents ?? 0), 0);
+              const costo = propias.reduce((s, l) => s + (l.lote_costo_vendido_usd_cents ?? 0), 0);
+              return (
+                <Card className="rounded-xl border-borde/80 shadow-xs overflow-hidden">
+                  <CardContent className="p-4 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-body font-bold text-texto">Te dejó hasta hoy</span>
+                      <Money usd_cents={ingreso - costo} size="md" soloUsd colorearSigno />
+                    </div>
+                    <p className="text-caption text-texto-3 tabular">
+                      {vendidas === 0
+                        ? 'Todavía no se vendió nada de este paquete.'
+                        : `${vendidas} ${vendidas === 1 ? 'vendida' : 'vendidas'}: cobraste ${$(ingreso)}, te costaron ${$(costo)}.`}
+                    </p>
+                  </CardContent>
+                </Card>
+              );
+            })()}
 
             {detalle.resumen_ingreso && detalle.resumen_ingreso.length > 0 && (
               <div>

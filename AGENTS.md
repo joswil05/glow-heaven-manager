@@ -62,9 +62,22 @@ La ficha del producto es catálogo: no tiene costo, existencias ni paquete.
   anterior y mentía: un "35%" en pantalla era un 20% real.
 - **El redondeo de precios es SIEMPRE hacia arriba.** Redondear al más
   cercano baja el precio la mitad de las veces y se come margen sin avisar.
-- **El costo del inventario es promedio ponderado.** La fuente de verdad es
-  `productos.valor_inventario_usd_cents`; el costo unitario se deriva de él y
-  las existencias, nunca al revés. Así no se pierden centavos al redondear.
+- **El inventario se lleva por lotes, y sale primero lo más viejo.** Cada
+  línea de paquete es un lote (`productos.lotes`, id `pq{compra}-l{línea}`)
+  con sus unidades y su valor; una venta saca del lote más viejo y cuesta lo
+  que costó ese lote (`core/lotes.ts`). `valor_inventario_usd_cents` es
+  siempre la suma exacta de los lotes. El precio por margen se calcula sobre
+  el lote más caro que queda, así no se vende debajo del costo de nada de lo
+  que hay; nunca baja solo al vender ("Revisar precios" lo propone). Un
+  producto de antes de la 2.14 no tiene lotes: `normalizarLotes` le arma un
+  saldo dentro de cada transacción, sin script de migración, y cuadra lo que
+  una app vieja haya movido sin tocarlos. Ver `docs/PLAN_LOTES_Y_ENCARGOS.md`.
+- **Un encargo es un conjunto de piezas, y cada pieza sabe de dónde sale.**
+  La línea del encargo apunta a la línea del paquete que la trae
+  (`compra_id`, `compra_linea_id`, `llego_el`). La etapa del encargo (por
+  comprar, en camino, por entregar) se deriva de sus piezas en
+  `core/encargos.ts`; no se guarda a mano. Una pieza que vino en un paquete
+  nunca descuenta de la bodega al entregarse.
 - **El costo se congela en la venta.** `venta_lineas.costo_unitario_usd_cents`
   guarda con qué costo salió la unidad. Recalcularlo después reescribiría la
   ganancia histórica cada vez que llega un paquete nuevo.
@@ -109,7 +122,9 @@ La ficha del producto es catálogo: no tiene costo, existencias ni paquete.
   - `costeo.ts` — reparto del envío y tax de un paquete
   - `cobranza.ts` — qué es deuda y en qué estado nace un encargo
   - `precios.ts` — margen sobre costo y redondeo hacia arriba
-  - `inventario.ts` — promedio ponderado
+  - `lotes.ts` — lotes por talla, salida del más viejo, migración
+  - `encargos.ts` — en qué va un encargo, según sus piezas
+  - `inventario.ts` — el costo de una ficha que nace con existencias
   - `prorrateo.ts` — reparto exacto por mayor residuo
 - `src/main/firebase/client.ts` tiene los ayudantes compartidos: `leerDoc`,
   `leerVarios`, `aplicarLote`, `siguienteId`, `idOrdenable`.
@@ -187,7 +202,7 @@ ID viaja dentro de la aplicación, así que nunca fue un secreto.
 
 ## Comandos de verificación
 
-- `npm test` — 295 pruebas contra el Firestore falso, sin red.
+- `npm test` — 355 pruebas contra el Firestore falso, sin red.
 - `npm run typecheck` — cero errores con `strict: true`
 - `npm run build` — compila y empaqueta
 - `npm run build:exe` — instalador NSIS. Borrá `release/` antes para

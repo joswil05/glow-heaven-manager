@@ -36,6 +36,11 @@ describe('la etapa del encargo', () => {
     const v = pendiente([{ compra_id: 3, llego_el: '2026-10-12' }, { compra_id: 4 }]);
     expect(etapaEncargo(v)).toBe('EN_CAMINO');
     expect(textoEtapa('EN_CAMINO', v.piezas)).toBe('En camino · 1 de 2 llegó');
+    expect(textoEtapa('EN_CAMINO', { total: 3, compradas: 3, llegadas: 2, de_bodega: 0 })).toBe('En camino · 2 de 3 llegaron');
+    // Uno sin confirmar que ya se compró lo dice.
+    expect(textoEtapa('COTIZADO', { total: 2, compradas: 1, llegadas: 1, de_bodega: 0 })).toBe('Cotizado · en camino');
+    expect(textoEtapa('COTIZADO', { total: 1, compradas: 1, llegadas: 1, de_bodega: 0 })).toBe('Cotizado · llegó');
+    expect(textoEtapa('COTIZADO', { total: 1, compradas: 0, llegadas: 0, de_bodega: 0 })).toBe('Cotizado');
   });
 
   it('todo llegó o sale de la bodega: por entregar', () => {

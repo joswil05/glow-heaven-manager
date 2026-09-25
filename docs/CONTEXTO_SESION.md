@@ -2,10 +2,11 @@
 
 > **Para quién es esto**: el modelo o la persona que abre este proyecto sin
 > haber estado en la sesión anterior.
-> **Estado del árbol**: `v2.13.0`, publicado en PWA y Windows, todo verde.
-> La 2.13.0 es la limpieza de la interfaz (sección 4); la lógica es la de la
-> 2.12.2, probada sobre la app instalada contra la base real (sección 6).
-> **Última actualización**: 24 de septiembre de 2026.
+> **Estado del árbol**: publicada está la `v2.13.0` (PWA y Windows). El
+> árbol trae encima, **sin publicar**, la 2.13.1 (el buscador del paquete y la
+> ficha nueva que lleva al paquete) y la 2.14.0 (lotes y encargos, sección 2).
+> Todo verde; falta la prueba sobre la base real (sección 3).
+> **Última actualización**: 25 de septiembre de 2026.
 
 Leé este archivo primero. Después:
 
@@ -52,8 +53,54 @@ números, está en [PLAN_PAQUETES_E_INVENTARIO.md](PLAN_PAQUETES_E_INVENTARIO.md
 
 ```
 costo de una línea de paquete  =  precio de tienda  +  impuesto (7%)  +  su parte del flete
-costo unitario del producto    =  valor de bodega ÷ existencias      (promedio ponderado)
+cada línea de paquete          =  un lote, con sus unidades y su valor
+una venta                      =  sale del lote más viejo, al costo de ese lote
+el precio por margen           =  sobre el lote más caro que queda
 ```
+
+### Lotes (desde `v2.14`)
+
+Hasta la 2.13 el producto guardaba un solo costo promedio: si el mismo termo
+llegaba a $10 y después a $15, las ventas salían a $12.50 y no se sabía qué le
+dejó cada paquete. Ahora cada línea de paquete es un lote en
+`productos.lotes` ([`src/core/lotes.ts`](../src/core/lotes.ts)):
+
+- Sale primero lo más viejo. La línea de la venta guarda de qué lotes salió
+  (`lotes_consumidos`), y anular devuelve cada unidad a su lote.
+- `valor_inventario_usd_cents` es siempre la suma exacta de los lotes; el
+  simulador de producción lo verifica en cada paso.
+- El precio se calcula sobre el lote más caro que queda, y nunca baja solo
+  al vender: "Revisar precios" lo propone cuando se acaba el lote caro.
+- **No hay script de migración.** Un producto sin lotes recibe un lote
+  "Anterior" (`SALDO`) con todo lo que tenía, dentro de la misma transacción
+  que lo toca. Si una app 2.13 todavía abierta mueve existencias sin tocar
+  lotes, la siguiente transacción lo cuadra contra el lote más viejo.
+- El detalle del producto lista sus lotes; el del paquete dice cuántas quedan
+  de cada línea y cuánto le dejó lo vendido ("Te dejó hasta hoy").
+
+### Encargos (desde `v2.14`)
+
+Ross no es una agencia de envíos: compra lo que la clienta pide y le llega en
+sus paquetes. Cada línea del encargo es una pieza que apunta a la línea del
+paquete que la trae. La etapa se deriva de las piezas
+([`src/core/encargos.ts`](../src/core/encargos.ts)): por comprar, en camino
+("1 de 2 llegó"), por entregar. Reglas:
+
+- Una pieza no puede venir en dos paquetes. Guardar el borrador la marca;
+  borrarlo la libera; recibirlo le pone la fecha de llegada y el costo real.
+- No se entrega un encargo con una pieza en camino. Una pieza que salió de
+  la bodega sale del lote más viejo al entregar; una que vino en un paquete
+  nunca descuenta de la bodega (antes se contaba dos veces).
+- Un encargo cotizado se puede comprar igual; queda "sin confirmar".
+- Anular pregunta, pieza por pieza, qué pasa con lo que ya llegó (a la bodega
+  con su costo real, o perdida) y si se devuelve o se queda el anticipo. Lo
+  que viene en camino pasa a la bodega de su paquete. La PWA no anula un
+  encargo con piezas que llegaron: lo manda a la computadora.
+- El panel avisa de los encargos confirmados sin comprar y de los que
+  llegaron y no se entregan.
+
+El diseño completo, con los casos borde, está en
+[PLAN_LOTES_Y_ENCARGOS.md](PLAN_LOTES_Y_ENCARGOS.md).
 
 ### El paquete es la única puerta de entrada (desde `v2.12`)
 
@@ -111,6 +158,14 @@ un error.
 
 ## 3. Lo que está pendiente, en orden
 
+### P1: probar la 2.14 sobre la base real
+
+Después de publicarla, con el procedimiento de la sección 6: respaldo, un
+encargo y un paquete de prueba que recorran las etapas, anulación con pieza
+llegada, y limpieza con cero diferencias. Antes que nada, confirmar que la
+migración perezosa deja la bodega igual: los 22 productos reciben su lote
+"Anterior" y el valor total no se mueve ni un centavo.
+
 ### Hecho el 24 de septiembre, sobre producción
 
 - **PQ-0001 tiene su contenido**: 22 productos, 45 unidades, $273.98 + $19.18
@@ -141,12 +196,6 @@ se trae todos los productos sin `limit`. Con 22 no se nota.
 
 Explícitamente pospuesto por ella: *"recién cuando pasen años"*. No lo empieces
 sin que lo pida.
-
-### P3: ganancia por paquete
-
-Sólo si ella quiere saber *"¿cuánto me dejó este paquete?"*. Requiere llevar el
-inventario por lotes y cambia la regla del promedio ponderado. Ver la fase 5
-del plan.
 
 ---
 

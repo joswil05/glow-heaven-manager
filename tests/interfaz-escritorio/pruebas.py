@@ -416,6 +416,89 @@ def caso_ficha_al_paquete(page: Page) -> list[str]:
     return fallas
 
 
+def sembrar_encargo_en_camino(page: Page) -> dict:
+    """Un encargo de dos piezas: una llegó en un paquete y la otra viene en otro."""
+    return page.evaluate("""async () => {
+      const d = new Date();
+      const hoy = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+      const cliente = (await window.api.clientes.list('')).data[0];
+      const r = await window.api.ventas.crear({
+        cliente_id: cliente.id, fecha: hoy, tipo: 'ENCARGO',
+        lineas: [
+          { descripcion: 'Vestido flujo', cantidad: 1, precio_unitario_usd_cents: 4500, costo_estimado_unitario_usd_cents: 2800 },
+          { descripcion: 'Bolso flujo', cantidad: 1, precio_unitario_usd_cents: 9000, costo_estimado_unitario_usd_cents: 6200 },
+        ],
+        pago_inicial: { monto_cents: 9000, moneda: 'USD', metodo: 'EFECTIVO' },
+      });
+      const v = (await window.api.ventas.get(r.data.id)).data;
+      const pieza = (l) => ({
+        descripcion: l.descripcion, cantidad: 1, precio_linea_usd_cents: 2600,
+        destino: 'ENCARGO', venta_id: v.id, venta_linea_id: l.id,
+      });
+      const llego = await window.api.compras.guardar({ fecha: hoy, envio_total_usd_cents: 1000, lineas: [pieza(v.lineas[0])] });
+      await window.api.compras.recibir(llego.data.id);
+      await window.api.compras.guardar({ fecha: hoy, envio_total_usd_cents: 1000, lineas: [pieza(v.lineas[1])] });
+      return { id: v.id, codigo: v.codigo };
+    }""")
+
+
+@caso("un encargo dice en qué va, y al anularlo se decide qué pasa con lo que llegó")
+def caso_encargo_en_camino(page: Page) -> list[str]:
+    fallas = []
+    e = sembrar_encargo_en_camino(page)
+    page.get_by_role("button", name="Encargos", exact=False).first.click()
+    page.wait_for_timeout(1000)
+
+    fila = page.locator("tr", has_text=e["codigo"])
+    if fila.count() == 0:
+        return [f"{e['codigo']} no aparece en la lista de encargos"]
+    if "En camino · 1 de 2 llegó" not in fila.first.inner_text():
+        fallas.append(f"la fila no dice en qué va: {fila.first.inner_text()[:120]!r}")
+
+    # Cada filtro trae sólo lo de su etapa.
+    page.get_by_role("button", name="En camino", exact=True).click()
+    page.wait_for_timeout(500)
+    if page.locator("tr", has_text=e["codigo"]).count() == 0:
+        fallas.append("el filtro 'En camino' no trae el encargo que viene en camino")
+    page.get_by_role("button", name="Por comprar", exact=True).click()
+    page.wait_for_timeout(500)
+    if page.locator("tr", has_text=e["codigo"]).count() > 0:
+        fallas.append("el filtro 'Por comprar' trae un encargo que ya se compró entero")
+    page.get_by_role("button", name="Todas", exact=True).click()
+    page.wait_for_timeout(500)
+
+    # Con una pieza en camino no se ofrece entregarlo.
+    page.get_by_text(e["codigo"]).first.click()
+    page.wait_for_timeout(800)
+    if page.get_by_text("Se entrega cuando llegue todo.").count() == 0:
+        fallas.append("el detalle no avisa que se entrega cuando llegue todo")
+    if page.get_by_role("button", name="Marcar como entregado").count() > 0:
+        fallas.append("se ofrece entregar un encargo con una pieza en camino")
+
+    page.get_by_role("button", name="Anular este encargo").click()
+    modal = page.get_by_role("alertdialog")
+    try:
+        modal.wait_for(timeout=5000)
+        modal.get_by_role("radiogroup", name="Qué pasa con Vestido flujo").wait_for(timeout=5000)
+    except Exception:
+        return fallas + ["al anular no se pregunta qué pasa con la pieza que llegó"]
+    if modal.get_by_text("“Bolso flujo” ya se compró").count() == 0:
+        fallas.append("no se avisa que la pieza en camino entra a la bodega con su paquete")
+    modal.get_by_role("radiogroup", name="Qué pasa con Vestido flujo").get_by_role("radio", name="Se perdió").click()
+    modal.get_by_role("radiogroup", name="Qué pasa con lo que pagó").get_by_role("radio", name="Quedármelo").click()
+    modal.get_by_role("button", name="Anular el encargo").click()
+    page.wait_for_timeout(900)
+
+    v = page.evaluate("async (id) => (await window.api.ventas.get(id)).data", e["id"])
+    if v["estado"] != "CANCELADA":
+        fallas.append(f"el encargo quedó {v['estado']}, no anulado")
+    if v["pagado_usd_cents"] != 9000:
+        fallas.append(f"eligió quedarse con el anticipo y quedó pagado {v['pagado_usd_cents']}")
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(300)
+    return fallas
+
+
 @caso("no quedan errores de consola")
 def caso_consola(page: Page) -> list[str]:
     return []  # lo evalúa el corredor al final

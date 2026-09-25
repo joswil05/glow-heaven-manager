@@ -124,7 +124,10 @@ export function ActividadView({ onVolver }: { onVolver: () => void }) {
       await cargar();
     } catch (err) {
       console.error('[ActividadView] Error anulando:', err);
-      mostrar('No se pudo anular. Probá de nuevo.', 'error');
+      // Un encargo con piezas que ya llegaron no se anula desde acá: el
+      // repositorio explica por qué, y eso es lo que tiene que leer ella.
+      const motivo = err instanceof Error && err.message ? err.message : 'No se pudo anular. Probá de nuevo.';
+      mostrar(motivo, 'error');
     } finally {
       setAnulando(false);
     }

@@ -66,13 +66,17 @@ export function etapaEncargo(v: { estado: EstadoVenta; piezas?: PiezasEncargo })
 /** "En camino · 1 de 2 llegó", para la lista. */
 export function textoEtapa(etapa: EtapaEncargo, piezas?: PiezasEncargo): string {
   switch (etapa) {
-    case 'COTIZADO':
-      return 'Cotizado';
+    case 'COTIZADO': {
+      // Se puede comprar antes de que confirme: que no quede escondido.
+      if (!piezas || piezas.compradas === 0) return 'Cotizado';
+      return piezas.llegadas + piezas.de_bodega >= piezas.total ? 'Cotizado · llegó' : 'Cotizado · en camino';
+    }
     case 'POR_COMPRAR':
       return 'Por comprar';
     case 'EN_CAMINO': {
       const listas = (piezas?.llegadas ?? 0) + (piezas?.de_bodega ?? 0);
-      return listas > 0 && piezas ? `En camino · ${listas} de ${piezas.total} llegó` : 'En camino';
+      if (listas === 0 || !piezas) return 'En camino';
+      return `En camino · ${listas} de ${piezas.total} ${listas === 1 ? 'llegó' : 'llegaron'}`;
     }
     case 'POR_ENTREGAR':
       return 'Por entregar';
