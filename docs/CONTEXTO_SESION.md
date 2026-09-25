@@ -294,6 +294,11 @@ números de antes de una venta durante 20 segundos (2.12.1); ajustar
 existencias inventaba centavos, pasar un producto de precio a mano a margen lo
 dejaba a costo, y un paquete podía quedar sin fecha (2.12.2).
 
+Esos arreglos se volvieron a probar en la 2.12.2 instalada, con datos nuevos:
+24 de 24 bien, incluida una corrección de flete con parte del paquete ya
+vendida (a la bodega le entra sólo lo que sigue ahí). Después se limpió igual
+que antes y la base volvió a quedar idéntica.
+
 ---
 
 ## 7. Cómo trabajar con Joswill
