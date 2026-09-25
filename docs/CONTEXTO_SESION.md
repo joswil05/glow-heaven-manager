@@ -2,8 +2,9 @@
 
 > **Para quién es esto**: el modelo o la persona que abre este proyecto sin
 > haber estado en la sesión anterior.
-> **Estado del árbol**: `v2.12.2`, publicado en PWA y Windows, todo verde.
-> Probado sobre la app instalada contra la base real (sección 6).
+> **Estado del árbol**: `v2.13.0`, publicado en PWA y Windows, todo verde.
+> La 2.13.0 es la limpieza de la interfaz (sección 4); la lógica es la de la
+> 2.12.2, probada sobre la app instalada contra la base real (sección 6).
 > **Última actualización**: 24 de septiembre de 2026.
 
 Leé este archivo primero. Después:
@@ -223,7 +224,7 @@ detectaba lo que decía cuidar hasta que se le cambió el caso.
 
 ---
 
-**La interfaz se limpió de texto el 24 de septiembre (rama `interfaz-limpia`).**
+**La interfaz se limpió de texto el 24 de septiembre (`v2.13.0`).**
 No vuelvas a meter lo que se sacó: subtítulos que repiten el título, un
 párrafo de ayuda debajo de cada campo, íconos en cajitas de color, tres
 botones de texto en cada fila, córdobas al lado de cada precio de una tabla.
