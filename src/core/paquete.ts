@@ -22,7 +22,16 @@
 
 import { costearPaquete, repartirPeso } from './costeo';
 import { calcularPrecio, type ModoPrecio } from './precios';
-import { costoUnitario, registrarEntrada, corregirCostoDeLinea } from './inventario';
+import {
+  crearLote,
+  corregirLote,
+  costoBase,
+  normalizarLotes,
+  ordenFIFO,
+  unidadesDeLotes,
+  valorDeLotes,
+  type Lote,
+} from './lotes';
 
 export type DestinoLineaPaquete = 'INVENTARIO' | 'ENCARGO';
 
@@ -201,6 +210,11 @@ export interface ProductoAntesDelPaquete {
   margen_bp: number;
   multiplicador_bp?: number;
   precio_manual_usd_cents?: number;
+  /**
+   * Sus lotes, ya cuadrados. Sin ellos se arma un saldo con las existencias y
+   * el valor: es lo que pasa con un producto anterior a la 2.14.
+   */
+  lotes?: Lote[];
 }
 
 export interface EfectoEnProducto {
@@ -208,12 +222,33 @@ export interface EfectoEnProducto {
   existencias_despues: number;
   valor_antes_usd_cents: number;
   valor_despues_usd_cents: number;
+  /** El costo que manda el precio: el del lote más caro que queda. */
   costo_antes_usd_cents: number;
   costo_despues_usd_cents: number;
   precio_antes_usd_cents: number;
   precio_despues_usd_cents: number;
   /** El precio no cubre el costo. Pasa con un precio escrito a mano. */
   bajo_costo: boolean;
+}
+
+/** Una línea de bodega que entra: crea su lote. */
+export interface EntradaDeLinea {
+  cantidad: number;
+  costo_linea_usd_cents: number;
+  variante_id?: number;
+  /** Cómo se llama y dónde va en la fila el lote que crea. */
+  lote?: Partial<
+    Pick<Lote, 'id' | 'fecha' | 'orden' | 'compra_id' | 'compra_codigo' | 'compra_linea_id' | 'costo_unitario_usd_cents'>
+  >;
+}
+
+/** Una línea que ya entró y cambió de costo. */
+export interface CambioDeLinea {
+  unidades_de_la_linea: number;
+  diferencia_usd_cents: number;
+  /** El lote de esa línea. Sin él, el cambio no mueve la bodega. */
+  lote_id?: string;
+  nuevo_costo_unitario_usd_cents?: number;
 }
 
 /**
@@ -246,81 +281,138 @@ export function precioParaCosto(
   }).precio_usd_cents;
 }
 
-function costoVisible(existencias: number, valor: number, guardado: number): number {
-  const c = costoUnitario({ existencias, valor_total_usd_cents: valor });
-  return c > 0 ? c : Math.max(0, entero(guardado));
+/** El id del lote que crea una línea de paquete. */
+export function idLoteDeLinea(compra_id: number, linea_id: number): string {
+  return `pq${compra_id}-l${linea_id}`;
+}
+
+/**
+ * El lote de una línea de paquete.
+ *
+ * Una línea que entró con la 2.14 tiene su propio lote. Una anterior quedó
+ * dentro del saldo de su talla: si el saldo es de ese paquete, es ese; si no,
+ * el saldo más viejo de la talla.
+ */
+export function loteDeLinea(
+  lotes: readonly Lote[],
+  compra_id: number,
+  linea_id: number,
+  variante_id?: number
+): Lote | undefined {
+  const propio = lotes.find((l) => l.id === idLoteDeLinea(compra_id, linea_id));
+  if (propio) return propio;
+  const saldos = lotes.filter(
+    (l) => l.origen === 'SALDO' && (variante_id === undefined || l.variante_id === variante_id)
+  );
+  return saldos.find((l) => l.compra_id === compra_id) ?? saldos[0];
+}
+
+/** Los lotes con que arranca el cálculo: los suyos o un saldo armado. */
+function lotesDe(p: ProductoAntesDelPaquete): Lote[] {
+  if (p.lotes) return p.lotes.map((l) => ({ ...l }));
+  return normalizarLotes({
+    variantes: [{ id: 1, existencias: p.existencias }],
+    valor_inventario_usd_cents: p.valor_inventario_usd_cents,
+    costo_unitario_usd_cents: p.costo_unitario_usd_cents,
+  }).lotes;
+}
+
+function agregarEntradas(lotes: Lote[], entradas: readonly EntradaDeLinea[]): Lote[] {
+  entradas.forEach((e, i) => {
+    lotes.push(
+      crearLote({
+        id: e.lote?.id ?? `nuevo-${i + 1}`,
+        variante_id: e.variante_id ?? 1,
+        cantidad: e.cantidad,
+        valor_usd_cents: e.costo_linea_usd_cents,
+        // Sin fecha, lo que entra va al final de la fila.
+        fecha: e.lote?.fecha ?? '9999-12-31',
+        orden: e.lote?.orden ?? i + 1,
+        origen: 'PAQUETE',
+        compra_id: e.lote?.compra_id,
+        compra_codigo: e.lote?.compra_codigo,
+        compra_linea_id: e.lote?.compra_linea_id,
+        costo_unitario_usd_cents: e.lote?.costo_unitario_usd_cents,
+      })
+    );
+  });
+  return lotes.sort(ordenFIFO);
 }
 
 /**
  * Cómo queda un producto después de que le entran las líneas de un paquete.
  *
- * El costo es promedio ponderado: el valor de lo que había más el costo de lo
- * que entra, dividido entre todas las unidades.
+ * Cada línea es un lote. El precio por margen se calcula sobre el lote más
+ * caro que queda: si lo nuevo es más caro, sube; si es más barato, el precio
+ * sigue cubriendo lo que había.
  */
 export function efectoDeEntradas(
   p: ProductoAntesDelPaquete,
-  entradas: { cantidad: number; costo_linea_usd_cents: number }[],
+  entradas: readonly EntradaDeLinea[],
   paso_redondeo_usd_cents: number
-): EfectoEnProducto {
-  let estado = {
-    existencias: Math.max(0, entero(p.existencias)),
-    valor_total_usd_cents: Math.max(0, entero(p.valor_inventario_usd_cents)),
-  };
-  const antes = { ...estado };
-
-  for (const e of entradas) {
-    estado = registrarEntrada(estado, e.cantidad, e.costo_linea_usd_cents);
-  }
-
-  return armarEfecto(p, antes, estado, paso_redondeo_usd_cents);
+): EfectoEnProducto & { lotes_despues: Lote[] } {
+  const antes = lotesDe(p);
+  const despues = agregarEntradas(
+    antes.map((l) => ({ ...l })),
+    entradas
+  );
+  return { ...armarEfecto(p, antes, despues, paso_redondeo_usd_cents), lotes_despues: despues };
 }
 
 /**
  * Cómo queda un producto cuando se corrige un paquete que ya entró.
  *
- * Las líneas corregidas mueven el valor sólo de las unidades que siguen en
- * bodega; las líneas nuevas entran como una entrada cualquiera.
+ * Cada línea corregida cambia el valor de su lote, sólo en lo que queda de
+ * él; las líneas nuevas entran como una entrada cualquiera.
  */
 export function efectoDeCorreccion(
   p: ProductoAntesDelPaquete,
-  cambios: { unidades_de_la_linea: number; diferencia_usd_cents: number }[],
-  entradas: { cantidad: number; costo_linea_usd_cents: number }[],
+  cambios: readonly CambioDeLinea[],
+  entradas: readonly EntradaDeLinea[],
   paso_redondeo_usd_cents: number
-): EfectoEnProducto & { aplicado_usd_cents: number } {
-  let estado = {
-    existencias: Math.max(0, entero(p.existencias)),
-    valor_total_usd_cents: Math.max(0, entero(p.valor_inventario_usd_cents)),
-  };
-  const antes = { ...estado };
+): EfectoEnProducto & { aplicado_usd_cents: number; lotes_despues: Lote[] } {
+  const antes = lotesDe(p);
+  let lotes = antes.map((l) => ({ ...l }));
   let aplicado = 0;
 
   for (const c of cambios) {
-    const r = corregirCostoDeLinea(estado, c.diferencia_usd_cents, c.unidades_de_la_linea);
+    if (!c.lote_id) continue;
+    const r = corregirLote(
+      lotes,
+      c.lote_id,
+      c.diferencia_usd_cents,
+      c.unidades_de_la_linea,
+      c.nuevo_costo_unitario_usd_cents
+    );
     aplicado += r.aplicado_usd_cents;
-    estado = { ...estado, valor_total_usd_cents: r.valor_total_usd_cents };
+    lotes = r.lotes;
   }
-  for (const e of entradas) {
-    estado = registrarEntrada(estado, e.cantidad, e.costo_linea_usd_cents);
-  }
+  const despues = agregarEntradas(lotes, entradas);
 
-  return { ...armarEfecto(p, antes, estado, paso_redondeo_usd_cents), aplicado_usd_cents: aplicado };
+  return {
+    ...armarEfecto(p, antes, despues, paso_redondeo_usd_cents),
+    aplicado_usd_cents: aplicado,
+    lotes_despues: despues,
+  };
 }
 
 function armarEfecto(
   p: ProductoAntesDelPaquete,
-  antes: { existencias: number; valor_total_usd_cents: number },
-  despues: { existencias: number; valor_total_usd_cents: number },
+  antes: readonly Lote[],
+  despues: readonly Lote[],
   paso: number
 ): EfectoEnProducto {
-  const costoAntes = costoVisible(antes.existencias, antes.valor_total_usd_cents, p.costo_unitario_usd_cents);
-  const costoDespues = costoVisible(despues.existencias, despues.valor_total_usd_cents, costoAntes);
+  const baseAntes = costoBase(antes);
+  const costoAntes = baseAntes > 0 ? baseAntes : Math.max(0, entero(p.costo_unitario_usd_cents));
+  const baseDespues = costoBase(despues);
+  const costoDespues = baseDespues > 0 ? baseDespues : costoAntes;
   const precioDespues = precioParaCosto(p, costoDespues, paso);
 
   return {
-    existencias_antes: antes.existencias,
-    existencias_despues: despues.existencias,
-    valor_antes_usd_cents: antes.valor_total_usd_cents,
-    valor_despues_usd_cents: despues.valor_total_usd_cents,
+    existencias_antes: unidadesDeLotes(antes),
+    existencias_despues: unidadesDeLotes(despues),
+    valor_antes_usd_cents: valorDeLotes(antes),
+    valor_despues_usd_cents: valorDeLotes(despues),
     costo_antes_usd_cents: costoAntes,
     costo_despues_usd_cents: costoDespues,
     precio_antes_usd_cents: p.precio_venta_usd_cents,

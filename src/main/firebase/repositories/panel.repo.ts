@@ -1,3 +1,4 @@
+import { etapaEncargo } from '../../../core/encargos';
 import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { getFirestoreDb } from '../client';
 import { ProductosRepoFirestore } from './productos.repo';
@@ -330,16 +331,31 @@ function calcularAlertas(s: Instantanea, parametros?: ParametrosSistema): Alerta
   const diasEncargo = parametros?.dias_alerta_encargos ?? 10;
   const limiteEncargos = haceDias(diasEncargo);
 
+  // Dos avisos distintos, porque piden cosas distintas: comprar lo que la
+  // clienta ya confirmó, y entregar lo que ya llegó. Antes había uno solo que
+  // miraba la fecha del encargo y saltaba aunque ya estuviera comprado.
   for (const v of s.ventas) {
-    if (v.tipo !== 'ENCARGO' || v.estado !== 'PENDIENTE' || v.fecha > limiteEncargos) continue;
+    if (v.tipo !== 'ENCARGO' || v.estado !== 'PENDIENTE') continue;
     const nombre = v.cliente_id ? (cliMap.get(v.cliente_id) ?? 'Cliente') : 'Cliente';
-    alertas.push({
-      id: `encargo-${v.id}`,
-      severidad: 'atencion',
-      titulo: `El encargo de ${nombre} lleva más de ${diasEncargo} días`,
-      detalle: `${v.codigo}, anticipo cobrado desde el ${v.fecha}`,
-      destino: { vista: 'ventas', id: v.id },
-    });
+    const etapa = etapaEncargo(v);
+    if (etapa === 'POR_COMPRAR' && v.fecha <= limiteEncargos) {
+      alertas.push({
+        id: `encargo-comprar-${v.id}`,
+        severidad: 'atencion',
+        titulo: `El encargo de ${nombre} está confirmado hace más de ${diasEncargo} días y sin comprar`,
+        detalle: `${v.codigo}, confirmado desde el ${v.fecha}`,
+        destino: { vista: 'ventas', id: v.id },
+      });
+    }
+    if (etapa === 'POR_ENTREGAR' && v.llego_el && v.llego_el <= limiteEncargos) {
+      alertas.push({
+        id: `encargo-entregar-${v.id}`,
+        severidad: 'atencion',
+        titulo: `El encargo de ${nombre} llegó hace más de ${diasEncargo} días y no se entregó`,
+        detalle: `${v.codigo}, llegó el ${v.llego_el}`,
+        destino: { vista: 'ventas', id: v.id },
+      });
+    }
   }
 
   // 3. Productos agotados

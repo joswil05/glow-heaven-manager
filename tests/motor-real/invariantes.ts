@@ -17,6 +17,7 @@
  */
 import { repos } from './arnes';
 import type { Venta, Pago } from '../../src/shared/types';
+import { normalizarLotes, costoBase, type ProductoParaLotes } from '../../src/core/lotes';
 
 export interface Falla {
   invariante: string;
@@ -29,15 +30,21 @@ interface Foto {
   pagos: Pago[];
   productos: Awaited<ReturnType<Awaited<ReturnType<typeof repos>>['Productos']['listar']>>;
   clientes: Awaited<ReturnType<Awaited<ReturnType<typeof repos>>['Clientes']['listar']>>;
+  /** Los documentos de productos tal como están guardados. */
+  guardados: (ProductoParaLotes & { nombre: string })[];
 }
 
 async function tomarFoto(): Promise<Foto> {
   const { Ventas, Pagos, Productos, Clientes } = await repos();
-  const [ventas, productos, clientes] = await Promise.all([
+  const { getFirestoreDb } = await import('../../src/main/firebase/client');
+  const { collection, getDocs } = await import('firebase/firestore');
+  const [ventas, productos, clientes, crudos] = await Promise.all([
     Ventas.listar({}),
     Productos.listar({ incluirInactivos: true }),
     Clientes.listar(),
+    getDocs(collection(getFirestoreDb(), 'productos')),
   ]);
+  const guardados = crudos.docs.map((d) => d.data() as ProductoParaLotes & { nombre: string });
 
   // Los pagos se leen por venta: es la única forma de tenerlos todos sin
   // depender de un índice que quizá no exista para esta consulta.
@@ -46,7 +53,7 @@ async function tomarFoto(): Promise<Foto> {
     pagos.push(...(await Pagos.listarPorVenta(v.id)));
   }
 
-  return { ventas, pagos, productos, clientes };
+  return { ventas, pagos, productos, clientes, guardados };
 }
 
 const dinero = (c: number) => `$${(c / 100).toFixed(2)}`;
@@ -79,20 +86,50 @@ export async function revisarInvariantes(): Promise<Falla[]> {
       );
     }
 
-    // El valor de bodega es existencias por costo, con el redondeo del
-    // promedio ponderado como única tolerancia.
-    const esperado = p.existencias * p.costo_unitario_usd_cents;
+    // Con lotes (2.14), el valor de bodega es la suma exacta de sus lotes y
+    // cada talla tiene las unidades de los suyos. Hasta la 2.13 esto era
+    // "existencias por costo promedio", con un centavo de tolerancia.
+    const lotes = p.lotes ?? [];
     const real = p.valor_inventario_usd_cents ?? 0;
-    if (Math.abs(real - esperado) > p.existencias + 1) {
+    const sumaLotes = lotes.reduce((s, l) => s + l.valor_usd_cents, 0);
+    if (real !== sumaLotes) {
       agregar(
-        'el valor de bodega es existencias por costo unitario',
-        `'${p.nombre}': ${dinero(real)} guardado contra ${p.existencias} x ` +
-          `${dinero(p.costo_unitario_usd_cents)} = ${dinero(esperado)}`
+        'el valor de bodega es la suma de sus lotes',
+        `'${p.nombre}': ${dinero(real)} contra ${dinero(sumaLotes)} en lotes`
+      );
+    }
+    for (const v of p.variantes) {
+      const enLotes = lotes.filter((l) => l.variante_id === v.id).reduce((s, l) => s + l.cantidad, 0);
+      if (enLotes !== v.existencias) {
+        agregar(
+          'el stock de cada talla es la suma de sus lotes',
+          `'${p.nombre}' talla ${v.id}: ${v.existencias} contra ${enLotes} en lotes`
+        );
+      }
+    }
+    // El costo que manda el precio es el del lote más caro que queda.
+    if (p.existencias > 0 && p.costo_unitario_usd_cents !== costoBase(lotes)) {
+      agregar(
+        'el costo es el del lote más caro que queda',
+        `'${p.nombre}': ${dinero(p.costo_unitario_usd_cents)} contra ${dinero(costoBase(lotes))}`
       );
     }
 
     if ((p.valor_inventario_usd_cents ?? 0) < 0) {
       agregar('el valor de bodega nunca es negativo', `'${p.nombre}': ${dinero(real)}`);
+    }
+  }
+
+  // Lo GUARDADO, no lo que se muestra: la lista cuadra los lotes al leer, y
+  // eso taparía un repositorio que escribe lotes descuadrados. Un documento
+  // que ya tiene lotes tiene que quedar igual al volver a cuadrarlo.
+  for (const d of foto.guardados) {
+    if (!d.lotes) continue;
+    if (normalizarLotes(d).cambiado) {
+      agregar(
+        'los lotes guardados ya cuadran con las existencias y el valor',
+        `'${d.nombre}': el documento quedó descuadrado`
+      );
     }
   }
 

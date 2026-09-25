@@ -35,7 +35,10 @@ import type {
   EstadoVenta,
   TipoVenta,
   TipoDescuento,
+  OpcionesAnulacion,
 } from '../../../shared/types';
+
+export type { OpcionesAnulacion };
 
 export interface LineaVentaInput {
   producto_id?: number;
@@ -45,11 +48,18 @@ export interface LineaVentaInput {
   precio_unitario_usd_cents?: number;
   es_paquete?: boolean;
   costo_estimado_unitario_usd_cents?: number;
+  /** Encargos: con qué se cotizó la pieza. */
+  precio_tienda_usd_cents?: number;
+  peso_mlb?: number;
 }
 
 import type { PagoInicialInput } from '../../../shared/ipc-contracts';
 import { hoyISO, sumarDiasAFecha } from '../../../core/fechas';
 import { esDeuda, estadoInicialEncargo } from '../../../core/cobranza';
+import { piezasDe, estadoPieza } from '../../../core/encargos';
+import { repartirMayorResiduo } from '../../../core/prorrateo';
+import { lotesDe } from './productos.repo';
+import { unidadesDeLotes, type Consumo } from '../../../core/lotes';
 
 export interface CrearVentaInput {
   cliente_id?: number;
@@ -400,19 +410,40 @@ export class VentasRepoFirestore {
       variante_id?: number;
       cantidad: number;
       costo_salida_usd_cents: number;
+      consumos: Consumo[];
     }> = [];
+
+    // Los precios y el descuento se calculan ANTES de sacar mercadería: lo que
+    // se cobra por cada línea, ya con su parte del descuento, queda anotado en
+    // los lotes de los que sale. Es lo que después dice cuánto dejó un paquete.
+    const precios = input.lineas.map((linea) => {
+      const cantidad = Math.max(1, Math.round(linea.cantidad));
+      const prod = linea.producto_id ? productos.get(String(linea.producto_id)) : undefined;
+      const precioUnitario = linea.precio_unitario_usd_cents ?? prod?.precio_venta_usd_cents ?? 0;
+      return { cantidad, prod, precioUnitario, subtotal: precioUnitario * cantidad };
+    });
+    const subtotalVenta = precios.reduce((s, p) => s + p.subtotal, 0);
+    let descuentoUsdCents = 0;
+    if (input.descuento_tipo === 'PORCENTAJE' && input.descuento_valor && input.descuento_valor > 0) {
+      descuentoUsdCents = Math.round((subtotalVenta * input.descuento_valor) / 100);
+    } else if (input.descuento_tipo === 'MONTO_FIJO' && input.descuento_valor && input.descuento_valor > 0) {
+      descuentoUsdCents = Math.round(input.descuento_valor * 100);
+    }
+    descuentoUsdCents = Math.min(subtotalVenta, Math.max(0, descuentoUsdCents));
+    const descuentoPorLinea = repartirMayorResiduo(
+      descuentoUsdCents,
+      precios.map((p, i) => ({ id: i, base_valor: p.subtotal }))
+    );
 
     try {
       for (let i = 0; i < input.lineas.length; i++) {
         const linea = input.lineas[i];
-        const cantidad = Math.max(1, Math.round(linea.cantidad));
-        const prod = linea.producto_id ? productos.get(String(linea.producto_id)) : undefined;
+        const { cantidad, prod, precioUnitario, subtotal } = precios[i];
 
-        let descripcion = linea.descripcion?.trim() || prod?.nombre || '';
-        let precioUnitario =
-          linea.precio_unitario_usd_cents ?? prod?.precio_venta_usd_cents ?? 0;
+        const descripcion = linea.descripcion?.trim() || prod?.nombre || '';
         let costoUnitario = linea.costo_estimado_unitario_usd_cents ?? 0;
         let costoLinea = costoUnitario * cantidad;
+        let consumos: Consumo[] | undefined;
 
         if (prod && !esEncargo) {
           const salida = await ProductosRepoFirestore.salida({
@@ -422,18 +453,20 @@ export class VentasRepoFirestore {
             referencia_tipo: 'VENTA',
             referencia_id: ventaId,
             detalle: `Venta ${codigo}`,
+            ingreso_usd_cents: subtotal - (descuentoPorLinea.get(i) ?? 0),
           });
           salidasRealizadas.push({
             producto_id: linea.producto_id!,
             variante_id: linea.variante_id,
             cantidad,
             costo_salida_usd_cents: salida.costo_salida_usd_cents,
+            consumos: salida.consumos,
           });
           costoLinea = salida.costo_salida_usd_cents;
           costoUnitario = Math.round(costoLinea / cantidad);
+          consumos = salida.consumos;
         }
 
-        const subtotal = precioUnitario * cantidad;
         total += subtotal;
         costoTotal += costoLinea;
 
@@ -450,18 +483,13 @@ export class VentasRepoFirestore {
           costo_total_usd_cents: costoLinea,
           es_paquete: Boolean(linea.es_paquete),
           orden: i,
+          lotes_consumidos: consumos,
+          // Con qué se cotizó la pieza de un encargo.
+          precio_tienda_usd_cents: esEncargo ? linea.precio_tienda_usd_cents : undefined,
+          peso_mlb: esEncargo ? linea.peso_mlb : undefined,
         });
       }
 
-      // Aplicar descuento sobre el subtotal si fue especificado
-      const subtotalVenta = total;
-      let descuentoUsdCents = 0;
-      if (input.descuento_tipo === 'PORCENTAJE' && input.descuento_valor && input.descuento_valor > 0) {
-        descuentoUsdCents = Math.round((subtotalVenta * input.descuento_valor) / 100);
-      } else if (input.descuento_tipo === 'MONTO_FIJO' && input.descuento_valor && input.descuento_valor > 0) {
-        descuentoUsdCents = Math.round(input.descuento_valor * 100);
-      }
-      descuentoUsdCents = Math.min(subtotalVenta, Math.max(0, descuentoUsdCents));
       total = Math.max(0, subtotalVenta - descuentoUsdCents);
 
       const anticipoBp = esEncargo
@@ -542,8 +570,9 @@ export class VentasRepoFirestore {
         pagado_usd_cents: pagadoUsdCents,
         saldo_usd_cents: saldoUsdCents,
         anticipo_esperado_usd_cents: anticipoEsperado,
+        piezas: esEncargo ? piezasDe(lineasGuardadas) : undefined,
         notas: input.notas?.trim() || undefined,
-        lineas: lineasGuardadas,
+        lineas: lineasGuardadas.map((l) => sinUndefined(l as unknown as Record<string, unknown>)) as unknown as VentaLinea[],
         cuotas:
           input.plan_cuotas && input.plan_cuotas.cantidad > 1
             ? this.generarPlanCuotas(ventaId, saldoUsdCents > 0 ? saldoUsdCents : total, input.plan_cuotas, input.fecha)
@@ -611,6 +640,7 @@ export class VentasRepoFirestore {
               variante_id: s.variante_id,
               cantidad: s.cantidad,
               costo_total_usd_cents: s.costo_salida_usd_cents,
+              consumos: s.consumos,
               referencia_tipo: 'VENTA',
               referencia_id: ventaId,
               detalle: `Reversión automática por venta fallida ${codigo}`,
@@ -660,14 +690,87 @@ export class VentasRepoFirestore {
     return cuotas;
   }
 
+  /**
+   * Revisa, ANTES de tocar nada, que el cambio de estado se pueda hacer.
+   *
+   * Entregar un encargo necesita que sus piezas hayan llegado o que haya en
+   * la bodega las que salen de ahí. Anular uno con piezas que ya llegaron
+   * necesita saber qué pasa con ellas. Fallar acá deja todo como estaba.
+   */
+  private static async validarCambio(
+    venta: VentaDoc,
+    estado: EstadoVenta,
+    opciones: OpcionesAnulacion
+  ): Promise<void> {
+    if (venta.tipo !== 'ENCARGO') return;
+    const lineas = venta.lineas || [];
+
+    if (estado === 'ENTREGADA') {
+      const deBodega = lineas.filter((l) => estadoPieza(l) === 'DE_BODEGA');
+      for (const l of lineas) {
+        if (estadoPieza(l) === 'EN_CAMINO') {
+          throw new Error(`'${l.descripcion}' todavía no llegó: viene en ${l.compra_codigo ?? 'un paquete'}.`);
+        }
+      }
+      if (deBodega.length > 0) {
+        const productos = await leerVarios<ProductoDoc>(
+          'productos',
+          [...new Set(deBodega.map((l) => l.producto_id!))]
+        );
+        const pedido = new Map<string, number>();
+        for (const l of deBodega) {
+          const p = productos.get(String(l.producto_id));
+          if (!p) throw new Error(`El producto de '${l.descripcion}' ya no existe.`);
+          const talla = l.variante_id ?? (p.variantes || []).find((v) => v.activo !== false)?.id ?? 1;
+          const clave = `${l.producto_id}:${talla}`;
+          pedido.set(clave, (pedido.get(clave) ?? 0) + l.cantidad);
+          if (unidadesDeLotes(lotesDe(p), talla) < pedido.get(clave)!) {
+            throw new Error(`No hay suficientes '${l.descripcion}' en la bodega para entregar el encargo.`);
+          }
+        }
+      }
+    }
+
+    if (estado === 'CANCELADA') {
+      const llegadas = lineas.filter((l) => estadoPieza(l) === 'LLEGO');
+      const sinDecidir = llegadas.filter((l) => !opciones.piezas?.[l.id]);
+      if (sinDecidir.length > 0) {
+        throw new Error(
+          `'${sinDecidir[0].descripcion}' ya llegó. Anulá el encargo desde la computadora para decidir qué pasa con la pieza.`
+        );
+      }
+    }
+  }
+
+  /**
+   * Cambia el estado de una venta o de un encargo.
+   *
+   * Anular devuelve a la bodega lo que salió de ella, cada unidad a su lote.
+   * En un encargo, además:
+   *  - una pieza que viene en un paquete que se está cargando pasa a la
+   *    bodega de ese paquete (ya se compró);
+   *  - una pieza que ya llegó va a la bodega o se da por perdida, según
+   *    `opciones.piezas`;
+   *  - el anticipo se devuelve (se anulan sus pagos) o se queda, según
+   *    `opciones.anticipo`. Sin decir nada, se devuelve, como siempre.
+   *
+   * Entregar un encargo saca de la bodega sólo las piezas que salen de ahí,
+   * del lote más viejo, y el encargo toma ese costo. Una pieza que vino en un
+   * paquete nunca descuenta de la bodega.
+   */
   static async cambiarEstado(
     venta_id: number,
     estado: EstadoVenta,
-    evento_grupo_id: string
+    evento_grupo_id: string,
+    opciones: OpcionesAnulacion = {}
   ): Promise<{ reversible: boolean }> {
     const db = getFirestoreDb();
     const ventaRef = doc(db, 'ventas', String(venta_id));
     const ahora = new Date().toISOString();
+
+    const previa = await leerDoc<VentaDoc>('ventas', venta_id);
+    if (!previa) throw new Error(`La venta #${venta_id} no existe.`);
+    if (previa.estado !== estado) await this.validarCambio(previa, estado, opciones);
 
     // El cambio de estado se RESERVA de forma atómica antes de mover nada.
     //
@@ -699,13 +802,12 @@ export class VentasRepoFirestore {
     // puede revertirla o no.
     let movioMercaderia = false;
 
-    // Cancelar una venta tiene que anular tambien sus abonos. Sin esto la
-    // plata seguia contada como cobrada para una venta que ya no existe: el
-    // saldo de la clienta quedaba mal y los reportes sumaban ingresos de algo
-    // cancelado. Se anulan ANTES de cambiar el estado para que el saldo de la
-    // venta quede consistente, y con el MISMO grupo de eventos, asi deshacer
-    // la cancelacion devuelve tambien los pagos.
-    if (estado === 'CANCELADA') {
+    // Cancelar una venta anula tambien sus abonos, salvo que ella decida
+    // quedarse con el anticipo de un encargo. Sin anularlos la plata seguia
+    // contada como cobrada para una venta que ya no existe. Se anulan ANTES
+    // de cambiar el estado para que el saldo quede consistente, y con el
+    // MISMO grupo de eventos, asi deshacer la cancelacion devuelve los pagos.
+    if (estado === 'CANCELADA' && opciones.anticipo !== 'RETENER') {
       const pagosSnap = await getDocs(
         query(
           collection(db, 'pagos'),
@@ -726,20 +828,16 @@ export class VentasRepoFirestore {
       }
     }
 
-    // Cancelar devuelve la mercadería, pero sólo la que de verdad salió.
-    //
-    // Una venta de inventario descuenta al crearse: siempre hay que
-    // devolverla. Un encargo NO descuenta al crearse, descuenta al
-    // ENTREGARSE; así que se devuelve únicamente si ya estaba entregado.
-    // Antes la condición era sólo `tipo === 'INVENTARIO'` y cada encargo
-    // entregado que después se anulaba se comía su mercadería para siempre.
-    const salioDelInventario =
-      venta.tipo === 'INVENTARIO' ||
-      (venta.tipo === 'ENCARGO' && venta.estado === 'ENTREGADA');
-
-    if (estado === 'CANCELADA' && salioDelInventario) {
+    // Cancelar devuelve la mercadería que salió de la bodega, cada unidad a
+    // su lote. Una venta de inventario sacó al crearse; un encargo, sólo lo
+    // que entregó desde la bodega.
+    if (estado === 'CANCELADA') {
       for (const l of venta.lineas || []) {
         if (!l.producto_id) continue;
+        const salio =
+          venta.tipo === 'INVENTARIO' ||
+          (venta.tipo === 'ENCARGO' && venta.estado === 'ENTREGADA' && (l.lotes_consumidos?.length ?? 0) > 0);
+        if (!salio) continue;
         movioMercaderia = true;
         try {
           await ProductosRepoFirestore.entrada({
@@ -747,6 +845,9 @@ export class VentasRepoFirestore {
             variante_id: l.variante_id,
             cantidad: l.cantidad,
             costo_total_usd_cents: l.costo_total_usd_cents,
+            consumos: l.lotes_consumidos,
+            motivo: 'VENTA',
+            fecha: venta.fecha,
             referencia_tipo: 'VENTA',
             referencia_id: venta_id,
             detalle: `Devolución por cancelación de ${venta.codigo}`,
@@ -760,31 +861,131 @@ export class VentasRepoFirestore {
       }
     }
 
-    // Entregar un encargo saca del inventario lo que se le asignó.
+    if (estado === 'CANCELADA' && venta.tipo === 'ENCARGO') {
+      const piezasActualizadas = [...(venta.lineas || [])].map((l) => ({ ...l }));
+      for (const l of piezasActualizadas) {
+        const e = estadoPieza(l);
+
+        // Ya llegó: a la bodega, con su costo real, o perdida.
+        if (e === 'LLEGO') {
+          const decision = opciones.piezas?.[l.id];
+          if (decision?.destino === 'BODEGA') {
+            const productoId =
+              decision.producto_id ??
+              l.producto_id ??
+              (await ProductosRepoFirestore.crear({ nombre: l.descripcion, modo_precio: 'MARGEN' }, evento_grupo_id));
+            await ProductosRepoFirestore.entrada({
+              producto_id: productoId,
+              variante_id: decision.producto_id ? undefined : l.variante_id,
+              cantidad: l.cantidad,
+              costo_total_usd_cents: l.costo_total_usd_cents,
+              referencia_tipo: 'VENTA',
+              referencia_id: venta_id,
+              detalle: `Pieza del encargo anulado ${venta.codigo}`,
+              lote: {
+                id: `enc${venta_id}-l${l.id}`,
+                origen: 'ENCARGO',
+                fecha: l.llego_el,
+                compra_id: l.compra_id,
+                compra_codigo: l.compra_codigo,
+                compra_linea_id: l.compra_linea_id,
+              },
+            });
+            movioMercaderia = true;
+          }
+        }
+
+        // Viene en un paquete que se está cargando: ya se compró, así que
+        // entra a la bodega con ese paquete. Si la pieza no apunta a un
+        // producto, al recibir se busca o se crea uno con su nombre.
+        if (e === 'EN_CAMINO' && l.compra_id) {
+          const compra = await leerDoc<{ codigo?: string; lineas?: Record<string, unknown>[] }>('compras', l.compra_id);
+          if (compra?.lineas) {
+            const lineasCompra = compra.lineas.map((lc) => {
+              const esLaPieza =
+                lc.venta_id === venta_id && (l.compra_linea_id === undefined || lc.id === l.compra_linea_id);
+              if (!esLaPieza) return lc;
+              const { venta_id: _v, venta_linea_id: _vl, ...resto } = lc;
+              return sinUndefined({ ...resto, destino: 'INVENTARIO', producto_id: l.producto_id });
+            });
+            await EventosRepoFirestore.registrarEvento({
+              evento_grupo_id,
+              entidad_tipo: 'compras',
+              entidad_id: l.compra_id,
+              tipo_evento: 'ACTUALIZACION',
+              valor_anterior: compra as unknown as Record<string, unknown>,
+              detalle: `'${l.descripcion}' pasa a la bodega del paquete ${compra.codigo ?? ''}: su encargo se anuló`,
+            });
+            await aplicarLote([
+              { coleccion: 'compras', id: l.compra_id, merge: true, datos: { lineas: lineasCompra, actualizado_en: ahora } },
+            ]);
+          }
+        }
+
+        delete l.compra_id;
+        delete l.compra_codigo;
+        delete l.compra_linea_id;
+        delete l.llego_el;
+      }
+
+      await aplicarLote([
+        {
+          coleccion: 'ventas',
+          id: venta_id,
+          merge: true,
+          datos: {
+            lineas: piezasActualizadas.map((x) => sinUndefined(x as unknown as Record<string, unknown>)),
+            piezas: piezasDe(piezasActualizadas),
+            actualizado_en: ahora,
+          },
+        },
+      ]);
+    }
+
+    // Entregar un encargo saca de la bodega las piezas que salen de ahí, del
+    // lote más viejo, y el encargo toma ese costo en vez del estimado.
     if (estado === 'ENTREGADA' && venta.tipo === 'ENCARGO') {
-      const ids = [
-        ...new Set((venta.lineas || []).map((l) => l.producto_id).filter(Boolean)),
-      ] as number[];
-      const productos = await leerVarios<ProductoDoc>('productos', ids);
+      const lineas = [...(venta.lineas || [])].map((l) => ({ ...l }));
+      const descuento = repartirMayorResiduo(
+        venta.descuento_usd_cents || 0,
+        lineas.map((l, i) => ({ id: i, base_valor: l.subtotal_usd_cents }))
+      );
+      let tocadas = 0;
 
-      for (const l of venta.lineas || []) {
-        if (!l.producto_id) continue;
-        const prod = productos.get(String(l.producto_id));
-        const disponibles = (prod?.variantes || [])
-          .filter((v) => v.activo !== false)
-          .reduce((s, v) => s + (v.existencias || 0), 0);
-        if (disponibles <= 0) continue;
-        movioMercaderia = true;
-
-        await ProductosRepoFirestore.salida({
-          producto_id: l.producto_id,
+      for (let i = 0; i < lineas.length; i++) {
+        const l = lineas[i];
+        if (estadoPieza(l) !== 'DE_BODEGA') continue;
+        const salida = await ProductosRepoFirestore.salida({
+          producto_id: l.producto_id!,
           variante_id: l.variante_id,
           cantidad: l.cantidad,
           referencia_tipo: 'VENTA',
           referencia_id: venta_id,
           detalle: `Entrega del encargo ${venta.codigo}`,
-          permitirNegativo: true,
+          ingreso_usd_cents: l.subtotal_usd_cents - (descuento.get(i) ?? 0),
         });
+        l.costo_total_usd_cents = salida.costo_salida_usd_cents;
+        l.costo_unitario_usd_cents = Math.round(salida.costo_salida_usd_cents / Math.max(1, l.cantidad));
+        l.lotes_consumidos = salida.consumos;
+        movioMercaderia = true;
+        tocadas++;
+      }
+
+      if (tocadas > 0) {
+        const costo = lineas.reduce((s, l) => s + (l.costo_total_usd_cents || 0), 0);
+        await aplicarLote([
+          {
+            coleccion: 'ventas',
+            id: venta_id,
+            merge: true,
+            datos: {
+              lineas: lineas.map((x) => sinUndefined(x as unknown as Record<string, unknown>)),
+              costo_total_usd_cents: costo,
+              ganancia_usd_cents: (venta.total_usd_cents || 0) - costo,
+              actualizado_en: ahora,
+            },
+          },
+        ]);
       }
     }
 

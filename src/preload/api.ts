@@ -60,7 +60,7 @@ export const api: ApiPuente = {
     list: (filtros) => ipcRenderer.invoke(IPC.VENTAS_LIST, filtros),
     get: (id) => ipcRenderer.invoke(IPC.VENTAS_GET, id),
     crear: (input) => ipcRenderer.invoke(IPC.VENTAS_CREAR, input),
-    cambiarEstado: (id, estado) => ipcRenderer.invoke(IPC.VENTAS_CAMBIAR_ESTADO, id, estado),
+    cambiarEstado: (id, estado, opciones) => ipcRenderer.invoke(IPC.VENTAS_CAMBIAR_ESTADO, id, estado, opciones),
   },
   accesos: {
     list: () => ipcRenderer.invoke(IPC.ACCESOS_LIST),

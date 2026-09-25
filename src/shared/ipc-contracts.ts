@@ -22,6 +22,7 @@ import type {
   ReconstruccionPaquete,
   EntradaDeProducto,
   PrecioDesactualizado,
+  OpcionesAnulacion,
 } from './types';
 
 /**
@@ -200,6 +201,9 @@ export interface LineaVentaInput {
   precio_unitario_usd_cents?: number;
   es_paquete?: boolean;
   costo_estimado_unitario_usd_cents?: number;
+  /** Encargos: con qué se cotizó la pieza. */
+  precio_tienda_usd_cents?: number;
+  peso_mlb?: number;
 }
 
 export interface PagoInicialInput {
@@ -377,7 +381,15 @@ export interface ApiPuente {
     list(filtros?: FiltrosVenta): Promise<Resultado<Venta[]>>;
     get(id: number): Promise<Resultado<VentaCompleta | null>>;
     crear(input: CrearVentaInput): Promise<Resultado<ConGrupo & { id: number }>>;
-    cambiarEstado(id: number, estado: EstadoVenta): Promise<Resultado<ConGrupoReversible>>;
+    /**
+     * Al anular un encargo: qué pasa con el anticipo y con cada pieza que ya
+     * llegó (por id de línea). Ver `VentasRepoFirestore.cambiarEstado`.
+     */
+    cambiarEstado(
+      id: number,
+      estado: EstadoVenta,
+      opciones?: OpcionesAnulacion
+    ): Promise<Resultado<ConGrupoReversible>>;
   };
   pagos: {
     registrar(input: RegistrarPagoInput): Promise<Resultado<ResultadoPago>>;

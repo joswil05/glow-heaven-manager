@@ -21,7 +21,22 @@ import {
 import { calcularPrecio, margenEfectivo as margenDe } from '../../../core/precios';
 import { algunoContiene } from '../../../core/texto';
 import { precioParaCosto } from '../../../core/paquete';
-import { costoUnitario, registrarSalida, ajustarExistencias } from '../../../core/inventario';
+import { costoUnitario } from '../../../core/inventario';
+import {
+  normalizarLotes,
+  sacarFIFO,
+  devolverConsumos,
+  camposDesdeLotes,
+  crearLote,
+  costoBase,
+  unidadesDeLotes,
+  valorDeLotes,
+  ordenFIFO,
+  type Lote,
+  type Consumo,
+  type MotivoSalida,
+} from '../../../core/lotes';
+import { hoyISO } from '../../../core/fechas';
 import { ParametrosRepoFirestore } from './parametros.repo';
 import { EventosRepoFirestore } from './eventos.repo';
 import type {
@@ -131,6 +146,11 @@ export interface ProductoDoc {
    * bien aunque el producto se haya repetido.
    */
   paquetes?: number[];
+  /**
+   * Los lotes: de qué paquete es cada unidad y cuánto costó. Desde la 2.14.
+   * Un documento anterior no los tiene; `lotesDe` se los arma al leerlo.
+   */
+  lotes?: Lote[];
   modo_precio: ModoPrecio;
   margen_bp?: number;
   multiplicador_bp?: number;
@@ -156,22 +176,67 @@ function existenciasDe(p: Pick<ProductoDoc, 'variantes'>): number {
     .reduce((sum, v) => sum + (v.existencias || 0), 0);
 }
 
+/** El código de un paquete a partir de su número. */
+const codigoPaquete = (id?: number) => (id ? `PQ-${String(id).padStart(4, '0')}` : undefined);
+
+/**
+ * Los lotes de un producto, cuadrados con sus existencias y su valor.
+ *
+ * Es la migración a lotes: un producto anterior a la 2.14 recibe acá su
+ * saldo, y uno que la app vieja movió sin tocar los lotes se vuelve a
+ * cuadrar. Ver `core/lotes.ts` → `normalizarLotes`.
+ */
+export function lotesDe(
+  p: Pick<ProductoDoc, 'variantes' | 'valor_inventario_usd_cents' | 'costo_unitario_usd_cents' | 'lotes' | 'paquete_id'>
+): Lote[] {
+  return normalizarLotes(
+    {
+      variantes: p.variantes || [],
+      valor_inventario_usd_cents: p.valor_inventario_usd_cents,
+      costo_unitario_usd_cents: p.costo_unitario_usd_cents,
+      lotes: p.lotes,
+      paquete_id: p.paquete_id,
+    },
+    codigoPaquete(p.paquete_id)
+  ).lotes;
+}
+
+/** Lo que escribe un producto después de mover sus lotes. */
+export function escrituraDeLotes(
+  p: Pick<ProductoDoc, 'variantes' | 'costo_unitario_usd_cents'>,
+  lotes: Lote[]
+): {
+  variantes: Record<string, unknown>[];
+  lotes: Record<string, unknown>[];
+  valor_inventario_usd_cents: number;
+  costo_unitario_usd_cents: number;
+} {
+  const c = camposDesdeLotes(p.variantes || [], lotes, p.costo_unitario_usd_cents || 0);
+  return {
+    variantes: c.variantes.map((v) => sinUndefined(v as unknown as Record<string, unknown>)),
+    lotes: lotes.map((l) => sinUndefined(l as unknown as Record<string, unknown>)),
+    valor_inventario_usd_cents: c.valor_inventario_usd_cents,
+    costo_unitario_usd_cents: c.costo_unitario_usd_cents,
+  };
+}
+
 function aProductoConStock(p: ProductoDoc, catMap: Map<number, string>): ProductoConStock {
   const variantesActivas = (p.variantes || []).filter((v) => v.activo !== false);
   const existencias = variantesActivas.reduce((s, v) => s + (v.existencias || 0), 0);
-  const valorInventario =
-    p.valor_inventario_usd_cents && p.valor_inventario_usd_cents > 0
-      ? p.valor_inventario_usd_cents
-      : existencias * (p.costo_unitario_usd_cents || 0);
+  // Los lotes cuadrados, aunque todavía no se hayan escrito: la pantalla
+  // muestra siempre lo mismo que va a usar la próxima venta.
+  const lotes = lotesDe(p);
+  const costo = costoActual({ ...p, lotes });
 
   return {
     ...p,
-    valor_inventario_usd_cents: valorInventario,
+    lotes,
+    valor_inventario_usd_cents: valorDeLotes(lotes),
+    costo_unitario_usd_cents: costo,
     variantes: variantesActivas,
     categoria_nombre: p.categoria_id ? catMap.get(p.categoria_id) : undefined,
     existencias,
-    ganancia_unitaria_usd_cents:
-      (p.precio_venta_usd_cents ?? 0) - (p.costo_unitario_usd_cents ?? 0),
+    ganancia_unitaria_usd_cents: (p.precio_venta_usd_cents ?? 0) - costo,
   };
 }
 
@@ -185,16 +250,16 @@ function margenEfectivo(
 }
 
 /**
- * El costo por unidad que se muestra y con el que se calcula el precio.
+ * El costo por unidad que se muestra y con el que se calcula el precio: el del
+ * lote más caro que queda. Así ninguna unidad se vende por debajo del margen.
  *
  * Sin existencias no hay de dónde derivarlo, y se usa el último conocido: un
  * producto agotado no pasa a costar cero.
  */
-function costoActual(p: Pick<ProductoDoc, 'variantes' | 'valor_inventario_usd_cents' | 'costo_unitario_usd_cents'>): number {
-  const c = costoUnitario({
-    existencias: existenciasDe(p),
-    valor_total_usd_cents: p.valor_inventario_usd_cents ?? 0,
-  });
+function costoActual(
+  p: Pick<ProductoDoc, 'variantes' | 'valor_inventario_usd_cents' | 'costo_unitario_usd_cents' | 'lotes' | 'paquete_id'>
+): number {
+  const c = costoBase(lotesDe(p));
   return c > 0 ? c : Math.max(0, p.costo_unitario_usd_cents ?? 0);
 }
 
@@ -447,6 +512,13 @@ export class ProductosRepoFirestore {
       });
     }
 
+    // Quitar una talla que tenía unidades se lleva sus lotes: sus unidades y
+    // su valor salen de la bodega. Antes el valor se quedaba y encarecía el
+    // costo de las tallas que quedaban.
+    const idsTallas = new Set(variantes.map((v) => v.id));
+    const lotes = lotesDe(p).filter((l) => idsTallas.has(l.variante_id));
+    const conLotes = input.variantes ? escrituraDeLotes({ ...p, variantes }, lotes) : null;
+
     // El costo no se toca: sale de los paquetes. El precio sí se recalcula,
     // porque lo que se está editando puede ser justamente el margen, la
     // categoría o el modo de precio.
@@ -462,7 +534,7 @@ export class ProductosRepoFirestore {
         precio_manual_usd_cents: nuevoManual,
         precio_venta_usd_cents: p.precio_venta_usd_cents,
       },
-      costoActual({ ...p, variantes }),
+      costoActual({ ...p, variantes, lotes }),
       parametros.paso_redondeo_usd_cents
     );
 
@@ -479,6 +551,7 @@ export class ProductosRepoFirestore {
           variantes: variantes.map((v) =>
             sinUndefined(v as unknown as Record<string, unknown>)
           ),
+          ...(conLotes ?? {}),
           modo_precio: nuevoModo,
           margen_bp: nuevoMargen ?? null,
           multiplicador_bp: nuevoMultiplicador ?? null,
@@ -663,37 +736,43 @@ export class ProductosRepoFirestore {
       const objetivoVariante = Math.max(0, Math.round(nuevasExistencias));
       if (objetivoVariante === existenciasViejas) return;
 
-      const totalAntes = existenciasDe(p);
-      const totalDespues = totalAntes - existenciasViejas + objetivoVariante;
-
-      // `ajustarExistencias` recibe el TOTAL objetivo del producto y costo de respaldo si estaba en cero.
-      const nuevoEstado = ajustarExistencias(
-        { existencias: totalAntes, valor_total_usd_cents: p.valor_inventario_usd_cents ?? 0 },
-        totalDespues,
-        p.costo_unitario_usd_cents
-      );
-
-      const variantes = p.variantes.map((v, i) =>
-        i === idx ? { ...v, existencias: objetivoVariante } : v
-      );
-
-      let costo = costoUnitario({
-        existencias: totalDespues,
-        valor_total_usd_cents: nuevoEstado.valor_total_usd_cents,
-      });
-      if (costo === 0 && p.costo_unitario_usd_cents && p.costo_unitario_usd_cents > 0) {
-        costo = p.costo_unitario_usd_cents;
+      // Con lotes: lo que falta sale del lote más viejo y cuenta como baja;
+      // lo que sobra entra como un lote "ajuste" al costo del lote más nuevo
+      // de esa talla (o al último costo conocido).
+      let lotes = lotesDe(p);
+      const diferencia = objetivoVariante - existenciasViejas;
+      let costoMovido = 0;
+      if (diferencia < 0) {
+        const r = sacarFIFO(lotes, variante_id, -diferencia, 'BAJA');
+        lotes = r.lotes;
+        costoMovido = -r.costo_usd_cents;
+      } else {
+        const deLaTalla = lotes.filter((l) => l.variante_id === variante_id).sort(ordenFIFO);
+        const masNuevo = deLaTalla[deLaTalla.length - 1];
+        const unitario =
+          masNuevo?.costo_unitario_usd_cents || costoActual(p) || Math.max(0, p.costo_unitario_usd_cents ?? 0);
+        costoMovido = unitario * diferencia;
+        lotes = [
+          ...lotes,
+          crearLote({
+            id: `aj-${idOrdenable()}`,
+            variante_id,
+            cantidad: diferencia,
+            valor_usd_cents: costoMovido,
+            fecha: hoyISO(),
+            orden: Date.now(),
+            origen: 'AJUSTE',
+            costo_unitario_usd_cents: unitario,
+          }),
+        ].sort(ordenFIFO);
       }
 
+      const escritura = escrituraDeLotes(p, lotes);
+      const totalDespues = unidadesDeLotes(lotes);
 
       tx.set(
         productoRef,
-        sinUndefined({
-          variantes: variantes.map((v) => sinUndefined(v as unknown as Record<string, unknown>)),
-          valor_inventario_usd_cents: nuevoEstado.valor_total_usd_cents,
-          costo_unitario_usd_cents: costo,
-          actualizado_en: new Date().toISOString(),
-        }),
+        sinUndefined({ ...escritura, actualizado_en: new Date().toISOString() }),
         { merge: true }
       );
 
@@ -704,7 +783,7 @@ export class ProductosRepoFirestore {
           variante_id,
           tipo: 'AJUSTE',
           cantidad: objetivoVariante - existenciasViejas,
-          costo_total_usd_cents: 0,
+          costo_total_usd_cents: costoMovido,
           existencias_despues: totalDespues,
           referencia_tipo: 'AJUSTE',
           detalle: motivo ?? 'Conteo manual',
@@ -745,6 +824,21 @@ export class ProductosRepoFirestore {
     referencia_tipo?: string;
     referencia_id?: number;
     detalle?: string;
+    /**
+     * De qué lotes había salido lo que vuelve. Con esto cada unidad vuelve a
+     * su lote con su costo; sin esto (una venta anterior a la 2.14) entra como
+     * un lote "devolución".
+     */
+    consumos?: Consumo[];
+    /** Qué se devuelve: una venta (descuenta lo vendido del lote) o una baja. */
+    motivo?: MotivoSalida;
+    /** La fecha que ordena el lote de devolución. */
+    fecha?: string;
+    /**
+     * Un lote nuevo con origen propio, para lo que entra sin haber salido de la
+     * bodega: la pieza de un encargo anulado que ya llegó.
+     */
+    lote?: Partial<Pick<Lote, 'id' | 'origen' | 'fecha' | 'compra_id' | 'compra_codigo' | 'compra_linea_id'>>;
   }): Promise<void> {
     const cantidad = Math.max(0, Math.round(params.cantidad));
     if (cantidad === 0) return;
@@ -761,33 +855,44 @@ export class ProductosRepoFirestore {
       const p = snap.data() as ProductoDoc;
       const variantes = [...(p.variantes || [])];
       const varianteId =
-        params.variante_id ?? variantes.find((v) => v.activo !== false)?.id ?? 1;
+        params.consumos?.[0]?.variante_id ??
+        params.variante_id ??
+        variantes.find((v) => v.activo !== false)?.id ??
+        1;
       varianteUsada = varianteId;
 
       const idx = variantes.findIndex((v) => v.id === varianteId);
       if (idx === -1) {
-        variantes.push({
-          id: varianteId,
-          producto_id: params.producto_id,
-          existencias: cantidad,
-          activo: true,
-        });
-      } else {
-        variantes[idx] = {
-          ...variantes[idx],
-          existencias: (variantes[idx].existencias || 0) + cantidad,
-        };
+        variantes.push({ id: varianteId, producto_id: params.producto_id, existencias: 0, activo: true });
+      } else if (variantes[idx].activo === false) {
+        variantes[idx] = { ...variantes[idx], activo: true, existencias: 0 };
       }
 
-      const nuevoValor =
-        (p.valor_inventario_usd_cents || 0) +
-        Math.max(0, Math.round(params.costo_total_usd_cents));
-      existenciasDespues = existenciasDe({ variantes });
+      let lotes = lotesDe(p);
+      if (params.consumos && params.consumos.length > 0) {
+        lotes = devolverConsumos(lotes, params.consumos, params.motivo ?? 'VENTA');
+      } else {
+        const unitario = Math.round(Math.max(0, params.costo_total_usd_cents) / cantidad);
+        lotes = [
+          ...lotes,
+          crearLote({
+            id: params.lote?.id ?? `dev-${idOrdenable()}`,
+            variante_id: varianteId,
+            cantidad,
+            valor_usd_cents: Math.max(0, Math.round(params.costo_total_usd_cents)),
+            fecha: params.lote?.fecha ?? params.fecha ?? hoyISO(),
+            orden: Date.now(),
+            origen: params.lote?.origen ?? 'DEVOLUCION',
+            compra_id: params.lote?.compra_id,
+            compra_codigo: params.lote?.compra_codigo,
+            compra_linea_id: params.lote?.compra_linea_id,
+            costo_unitario_usd_cents: unitario,
+          }),
+        ].sort(ordenFIFO);
+      }
 
-      const costo = costoUnitario({
-        existencias: existenciasDespues,
-        valor_total_usd_cents: nuevoValor,
-      });
+      const escritura = escrituraDeLotes({ ...p, variantes }, lotes);
+      existenciasDespues = unidadesDeLotes(lotes);
 
       // El precio NO se recalcula: esto es una devolución (una venta anulada
       // o revertida), no mercadería nueva. El precio sólo sigue al costo
@@ -795,12 +900,7 @@ export class ProductosRepoFirestore {
       // cada devolución, el precio que le dio a una clienta cambiaría solo.
       tx.set(
         productoRef,
-        sinUndefined({
-          variantes: variantes.map((v) => sinUndefined(v as unknown as Record<string, unknown>)),
-          valor_inventario_usd_cents: nuevoValor,
-          costo_unitario_usd_cents: costo,
-          actualizado_en: new Date().toISOString(),
-        }),
+        sinUndefined({ ...escritura, actualizado_en: new Date().toISOString() }),
         { merge: true }
       );
     });
@@ -836,11 +936,28 @@ export class ProductosRepoFirestore {
     referencia_tipo?: string;
     referencia_id?: number;
     detalle?: string;
+    /**
+     * Si faltan unidades, saca las que hay en vez de fallar. Las existencias no
+     * quedan negativas: no hay lote del que sacar lo que no existe.
+     */
     permitirNegativo?: boolean;
-  }): Promise<{ costo_salida_usd_cents: number; insuficiente: boolean; unidades_retiradas: number }> {
+    /** Lo que se cobró por estas unidades, ya con el descuento. Queda en los lotes. */
+    ingreso_usd_cents?: number;
+    motivo?: MotivoSalida;
+  }): Promise<{
+    costo_salida_usd_cents: number;
+    insuficiente: boolean;
+    unidades_retiradas: number;
+    consumos: Consumo[];
+  }> {
     const db = getFirestoreDb();
     const productoRef = doc(db, 'productos', String(params.producto_id));
-    let salida = { costo_salida_usd_cents: 0, insuficiente: false, unidades_retiradas: 0 };
+    let salida = {
+      costo_salida_usd_cents: 0,
+      insuficiente: false,
+      unidades_retiradas: 0,
+      consumos: [] as Consumo[],
+    };
     let existenciasDespues = 0;
     let varianteUsada = 0;
 
@@ -855,12 +972,7 @@ export class ProductosRepoFirestore {
       varianteUsada = varianteId;
 
       const total = existenciasDe({ variantes });
-      const resultado = registrarSalida(
-        { existencias: total, valor_total_usd_cents: p.valor_inventario_usd_cents || 0 },
-        params.cantidad
-      );
-
-      if (resultado.insuficiente && !params.permitirNegativo) {
+      if (params.cantidad > total && !params.permitirNegativo) {
         throw new Error(
           `No hay suficientes unidades de '${p.nombre}'. Disponibles: ${total}, pedidas: ${params.cantidad}.`
         );
@@ -880,38 +992,29 @@ export class ProductosRepoFirestore {
         );
       }
 
-      const retiradas = params.permitirNegativo ? params.cantidad : Math.min(existenciasVariante, resultado.unidades_retiradas);
-      variantes[idx] = {
-        ...variantes[idx],
-        existencias: (variantes[idx].existencias || 0) - retiradas,
-      };
-
-      existenciasDespues = existenciasDe({ variantes });
-
-      let costo = costoUnitario({
-        existencias: existenciasDespues,
-        valor_total_usd_cents: resultado.valor_total_usd_cents,
-      });
-      // Preservar costo histórico si el producto se agota para no perder su valor base en reposiciones/ajustes
-      if (costo === 0 && p.costo_unitario_usd_cents && p.costo_unitario_usd_cents > 0) {
-        costo = p.costo_unitario_usd_cents;
-      }
+      // Del lote más viejo de esa talla. La venta se lleva el costo de esas
+      // unidades y guarda de qué lotes salieron, para devolverlas exactas.
+      const r = sacarFIFO(
+        lotesDe(p),
+        varianteId,
+        params.cantidad,
+        params.motivo ?? 'VENTA',
+        params.ingreso_usd_cents
+      );
+      const escritura = escrituraDeLotes(p, r.lotes);
+      existenciasDespues = unidadesDeLotes(r.lotes);
 
       tx.set(
         productoRef,
-        sinUndefined({
-          variantes: variantes.map((v) => sinUndefined(v as unknown as Record<string, unknown>)),
-          valor_inventario_usd_cents: resultado.valor_total_usd_cents,
-          costo_unitario_usd_cents: costo,
-          actualizado_en: new Date().toISOString(),
-        }),
+        sinUndefined({ ...escritura, actualizado_en: new Date().toISOString() }),
         { merge: true }
       );
 
       salida = {
-        costo_salida_usd_cents: resultado.costo_salida_usd_cents,
-        insuficiente: resultado.insuficiente,
-        unidades_retiradas: resultado.unidades_retiradas,
+        costo_salida_usd_cents: r.costo_usd_cents,
+        insuficiente: r.faltantes > 0,
+        unidades_retiradas: r.retiradas,
+        consumos: r.consumos,
       };
     });
 

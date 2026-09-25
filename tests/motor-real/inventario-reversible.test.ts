@@ -264,7 +264,7 @@ describe('el stock nunca miente', () => {
   );
 
   it.skipIf(!disponible)(
-    'el valor de la bodega siempre es existencias por costo unitario',
+    'el valor de la bodega siempre es la suma exacta de sus lotes',
     async () => {
       const { Productos } = await repos();
 
@@ -288,17 +288,27 @@ describe('el stock nunca miente', () => {
         () => Productos.salida({ producto_id: producto, cantidad: 5 }),
       ];
 
+      // Con lotes (2.14) ya no es "existencias por costo": el costo que se
+      // muestra es el del lote más caro. Lo que no puede fallar es que el
+      // valor sea la suma exacta de los lotes, sin tolerancia, y que cada
+      // paso mueva exactamente lo que entró o salió.
+      //   7 × $3.33 = $23.31; +3 por $15 = $38.31; vender 2 del lote viejo
+      //   (−$6.66) = $31.65; contar 12 (+4 al costo del lote más nuevo, $5)
+      //   = $51.65; +1 por $9 = $60.65; vender 5, las cinco del lote viejo
+      //   (−$16.65) = $44.00.
+      const esperados = [3831, 3165, 5165, 6065, 4400];
       const desvios: string[] = [];
       for (let i = 0; i < pasos.length; i++) {
         await pasos[i]();
         const p = (await Productos.listar()).find((x) => x.id === producto)!;
-        const esperado = p.existencias * p.costo_unitario_usd_cents;
-        const desvio = Math.abs((p.valor_inventario_usd_cents ?? 0) - esperado);
-        // Un centavo por unidad es el redondeo del promedio ponderado.
-        if (desvio > p.existencias + 1) {
-          desvios.push(
-            `paso ${i + 1}: valor ${p.valor_inventario_usd_cents} vs ${p.existencias} x ${p.costo_unitario_usd_cents} = ${esperado}`
-          );
+        const lotes = p.lotes ?? [];
+        const suma = lotes.reduce((s, l) => s + l.valor_usd_cents, 0);
+        const unidades = lotes.reduce((s, l) => s + l.cantidad, 0);
+        if (p.valor_inventario_usd_cents !== suma || p.existencias !== unidades) {
+          desvios.push(`paso ${i + 1}: valor ${p.valor_inventario_usd_cents} vs lotes ${suma}; ${p.existencias} vs ${unidades} unid.`);
+        }
+        if (p.valor_inventario_usd_cents !== esperados[i]) {
+          desvios.push(`paso ${i + 1}: valor ${p.valor_inventario_usd_cents}, se esperaba ${esperados[i]}`);
         }
       }
 

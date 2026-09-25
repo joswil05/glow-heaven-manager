@@ -39,16 +39,21 @@ import {
   calcularPaquete,
   efectoDeEntradas,
   efectoDeCorreccion,
+  idLoteDeLinea,
+  loteDeLinea,
   type LineaPaquete,
   type PaqueteCalculado,
   type ProductoAntesDelPaquete,
+  type EntradaDeLinea,
 } from '../../../core/paquete';
+import { piezasDe } from '../../../core/encargos';
+import type { Lote } from '../../../core/lotes';
 import { margenEfectivo } from '../../../core/precios';
 import { repartirFlete } from '../../../core/costo-producto';
 import { normalizar } from '../../../core/texto';
 import { formatearMoneda } from '../../../core/moneda';
 import { ParametrosRepoFirestore } from './parametros.repo';
-import { ProductosRepoFirestore, type ProductoDoc } from './productos.repo';
+import { ProductosRepoFirestore, lotesDe, escrituraDeLotes, type ProductoDoc } from './productos.repo';
 import { ResumenesRepoFirestore } from './resumenes.repo';
 import { EventosRepoFirestore } from './eventos.repo';
 import type {
@@ -107,10 +112,68 @@ interface CompraDoc extends Compra {
   actualizado_en?: string;
 }
 
+interface PiezaDeVenta {
+  id?: number;
+  descripcion?: string;
+  producto_id?: number;
+  costo_unitario_usd_cents?: number;
+  costo_total_usd_cents?: number;
+  compra_id?: number;
+  compra_codigo?: string;
+  compra_linea_id?: number;
+  llego_el?: string;
+}
+
 interface VentaParaCosto {
+  codigo?: string;
+  estado?: string;
+  activo?: boolean;
   fecha?: string;
   total_usd_cents?: number;
-  lineas?: { id?: number; descripcion?: string; costo_unitario_usd_cents?: number; costo_total_usd_cents?: number }[];
+  llego_el?: string;
+  lineas?: PiezaDeVenta[];
+}
+
+/** La pieza del encargo que trae una línea del paquete. */
+function piezaDeLinea(l: Pick<CompraLinea, 'venta_linea_id' | 'descripcion'>, piezas: PiezaDeVenta[]): PiezaDeVenta | undefined {
+  return l.venta_linea_id !== undefined
+    ? piezas.find((p) => p.id === l.venta_linea_id)
+    : piezas.find((p) => normalizar(p.descripcion ?? '') === normalizar(l.descripcion));
+}
+
+/**
+ * Una pieza de encargo no puede venir en dos paquetes, ni en uno de un
+ * encargo anulado. Antes el mismo encargo se podía meter en dos paquetes y el
+ * segundo le pisaba el costo al primero.
+ */
+function validarPiezas(
+  lineas: Pick<CompraLinea, 'destino' | 'venta_id' | 'venta_linea_id' | 'descripcion'>[],
+  ventas: Map<string, VentaParaCosto>,
+  compra_id: number
+): void {
+  const vistas = new Set<string>();
+  for (const l of lineas) {
+    if (l.destino !== 'ENCARGO' || !l.venta_id) continue;
+    const v = ventas.get(String(l.venta_id));
+    if (!v || v.activo === false) throw new Error(`El encargo de '${l.descripcion}' ya no existe.`);
+    if (v.estado === 'CANCELADA') {
+      throw new Error(
+        `El encargo ${v.codigo ?? ''} se anuló. Pasá '${l.descripcion}' a la bodega o quitalo del paquete.`
+      );
+    }
+    const pieza = piezaDeLinea(l, v.lineas ?? []);
+    if (!pieza) continue;
+    const clave = `${l.venta_id}:${pieza.id ?? pieza.descripcion}`;
+    if (vistas.has(clave)) {
+      throw new Error(`'${l.descripcion}' del encargo ${v.codigo ?? ''} está dos veces en este paquete.`);
+    }
+    vistas.add(clave);
+    if (pieza.compra_id && pieza.compra_id !== compra_id) {
+      throw new Error(
+        `'${l.descripcion}' del encargo ${v.codigo ?? ''} ya viene en ${pieza.compra_codigo ?? `el paquete #${pieza.compra_id}`}.`
+      );
+    }
+  }
 }
 
 const entero = (n: unknown): number => {
@@ -146,6 +209,26 @@ function antesDe(
     margen_bp: margenEfectivo(p, categorias, parametros.margen_defecto_bp),
     multiplicador_bp: p.multiplicador_bp,
     precio_manual_usd_cents: p.precio_manual_usd_cents,
+    lotes: lotesDe(p),
+  };
+}
+
+/** Lo que entra de una línea de bodega: su lote, con nombre y lugar en la fila. */
+function entradaDeLinea(l: CompraLinea, compra: { id: number; codigo: string; fecha: string }): EntradaDeLinea {
+  return {
+    cantidad: l.cantidad,
+    costo_linea_usd_cents: l.costo_linea_usd_cents,
+    variante_id: l.variante_id,
+    lote: {
+      id: idLoteDeLinea(compra.id, l.id),
+      fecha: compra.fecha,
+      // Paquetes del mismo día: sale primero el de número más bajo.
+      orden: compra.id * 10000 + l.id,
+      compra_id: compra.id,
+      compra_codigo: compra.codigo,
+      compra_linea_id: l.id,
+      costo_unitario_usd_cents: l.costo_unitario_usd_cents,
+    },
   };
 }
 
@@ -290,14 +373,16 @@ const pesoManualDeInput = (l: LineaCompraInput): number | null =>
   l.peso_linea_mlb === undefined || l.peso_linea_mlb === null ? null : Math.max(0, entero(l.peso_linea_mlb));
 
 /**
- * Le pone el costo real a las líneas de encargo que trae el paquete.
+ * Le pone el costo real a las piezas de encargo que trae el paquete, y les
+ * anota que llegaron en él.
  *
- * Busca la línea del encargo por su id y, en los paquetes viejos que no lo
- * guardaban, por la descripción.
+ * Busca la pieza por su id y, en los paquetes viejos que no lo guardaban, por
+ * la descripción.
  */
 function congelarCostoDeEncargos(
   lineas: CompraLinea[],
-  ventas: Map<string, VentaParaCosto>
+  ventas: Map<string, VentaParaCosto>,
+  compra: { id: number; codigo: string; fecha: string }
 ): { id: string; datos: Record<string, unknown> }[] {
   const salida: { id: string; datos: Record<string, unknown> }[] = [];
   const ahora = new Date().toISOString();
@@ -308,16 +393,15 @@ function congelarCostoDeEncargos(
 
     for (const l of lineas) {
       if (l.destino !== 'ENCARGO' || String(l.venta_id) !== idVenta) continue;
-      for (const vl of vLineas) {
-        const coincide =
-          l.venta_linea_id !== undefined
-            ? vl.id === l.venta_linea_id
-            : normalizar(vl.descripcion) === normalizar(l.descripcion);
-        if (!coincide) continue;
-        vl.costo_unitario_usd_cents = l.costo_unitario_usd_cents;
-        vl.costo_total_usd_cents = l.costo_linea_usd_cents;
-        modificado = true;
-      }
+      const vl = piezaDeLinea(l, vLineas);
+      if (!vl) continue;
+      vl.costo_unitario_usd_cents = l.costo_unitario_usd_cents;
+      vl.costo_total_usd_cents = l.costo_linea_usd_cents;
+      vl.compra_id = compra.id;
+      vl.compra_codigo = compra.codigo;
+      vl.compra_linea_id = l.id;
+      vl.llego_el = compra.fecha;
+      modificado = true;
     }
     if (!modificado) continue;
 
@@ -325,14 +409,83 @@ function congelarCostoDeEncargos(
     salida.push({
       id: idVenta,
       datos: {
-        lineas: vLineas,
+        lineas: vLineas.map((x) => sinUndefined(x as unknown as Record<string, unknown>)),
         costo_total_usd_cents: costo,
         ganancia_usd_cents: (v.total_usd_cents || 0) - costo,
+        piezas: piezasDe(vLineas),
+        llego_el: compra.fecha,
         actualizado_en: ahora,
       },
     });
   }
   return salida;
+}
+
+/**
+ * Anota en cada encargo qué piezas vienen en este paquete, mientras se carga,
+ * y desanota las que se quitaron. Es la otra mitad de la relación: hasta la
+ * 2.13 sólo el paquete sabía qué encargos traía.
+ */
+function marcarPiezasEnCamino(
+  nuevas: Pick<CompraLinea, 'id' | 'destino' | 'venta_id' | 'venta_linea_id' | 'descripcion'>[],
+  ventas: Map<string, VentaParaCosto>,
+  compra: { id: number; codigo: string }
+): { id: string; datos: Record<string, unknown> }[] {
+  const salida: { id: string; datos: Record<string, unknown> }[] = [];
+  const ahora = new Date().toISOString();
+
+  for (const [idVenta, v] of ventas) {
+    const vLineas = [...(v.lineas || [])].map((x) => ({ ...x }));
+    const antes = JSON.stringify(vLineas);
+
+    // Las que eran de este paquete y ya no están en él vuelven a "por comprar".
+    for (const vl of vLineas) {
+      if (vl.compra_id !== compra.id) continue;
+      const sigue = nuevas.some(
+        (l) => l.destino === 'ENCARGO' && String(l.venta_id) === idVenta && piezaDeLinea(l, [vl]) === vl
+      );
+      if (!sigue) {
+        delete vl.compra_id;
+        delete vl.compra_codigo;
+        delete vl.compra_linea_id;
+        delete vl.llego_el;
+      }
+    }
+    for (const l of nuevas) {
+      if (l.destino !== 'ENCARGO' || String(l.venta_id) !== idVenta) continue;
+      const vl = piezaDeLinea(l, vLineas);
+      if (!vl) continue;
+      vl.compra_id = compra.id;
+      vl.compra_codigo = compra.codigo;
+      vl.compra_linea_id = l.id;
+    }
+
+    if (JSON.stringify(vLineas) === antes) continue;
+    salida.push({
+      id: idVenta,
+      datos: {
+        lineas: vLineas.map((x) => sinUndefined(x as unknown as Record<string, unknown>)),
+        piezas: piezasDe(vLineas),
+        actualizado_en: ahora,
+      },
+    });
+  }
+  return salida;
+}
+
+/** Los encargos que tocan unas líneas de paquete, más los que ya las tenían. */
+async function leerEncargosDe(
+  ...grupos: (Pick<CompraLinea, 'destino' | 'venta_id'>[] | undefined)[]
+): Promise<Map<string, VentaParaCosto>> {
+  const ids = [
+    ...new Set(
+      grupos
+        .flatMap((g) => g ?? [])
+        .filter((l) => l.destino === 'ENCARGO' && l.venta_id)
+        .map((l) => l.venta_id!)
+    ),
+  ];
+  return leerVarios<VentaParaCosto>('ventas', ids);
 }
 
 export class ComprasRepoFirestore {
@@ -371,12 +524,38 @@ export class ComprasRepoFirestore {
       [...ventas.values()].map((v) => v.cliente_id).filter((x): x is number => Boolean(x))
     );
 
+    // Lo que pasó con el lote de cada línea: cuántas quedan y, si el lote es
+    // de ella sola, cuánto dejó lo que se vendió.
+    const lotesPorProducto = new Map<number, Lote[]>();
+    const loteDe = (l: CompraLinea): Lote | undefined => {
+      if (data.estado !== 'RECIBIDA' || l.destino !== 'INVENTARIO' || !l.producto_id) return undefined;
+      const prod = productos.get(String(l.producto_id));
+      if (!prod) return undefined;
+      if (!lotesPorProducto.has(l.producto_id)) lotesPorProducto.set(l.producto_id, lotesDe(prod));
+      return loteDeLinea(lotesPorProducto.get(l.producto_id)!, data.id, l.id, l.variante_id);
+    };
+
     const lineasCompletas = lineas.map((l) => {
       const venta = l.venta_id ? ventas.get(String(l.venta_id)) : undefined;
+      const lote = loteDe(l);
+      const propio = lote?.id === idLoteDeLinea(data.id, l.id);
       return {
         ...l,
         producto_nombre: l.producto_id ? productos.get(String(l.producto_id))?.nombre : undefined,
         cliente_nombre: venta?.cliente_id ? clientes.get(String(venta.cliente_id))?.nombre : undefined,
+        ...(lote
+          ? {
+              lote_quedan: Math.min(lote.cantidad, l.cantidad),
+              lote_propio: propio,
+              ...(propio
+                ? {
+                    lote_vendidas: lote.vendidas,
+                    lote_ingreso_usd_cents: lote.ingreso_usd_cents,
+                    lote_costo_vendido_usd_cents: lote.costo_vendido_usd_cents,
+                  }
+                : {}),
+            }
+          : {}),
       };
     });
 
@@ -446,6 +625,12 @@ export class ComprasRepoFirestore {
       (id) => (id ? productos.get(String(id))?.peso_unitario_mlb ?? 0 : 0)
     );
     const lineasGuardadas = lineas.map((l, i) => lineaCalculada(lineaDesdeInput(l, compraId, i), calc));
+    const codigo = anterior?.codigo ?? `PQ-${String(compraId).padStart(4, '0')}`;
+
+    // Las piezas de encargo: que no vengan ya en otro paquete, y anotarles
+    // que vienen en este.
+    const encargos = await leerEncargosDe(lineasGuardadas, anterior?.lineas);
+    validarPiezas(lineasGuardadas, encargos, compraId);
 
     const now = new Date().toISOString();
     const cabecera = {
@@ -465,6 +650,22 @@ export class ComprasRepoFirestore {
       actualizado_en: now,
     };
 
+    const anotarPiezas = async () => {
+      const ops = marcarPiezasEnCamino(lineasGuardadas, encargos, { id: compraId, codigo });
+      await aplicarLote(ops.map((o) => ({ coleccion: 'ventas', id: Number(o.id), merge: true, datos: o.datos })));
+      // Con el mismo grupo: deshacer el guardado devuelve también las piezas.
+      for (const o of ops) {
+        await EventosRepoFirestore.registrarEvento({
+          evento_grupo_id,
+          entidad_tipo: 'ventas',
+          entidad_id: Number(o.id),
+          tipo_evento: 'ACTUALIZACION',
+          valor_anterior: encargos.get(o.id) as unknown as Record<string, unknown>,
+          detalle: `Piezas del encargo ${encargos.get(o.id)?.codigo ?? ''} en el paquete ${codigo}`,
+        });
+      }
+    };
+
     if (anterior) {
       await setDoc(
         doc(db, 'compras', String(compraId)),
@@ -479,10 +680,10 @@ export class ComprasRepoFirestore {
         valor_anterior: anterior as unknown as Record<string, unknown>,
         detalle: `Paquete ${anterior.codigo} actualizado`,
       });
+      await anotarPiezas();
       return compraId;
     }
 
-    const codigo = `PQ-${String(compraId).padStart(4, '0')}`;
     await setDoc(
       doc(db, 'compras', String(compraId)),
       sinUndefined({
@@ -501,6 +702,7 @@ export class ComprasRepoFirestore {
       tipo_evento: 'CREACION',
       detalle: `Paquete ${codigo} registrado`,
     });
+    await anotarPiezas();
     return compraId;
   }
 
@@ -661,6 +863,7 @@ export class ComprasRepoFirestore {
       snapsVenta.forEach((s, i) => {
         if (s.exists()) ventas.set(String(idsVentas[i]), s.data() as VentaParaCosto);
       });
+      validarPiezas(lineas, ventas, compra_id);
 
       const calc = calcular(
         compra,
@@ -675,26 +878,36 @@ export class ComprasRepoFirestore {
 
       for (const [pid, p] of productos) {
         const suyas = lineasFinales.filter((l) => l.destino === 'INVENTARIO' && l.producto_id === pid);
+
+        // Cada línea va a una talla; si la talla no existía o estaba apagada,
+        // se crea o se prende con cero y sus unidades llegan con el lote.
+        const variantes: ProductoVariante[] = [...(p.variantes || [])].map((v) => ({ ...v }));
+        const tallaDe = new Map<number, number>();
+        for (const l of suyas) {
+          const varianteId = l.variante_id ?? variantes.find((v) => v.activo !== false)?.id ?? 1;
+          tallaDe.set(l.id, varianteId);
+          const idx = variantes.findIndex((v) => v.id === varianteId);
+          if (idx === -1) {
+            variantes.push({ id: varianteId, producto_id: pid, existencias: 0, activo: true });
+          } else if (variantes[idx].activo === false) {
+            variantes[idx] = { ...variantes[idx], existencias: 0, activo: true };
+          }
+        }
+        const conTallas = { ...p, variantes };
+
+        // Cada línea es un lote con su costo real.
         const efecto = efectoDeEntradas(
-          antesDe(p, categorias, parametros),
-          suyas.map((l) => ({ cantidad: l.cantidad, costo_linea_usd_cents: l.costo_linea_usd_cents })),
+          antesDe(conTallas, categorias, parametros),
+          suyas.map((l) => entradaDeLinea({ ...l, variante_id: tallaDe.get(l.id) }, { id: compra_id, codigo: compra.codigo, fecha: compra.fecha })),
           parametros.paso_redondeo_usd_cents
         );
+        const escritura = escrituraDeLotes(conTallas, efecto.lotes_despues);
 
-        const variantes: ProductoVariante[] = [...(p.variantes || [])].map((v) => ({ ...v }));
         let corriendo = existenciasDe(p);
         let pesoUnitario = p.peso_unitario_mlb || 0;
 
         for (const l of suyas) {
-          const varianteId =
-            l.variante_id ?? variantes.find((v) => v.activo !== false)?.id ?? 1;
-          const idx = variantes.findIndex((v) => v.id === varianteId);
-          if (idx === -1) {
-            variantes.push({ id: varianteId, producto_id: pid, existencias: l.cantidad, activo: true });
-          } else {
-            const antes = variantes[idx].activo === false ? 0 : variantes[idx].existencias || 0;
-            variantes[idx] = { ...variantes[idx], existencias: antes + l.cantidad, activo: true };
-          }
+          const varianteId = tallaDe.get(l.id)!;
           corriendo += l.cantidad;
           if (l.peso_estimado === false && l.cantidad > 0) {
             pesoUnitario = Math.round(l.peso_linea_mlb / l.cantidad);
@@ -724,9 +937,7 @@ export class ComprasRepoFirestore {
           sinUndefined({
             // Un producto que nace con el paquete se escribe entero acá.
             ...(plan.nuevos.get(pid) ?? {}),
-            variantes: variantes.map((v) => sinUndefined(v)),
-            valor_inventario_usd_cents: efecto.valor_despues_usd_cents,
-            costo_unitario_usd_cents: efecto.costo_despues_usd_cents,
+            ...escritura,
             precio_venta_usd_cents: efecto.precio_despues_usd_cents,
             peso_unitario_mlb: pesoUnitario,
             paquete_id: compra_id,
@@ -738,10 +949,15 @@ export class ComprasRepoFirestore {
           { merge: true }
         );
 
-        efectos.push({ producto_id: pid, nombre: p.nombre, modo_precio: p.modo_precio, ...efecto });
+        const { lotes_despues: _lotes, ...efectoSinLotes } = efecto;
+        efectos.push({ producto_id: pid, nombre: p.nombre, modo_precio: p.modo_precio, ...efectoSinLotes });
       }
 
-      const encargos = congelarCostoDeEncargos(lineasFinales, ventas);
+      const encargos = congelarCostoDeEncargos(lineasFinales, ventas, {
+        id: compra_id,
+        codigo: compra.codigo,
+        fecha: compra.fecha,
+      });
       for (const e of encargos) {
         tx.set(doc(db, 'ventas', e.id), sinUndefined(e.datos), { merge: true });
       }
@@ -921,27 +1137,50 @@ export class ComprasRepoFirestore {
 
       for (const [pid, p] of productos) {
         const suyas = lineasFinales.filter((l) => l.destino === 'INVENTARIO' && l.producto_id === pid);
+
+        // Las líneas nuevas van a una talla; si no existía o estaba apagada,
+        // se crea o se prende con cero y sus unidades llegan con el lote.
+        const variantes: ProductoVariante[] = [...(p.variantes || [])].map((v) => ({ ...v }));
+        const nuevas = suyas.filter((l) => !porIdViejas.has(l.id));
+        const tallaDe = new Map<number, number>();
+        for (const l of nuevas) {
+          const varianteId = l.variante_id ?? variantes.find((v) => v.activo !== false)?.id ?? 1;
+          tallaDe.set(l.id, varianteId);
+          const idx = variantes.findIndex((v) => v.id === varianteId);
+          if (idx === -1) {
+            variantes.push({ id: varianteId, producto_id: pid, existencias: 0, activo: true });
+          } else if (variantes[idx].activo === false) {
+            variantes[idx] = { ...variantes[idx], existencias: 0, activo: true };
+          }
+        }
+        const conTallas = { ...p, variantes };
+        const antes = antesDe(conTallas, categorias, parametros);
+
+        // Cada línea corregida cambia SU lote, sólo en lo que queda de él.
         const cambios = suyas
           .filter((l) => porIdViejas.has(l.id))
           .map((l) => ({
             unidades_de_la_linea: l.cantidad,
             diferencia_usd_cents: l.costo_linea_usd_cents - porIdViejas.get(l.id)!.costo_linea_usd_cents,
+            lote_id: loteDeLinea(antes.lotes ?? [], input.id, l.id, l.variante_id)?.id,
+            nuevo_costo_unitario_usd_cents: l.costo_unitario_usd_cents,
           }))
           .filter((c) => c.diferencia_usd_cents !== 0);
-        const nuevas = suyas.filter((l) => !porIdViejas.has(l.id));
         if (cambios.length === 0 && nuevas.length === 0) continue;
 
         const efecto = efectoDeCorreccion(
-          antesDe(p, categorias, parametros),
+          antes,
           cambios,
-          nuevas.map((l) => ({ cantidad: l.cantidad, costo_linea_usd_cents: l.costo_linea_usd_cents })),
+          nuevas.map((l) =>
+            entradaDeLinea({ ...l, variante_id: tallaDe.get(l.id) }, { id: input.id, codigo: compra.codigo, fecha: input.fecha })
+          ),
           parametros.paso_redondeo_usd_cents
         );
         // Si todo lo de esa línea ya se vendió, la corrección queda en el
         // paquete y el producto no cambia: no se lo cuenta como ajustado.
         if (efecto.aplicado_usd_cents === 0 && nuevas.length === 0) continue;
+        const escritura = escrituraDeLotes(conTallas, efecto.lotes_despues);
 
-        const variantes: ProductoVariante[] = [...(p.variantes || [])].map((v) => ({ ...v }));
         let corriendo = existenciasDe(p);
 
         if (efecto.aplicado_usd_cents !== 0) {
@@ -966,15 +1205,7 @@ export class ComprasRepoFirestore {
         }
 
         for (const l of nuevas) {
-          const varianteId =
-            l.variante_id ?? variantes.find((v) => v.activo !== false)?.id ?? 1;
-          const idx = variantes.findIndex((v) => v.id === varianteId);
-          if (idx === -1) {
-            variantes.push({ id: varianteId, producto_id: pid, existencias: l.cantidad, activo: true });
-          } else {
-            const antes = variantes[idx].activo === false ? 0 : variantes[idx].existencias || 0;
-            variantes[idx] = { ...variantes[idx], existencias: antes + l.cantidad, activo: true };
-          }
+          const varianteId = tallaDe.get(l.id)!;
           corriendo += l.cantidad;
           const movId = idOrdenable();
           tx.set(
@@ -999,9 +1230,7 @@ export class ComprasRepoFirestore {
           doc(db, 'productos', String(pid)),
           sinUndefined({
             ...(plan.nuevos.get(pid) ?? {}),
-            variantes: variantes.map((v) => sinUndefined(v)),
-            valor_inventario_usd_cents: efecto.valor_despues_usd_cents,
-            costo_unitario_usd_cents: efecto.costo_despues_usd_cents,
+            ...escritura,
             precio_venta_usd_cents: efecto.precio_despues_usd_cents,
             ...(nuevas.length > 0
               ? {
@@ -1014,16 +1243,21 @@ export class ComprasRepoFirestore {
           { merge: true }
         );
 
+        const { lotes_despues: _lotes, ...efectoSinLotes } = efecto;
         efectos.push({
           producto_id: pid,
           nombre: p.nombre,
           modo_precio: p.modo_precio,
-          ...efecto,
+          ...efectoSinLotes,
           correccion_usd_cents: efecto.aplicado_usd_cents,
         });
       }
 
-      const encargos = congelarCostoDeEncargos(lineasFinales, ventas);
+      const encargos = congelarCostoDeEncargos(lineasFinales, ventas, {
+        id: input.id,
+        codigo: compra.codigo,
+        fecha: input.fecha,
+      });
       for (const e of encargos) {
         tx.set(doc(db, 'ventas', e.id), sinUndefined(e.datos), { merge: true });
       }
@@ -1284,6 +1518,10 @@ export class ComprasRepoFirestore {
       );
     }
 
+    // Las piezas de encargo que venían en este paquete vuelven a "por comprar".
+    const encargos = await leerEncargosDe(actual.lineas);
+    const piezas = marcarPiezasEnCamino([], encargos, { id: compra_id, codigo: actual.codigo });
+
     await aplicarLote([
       {
         coleccion: 'compras',
@@ -1291,6 +1529,7 @@ export class ComprasRepoFirestore {
         merge: true,
         datos: { activo: false, actualizado_en: new Date().toISOString() },
       },
+      ...piezas.map((o) => ({ coleccion: 'ventas', id: Number(o.id), merge: true, datos: o.datos })),
     ]);
 
     await EventosRepoFirestore.registrarEvento({
@@ -1301,6 +1540,16 @@ export class ComprasRepoFirestore {
       valor_anterior: actual as unknown as Record<string, unknown>,
       detalle: `Paquete ${actual.codigo} eliminado`,
     });
+    for (const o of piezas) {
+      await EventosRepoFirestore.registrarEvento({
+        evento_grupo_id,
+        entidad_tipo: 'ventas',
+        entidad_id: Number(o.id),
+        tipo_evento: 'ACTUALIZACION',
+        valor_anterior: encargos.get(o.id) as unknown as Record<string, unknown>,
+        detalle: `Piezas del encargo ${encargos.get(o.id)?.codigo ?? ''} fuera del paquete ${actual.codigo}`,
+      });
+    }
   }
 }
 

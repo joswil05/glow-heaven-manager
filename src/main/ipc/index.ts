@@ -237,9 +237,13 @@ export function registrarHandlers(): void {
 
   manejar(
     IPC.VENTAS_CAMBIAR_ESTADO,
-    async (id: number, estado: Parameters<typeof VentasRepo.cambiarEstado>[1]) => {
+    async (
+      id: number,
+      estado: Parameters<typeof VentasRepo.cambiarEstado>[1],
+      opciones?: Parameters<typeof VentasRepo.cambiarEstado>[3]
+    ) => {
       const evento_grupo_id = nuevoGrupo();
-      const { reversible } = await VentasRepo.cambiarEstado(id, estado, evento_grupo_id);
+      const { reversible } = await VentasRepo.cambiarEstado(id, estado, evento_grupo_id, opciones);
       return { evento_grupo_id, reversible };
     }
   );

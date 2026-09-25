@@ -20,6 +20,82 @@ export type MonedaPago = 'USD' | 'COR';
 export type TipoMovimiento = 'ENTRADA' | 'SALIDA' | 'AJUSTE';
 
 // ---------------------------------------------------------------------------
+// Lotes (primero que entra, primero que sale). Ver core/lotes.ts.
+// ---------------------------------------------------------------------------
+
+export type OrigenLote = 'PAQUETE' | 'SALDO' | 'AJUSTE' | 'DEVOLUCION' | 'ENCARGO';
+
+export interface Lote {
+  /** "pq12-l3" (paquete 12, línea 3), "saldo-1", "aj-…", "dev-…". */
+  id: string;
+  /** Cada talla o tono tiene sus propios lotes. */
+  variante_id: number;
+  /** Unidades que quedan. */
+  cantidad: number;
+  /** Lo que valen, al costo, las unidades que quedan. */
+  valor_usd_cents: number;
+  cantidad_inicial: number;
+  /** El costo por unidad con que entró. Para mostrar; el cálculo usa el valor. */
+  costo_unitario_usd_cents: number;
+  /** Ordena el lote: primero sale lo más viejo. */
+  fecha: string;
+  /** Desempate estable entre lotes del mismo día. */
+  orden: number;
+  origen: OrigenLote;
+  compra_id?: number;
+  compra_codigo?: string;
+  compra_linea_id?: number;
+  /** Lo que ya salió de este lote por ventas. */
+  vendidas: number;
+  ingreso_usd_cents: number;
+  costo_vendido_usd_cents: number;
+  /** Unidades que salieron por daño, pérdida o regalo. */
+  bajas: number;
+}
+
+/**
+ * Lo que una salida se llevó de un lote. Una venta lo guarda en su línea: es
+ * lo que permite devolver cada unidad a su lote, con su costo, si se anula.
+ */
+export interface Consumo {
+  lote_id: string;
+  variante_id: number;
+  cantidad: number;
+  costo_usd_cents: number;
+  /** Lo que se cobró por estas unidades (sólo ventas). */
+  ingreso_usd_cents?: number;
+  // Lo necesario para rearmar el lote si ya no estuviera.
+  fecha: string;
+  orden: number;
+  origen: OrigenLote;
+  compra_id?: number;
+  compra_codigo?: string;
+  compra_linea_id?: number;
+  costo_unitario_usd_cents: number;
+}
+
+/**
+ * Qué hacer al anular un encargo. Ver `VentasRepoFirestore.cambiarEstado`.
+ */
+export interface OpcionesAnulacion {
+  /** Lo que ya pagó: se devuelve (se anulan los pagos) o se queda. */
+  anticipo?: 'DEVOLVER' | 'RETENER';
+  /** Cada pieza que ya llegó, por id de línea: a la bodega o perdida. */
+  piezas?: Record<number, { destino: 'BODEGA'; producto_id?: number } | { destino: 'PERDIDA' }>;
+}
+
+/** El resumen de las piezas de un encargo, para listarlo sin leer sus líneas. */
+export interface PiezasEncargo {
+  total: number;
+  /** Están en un paquete, haya llegado o no. */
+  compradas: number;
+  /** Están en un paquete que ya pasó al inventario. */
+  llegadas: number;
+  /** Apuntan a un producto del catálogo y no a un paquete: salen de la bodega. */
+  de_bodega: number;
+}
+
+// ---------------------------------------------------------------------------
 // Configuración
 // ---------------------------------------------------------------------------
 
@@ -182,6 +258,8 @@ export interface Producto {
   aplicar_tax_usa?: boolean;
   /** El último paquete que lo repuso. */
   paquete_id?: number;
+  /** Sus lotes, del más viejo al más nuevo. Ver core/lotes.ts. */
+  lotes?: Lote[];
   /**
    * Miniatura del producto como data URL. Se guarda ya reducida (400px de
    * lado, JPEG) para que quepa holgada en el documento de Firestore, que
@@ -253,6 +331,16 @@ export interface CompraLinea {
   // Complementarios para mostrar
   producto_nombre?: string;
   cliente_nombre?: string;
+  /**
+   * Lo que pasó con el lote de esta línea. `lote_propio` dice si el lote es de
+   * ella sola: una línea anterior a la 2.14 quedó dentro del saldo de su
+   * producto, y ahí sólo se sabe cuántas quedan, no cuánto dejaron.
+   */
+  lote_quedan?: number;
+  lote_vendidas?: number;
+  lote_ingreso_usd_cents?: number;
+  lote_costo_vendido_usd_cents?: number;
+  lote_propio?: boolean;
 
   // Cómo se escribió, para devolverlo igual al editar
   es_multipack?: boolean;
@@ -380,6 +468,20 @@ export interface VentaLinea {
   es_paquete: boolean;
   orden: number;
 
+  /** De qué lotes salió, con qué costo y qué ingreso. Para devolverla exacta. */
+  lotes_consumidos?: Consumo[];
+
+  // Sólo en encargos: de dónde sale esta pieza. Ver core/encargos.ts.
+  /** El paquete donde viene. */
+  compra_id?: number;
+  compra_codigo?: string;
+  compra_linea_id?: number;
+  /** La fecha del paquete, cuando pasó al inventario. */
+  llego_el?: string;
+  /** Con qué se cotizó: precio en la tienda y peso aproximado. */
+  precio_tienda_usd_cents?: number;
+  peso_mlb?: number;
+
   producto_nombre?: string;
   talla?: string;
   color?: string;
@@ -409,6 +511,11 @@ export interface Venta {
   pagado_usd_cents: number;
   saldo_usd_cents: number;
   anticipo_esperado_usd_cents: number;
+
+  /** Encargos: el resumen de sus piezas, para listarlo sin leer las líneas. */
+  piezas?: PiezasEncargo;
+  /** Encargos: cuándo llegó la última pieza que venía en un paquete. */
+  llego_el?: string;
 
   notas?: string;
   activo: boolean;

@@ -1,0 +1,388 @@
+/**
+ * Lotes y encargos contra los repositorios reales (Firestore falso).
+ *
+ * Cada caso es una regla de `docs/PLAN_LOTES_Y_ENCARGOS.md`. Los números son
+ * los del ejemplo que se le mostró a Joswill: boxers de agosto a $8.49 y de
+ * septiembre a $6.35.
+ */
+import { describe, it, expect, beforeEach } from 'vitest';
+import { randomUUID } from 'node:crypto';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { reiniciarFirestoreFalso } from './firestore-fake';
+import { getFirestoreDb } from '../src/main/firebase/client';
+import { ProductosRepoFirestore as Productos } from '../src/main/firebase/repositories/productos.repo';
+import { ComprasRepoFirestore as Compras } from '../src/main/firebase/repositories/compras.repo';
+import { VentasRepoFirestore as Ventas } from '../src/main/firebase/repositories/ventas.repo';
+import { ParametrosRepoFirestore as Parametros } from '../src/main/firebase/repositories/parametros.repo';
+import { PanelRepoFirestore as Panel } from '../src/main/firebase/repositories/panel.repo';
+import { etapaEncargo } from '../src/core/encargos';
+import { hoyISO, sumarDiasAFecha } from '../src/core/fechas';
+import type { LineaCompraInput, LineaVentaInput } from '../src/shared/ipc-contracts';
+
+const g = () => randomUUID();
+const HOY = hoyISO();
+
+beforeEach(async () => {
+  reiniciarFirestoreFalso();
+  Parametros.invalidarCache();
+  Panel.invalidarCache();
+  await Parametros.getParametros();
+  await Parametros.getCategorias();
+});
+
+const producto = (nombre: string, extra: Record<string, unknown> = {}) =>
+  Productos.crear({ nombre, modo_precio: 'MARGEN', margen_bp: 5000, ...extra }, g());
+
+/**
+ * Una línea cuyo costo final queda exacto: sin flete ni impuesto, el costo
+ * unitario es el precio de tienda. Así los números del ejemplo se leen tal
+ * cual.
+ */
+const linea = (producto_id: number, descripcion: string, cantidad: number, costoUnitario: number, extra: Partial<LineaCompraInput> = {}): LineaCompraInput => ({
+  producto_id,
+  descripcion,
+  cantidad,
+  precio_linea_usd_cents: cantidad * costoUnitario,
+  exento: true,
+  destino: 'INVENTARIO',
+  ...extra,
+});
+
+async function paquete(fecha: string, lineas: LineaCompraInput[], envio = 0) {
+  const id = await Compras.guardar({ fecha, envio_total_usd_cents: envio, lineas }, g());
+  await Compras.recibir(id, g());
+  return id;
+}
+
+const bodega = async () =>
+  (await Productos.listar({ incluirInactivos: true })).reduce((s, p) => s + p.valor_inventario_usd_cents, 0);
+
+const vender = (producto_id: number, cantidad: number, extra: Record<string, unknown> = {}) =>
+  Ventas.crear(
+    {
+      fecha: HOY,
+      tipo: 'INVENTARIO',
+      lineas: [{ producto_id, cantidad }],
+      pago_inicial: { moneda: 'USD', metodo: 'EFECTIVO' },
+      ...extra,
+    },
+    g()
+  );
+
+/** 6 boxers en agosto a $8.49 (se venden 2) y 10 en septiembre a $6.35. */
+async function boxers() {
+  const id = await producto('Boxers');
+  const agosto = await paquete('2026-08-10', [linea(id, 'Boxers', 6, 849)]);
+  await vender(id, 2);
+  const septiembre = await paquete('2026-09-20', [linea(id, 'Boxers', 10, 635)]);
+  return { id, agosto, septiembre };
+}
+
+describe('lotes: primero sale lo más viejo', () => {
+  it('cada paquete deja su lote, y la bodega es su suma exacta', async () => {
+    const { id } = await boxers();
+    const p = (await Productos.getById(id))!;
+    expect(p.existencias).toBe(14);
+    expect(p.lotes!.filter((l) => l.cantidad > 0).map((l) => [l.cantidad, l.valor_usd_cents])).toEqual([
+      [4, 4 * 849],
+      [10, 6350],
+    ]);
+    expect(p.valor_inventario_usd_cents).toBe(4 * 849 + 6350);
+  });
+
+  it('las próximas ventas se llevan el costo de agosto, no un promedio', async () => {
+    const { id } = await boxers();
+    const v = (await Ventas.getById(await vender(id, 5)))!;
+    // Hoy: 5 × $6.96 = $34.80. Con lotes: 4 × $8.49 + $6.35.
+    expect(v.costo_total_usd_cents).toBe(4 * 849 + 635);
+    expect(v.lineas[0].lotes_consumidos!.map((c) => c.cantidad)).toEqual([4, 1]);
+    expect(await bodega()).toBe(9 * 635);
+  });
+
+  it('anular devuelve cada unidad a su lote, con su costo', async () => {
+    const { id } = await boxers();
+    const antes = await bodega();
+    const venta = await vender(id, 5);
+    await Ventas.cambiarEstado(venta, 'CANCELADA', g());
+    expect(await bodega()).toBe(antes);
+    const lotes = (await Productos.getById(id))!.lotes!.filter((l) => l.cantidad > 0);
+    // Agosto ya había vendido 2 antes: vuelve a ese número, no a cero.
+    expect(lotes.map((l) => [l.cantidad, l.valor_usd_cents, l.vendidas])).toEqual([
+      [4, 4 * 849, 2],
+      [10, 6350, 0],
+    ]);
+  });
+
+  it('el precio se calcula sobre el lote más caro que queda', async () => {
+    const { id } = await boxers();
+    // 50% sobre $8.49 = $12.735, redondeado hacia arriba.
+    const p = (await Productos.getById(id))!;
+    expect(p.costo_unitario_usd_cents).toBe(849);
+    expect(p.precio_venta_usd_cents).toBeGreaterThanOrEqual(1274);
+  });
+
+  it('vendido el lote caro, el precio no baja solo: se propone', async () => {
+    const { id } = await boxers();
+    const precioAntes = (await Productos.getById(id))!.precio_venta_usd_cents;
+    await vender(id, 4);
+    const p = (await Productos.getById(id))!;
+    expect(p.precio_venta_usd_cents).toBe(precioAntes);
+    expect(p.costo_unitario_usd_cents).toBe(635);
+    const propuestos = await Productos.preciosDesactualizados();
+    const propuesto = propuestos.find((x) => x.producto_id === id)!;
+    expect(propuesto.precio_calculado_usd_cents).toBeLessThan(precioAntes);
+  });
+
+  it('un producto dañado sale del lote más viejo y cuenta como baja', async () => {
+    const { id } = await boxers();
+    const p = (await Productos.getById(id))!;
+    await Productos.ajustar(p.variantes[0].id, 13, g(), 'Producto dañado', id);
+    const q = (await Productos.getById(id))!;
+    const agosto = q.lotes!.find((l) => l.compra_codigo === 'PQ-0001')!;
+    expect([agosto.cantidad, agosto.bajas]).toEqual([3, 1]);
+    expect(q.valor_inventario_usd_cents).toBe(3 * 849 + 6350);
+  });
+
+  it('un conteo que da de más entra al costo del lote más nuevo', async () => {
+    const { id } = await boxers();
+    const p = (await Productos.getById(id))!;
+    await Productos.ajustar(p.variantes[0].id, 15, g(), 'Conteo físico', id);
+    const q = (await Productos.getById(id))!;
+    expect(q.valor_inventario_usd_cents).toBe(4 * 849 + 6350 + 635);
+    expect(q.lotes!.some((l) => l.origen === 'AJUSTE' && l.cantidad === 1)).toBe(true);
+  });
+
+  it('corregir un paquete cambia sólo su lote, en lo que queda de él', async () => {
+    const { id, agosto } = await boxers();
+    const compra = (await Compras.getById(agosto))!;
+    // La línea de agosto costó $0.10 más por unidad: $0.60 en la línea de 6.
+    await Compras.corregir(
+      {
+        id: agosto,
+        fecha: compra.fecha,
+        envio_total_usd_cents: 0,
+        lineas: compra.lineas.map((l) => ({ ...l, precio_linea_usd_cents: l.precio_linea_usd_cents + 60 })),
+      },
+      g()
+    );
+    const lotes = (await Productos.getById(id))!.lotes!;
+    // Quedan 4 de 6: le toca round(60 × 4 / 6) = 40. Septiembre no se mueve.
+    expect(lotes.find((l) => l.compra_codigo === 'PQ-0001')!.valor_usd_cents).toBe(4 * 849 + 40);
+    expect(lotes.find((l) => l.compra_codigo === 'PQ-0002')!.valor_usd_cents).toBe(6350);
+  });
+
+  it('el detalle del paquete dice cuánto se vendió y cuánto dejó, con el descuento', async () => {
+    const id = await producto('Gloss');
+    const pq = await paquete(HOY, [linea(id, 'Gloss', 5, 1000)]);
+    await vender(id, 2, {
+      lineas: [{ producto_id: id, cantidad: 2, precio_unitario_usd_cents: 2000 }],
+      descuento_tipo: 'MONTO_FIJO',
+      descuento_valor: 5,
+    });
+    const l = (await Compras.getById(pq))!.lineas[0];
+    expect(l.lote_propio).toBe(true);
+    expect(l.lote_quedan).toBe(3);
+    expect(l.lote_vendidas).toBe(2);
+    expect(l.lote_ingreso_usd_cents).toBe(4000 - 500);
+    expect(l.lote_costo_vendido_usd_cents).toBe(2000);
+  });
+});
+
+describe('la migración a lotes, sin script', () => {
+  it('un producto de antes (sin lotes) se vende bien y la bodega no cambia', async () => {
+    const id = await producto('Perfume viejo', { stock_inicial: { cantidad: 3, costo_unitario_usd_cents: 1234 } });
+    expect((await Productos.getById(id))!.lotes!.map((l) => l.origen)).toEqual(['SALDO']);
+    const v = (await Ventas.getById(await vender(id, 1)))!;
+    expect(v.costo_total_usd_cents).toBe(1234);
+    expect(await bodega()).toBe(2 * 1234);
+  });
+
+  it('si la app vieja vendió sin tocar los lotes, la próxima operación los cuadra', async () => {
+    const { id } = await boxers();
+    // La 2.13 vendió 2 al promedio ($6.96): bajó existencias y valor, y no
+    // tocó los lotes.
+    const db = getFirestoreDb();
+    const ref = doc(db, 'productos', String(id));
+    const d = (await getDoc(ref)).data()!;
+    await setDoc(
+      ref,
+      {
+        variantes: [{ ...d.variantes[0], existencias: 12 }],
+        valor_inventario_usd_cents: 4 * 849 + 6350 - 1392,
+      },
+      { merge: true }
+    );
+    const antes = await bodega();
+    await vender(id, 1);
+    const p = (await Productos.getById(id))!;
+    expect(p.existencias).toBe(11);
+    // Lo que no cuadraba salió del lote más viejo; el valor total manda.
+    const suma = p.lotes!.reduce((s, l) => s + l.valor_usd_cents, 0);
+    expect(suma).toBe(p.valor_inventario_usd_cents);
+    expect(antes - p.valor_inventario_usd_cents).toBeGreaterThan(0);
+  });
+});
+
+/** Un encargo confirmado, con una pieza por comprar. */
+async function encargo(extra: Record<string, unknown> = {}, lineas?: LineaVentaInput[]) {
+  return Ventas.crear(
+    {
+      fecha: HOY,
+      tipo: 'ENCARGO',
+      anticipo_bp: 5000,
+      pago_inicial: { moneda: 'USD', metodo: 'EFECTIVO', monto_cents: 2500 },
+      lineas: lineas ?? [{ descripcion: 'Perfume Bombshell', cantidad: 1, precio_unitario_usd_cents: 5000 }],
+      ...extra,
+    },
+    g()
+  );
+}
+
+async function lineaDeEncargo(venta_id: number): Promise<LineaCompraInput> {
+  const v = (await Ventas.getById(venta_id))!;
+  return {
+    descripcion: v.lineas[0].descripcion,
+    cantidad: v.lineas[0].cantidad,
+    precio_linea_usd_cents: 3000,
+    exento: true,
+    destino: 'ENCARGO',
+    venta_id,
+    venta_linea_id: v.lineas[0].id,
+  };
+}
+
+const etapa = async (id: number) => {
+  const v = (await Ventas.listar({ tipo: 'ENCARGO' })).find((x) => x.id === id)!;
+  return etapaEncargo(v);
+};
+
+describe('encargos: cada pieza sabe de dónde sale', () => {
+  it('confirmado → en camino → llegó, sin escribirlo a mano', async () => {
+    const e = await encargo();
+    expect(await etapa(e)).toBe('POR_COMPRAR');
+
+    const pq = await Compras.guardar({ fecha: HOY, envio_total_usd_cents: 0, lineas: [await lineaDeEncargo(e)] }, g());
+    expect(await etapa(e)).toBe('EN_CAMINO');
+    expect((await Ventas.getById(e))!.lineas[0].compra_codigo).toBe('PQ-0001');
+
+    await Compras.recibir(pq, g());
+    const v = (await Ventas.getById(e))!;
+    expect(await etapa(e)).toBe('POR_ENTREGAR');
+    expect(v.lineas[0].llego_el).toBe(HOY);
+    expect(v.costo_total_usd_cents).toBe(3000);
+  });
+
+  it('una pieza no puede venir en dos paquetes', async () => {
+    const e = await encargo();
+    await Compras.guardar({ fecha: HOY, envio_total_usd_cents: 0, lineas: [await lineaDeEncargo(e)] }, g());
+    await expect(
+      Compras.guardar({ fecha: HOY, envio_total_usd_cents: 0, lineas: [await lineaDeEncargo(e)] }, g())
+    ).rejects.toThrow(/ya viene en PQ-0001/);
+  });
+
+  it('quitarla del paquete, o eliminarlo, la vuelve a "por comprar"', async () => {
+    const e = await encargo();
+    const pq = await Compras.guardar({ fecha: HOY, envio_total_usd_cents: 0, lineas: [await lineaDeEncargo(e)] }, g());
+    await Compras.archivar(pq, g());
+    expect(await etapa(e)).toBe('POR_COMPRAR');
+    expect((await Ventas.getById(e))!.lineas[0].compra_id).toBeUndefined();
+  });
+
+  it('no se entrega lo que no llegó', async () => {
+    const e = await encargo();
+    await Compras.guardar({ fecha: HOY, envio_total_usd_cents: 0, lineas: [await lineaDeEncargo(e)] }, g());
+    await expect(Ventas.cambiarEstado(e, 'ENTREGADA', g())).rejects.toThrow(/todavía no llegó: viene en PQ-0001/);
+    expect((await Ventas.getById(e))!.estado).toBe('PENDIENTE');
+  });
+
+  it('una pieza que vino en un paquete no descuenta de la bodega al entregarla', async () => {
+    // Era el doble descuento: la pieza apuntaba a un producto del catálogo.
+    const perfume = await producto('Perfume Bombshell');
+    await paquete(HOY, [linea(perfume, 'Perfume Bombshell', 2, 3000)]);
+    const e = await encargo({}, [{ producto_id: perfume, descripcion: 'Perfume Bombshell', cantidad: 1, precio_unitario_usd_cents: 5000 }]);
+    const pq = await Compras.guardar({ fecha: HOY, envio_total_usd_cents: 0, lineas: [await lineaDeEncargo(e)] }, g());
+    await Compras.recibir(pq, g());
+    await Ventas.cambiarEstado(e, 'ENTREGADA', g());
+    expect((await Productos.getById(perfume))!.existencias).toBe(2);
+  });
+
+  it('una pieza de la bodega sale del lote más viejo y el encargo toma ese costo', async () => {
+    const perfume = await producto('Perfume Bombshell');
+    await paquete('2026-08-01', [linea(perfume, 'Perfume Bombshell', 1, 2800)]);
+    await paquete('2026-09-01', [linea(perfume, 'Perfume Bombshell', 1, 3100)]);
+    const e = await encargo({}, [
+      { producto_id: perfume, descripcion: 'Perfume Bombshell', cantidad: 1, precio_unitario_usd_cents: 5000, costo_estimado_unitario_usd_cents: 3500 },
+    ]);
+    expect(await etapa(e)).toBe('POR_ENTREGAR');
+    await Ventas.cambiarEstado(e, 'ENTREGADA', g());
+    const v = (await Ventas.getById(e))!;
+    expect(v.costo_total_usd_cents).toBe(2800);
+    expect(v.ganancia_usd_cents).toBe(2200);
+    expect((await Productos.getById(perfume))!.existencias).toBe(1);
+
+    // Y anularlo después la devuelve a su lote.
+    await Ventas.cambiarEstado(e, 'CANCELADA', g());
+    const lotes = (await Productos.getById(perfume))!.lotes!.filter((l) => l.cantidad > 0);
+    expect(lotes.map((l) => l.valor_usd_cents)).toEqual([2800, 3100]);
+  });
+});
+
+describe('encargos: anular', () => {
+  it('con la pieza en un paquete que se está cargando, la pieza pasa a la bodega de ese paquete', async () => {
+    const e = await encargo();
+    const pq = await Compras.guardar({ fecha: HOY, envio_total_usd_cents: 0, lineas: [await lineaDeEncargo(e)] }, g());
+    await Ventas.cambiarEstado(e, 'CANCELADA', g());
+    expect((await Compras.getById(pq))!.lineas[0].destino).toBe('INVENTARIO');
+    await Compras.recibir(pq, g());
+    const p = (await Productos.listar()).find((x) => x.nombre === 'Perfume Bombshell')!;
+    expect([p.existencias, p.valor_inventario_usd_cents]).toEqual([1, 3000]);
+  });
+
+  it('con la pieza ya llegada, sin decir qué hacer con ella, no se anula', async () => {
+    const e = await encargo();
+    const pq = await Compras.guardar({ fecha: HOY, envio_total_usd_cents: 0, lineas: [await lineaDeEncargo(e)] }, g());
+    await Compras.recibir(pq, g());
+    await expect(Ventas.cambiarEstado(e, 'CANCELADA', g())).rejects.toThrow(/ya llegó/);
+    expect((await Ventas.getById(e))!.estado).toBe('PENDIENTE');
+  });
+
+  it('a la bodega: entra con su costo real; y el anticipo se puede quedar', async () => {
+    const e = await encargo();
+    const pq = await Compras.guardar({ fecha: HOY, envio_total_usd_cents: 0, lineas: [await lineaDeEncargo(e)] }, g());
+    await Compras.recibir(pq, g());
+    const v = (await Ventas.getById(e))!;
+    await Ventas.cambiarEstado(e, 'CANCELADA', g(), {
+      anticipo: 'RETENER',
+      piezas: { [v.lineas[0].id]: { destino: 'BODEGA' } },
+    });
+    const p = (await Productos.listar()).find((x) => x.nombre === 'Perfume Bombshell')!;
+    expect([p.existencias, p.valor_inventario_usd_cents]).toEqual([1, 3000]);
+    expect(p.lotes!.find((l) => l.cantidad > 0)!.origen).toBe('ENCARGO');
+    expect((await Ventas.getById(e))!.pagos).toHaveLength(1);
+  });
+
+  it('perdida: no entra nada; y el anticipo, sin decir nada, se devuelve', async () => {
+    const e = await encargo();
+    const pq = await Compras.guardar({ fecha: HOY, envio_total_usd_cents: 0, lineas: [await lineaDeEncargo(e)] }, g());
+    await Compras.recibir(pq, g());
+    const v = (await Ventas.getById(e))!;
+    await Ventas.cambiarEstado(e, 'CANCELADA', g(), { piezas: { [v.lineas[0].id]: { destino: 'PERDIDA' } } });
+    expect(await bodega()).toBe(0);
+    expect((await Ventas.getById(e))!.pagos).toHaveLength(0);
+  });
+});
+
+describe('encargos: avisos', () => {
+  it('confirmado hace días y sin comprar; llegado hace días y sin entregar', async () => {
+    const hace20 = sumarDiasAFecha(HOY, -20);
+    const sinComprar = await encargo({ fecha: hace20 });
+    const llegado = await encargo({ fecha: hace20 });
+    const pq = await Compras.guardar({ fecha: hace20, envio_total_usd_cents: 0, lineas: [await lineaDeEncargo(llegado)] }, g());
+    await Compras.recibir(pq, g());
+
+    const alertas = (await Panel.cargar(true)).alertas.map((a) => a.id);
+    expect(alertas).toContain(`encargo-comprar-${sinComprar}`);
+    expect(alertas).toContain(`encargo-entregar-${llegado}`);
+    expect(alertas).not.toContain(`encargo-comprar-${llegado}`);
+  });
+});

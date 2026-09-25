@@ -252,8 +252,11 @@ describe('precio de venta con margen sobre el costo real', () => {
 
 // ---------------------------------------------------------------------------
 
-describe('costo promedio entre paquetes', () => {
-  it('el mismo producto en dos paquetes promedia su costo', async () => {
+describe('el costo entre paquetes, por lotes', () => {
+  it('el mismo producto en dos tandas: el costo que manda es el del lote más caro', async () => {
+    // Hasta la 2.13 esto promediaba: $10.58. Con lotes, cada tanda guarda su
+    // costo y el precio se calcula sobre la más cara que queda ($11.50), así
+    // ninguna unidad se vende por debajo del margen.
     const id = await ProductosRepo.crear({ nombre: 'Termo Owala' }, g());
 
     await ProductosRepo.entrada({ producto_id: id, cantidad: 4, costo_total_usd_cents: 3680 });
@@ -262,7 +265,12 @@ describe('costo promedio entre paquetes', () => {
     await ProductosRepo.entrada({ producto_id: id, cantidad: 6, costo_total_usd_cents: 6900 });
     const p = (await ProductosRepo.getById(id))!;
     expect(p.existencias).toBe(10);
-    expect(p.costo_unitario_usd_cents).toBe(1058);
+    expect(p.valor_inventario_usd_cents).toBe(3680 + 6900);
+    expect(p.costo_unitario_usd_cents).toBe(1150);
+    expect(p.lotes?.map((l) => [l.cantidad, l.valor_usd_cents])).toEqual([
+      [4, 3680],
+      [6, 6900],
+    ]);
   });
 
   it('editar la ficha no toca el costo: el costo sale de los paquetes', async () => {
