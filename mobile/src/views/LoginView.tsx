@@ -101,8 +101,8 @@ export function LoginView() {
                 </p>
 
                 <div className="mt-2 space-y-1 rounded-xl bg-superficie/70 p-2 border border-alerta-suave text-[11px] text-alerta">
-                  <p>1. Toca los <strong>tres puntos (…)</strong> abajo a la derecha.</p>
-                  <p>2. Selecciona <strong>"Abrir en Safari"</strong>.</p>
+                  <p>1. Tocá los <strong>tres puntos (…)</strong> abajo a la derecha.</p>
+                  <p>2. Elegí <strong>"Abrir en Safari"</strong>.</p>
                 </div>
 
                 <button
@@ -111,7 +111,7 @@ export function LoginView() {
                   className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-xl border border-alerta-suave bg-superficie px-3 py-1.5 text-xs font-bold text-alerta shadow-sm active:scale-95 transition-all"
                 >
                   {copiado ? <Check size={14} className="text-acento" /> : <Copy size={14} />}
-                  {copiado ? '¡Enlace copiado! Pégalo en Safari' : 'Copiar enlace para Safari'}
+                  {copiado ? 'Enlace copiado. Pegalo en Safari' : 'Copiar enlace para Safari'}
                 </button>
               </div>
             </div>
@@ -185,7 +185,7 @@ export function LoginView() {
             <div className="flex items-center gap-2 rounded-xl bg-acento-suave border border-acento-suave px-3 py-2 text-left text-[11px] text-acento shadow-xs">
               <Share size={14} className="shrink-0 text-acento" />
               <span>
-                <strong>Tip iPhone:</strong> En Safari, toca <em>Compartir</em> y luego <strong>"Añadir a pantalla de inicio"</strong> para usarla como app.
+                En Safari, tocá <em>Compartir</em> y <strong>"Añadir a pantalla de inicio"</strong> para usarla como app.
               </span>
             </div>
           )}

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, AlertTriangle, Info, FileSearch } from 'lucide-react';
+import { X, AlertTriangle, Info } from 'lucide-react';
 import type { Compra, ReconstruccionPaquete } from '../../../../shared/types';
 import { Button, Portal } from '../../components/ui';
 import { formatearMoneda } from '@core/moneda';
@@ -93,34 +93,19 @@ export const ReconstruccionModal: React.FC<Props> = ({
           className="bg-superficie rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden border border-borde/80 animate-modal-pop cursor-default"
         >
           <header className="flex items-center justify-between px-6 py-4 border-b border-borde shrink-0">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-acento-suave text-acento flex items-center justify-center">
-                <FileSearch className="w-4 h-4" />
-              </div>
-              <div>
-                <h3 id="titulo-reconstruccion" className="text-title text-texto">
-                  Contenido de {compra.codigo}
-                </h3>
-                <p className="text-caption text-texto-3">
-                  Armado con los productos que se cargaron con este paquete
-                </p>
-              </div>
-            </div>
+            <h3 id="titulo-reconstruccion" className="text-title text-texto">
+              Contenido de {compra.codigo}
+            </h3>
             <Button variant="ghost" size="sm" onClick={onCerrar} aria-label="Cerrar">
               <X className="w-4 h-4" />
             </Button>
           </header>
 
           <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
-            <div className="flex items-start gap-2.5 rounded-xl border border-borde bg-superficie-2/60 p-3 text-caption text-texto-2">
+            <p className="flex items-start gap-2 text-caption text-texto-2">
               <Info className="w-4 h-4 shrink-0 mt-0.5 text-texto-3" />
-              <p className="leading-relaxed">
-                Cada línea sale de lo que se cargó en ese momento: las unidades que entraron, el precio
-                de tienda y su impuesto, y el flete que le tocó a cada producto. La bodega no cambia:
-                esto sólo escribe en el paquete lo que ya está en los productos. Después, si algo
-                estaba mal, se corrige desde el paquete.
-              </p>
-            </div>
+              <span>Sale de lo que se cargó con este paquete. La bodega no cambia.</span>
+            </p>
 
             {error && (
               <div className="flex items-start gap-2 rounded-xl border border-danger-200 bg-danger-50 p-3">
@@ -190,8 +175,7 @@ export const ReconstruccionModal: React.FC<Props> = ({
 
             {datos && datos.lineas.length === 0 && (
               <p className="py-6 text-center text-body text-texto-3">
-                Ningún producto tiene registrada una entrada con este paquete. Podés cargarle el
-                contenido a mano: lo que agregues entra al inventario como mercadería nueva.
+                Ningún producto registra una entrada con este paquete. Podés cargar su contenido a mano.
               </p>
             )}
           </div>

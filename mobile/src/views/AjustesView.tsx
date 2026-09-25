@@ -106,7 +106,7 @@ export function AjustesView({ onVolver }: { onVolver: () => void }) {
 
   async function guardar() {
     if (!stockValido) {
-      mostrar('El stock mínimo tiene que ser un número entero de 0 o más.', 'error');
+      mostrar('Tiene que ser un número entero, 0 o más.', 'error');
       return;
     }
     setGuardando(true);
@@ -315,8 +315,8 @@ export function AjustesView({ onVolver }: { onVolver: () => void }) {
               {haptico.via === 'vibracion'
                 ? 'Este teléfono vibra con distinta fuerza según la acción.'
                 : haptico.via === 'interruptor'
-                  ? 'En iPhone el sistema sólo permite un toque, siempre de la misma fuerza. Se siente, pero no cambia entre una acción y otra.'
-                  : 'Este teléfono no permite vibrar desde la app. En iPhone hace falta iOS 17.4 o más nuevo.'}
+                  ? 'En iPhone vibra siempre igual, sea cual sea la acción.'
+                  : 'Este teléfono no vibra desde la app. En iPhone hace falta iOS 17.4.'}
             </p>
             <button
               type="button"

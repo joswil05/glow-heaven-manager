@@ -124,33 +124,25 @@ export const RevisarPreciosModal: React.FC<Props> = ({ abierto, lista, onCerrar,
           className="bg-superficie rounded-2xl shadow-2xl w-full max-w-3xl max-h-[88vh] flex flex-col overflow-hidden border border-borde/80 animate-modal-pop cursor-default"
         >
           <header className="flex items-center justify-between px-6 py-4 border-b border-borde shrink-0">
-            <div>
-              <h3 id="titulo-precios" className="text-title text-texto">
-                Precios para revisar
-              </h3>
-              <p className="text-caption text-texto-3">
-                {lista.length} producto{lista.length === 1 ? '' : 's'} con un precio que no da el margen
-                que tienen
-              </p>
-            </div>
+            <h3 id="titulo-precios" className="text-title text-texto">
+              Precios para revisar
+            </h3>
             <Button variant="ghost" size="sm" onClick={onCerrar} aria-label="Cerrar">
               <X className="w-4 h-4" />
             </Button>
           </header>
 
           <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
-            <div className="flex items-start gap-2.5 rounded-xl border border-borde bg-superficie-2/60 p-3 text-caption text-texto-2">
+            <p className="flex items-start gap-2 text-caption text-texto-2">
               <Info className="w-4 h-4 shrink-0 mt-0.5 text-texto-3" />
-              <p className="leading-relaxed">
-                Antes el precio se calculaba sin el flete, y cambiaba solo cuando se vendía una
-                unidad. El precio que corresponde sale del costo real (tienda + 7% + flete) con el
-                margen del producto, redondeado hacia arriba.
+              <span>
+                El precio nuevo sale del costo con impuesto y flete, más su margen.
                 {suben > 0 &&
                   (suben === 1
-                    ? ' Uno sube: con el precio de ahora se gana menos de lo que pediste.'
-                    : ` ${suben} suben: con el precio de ahora se gana menos de lo que pediste.`)}
-              </p>
-            </div>
+                    ? ' Uno sube: hoy se gana menos de lo que pediste.'
+                    : ` ${suben} suben: hoy se gana menos de lo que pediste.`)}
+              </span>
+            </p>
 
             <div className="rounded-xl border border-borde overflow-hidden">
               <table className="w-full text-label">
@@ -211,7 +203,7 @@ export const RevisarPreciosModal: React.FC<Props> = ({ abierto, lista, onCerrar,
           </div>
 
           <footer className="flex items-center justify-between gap-3 px-6 py-3.5 border-t border-borde bg-superficie-2/40 shrink-0">
-            <p className="text-caption text-texto-3">Se puede deshacer desde el aviso que aparece abajo.</p>
+            <p className="text-caption text-texto-3">Se puede deshacer.</p>
             <div className="flex items-center gap-2">
               <Button variant="secondary" onClick={onCerrar} disabled={aplicando} className="rounded-xl">
                 Ahora no

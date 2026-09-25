@@ -9,7 +9,6 @@ import {
   ChevronRight,
   CheckCircle2,
   Package,
-  User,
   UserPlus,
   CreditCard,
   FileCheck,
@@ -57,9 +56,9 @@ interface VentaEditorProps {
 }
 
 const PASOS = [
-  { id: 1, titulo: 'Productos', subtitulo: 'Selección y cantidades', icono: Package },
-  { id: 2, titulo: 'Clienta y Cobro', subtitulo: 'Forma de pago y plazos', icono: CreditCard },
-  { id: 3, titulo: 'Confirmación', subtitulo: 'Resumen y entrega', icono: FileCheck },
+  { id: 1, titulo: 'Productos', icono: Package },
+  { id: 2, titulo: 'Clienta y pago', icono: CreditCard },
+  { id: 3, titulo: 'Confirmar', icono: FileCheck },
 ] as const;
 
 const nuevaLinea = (): LineaBorrador => ({
@@ -217,7 +216,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
 
   const crearClienteRapido = async () => {
     if (!nuevoNombreCliente.trim()) {
-      showToast({ message: 'El cliente necesita un nombre.', type: 'error' });
+      showToast({ message: 'La clienta necesita un nombre.', type: 'error' });
       return;
     }
     setGuardandoCliente(true);
@@ -251,7 +250,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
       setMostrarCrearCliente(false);
       setBusquedaCliente('');
       showToast({
-        message: `Clienta "${nuevo.nombre}" guardada y asociada`,
+        message: `${nuevo.nombre} agregada`,
         type: 'success',
       });
     } finally {
@@ -327,29 +326,29 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
   const validarPaso = (p: 1 | 2 | 3): boolean => {
     if (p === 1) {
       if (lineas.length === 0) {
-        setError('Agregá al menos un producto a la venta.');
+        setError('Agregá al menos un producto.');
         return false;
       }
       const sinNombre = lineas.find((l) => !l.producto_id && !l.descripcion.trim());
       if (sinNombre) {
-        setError('Cada línea necesita un producto del inventario o una descripción.');
+        setError('Cada línea necesita un producto o una descripción.');
         return false;
       }
       for (const l of lineas) {
         const cant = parsearDecimal(l.cantidad, { min: 1 });
         if (cant === null) {
-          setError('La cantidad de cada producto debe ser un número entero mayor o igual a 1.');
+          setError('Cada cantidad tiene que ser un número entero, 1 o más.');
           return false;
         }
         const precioCents = parsearACentavos(l.precio, { min: 0.01 });
         if (precioCents === null) {
-          setError('El precio de venta de cada producto debe ser un monto válido mayor a cero.');
+          setError('Cada producto necesita un precio mayor a $0.');
           return false;
         }
         if (esEncargo && l.costo_estimado.trim()) {
           const costoCents = parsearACentavos(l.costo_estimado, { min: 0 });
           if (costoCents === null) {
-            setError('El costo estimado debe ser un monto válido (mayor o igual a cero).');
+            setError('El costo estimado no es un monto válido.');
             return false;
           }
         }
@@ -373,7 +372,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
       if (esEncargo) {
         const ant = parsearDecimal(anticipoTexto, { min: 0, max: 100 });
         if (ant === null) {
-          setError('El porcentaje de anticipo debe ser un número válido entre 0 y 100.');
+          setError('El anticipo va de 0 a 100%.');
           return false;
         }
       }
@@ -385,7 +384,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
         }
         const cada = parsearDecimal(cuotasCada, { min: 1 });
         if (cada === null) {
-          setError('Los días entre cuotas deben ser un número mayor o igual a 1.');
+          setError('Los días entre cuotas tienen que ser 1 o más.');
           return false;
         }
       }
@@ -393,13 +392,13 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
         if (descuentoTipo === 'PORCENTAJE') {
           const dv = parsearDecimal(descuentoValorTexto, { min: 0, max: 100 });
           if (dv === null) {
-            setError('El porcentaje de descuento debe ser un número válido entre 0 y 100.');
+            setError('El descuento va de 0 a 100%.');
             return false;
           }
         } else {
           const dv = parsearACentavos(descuentoValorTexto, { min: 0 });
           if (dv === null) {
-            setError('El monto del descuento debe ser un valor monetario válido.');
+            setError('El descuento no es un monto válido.');
             return false;
           }
         }
@@ -573,16 +572,9 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
       >
         {/* Cabecera */}
         <header className="flex items-center justify-between px-6 py-4 border-b border-borde shrink-0 bg-superficie">
-          <div>
-            <h3 id="titulo-venta" className="text-title text-texto font-semibold">
-              {esEncargo ? 'Nuevo encargo' : 'Nueva venta'}
-            </h3>
-            <p className="text-caption text-texto-3">
-              {esEncargo
-                ? 'Cotizá lo que la clienta encargó y cobrá el anticipo.'
-                : 'Vendé de tu inventario. Las existencias se descuentan automáticamente.'}
-            </p>
-          </div>
+          <h3 id="titulo-venta" className="text-title text-texto font-semibold">
+            {esEncargo ? 'Nuevo encargo' : 'Nueva venta'}
+          </h3>
           <Button variant="ghost" size="sm" onClick={onCerrar} aria-label="Cerrar">
             <X className="w-4 h-4" />
           </Button>
@@ -616,14 +608,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                     >
                       {completado ? '✓' : p.id}
                     </span>
-                    <div className="hidden sm:block">
-                      <div className="text-caption font-semibold leading-tight flex items-center gap-1">
-                        <span>{p.titulo}</span>
-                      </div>
-                      <div className="text-caption text-texto-3 text-[11px] leading-tight">
-                        {p.subtitulo}
-                      </div>
-                    </div>
+                    <span className="hidden sm:block text-caption font-semibold">{p.titulo}</span>
                   </button>
                   {idx < PASOS.length - 1 && (
                     <div
@@ -653,21 +638,6 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
           {/* ========================================================= */}
           {paso === 1 && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-label font-semibold text-texto">
-                    {esEncargo ? 'Prendas a cotizar' : '¿Qué prendas lleva la clienta?'}
-                  </h4>
-                  <p className="text-caption text-texto-3">
-                    Buscá en tu inventario o ingresá la descripción.
-                  </p>
-                </div>
-                <Button size="sm" variant="secondary" onClick={agregarLinea}>
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Agregar otro</span>
-                </Button>
-              </div>
-
               <div className="space-y-3">
                 {lineas.map((l, i) => {
                   const producto = l.producto_id
@@ -680,12 +650,9 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                   return (
                     <div
                       key={l.clave}
-                      className="rounded-xl border border-borde bg-superficie-2/70 p-3.5 space-y-3 shadow-xs"
+                      className="rounded-xl border border-borde bg-superficie-2/50 p-3.5 space-y-3"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="w-6 h-6 rounded-full bg-superficie border border-borde flex items-center justify-center text-caption font-semibold text-texto-3 shrink-0">
-                          {i + 1}
-                        </span>
 
                         {producto ? (
                           <div className="flex-1 flex items-center justify-between gap-3 min-w-0 bg-superficie px-3 py-2 rounded-lg border border-borde">
@@ -694,7 +661,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                                 {producto.nombre}
                               </div>
                               <div className="text-caption text-texto-3">
-                                Stock: {producto.existencias} disponibles · Costo unitario:{' '}
+                                {producto.existencias} en bodega · costo{' '}
                                 {formatearMoneda(producto.costo_unitario_usd_cents, 'USD')}
                               </div>
                             </div>
@@ -717,7 +684,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                               autoFocus
                               value={busquedaProducto}
                               onChange={(e) => setBusquedaProducto(e.target.value)}
-                              placeholder="Escribe el nombre o código del producto..."
+                              placeholder="Buscar por nombre o código"
                               className="pl-9"
                             />
                             <ul className="absolute z-20 mt-1 w-full max-h-56 overflow-y-auto rounded-lg border border-borde bg-superficie shadow-xl">
@@ -750,7 +717,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                                 ))
                               ) : (
                                 <li className="px-3 py-3 text-label text-texto-3">
-                                  No hay productos que coincidan con la búsqueda.
+                                  Ningún producto coincide.
                                 </li>
                               )}
                               <li className="border-t border-borde bg-superficie-2">
@@ -759,7 +726,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                                   onClick={() => setLineaBuscando(null)}
                                   className="w-full text-left px-3 py-2 text-label text-texto-2 hover:text-acento focus-visible:outline-none"
                                 >
-                                  ✎ Escribir nombre a mano (sin vincular inventario)
+                                  Escribirlo a mano, fuera del inventario
                                 </button>
                               </li>
                             </ul>
@@ -779,7 +746,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                                 )
                               }
                               placeholder={
-                                esEncargo ? 'Ej. Vestido floral pedido por clienta' : 'Producto sin registrar en inventario'
+                                esEncargo ? 'Ej: Vestido floral' : 'Producto fuera del inventario'
                               }
                               className="flex-1"
                             />
@@ -814,7 +781,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                       {/* Variantes, Cantidad, Precio y Subtotal */}
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
                         {producto && producto.variantes.length > 1 && !esEncargo ? (
-                          <Field label="Talla / Color">
+                          <Field label="Talla o tono">
                             <Select
                               value={l.variante_id ?? ''}
                               onChange={(e) =>
@@ -825,7 +792,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                                 )
                               }
                             >
-                              <option value="">Seleccionar talla</option>
+                              <option value="">Elegí</option>
                               {producto.variantes.map((v) => (
                                 <option key={v.id} value={v.id} disabled={v.existencias === 0}>
                                   {[v.talla, v.color].filter(Boolean).join(' · ') || 'Única'} (
@@ -838,7 +805,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                           <div className="hidden sm:block" />
                         )}
 
-                        <Field label="Cantidad" error={excedeStock ? 'Excede existencias' : undefined}>
+                        <Field label="Cantidad" error={excedeStock ? 'Hay menos en bodega' : undefined}>
                           <Input
                             type="number"
                             min="1"
@@ -848,7 +815,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                           />
                         </Field>
 
-                        <Field label="Precio unitario ($)">
+                        <Field label="Precio ($)">
                           <Input
                             value={l.precio}
                             onChange={(e) => actualizarLinea(l.clave, 'precio', e.target.value)}
@@ -858,7 +825,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                         </Field>
 
                         {esEncargo ? (
-                          <Field label="Costo est. ($)" hint="Lo que te costará">
+                          <Field label="Costo estimado ($)">
                             <Input
                               value={l.costo_estimado}
                               onChange={(e) =>
@@ -895,8 +862,8 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                             />
                             <span>
                               {producto.unidades_por_paquete && producto.unidades_por_paquete > 1
-                                ? `📦 Vender paquete completo (${producto.unidades_por_paquete} unidades por ${formatearMoneda(aCentavos(l.precio) * producto.unidades_por_paquete, 'USD')})`
-                                : `📦 Vender todo el stock disponible (${producto.existencias} unidades)`}
+                                ? `Vender el pack (${producto.unidades_por_paquete} unidades, ${formatearMoneda(aCentavos(l.precio) * producto.unidades_por_paquete, 'USD')})`
+                                : `Vender todo lo que hay (${producto.existencias} unidades)`}
                             </span>
                           </label>
                         )}
@@ -905,19 +872,11 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                 })}
               </div>
 
-              {/* Tarjeta de resumen de paso 1 */}
-              <div className="rounded-xl border border-borde bg-superficie p-4 flex items-center justify-between">
-                <div>
-                  <span className="text-caption text-texto-3 block">Total de prendas</span>
-                  <span className="text-body font-semibold text-texto">
-                    {totalPrendas} {totalPrendas === 1 ? 'artículo' : 'artículos'}
-                  </span>
-                </div>
-                <div className="text-right">
-                  <span className="text-caption text-texto-3 block">Subtotal de la venta</span>
-                  <Money usd_cents={totales.subtotal} size="md" />
-                </div>
-              </div>
+              {/* El total ya está en el pie: acá sólo se agrega otra línea. */}
+              <Button size="sm" variant="ghost" onClick={agregarLinea} className="text-texto-2">
+                <Plus className="w-3.5 h-3.5" />
+                <span>Agregar otro producto</span>
+              </Button>
             </div>
           )}
 
@@ -928,18 +887,11 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
             <div className="space-y-5">
               {/* Sección Cliente y Fecha */}
               <div className="rounded-xl border border-borde p-5 bg-superficie space-y-4">
-                <div className="flex items-center gap-2 border-b border-borde/60 pb-2">
-                  <User className="w-4 h-4 text-acento" />
-                  <h4 className="text-label font-semibold text-texto">Clienta y Fecha</h4>
-                </div>
-
                 <div className="space-y-3">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-caption font-medium text-texto-2">
-                      {esEncargo ? 'Clienta (Requerida para encargos)' : 'Clienta asignada'}
-                    </span>
+                    <h4 className="text-label font-semibold text-texto">Clienta</h4>
                     <div className="flex items-center gap-2">
-                      <Field label="Fecha de la venta" className="w-40 mb-0">
+                      <Field label="Fecha" className="w-40 mb-0">
                         <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
                       </Field>
                     </div>
@@ -957,18 +909,18 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                             <span className="truncate">{clienteSeleccionado.nombre}</span>
                             {clienteSeleccionado.saldo_pendiente_usd_cents > 0 && (
                               <Badge tone="danger">
-                                Debe ${((clienteSeleccionado.saldo_pendiente_usd_cents) / 100).toFixed(2)}
+                                Debe {formatearMoneda(clienteSeleccionado.saldo_pendiente_usd_cents, 'USD')}
                               </Badge>
                             )}
                           </div>
                           <p className="text-caption text-texto-3 truncate">
                             {[
-                              clienteSeleccionado.telefono ? `📞 ${clienteSeleccionado.telefono}` : '',
+                              clienteSeleccionado.telefono ?? '',
                               clienteSeleccionado.ciudad,
                               clienteSeleccionado.direccion,
                             ]
                               .filter(Boolean)
-                              .join(' · ') || 'Sin teléfono registrado'}
+                              .join(' · ') || 'Sin teléfono'}
                           </p>
                         </div>
                       </div>
@@ -981,50 +933,38 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                           setBusquedaCliente('');
                         }}
                       >
-                        Cambiar cliente
+                        Cambiar
                       </Button>
                     </div>
                   ) : mostrarCrearCliente ? (
                     /* 2. Mini-formulario inline para registrar nuevo cliente */
                     <div className="rounded-xl border border-acento/40 bg-superficie-2 p-4 space-y-3.5 animate-fade-in shadow-sm">
-                      <div className="flex items-center justify-between border-b border-borde/60 pb-2">
-                        <span className="text-body font-semibold text-texto flex items-center gap-2">
-                          <UserPlus className="w-4 h-4 text-acento" />
-                          Registrar nueva clienta
-                        </span>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setMostrarCrearCliente(false)}
-                          className="text-texto-3"
-                        >
-                          Cancelar
-                        </Button>
-                      </div>
+                      <span className="text-body font-semibold text-texto flex items-center gap-2">
+                        <UserPlus className="w-4 h-4 text-acento" />
+                        Clienta nueva
+                      </span>
 
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <Field label="Nombre completo *" className="sm:col-span-1">
+                        <Field label="Nombre" className="sm:col-span-1">
                           <Input
                             value={nuevoNombreCliente}
                             onChange={(e) => setNuevoNombreCliente(e.target.value)}
                             onBlur={() => setNuevoNombreCliente((prev) => formatearNombreEntidad(prev))}
-                            placeholder="Nombre de la clienta"
                             autoFocus
                           />
                         </Field>
-                        <Field label="Teléfono / WhatsApp" className="sm:col-span-1">
+                        <Field label="Teléfono" className="sm:col-span-1">
                           <Input
                             value={nuevoTelefonoCliente}
                             onChange={(e) => setNuevoTelefonoCliente(e.target.value)}
-                            placeholder="Ej: 8888-8888"
+                            placeholder="8888-8888"
                           />
                         </Field>
-                        <Field label="Dirección / Notas" className="sm:col-span-1">
+                        <Field label="Dirección" className="sm:col-span-1">
                           <Input
                             value={nuevaDireccionCliente}
                             onChange={(e) => setNuevaDireccionCliente(e.target.value)}
-                            placeholder="Ej: Managua, reparto..."
+                            placeholder="Opcional"
                           />
                         </Field>
                       </div>
@@ -1046,7 +986,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                           disabled={guardandoCliente || !nuevoNombreCliente.trim()}
                         >
                           <Plus className="w-3.5 h-3.5" />
-                          <span>{guardandoCliente ? 'Guardando...' : 'Crear y asociar a la venta'}</span>
+                          <span>{guardandoCliente ? 'Guardando...' : 'Crear clienta'}</span>
                         </Button>
                       </div>
                     </div>
@@ -1059,7 +999,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                           <Input
                             value={busquedaCliente}
                             onChange={(e) => setBusquedaCliente(e.target.value)}
-                            placeholder="Buscar cliente por nombre o teléfono..."
+                            placeholder="Buscar clienta por nombre o teléfono"
                             className="pl-9"
                           />
                         </div>
@@ -1072,8 +1012,8 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                           }}
                           className="shrink-0"
                         >
-                          <UserPlus className="w-4 h-4 text-acento" />
-                          <span>+ Nueva clienta</span>
+                          <UserPlus className="w-4 h-4" />
+                          <span>Clienta nueva</span>
                         </Button>
                       </div>
 
@@ -1088,10 +1028,8 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                             }}
                             className="w-full text-left px-3.5 py-2.5 hover:bg-superficie-2 flex items-center justify-between text-body transition-colors"
                           >
-                            <span className="font-medium text-texto">
-                              🏪 Mostrador (Venta rápida sin registrar clienta)
-                            </span>
-                            <Badge tone="neutral">Genérico</Badge>
+                            <span className="font-medium text-texto">Mostrador</span>
+                            <span className="text-caption text-texto-3">sin clienta</span>
                           </button>
                         )}
 
@@ -1114,21 +1052,20 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                                   )}
                                   {c.saldo_pendiente_usd_cents > 0 && (
                                     <Badge tone="danger">
-                                      Debe ${((c.saldo_pendiente_usd_cents) / 100).toFixed(2)}
+                                      Debe {formatearMoneda(c.saldo_pendiente_usd_cents, 'USD')}
                                     </Badge>
                                   )}
                                 </div>
                                 <div className="text-caption text-texto-3">
-                                  {[c.telefono ? `📞 ${c.telefono}` : '', c.ciudad].filter(Boolean).join(' · ') || 'Sin teléfono'}
+                                  {[c.telefono ?? '', c.ciudad].filter(Boolean).join(' · ') || 'Sin teléfono'}
                                 </div>
                               </div>
-                              <span className="text-caption font-semibold text-acento">Seleccionar →</span>
                             </button>
                           ))
                         ) : (
                           <div className="p-4 text-center">
                             <p className="text-body text-texto-2 mb-2">
-                              No se encontró ningún cliente con "{busquedaCliente}".
+                              No hay ninguna clienta "{busquedaCliente}".
                             </p>
                             <Button
                               type="button"
@@ -1140,7 +1077,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                               }}
                             >
                               <UserPlus className="w-3.5 h-3.5" />
-                              <span>Crear "{busquedaCliente}" ahora</span>
+                              <span>Crear "{busquedaCliente}"</span>
                             </Button>
                           </div>
                         )}
@@ -1152,25 +1089,22 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
 
               {/* Sección Cobro */}
               <div className="rounded-xl border border-borde p-5 bg-superficie space-y-4">
-                <div className="flex items-center gap-2 border-b border-borde/60 pb-2">
-                  <CreditCard className="w-4 h-4 text-acento" />
-                  <h4 className="text-label font-semibold text-texto">¿Cómo se cobra?</h4>
-                </div>
+                <h4 className="text-label font-semibold text-texto">Cobro</h4>
 
                 {esEncargo ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Field label="Anticipo (%)" hint="Porcentaje adelantado para confirmar el encargo">
+                    <Field label="Anticipo (%)">
                       <Input
                         value={anticipoTexto}
                         onChange={(e) => setAnticipoTexto(e.target.value)}
                         className="text-right font-medium"
                       />
                     </Field>
-                    <div className="rounded-lg border border-acento/30 bg-acento-suave/20 p-3.5 flex flex-col justify-center">
-                      <span className="block text-caption text-texto-3">Anticipo inicial requerido</span>
+                    <div className="rounded-lg bg-superficie-2 p-3.5 flex flex-col justify-center">
+                      <span className="block text-caption text-texto-3">Anticipo</span>
                       <Money usd_cents={anticipoUsd} size="md" />
                       <span className="text-caption text-texto-3 mt-1">
-                        Saldo al entregar pedido: {formatearMoneda(totales.total - anticipoUsd, 'USD')}
+                        Al entregar: {formatearMoneda(totales.total - anticipoUsd, 'USD')}
                       </span>
                     </div>
                   </div>
@@ -1193,13 +1127,8 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                             : 'border-borde text-texto-2 hover:bg-superficie-2'
                         )}
                       >
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold text-body">✓ Pagado al contado</span>
-                          <Badge tone="success">Sin deuda</Badge>
-                        </div>
-                        <span className="text-caption text-texto-3">
-                          El cliente paga el total de inmediato en efectivo o transferencia.
-                        </span>
+                        <span className="font-semibold text-body">Contado</span>
+                        <span className="text-caption text-texto-3">Paga todo ahora</span>
                       </button>
 
                       <button
@@ -1214,30 +1143,25 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                             : 'border-borde text-texto-2 hover:bg-superficie-2'
                         )}
                       >
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold text-body">Al crédito / Pendiente</span>
-                          <Badge tone="warning">Queda saldo</Badge>
-                        </div>
-                        <span className="text-caption text-texto-3">
-                          Se registra un saldo a favor que la clienta pagará después o en cuotas.
-                        </span>
+                        <span className="font-semibold text-body">Crédito</span>
+                        <span className="text-caption text-texto-3">Paga después o en cuotas</span>
                       </button>
                     </div>
 
                     {/* Detalle si es Contado */}
                     {formaCobro === 'CONTADO' && (
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 rounded-xl border border-acento/30 bg-acento-suave/15">
-                        <Field label="Método de pago">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <Field label="Método">
                           <Select
                             value={metodoPago}
                             onChange={(e) => setMetodoPago(e.target.value as MetodoPago)}
                           >
                             <option value="EFECTIVO">Efectivo</option>
-                            <option value="TRANSFERENCIA">Transferencia Bancaria</option>
-                            <option value="OTRO">Otro medio</option>
+                            <option value="TRANSFERENCIA">Transferencia</option>
+                            <option value="OTRO">Otro</option>
                           </Select>
                         </Field>
-                        <Field label="Moneda con la que paga">
+                        <Field label="Moneda">
                           <Select
                             value={monedaPago}
                             onChange={(e) => setMonedaPago(e.target.value as MonedaPago)}
@@ -1246,11 +1170,11 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                             <option value="USD">Dólares ($)</option>
                           </Select>
                         </Field>
-                        <Field label="Referencia / Recibo" hint="Opcional">
+                        <Field label="Referencia">
                           <Input
                             value={referenciaPago}
                             onChange={(e) => setReferenciaPago(e.target.value)}
-                            placeholder="Ej. Transferencia BAC #5432"
+                            placeholder="Opcional"
                           />
                         </Field>
                       </div>
@@ -1258,7 +1182,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
 
                     {/* Detalle si es Crédito */}
                     {formaCobro === 'CREDITO' && (
-                      <div className="p-4 rounded-xl border border-warning-200 bg-warning-50/30 space-y-3">
+                      <div className="space-y-3">
                         <label className="flex items-center gap-2 cursor-pointer">
                           <input
                             type="checkbox"
@@ -1267,13 +1191,13 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                             className="w-4 h-4 rounded border-borde-fuerte text-acento focus-visible:ring-2 focus-visible:ring-acento"
                           />
                           <span className="text-body font-medium text-texto">
-                            Definir plan de cuotas quincenales o mensuales
+                            En cuotas
                           </span>
                         </label>
 
                         {conCuotas && (
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pl-6 pt-1">
-                            <Field label="Número de cuotas">
+                            <Field label="Cuotas">
                               <Input
                                 type="number"
                                 min="2"
@@ -1282,7 +1206,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                                 className="text-right"
                               />
                             </Field>
-                            <Field label="Frecuencia (días)">
+                            <Field label="Cada (días)">
                               <Input
                                 type="number"
                                 min="1"
@@ -1293,7 +1217,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                             </Field>
                             <div className="flex items-end">
                               <div className="text-right w-full pb-1">
-                                <div className="text-caption text-texto-3">Valor por cuota</div>
+                                <div className="text-caption text-texto-3">Por cuota</div>
                                 <div className="text-body font-bold text-texto tabular">
                                   {formatearMoneda(
                                     Math.round(
@@ -1327,7 +1251,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                     <span className="text-label font-semibold text-texto">
                       {totales.descuentoCents > 0
                         ? `Descuento aplicado: -${formatearMoneda(totales.descuentoCents, 'USD')}`
-                        : 'Aplicar Descuento'}
+                        : 'Descuento'}
                     </span>
                     {totales.descuentoCents > 0 && (
                       <Badge tone="info">
@@ -1376,11 +1300,11 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                           value={descuentoTipo}
                           onChange={(e) => setDescuentoTipo(e.target.value as TipoDescuento)}
                         >
-                          <option value="PORCENTAJE">% Porcentaje</option>
-                          <option value="MONTO_FIJO">$ Monto fijo</option>
+                          <option value="PORCENTAJE">Porcentaje</option>
+                          <option value="MONTO_FIJO">Monto fijo</option>
                         </Select>
                       </Field>
-                      <Field label={descuentoTipo === 'PORCENTAJE' ? 'Porcentaje (%)' : 'Monto (USD)'} hint="Opcional">
+                      <Field label={descuentoTipo === 'PORCENTAJE' ? 'Porcentaje (%)' : 'Monto ($)'}>
                         <Input
                           type="number"
                           min="0"
@@ -1392,13 +1316,13 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                           className="text-right"
                         />
                       </Field>
-                      <Field label="Motivo" hint="Opcional">
+                      <Field label="Motivo">
                         <Select
                           value={descuentoMotivo}
                           onChange={(e) => setDescuentoMotivo(e.target.value)}
                         >
                           {MOTIVOS_DESCUENTO.map((m) => (
-                            <option key={m} value={m}>{m || '— Seleccionar —'}</option>
+                            <option key={m} value={m}>{m || 'Sin motivo'}</option>
                           ))}
                         </Select>
                       </Field>
@@ -1421,7 +1345,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                         </div>
                         {totales.costo > 0 && (
                           <div className={cn('flex justify-between font-medium pt-0.5', totales.bajoCosto ? 'text-danger' : 'text-success')}>
-                            <span>{totales.bajoCosto ? '⚠️ Pérdida (bajo costo)' : 'Ganancia'}</span>
+                            <span>{totales.bajoCosto ? 'Pérdida' : 'Ganancia'}</span>
                             <span>{formatearMoneda(totales.ganancia, 'USD')} ({totales.total > 0 ? Math.round((totales.ganancia * 100) / totales.total) : 0}%)</span>
                           </div>
                         )}
@@ -1433,8 +1357,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                       <div className="flex items-start gap-2.5 p-3 rounded-lg bg-danger-50/60 dark:bg-danger-50/20 border border-danger-200 dark:border-danger-500/40 text-danger-800 dark:text-danger-200 text-caption">
                         <AlertTriangle className="w-4 h-4 text-danger-600 dark:text-danger-400 shrink-0 mt-0.5" />
                         <span>
-                          <strong>¡Atención!</strong> Con este descuento el precio final ({formatearMoneda(totales.total, 'USD')}) es menor al costo de la mercadería ({formatearMoneda(totales.costo, 'USD')}).
-                          Esto representa una pérdida de <strong>{formatearMoneda(Math.abs(totales.ganancia), 'USD')}</strong>.
+                          Con este descuento perdés <strong>{formatearMoneda(Math.abs(totales.ganancia), 'USD')}</strong>: queda por debajo del costo.
                         </span>
                       </div>
                     )}
@@ -1464,36 +1387,36 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
               <div className="rounded-xl border border-borde bg-superficie p-5 space-y-4">
                 <div className="flex items-center justify-between border-b border-borde/60 pb-3">
                   <div>
-                    <h4 className="text-label font-semibold text-texto">Balance de la Operación</h4>
-                    <p className="text-caption text-texto-3">
-                      Cliente: {clienteSeleccionado?.nombre ?? 'Mostrador'} · Fecha: {fecha}
-                    </p>
+                    <h4 className="text-label font-semibold text-texto">
+                      {clienteSeleccionado?.nombre ?? 'Mostrador'}
+                    </h4>
+                    <p className="text-caption text-texto-3 tabular">{fecha}</p>
                   </div>
                   <Badge tone={formaCobro === 'CONTADO' && !esEncargo ? 'success' : 'warning'}>
                     {esEncargo
                       ? 'Encargo'
                       : formaCobro === 'CONTADO'
-                      ? '✓ Pagado de inmediato'
-                      : 'Al crédito'}
+                      ? 'Contado'
+                      : 'Crédito'}
                   </Badge>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                   <div className="rounded-lg bg-superficie-2 p-3">
                     <span className="text-caption text-texto-3 block">
-                      {totales.descuentoCents > 0 ? 'Subtotal (antes de desc.)' : 'Total de la Venta'}
+                      {totales.descuentoCents > 0 ? 'Subtotal' : 'Total'}
                     </span>
                     <Money usd_cents={totales.subtotal} size="md" />
                   </div>
                   <div className="rounded-lg bg-superficie-2 p-3">
-                    <span className="text-caption text-texto-3 block">Costo de mercadería</span>
+                    <span className="text-caption text-texto-3 block">Costo</span>
                     <span className="text-body font-semibold text-texto-2 block">
                       {formatearMoneda(totales.costo, 'USD')}
                     </span>
                   </div>
                   <div className="rounded-lg bg-superficie-2 p-3 col-span-2 sm:col-span-1">
                     <span className="text-caption text-texto-3 block">
-                      {esEncargo ? 'Ganancia estimada' : 'Ganancia neta'}
+                      {esEncargo ? 'Ganancia estimada' : 'Ganancia'}
                     </span>
                     <div className="flex items-center gap-1.5">
                       <Money usd_cents={totales.ganancia} size="md" soloUsd colorearSigno />
@@ -1511,7 +1434,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                   <div className="flex items-center justify-between px-4 py-2.5 rounded-lg bg-acento-suave/15 border border-acento/30 text-caption">
                     <span className="flex items-center gap-1.5 text-texto-2">
                       <Tag className="w-3.5 h-3.5 text-acento" />
-                      Descuento aplicado{descuentoMotivo ? ` (${descuentoMotivo})` : ''}
+                      Descuento{descuentoMotivo ? ` (${descuentoMotivo})` : ''}
                     </span>
                     <div className="flex items-center gap-2">
                       <span className="text-acento font-semibold">-{formatearMoneda(totales.descuentoCents, 'USD')}</span>
@@ -1522,19 +1445,19 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
 
                 {/* Banner de estado de cobro */}
                 {!esEncargo && formaCobro === 'CONTADO' && (
-                  <div className="flex items-center gap-2.5 p-3 rounded-lg bg-success-50/70 border border-success-200 text-success-800 text-caption">
+                  <div className="flex items-center gap-2.5 text-caption text-texto-2">
                     <CheckCircle2 className="w-4 h-4 text-success-600 shrink-0" />
                     <span>
-                      La venta se marcará como <strong>pagada de inmediato</strong> por {metodoPago.toLowerCase()} ({monedaPago}). El cliente no registrará deuda pendiente.
+                      Pagada ahora, en {metodoPago === 'TRANSFERENCIA' ? 'transferencia' : metodoPago === 'EFECTIVO' ? 'efectivo' : 'otro medio'} ({monedaPago === 'COR' ? 'córdobas' : 'dólares'}).
                     </span>
                   </div>
                 )}
 
                 {!esEncargo && formaCobro === 'CREDITO' && (
-                  <div className="flex items-center gap-2.5 p-3 rounded-lg bg-warning-50/70 border border-warning-200 text-warning-800 text-caption">
+                  <div className="flex items-center gap-2.5 text-caption text-texto-2">
                     <AlertTriangle className="w-4 h-4 text-warning-600 shrink-0" />
                     <span>
-                      Se registrará un saldo pendiente de <strong>{formatearMoneda(totales.total, 'USD')}</strong> en la cuenta de {clienteSeleccionado?.nombre ?? 'la clienta'}.
+                      {clienteSeleccionado?.nombre ?? 'La clienta'} queda debiendo <strong>{formatearMoneda(totales.total, 'USD')}</strong>.
                     </span>
                   </div>
                 )}
@@ -1551,11 +1474,9 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                       className="w-4 h-4 mt-0.5 rounded border-borde-fuerte text-acento focus-visible:ring-2 focus-visible:ring-acento"
                     />
                     <div>
-                      <span className="text-body font-medium text-texto block">
-                        Entregar mercadería ahora mismo
-                      </span>
+                      <span className="text-body font-medium text-texto block">Se la lleva ahora</span>
                       <span className="text-caption text-texto-3">
-                        Descuenta de inmediato las unidades físicas del inventario. Desmárcalo solo si la clienta aparta la ropa para recogerla después.
+                        Desmarcalo si la clienta la aparta para después.
                       </span>
                     </div>
                   </label>
@@ -1564,8 +1485,8 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
 
               {/* Resumen de artículos seleccionados */}
               <div className="rounded-xl border border-borde bg-superficie p-4 space-y-2">
-                <span className="text-caption font-semibold text-texto-3 block uppercase tracking-wider">
-                  Detalle de prendas ({totalPrendas})
+                <span className="text-caption font-semibold text-texto-3 block">
+                  Artículos ({totalPrendas})
                 </span>
                 <div className="divide-y divide-borde/40 max-h-40 overflow-y-auto">
                   {lineas.map((l) => (
@@ -1574,9 +1495,9 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                         <span className="font-medium text-texto">
                           {l.descripcion || 'Prenda'}
                         </span>
-                        <span className="text-caption text-texto-3 block">
-                          Cantidad: {l.cantidad} × {formatearMoneda(aCentavos(l.precio), 'USD')}
-                          {l.es_paquete && ' (Paquete completo)'}
+                        <span className="text-caption text-texto-3 block tabular">
+                          {l.cantidad} × {formatearMoneda(aCentavos(l.precio), 'USD')}
+                          {l.es_paquete && ' · pack'}
                         </span>
                       </div>
                       <span className="font-semibold text-texto tabular">
@@ -1588,12 +1509,12 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
               </div>
 
               {/* Notas y observaciones */}
-              <Field label="Notas y observaciones (opcional)">
+              <Field label="Notas">
                 <Textarea
                   rows={2}
                   value={notas}
                   onChange={(e) => setNotas(e.target.value)}
-                  placeholder="Detalles de entrega, acuerdos o recordatorios..."
+                  placeholder="Entrega, acuerdos"
                 />
               </Field>
             </div>

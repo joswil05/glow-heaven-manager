@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   X,
-  Package,
   AlertTriangle,
   Plus,
   Trash2,
@@ -201,6 +200,9 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
   const [envioManual, setEnvioManual] = useState(false);
   const [otrosTexto, setOtrosTexto] = useState('');
   const [taxReciboTexto, setTaxReciboTexto] = useState('');
+  // Otros gastos e impuesto del recibo se usan de vez en cuando: quedan
+  // plegados, y se abren solos si el paquete ya trae alguno.
+  const [verMasCostos, setVerMasCostos] = useState(false);
   const [notas, setNotas] = useState('');
   const [lineas, setLineas] = useState<LineaEnPantalla[]>([]);
   const [productos, setProductos] = useState<ProductoConStock[]>([]);
@@ -639,12 +641,15 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
   ).length;
   const estimados = calc.lineas.filter((c) => c.peso_estimado).length;
 
+  // Repartir por peso es lo esperado y no necesita explicación. Sólo se
+  // avisa cuando se reparte por unidades, que es lo que sorprende.
   const textoCriterio =
-    calc.criterio_flete === 'SIN_FLETE'
-      ? 'No hay flete que repartir.'
-      : calc.criterio_flete === 'PESO'
-        ? `El flete se reparte por peso, que es como cobra el courier.${estimados > 0 ? ` ${estimados} línea${estimados === 1 ? '' : 's'} sin peso escrito se estima${estimados === 1 ? '' : 'n'} con el peso conocido de cada producto.` : ''}`
-        : 'El flete se reparte por unidades: ningún producto tiene peso anotado. Si escribís el peso de alguno, se reparte por peso.';
+    calc.criterio_flete === 'UNIDADES'
+      ? 'El flete se reparte por unidades porque ningún producto tiene peso.'
+      : null;
+  void estimados;
+  const masCostosVisibles =
+    verMasCostos || otrosTexto.trim() !== '' || taxReciboTexto.trim() !== '';
 
   const titulo = resumen
     ? 'Listo'
@@ -670,23 +675,9 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
           className="bg-superficie rounded-2xl shadow-2xl w-full max-w-6xl h-[92vh] flex flex-col overflow-hidden border border-borde/80 animate-modal-pop cursor-default"
         >
           <header className="flex items-center justify-between px-6 py-4 border-b border-borde shrink-0">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-acento-suave text-acento flex items-center justify-center">
-                <Package className="w-4 h-4" />
-              </div>
-              <div>
-                <h3 id="titulo-paquete" className="text-title text-texto">
-                  {titulo}
-                </h3>
-                <p className="text-caption text-texto-3">
-                  {resumen
-                    ? 'Así quedó cada producto'
-                    : esCorreccion
-                      ? 'Ya está en el inventario: se corrigen montos y se agrega lo olvidado'
-                      : 'Nada entra al inventario hasta que lo pasés'}
-                </p>
-              </div>
-            </div>
+            <h3 id="titulo-paquete" className="text-title text-texto">
+              {titulo}
+            </h3>
             <Button
               variant="ghost"
               size="sm"
@@ -711,23 +702,23 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                 )}
 
                 {esCorreccion && (
-                  <div className="flex items-start gap-2.5 rounded-xl border border-alerta-suave bg-alerta-suave p-3 text-caption text-alerta">
-                    <Info className="w-4 h-4 shrink-0 mt-0.5" />
-                    <p>
-                      Podés corregir el precio de tienda, el 7%, el peso y el flete, y agregar lo que
-                      se olvidó. La diferencia se aplica a las unidades que siguen en la bodega; lo
-                      que ya se vendió conserva el costo con que salió. Las cantidades se corrigen
-                      ajustando existencias.
-                    </p>
+                  <div className="flex items-center gap-2.5 rounded-xl bg-alerta-suave px-3 py-2.5 text-label text-alerta">
+                    <Info className="w-4 h-4 shrink-0" />
+                    <p>La diferencia sólo cambia el costo de lo que sigue en bodega.</p>
                   </div>
                 )}
 
                 {/* Cabecera: lo que dice el recibo del courier */}
-                <section className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+                <section
+                  className={cn(
+                    'grid grid-cols-2 gap-3 items-start',
+                    masCostosVisibles ? 'lg:grid-cols-5' : 'lg:grid-cols-4'
+                  )}
+                >
                   <Field label="Fecha de llegada">
                     <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
                   </Field>
-                  <Field label="Peso de la caja (lb)" hint="El de la factura del courier">
+                  <Field label="Peso de la caja (lb)">
                     <Input
                       value={pesoTotalTexto}
                       onChange={(e) => setPesoTotalTexto(e.target.value)}
@@ -738,7 +729,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                   </Field>
                   <Field
                     label="Flete pagado"
-                    hint={envioManual ? 'Escrito a mano' : `A ${$(tarifaLb)} por libra`}
+                    hint={envioManual ? 'Escrito a mano' : `A ${$(tarifaLb)} la libra`}
                   >
                     <Input
                       value={envioTexto}
@@ -751,27 +742,39 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                       className="text-right"
                     />
                   </Field>
-                  <Field label="Otros gastos" hint="Aduana, reempaque">
-                    <Input
-                      value={otrosTexto}
-                      onChange={(e) => setOtrosTexto(e.target.value)}
-                      placeholder="0.00"
-                      inputMode="decimal"
-                      className="text-right"
-                    />
-                  </Field>
-                  <Field
-                    label="Impuesto del recibo"
-                    hint={`Opcional: si no da exacto el ${taxBp / 100}%`}
-                  >
-                    <Input
-                      value={taxReciboTexto}
-                      onChange={(e) => setTaxReciboTexto(e.target.value)}
-                      placeholder={`${taxBp / 100}% por línea`}
-                      inputMode="decimal"
-                      className="text-right"
-                    />
-                  </Field>
+                  {masCostosVisibles ? (
+                    <>
+                      <Field label="Otros gastos">
+                        <Input
+                          value={otrosTexto}
+                          onChange={(e) => setOtrosTexto(e.target.value)}
+                          placeholder="Aduana, reempaque"
+                          inputMode="decimal"
+                          className="text-right"
+                        />
+                      </Field>
+                      <Field label="Impuesto del recibo">
+                        <Input
+                          value={taxReciboTexto}
+                          onChange={(e) => setTaxReciboTexto(e.target.value)}
+                          placeholder={`${taxBp / 100}% por línea`}
+                          inputMode="decimal"
+                          className="text-right"
+                        />
+                      </Field>
+                    </>
+                  ) : (
+                    <div className="lg:pt-[22px]">
+                      <Button
+                        variant="ghost"
+                        onClick={() => setVerMasCostos(true)}
+                        className="text-texto-3 hover:text-texto"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Más costos</span>
+                      </Button>
+                    </div>
+                  )}
                 </section>
 
                 {/* Lo que vino adentro */}
@@ -828,19 +831,20 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                                       </Badge>
                                     ) : p && p.existencias > 0 ? (
                                       <span className="text-caption text-texto-3">
-                                        Repone: tenés {p.existencias}
+                                        Tenés {p.existencias}
                                       </span>
                                     ) : (
                                       <span className="text-caption text-texto-3">
-                                        {p && (p.paquetes ?? []).length > 0 ? 'Estaba agotado' : 'Primera vez'}
+                                        {p && (p.paquetes ?? []).length > 0 ? 'Agotado' : 'Nuevo'}
                                       </span>
                                     )}
                                     {l.destino === 'INVENTARIO' && !l.bloqueada && (
                                       <button
                                         type="button"
                                         onClick={() => cambiarPrecio(l.clave, { esPack: !l.esPack })}
-                                        className="text-caption text-acento hover:underline"
+                                        className="text-caption text-texto-3 hover:text-acento hover:underline"
                                       >
+                                        <span aria-hidden="true">· </span>
                                         {l.esPack ? 'Por unidad' : 'Vino en pack'}
                                       </button>
                                     )}
@@ -904,13 +908,18 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                                     className="w-24 text-right ml-auto"
                                     inputMode="decimal"
                                   />
-                                  <div className="text-caption text-texto-3 mt-1 tabular">
-                                    {l.esPack ? 'por pack' : 'c/u'} · línea {$(c?.precio_linea_usd_cents ?? 0)}
-                                  </div>
+                                  {(l.esPack || (cantidadDe(l) ?? 0) > 1) && (
+                                    <div className="text-caption text-texto-3 mt-1 tabular">
+                                      {l.esPack ? 'por pack' : `total ${$(c?.precio_linea_usd_cents ?? 0)}`}
+                                    </div>
+                                  )}
                                 </td>
 
                                 <td className="px-2 py-2.5 text-right">
-                                  <label className="inline-flex items-center gap-1.5 cursor-pointer text-caption text-texto-2">
+                                  <label
+                                    className="inline-flex items-center gap-2 cursor-pointer pt-2 tabular"
+                                    title="Desmarcalo si la tienda no cobró impuesto"
+                                  >
                                     <input
                                       type="checkbox"
                                       checked={!l.exento}
@@ -918,11 +927,10 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                                       className="w-3.5 h-3.5 rounded border-borde-fuerte text-acento"
                                       aria-label={`Pagó impuesto: ${l.descripcion}`}
                                     />
-                                    cobró
+                                    <span className={l.exento ? 'text-texto-3 line-through' : 'text-texto'}>
+                                      {$(c?.tax_linea_usd_cents ?? 0)}
+                                    </span>
                                   </label>
-                                  <div className="tabular text-texto mt-1">
-                                    {$(c?.tax_linea_usd_cents ?? 0)}
-                                  </div>
                                 </td>
 
                                 <td className="px-2 py-2.5 text-right">
@@ -938,29 +946,19 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                                     className="w-20 text-right ml-auto"
                                     inputMode="decimal"
                                   />
-                                  {c?.peso_estimado && c.peso_linea_mlb > 0 && (
-                                    <div className="text-caption text-texto-3 mt-1">estimado</div>
-                                  )}
                                 </td>
 
-                                <td className="px-2 py-2.5 text-right tabular text-texto">
+                                <td className="px-2 py-2.5 pt-4 text-right tabular text-texto-2">
                                   {$((c?.envio_asignado_usd_cents ?? 0) + (c?.otros_asignados_usd_cents ?? 0))}
                                 </td>
 
-                                <td className="px-2 py-2.5 text-right tabular">
-                                  <div className="font-semibold text-texto">
-                                    {$(c?.costo_unitario_usd_cents ?? 0)}
-                                  </div>
-                                  <div className="text-caption text-texto-3">
-                                    línea {$(c?.costo_linea_usd_cents ?? 0)}
-                                  </div>
+                                <td className="px-2 py-2.5 pt-4 text-right tabular font-semibold text-texto">
+                                  {$(c?.costo_unitario_usd_cents ?? 0)}
                                 </td>
 
                                 <td className="px-2 py-2.5 text-right">
                                   {l.destino === 'ENCARGO' ? (
-                                    <span className="text-caption text-texto-3">
-                                      Congela el costo del encargo
-                                    </span>
+                                    <span className="text-caption text-texto-3">Para el encargo</span>
                                   ) : efecto && primeraDelProducto ? (
                                     <div className="tabular">
                                       {efecto.precio_antes_usd_cents > 0 &&
@@ -977,16 +975,15 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                                           {$(efecto.precio_despues_usd_cents)}
                                         </span>
                                       )}
-                                      <div
-                                        className={cn(
-                                          'text-caption mt-0.5',
-                                          efecto.bajo_costo ? 'text-danger-700' : 'text-texto-3'
-                                        )}
-                                      >
-                                        {efecto.bajo_costo
-                                          ? 'debajo del costo'
-                                          : `costo prom. ${$(efecto.costo_despues_usd_cents)}`}
-                                      </div>
+                                      {/* El precio sale del costo promedio con lo que ya había.
+                                          Sólo se muestra cuando no coincide con el de esta línea. */}
+                                      {efecto.bajo_costo ? (
+                                        <div className="text-caption mt-0.5 text-danger-700">debajo del costo</div>
+                                      ) : efecto.costo_despues_usd_cents !== (c?.costo_unitario_usd_cents ?? 0) ? (
+                                        <div className="text-caption mt-0.5 text-texto-3">
+                                          promedio {$(efecto.costo_despues_usd_cents)}
+                                        </div>
+                                      ) : null}
                                     </div>
                                   ) : null}
                                 </td>
@@ -1029,7 +1026,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                             agregarProducto(sugerencias[0]);
                           }
                         }}
-                        placeholder="Agregar un producto que ya tenés: buscá por nombre o código"
+                        placeholder="Buscar producto por nombre o código"
                         className="pl-9"
                         aria-label="Buscar producto para agregar"
                       />
@@ -1082,7 +1079,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                           className="rounded-xl"
                         >
                           <ClipboardList className="w-4 h-4" />
-                          <span>Encargo de una clienta</span>
+                          <span>Agregar encargo</span>
                         </Button>
                         {verEncargos && (
                           <ul className="absolute z-20 right-0 mt-1 w-80 max-h-72 overflow-y-auto rounded-xl border border-borde bg-superficie shadow-xl">
@@ -1115,7 +1112,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                     rows={2}
                     value={notas}
                     onChange={(e) => setNotas(e.target.value)}
-                    placeholder="Tienda, número de tracking, lo que haga falta recordar"
+                    placeholder="Tienda, tracking"
                   />
                 </Field>
               </>
@@ -1151,7 +1148,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                       <span className="text-caption text-texto-3">· {formatearPeso(pesoTotalMlb)}</span>
                     )}
                   </p>
-                  <p className="text-caption text-texto-3 mt-0.5">{textoCriterio}</p>
+                  {textoCriterio && <p className="text-caption text-texto-3 mt-0.5">{textoCriterio}</p>}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <Button variant="secondary" onClick={onCerrar} disabled={guardando} className="rounded-xl">
@@ -1199,13 +1196,12 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
         abierto={confirmando}
         titulo="¿Pasar el paquete al inventario?"
         consecuencias={[
-          `Entran ${unidades} unidad${unidades === 1 ? '' : 'es'} de ${productosDistintos} producto${productosDistintos === 1 ? '' : 's'}, con un costo total de ${$(calc.total_pagado_usd_cents)}.`,
+          `Entran ${unidades} unidad${unidades === 1 ? '' : 'es'} de ${productosDistintos} producto${productosDistintos === 1 ? '' : 's'} por ${$(calc.total_pagado_usd_cents)}.`,
           ...(cambianDePrecio > 0
             ? [
-                `${cambianDePrecio} producto${cambianDePrecio === 1 ? '' : 's'} cambia${cambianDePrecio === 1 ? '' : 'n'} de precio porque cambia su costo (lo ves en la columna "Precio de venta").`,
+                `${cambianDePrecio} producto${cambianDePrecio === 1 ? ' cambia' : 's cambian'} de precio.`,
               ]
             : []),
-          'Después se pueden corregir los montos y agregar lo olvidado. Las cantidades se corrigen ajustando existencias.',
         ]}
         textoConfirmar="Sí, pasarlo al inventario"
         textoCancelar="Seguir revisando"

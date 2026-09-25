@@ -518,12 +518,6 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
   return (
     <div className="flex-1 overflow-y-auto p-4 md:px-6 md:py-5 animate-fade-in scroll-smooth" onKeyDown={alPresionarEnter}>
       <div className="max-w-[1500px] w-full mx-auto space-y-5 stagger-children">
-        <div>
-          <p className="text-label text-texto-2">
-            Los costos que pagás y cómo se calculan tus precios.
-          </p>
-        </div>
-
         {/* Conexión con la base. Va primero porque sin esto nada funciona. */}
         <NubeSection />
 
@@ -532,8 +526,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
           <CardHeader>
             <SectionHeader
               icon={Palette}
-              title="Apariencia del Sistema"
-              description="Personalizá el tema visual de la aplicación para mayor confort ocular"
+              title="Apariencia"
             />
           </CardHeader>
           <CardContent>
@@ -552,8 +545,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
                 <div className="w-10 h-10 rounded-xl bg-alerta-suave text-alerta flex items-center justify-center mb-2 shadow-xs">
                   <Sun size={20} />
                 </div>
-                <span className="text-sm font-bold text-texto">Modo Claro</span>
-                <span className="text-[11px] text-texto-3 mt-0.5">Luminoso y clásico</span>
+                <span className="text-sm font-bold text-texto">Claro</span>
                 {theme === 'light' && (
                   <span className="inline-flex items-center gap-1 mt-2 text-[10px] font-bold text-acento bg-acento/15 px-2 py-0.5 rounded-full">
                     <Check size={10} /> Activo
@@ -575,8 +567,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
                 <div className="w-10 h-10 rounded-xl bg-superficie-3 text-acento flex items-center justify-center mb-2 shadow-xs border border-borde">
                   <Moon size={20} />
                 </div>
-                <span className="text-sm font-bold text-texto">Modo Oscuro</span>
-                <span className="text-[11px] text-texto-3 mt-0.5">Elegante Deep Slate</span>
+                <span className="text-sm font-bold text-texto">Oscuro</span>
                 {theme === 'dark' && (
                   <span className="inline-flex items-center gap-1 mt-2 text-[10px] font-bold text-acento bg-acento/15 px-2 py-0.5 rounded-full">
                     <Check size={10} /> Activo
@@ -619,22 +610,21 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
             <SectionHeader
               icon={Database}
               title="Lo que te cobran"
-              description="Se usa para calcular el costo de cada paquete que traés"
             />
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <Field label="Tax de compra (%)" hint="Lo que te cobran las tiendas en USA">
+              <Field label="Impuesto de las tiendas (%)">
                 <Input value={tax} onChange={(e) => setTax(e.target.value)} className="text-right" />
               </Field>
-              <Field label="Envío por libra ($)" hint="Solo es una sugerencia: podés escribir el real">
+              <Field label="Flete por libra ($)" hint="Sugerido al registrar un paquete">
                 <Input
                   value={tarifaEnvio}
                   onChange={(e) => setTarifaEnvio(e.target.value)}
                   className="text-right"
                 />
               </Field>
-              <Field label="Córdobas por dólar" hint="Solo para mostrar el equivalente en C$">
+              <Field label="Córdobas por dólar">
                 <Input value={tasa} onChange={(e) => setTasa(e.target.value)} className="text-right" />
               </Field>
             </div>
@@ -646,8 +636,8 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
           <CardHeader>
             <SectionHeader
               icon={Tag}
-              title="Cómo se calculan tus precios"
-              description="La ganancia siempre se mide contra el costo real, ya con tax y envío adentro"
+              title="Precios"
+              description="La ganancia se mide contra el costo con impuesto y flete"
             />
           </CardHeader>
           <CardContent>
@@ -655,7 +645,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
               <div className="space-y-4">
                 <Field
                   label="Ganancia por defecto (%)"
-                  hint="Sobre el costo. Cada categoría o producto puede tener el suyo."
+                  hint="Cada categoría o producto puede tener el suyo"
                 >
                   <Input
                     value={margen}
@@ -663,7 +653,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
                     className="text-right"
                   />
                 </Field>
-                <Field label="Redondear el precio" hint="Siempre hacia arriba, nunca hacia abajo">
+                <Field label="Redondear hacia arriba a">
                   <Select value={paso} onChange={(e) => setPaso(Number(e.target.value))}>
                     {PASOS.map((p) => (
                       <option key={p.valor} value={p.valor}>
@@ -675,9 +665,8 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
               </div>
 
               <div className="rounded-xl border border-borde/80 bg-gradient-to-br from-superficie via-superficie to-superficie-2/40 p-4 shadow-xs">
-                <div className="text-label font-semibold text-texto mb-2">Simulación de precio en vivo</div>
                 <p className="text-caption text-texto-3 mb-3">
-                  Un producto que te costó {formatearMoneda(4260, 'USD')} con flete y tax incluidos:
+                  Ejemplo: algo que te costó {formatearMoneda(4260, 'USD')}
                 </p>
                 <dl className="space-y-1.5 text-label">
                   <div className="flex justify-between gap-2">
@@ -728,14 +717,14 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <Field label="Anticipo por defecto (%)" hint="Lo que pedís en los encargos">
+              <Field label="Anticipo de los encargos (%)">
                 <Input
                   value={anticipo}
                   onChange={(e) => setAnticipo(e.target.value)}
                   className="text-right"
                 />
               </Field>
-              <Field label="Avisar cuando queden" hint="Unidades mínimas de un producto nuevo">
+              <Field label="Avisar cuando queden" hint="Unidades, para cada producto nuevo">
                 <Input
                   value={stockMinimo}
                   onChange={(e) => setStockMinimo(e.target.value)}
@@ -762,8 +751,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
           <CardHeader>
             <SectionHeader
               icon={MessageSquare}
-              title="Mensajes Predeterminados por WhatsApp"
-              description="Personalizá los mensajes automáticos de cobro, facturas y cotizaciones con 1 clic"
+              title="Mensajes de WhatsApp"
             />
           </CardHeader>
           <CardContent className="space-y-4">
@@ -816,7 +804,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
                     ? 'Plantilla de Envío de Factura Comercial'
                     : 'Plantilla de Proforma / Cotización de Encargo'
               }
-              hint="Podés hacer clic en las etiquetas para insertarlas directamente al texto"
+              hint="Tocá una etiqueta para agregarla"
             >
               <textarea
                 value={
@@ -833,7 +821,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
                 }}
                 rows={4}
                 className="w-full rounded-xl border border-borde bg-superficie px-3.5 py-2.5 text-body text-texto placeholder:text-texto-3 focus:outline-none focus:ring-2 focus:ring-acento transition-[background-color,border-color,color,box-shadow,transform,opacity] font-sans leading-relaxed"
-                placeholder="Escribe aquí el texto de tu mensaje..."
+                placeholder="Escribí el mensaje"
               />
             </Field>
 
@@ -970,8 +958,8 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
           <CardHeader>
             <SectionHeader
               icon={Building2}
-              title="Cuentas Bancarias para Comprobantes"
-              description="Información que compartís a tus clientas para recibir transferencias"
+              title="Cuentas bancarias"
+              description="Las que ven tus clientas para transferirte"
             />
           </CardHeader>
           <CardContent className="space-y-4">
@@ -1022,7 +1010,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <Field label="Banco">
                   <Input
-                    placeholder="Ej. BAC, LAFISE, Banpro"
+                    placeholder="BAC, LAFISE, Banpro"
                     value={nuevaCuenta.banco}
                     onChange={(e) => setNuevaCuenta((p) => ({ ...p, banco: e.target.value }))}
                   />
@@ -1045,9 +1033,9 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
                     onChange={(e) => setNuevaCuenta((p) => ({ ...p, numero: e.target.value }))}
                   />
                 </Field>
-                <Field label="Titular / Nombre">
+                <Field label="Titular">
                   <Input
-                    placeholder="Ej. Glow Heaven"
+                    placeholder="Glow Heaven"
                     value={nuevaCuenta.titular ?? ''}
                     onChange={(e) => setNuevaCuenta((p) => ({ ...p, titular: e.target.value }))}
                   />
@@ -1069,14 +1057,13 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
             <SectionHeader
               icon={Clock}
               title="Avisos y preferencias"
-              description="Cuándo avisarte, y con qué arranca cada pantalla para que no lo elijas cada vez"
             />
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <Field
-                label="Alerta de mora en cobros"
-                hint="Días sin abono para marcar saldo urgente"
+                label="Saldo urgente después de"
+                hint="Días sin abono"
               >
                 <Select
                   value={diasMora}
@@ -1089,8 +1076,8 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
               </Field>
 
               <Field
-                label="Encargos estancados en USA"
-                hint="Días comprados sin meter a un paquete"
+                label="Encargo estancado después de"
+                hint="Días sin entrar en un paquete"
               >
                 <Select
                   value={diasEncargos}
@@ -1103,8 +1090,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
               </Field>
 
               <Field
-                label="Moneda con la que arrancan los cobros"
-                hint="Se puede cambiar en cada venta"
+                label="Moneda de cobro"
               >
                 <Select
                   value={monedaDefectoVenta}
@@ -1116,8 +1102,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
               </Field>
 
               <Field
-                label="Método con el que arrancan los cobros"
-                hint="El que más usás, para no elegirlo cada vez"
+                label="Método de cobro"
               >
                 <Select
                   value={metodoDefecto}
@@ -1129,7 +1114,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
                 </Select>
               </Field>
 
-              <Field label="Cuotas que propone una venta a crédito" hint="Se puede cambiar en cada venta">
+              <Field label="Cuotas de una venta a crédito">
                 <div className="flex items-center gap-2">
                   <Input
                     type="text"
@@ -1153,22 +1138,20 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
               </Field>
 
               <Field
-                label="Pantalla con la que abre Windows"
-                hint="Donde empieza tu día en la computadora"
+                label="Al abrir en Windows"
               >
                 <Select value={pantallaInicio} onChange={(e) => setPantallaInicio(e.target.value)}>
                   <option value="panel">Inicio</option>
                   <option value="ventas">Ventas</option>
                   <option value="encargos">Encargos</option>
-                  <option value="cobranza">Cobros y Abonos</option>
+                  <option value="cobranza">Cobros</option>
                   <option value="inventario">Inventario</option>
                   <option value="clientes">Clientes</option>
                 </Select>
               </Field>
 
               <Field
-                label="Pantalla con la que abre el celular"
-                hint="Se nota: el celular se abre muchas veces al día"
+                label="Al abrir en el celular"
               >
                 <Select
                   value={pantallaInicioMovil}
@@ -1183,7 +1166,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
 
               <Field
                 label="Código de país para WhatsApp"
-                hint="505 es Nicaragua. Sin el +"
+                hint="Sin el +"
               >
                 <Input
                   type="text"
@@ -1214,14 +1197,13 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
             <SectionHeader
               icon={Users}
               title="Quién puede entrar"
-              description="Tu negocio, tus datos: acá decidís vos quién los ve"
             />
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-end gap-2 flex-wrap">
               <Field
                 label="Invitar a alguien"
-                hint="Su correo de Google, el mismo con el que va a entrar"
+                hint="El correo de Google con el que va a entrar"
                 className="flex-1 min-w-[260px]"
               >
                 <Input
@@ -1276,10 +1258,8 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
               ))}
             </div>
 
-            <p className="text-caption leading-relaxed text-texto-3">
-              Firebase reconoce a cada persona por su cuenta de Google, y esa cuenta recién existe
-              cuando entra por primera vez. Por eso una invitación queda pendiente hasta que la usan.
-              Tiene que ser el correo exacto con el que inicia sesión.
+            <p className="text-caption text-texto-3">
+              La invitación queda pendiente hasta que esa persona entra por primera vez.
             </p>
           </CardContent>
         </Card>
@@ -1289,15 +1269,10 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
           <CardHeader>
             <SectionHeader
               icon={Download}
-              title="Herramientas y Exportación"
-              description="Descargá tu inventario y catálogo para Excel o copias de seguridad"
+              title="Exportar a Excel"
             />
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-caption text-texto-3">
-              Los datos del negocio son tuyos. Todo sale en archivos que Excel abre directo, para
-              tu contadora, para un respaldo propio o para lo que necesites.
-            </p>
 
             {/* El período. Los archivos de fechas lo respetan; el inventario y
                 las clientas son una foto de hoy y no tienen período. */}
@@ -1435,8 +1410,8 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
 
             <p className="text-caption text-texto-3">
               {info
-                ? `Versión ${info.version}. Todo se guarda solo en la nube.`
-                : 'Cargando información del sistema...'}
+                ? `Versión ${info.version}`
+                : 'Cargando...'}
             </p>
           </CardContent>
         </Card>
@@ -1446,32 +1421,28 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
           <CardHeader>
             <SectionHeader
               icon={ShieldCheck}
-              title="Seguridad y Bloqueo con PIN"
-              description="Exigí un código numérico cada vez que abras la app para proteger tus datos"
+              title="PIN"
+              description="Se pide cada vez que abrís la app. Vacío: no se pide."
             />
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-body text-texto-2 leading-relaxed">
-              Configurá un PIN de 4 a 6 dígitos numéricos. Al abrir la app, nadie podrá ver tus productos ni finanzas sin ingresar este código. Si lo dejás en blanco, la app entra de inmediato sin solicitarlo.
-            </p>
-
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg">
-              <Field label="PIN de acceso (4 a 6 dígitos)" hint="Solo números">
+              <Field label="PIN" hint="De 4 a 6 números">
                 <Input
                   type="password"
                   inputMode="numeric"
                   maxLength={6}
-                  placeholder="Ej: 1234"
+                  placeholder="••••"
                   value={pinSeguridad}
                   onChange={(e) => setPinSeguridad(e.target.value.replace(/\D/g, ''))}
                 />
               </Field>
-              <Field label="Confirmar PIN" hint="Escribí el mismo PIN para verificar">
+              <Field label="Repetilo">
                 <Input
                   type="password"
                   inputMode="numeric"
                   maxLength={6}
-                  placeholder="Repetir PIN"
+                  placeholder="••••"
                   value={confirmarPin}
                   onChange={(e) => setConfirmarPin(e.target.value.replace(/\D/g, ''))}
                 />

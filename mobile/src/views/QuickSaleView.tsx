@@ -190,7 +190,7 @@ export function QuickSaleView() {
 
   async function crearClienteRapido() {
     if (!nuevoNombre.trim()) {
-      mostrar('Escribe el nombre de la clienta.', 'error');
+      mostrar('Escribí el nombre de la clienta.', 'error');
       return;
     }
     setCreandoCliente(true);
@@ -210,7 +210,7 @@ export function QuickSaleView() {
       setNuevoTelefono('');
     } catch (err) {
       console.error('[QuickSaleView] Error creando clienta:', err);
-      mostrar('No se pudo guardar la clienta. Intenta de nuevo.', 'error');
+      mostrar('No se pudo guardar la clienta. Probá de nuevo.', 'error');
     } finally {
       setCreandoCliente(false);
     }
@@ -236,7 +236,7 @@ export function QuickSaleView() {
     try {
       const montoAbonoCents = esCredito ? parsearACentavos(montoAbonoTexto || '0', { min: 0 }) : null;
       if (esCredito && montoAbonoCents === null) {
-        throw new Error('Escribe un monto de abono válido, o déjalo en 0 para fiado completo.');
+        throw new Error('Escribí un monto válido, o dejalo en 0 si es fiado.');
       }
 
       const lineasParaGuardar = carrito.map((l) => ({
@@ -346,7 +346,7 @@ export function QuickSaleView() {
       setVentaHecha(ventaInmediata);
       setCarrito([]);
       setSheetCarritoAbierto(false);
-      mostrar('Venta realizada con éxito', 'success');
+      mostrar('Venta registrada', 'success');
     } catch (err: any) {
       console.error('[QuickSaleView] Error guardando venta:', err);
       mostrar(err?.message || 'No se pudo guardar la venta.', 'error');
@@ -381,7 +381,7 @@ export function QuickSaleView() {
               <span className="text-caption font-bold tracking-widest uppercase text-texto-3 block leading-none mb-0.5">
                 Glow Heaven
               </span>
-              <h1 className="text-title font-extrabold text-texto leading-tight truncate">Venta Rápida</h1>
+              <h1 className="text-title font-extrabold text-texto leading-tight truncate">Venta rápida</h1>
             </div>
           </div>
           {clienteSeleccionado ? (
@@ -430,7 +430,7 @@ export function QuickSaleView() {
           <input
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar por producto o código…"
+            placeholder="Buscar producto o código"
             className="w-full rounded-xl bg-superficie-2 text-xs font-medium text-texto placeholder:text-texto-3 outline-none focus:bg-superficie focus:ring-2 focus:ring-acento transition-all border border-borde"
             style={{
               paddingLeft: '38px',
@@ -504,7 +504,7 @@ export function QuickSaleView() {
         {cargandoProductos && (
           <div className="flex flex-col items-center justify-center py-16 gap-3 text-texto-3">
             <div className="h-8 w-8 rounded-full border-2 border-borde-fuerte border-t-transparent animate-spin" />
-            <p className="text-xs font-medium">Cargando catálogo disponible…</p>
+            <p className="text-xs font-medium">Cargando…</p>
           </div>
         )}
 
@@ -652,8 +652,8 @@ export function QuickSaleView() {
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-superficie-2 text-texto-3 mb-2">
               <Search size={22} />
             </div>
-            <p className="text-xs font-bold text-texto-2">No hay productos en esta búsqueda</p>
-            <p className="text-[11px] text-texto-3 mt-0.5">Prueba con otra categoría o palabra clave.</p>
+            <p className="text-xs font-bold text-texto-2">Ningún producto coincide</p>
+            <p className="text-[11px] text-texto-3 mt-0.5">Probá con otra palabra o categoría.</p>
           </div>
         )}
       </main>
@@ -676,7 +676,7 @@ export function QuickSaleView() {
                 </span>
               </div>
               <div>
-                <span className="text-caption font-medium text-texto-3 leading-none">Total carrito</span>
+                <span className="text-caption font-medium text-texto-3 leading-none">Total</span>
                 <p className="text-base font-extrabold text-texto leading-tight">
                   {formatearMoneda(totalUsdCents, 'USD')}
                   <span className="text-xs text-acento ml-1.5 font-bold">
@@ -698,7 +698,7 @@ export function QuickSaleView() {
       <BottomSheet
         abierto={Boolean(productoConVariantesAbierto)}
         onCerrar={() => setProductoConVariantesAbierto(null)}
-        titulo="Elegir Tono de Maquillaje"
+        titulo="Elegí el tono"
         subtitulo={productoConVariantesAbierto?.nombre}
       >
         <div className="flex flex-col gap-2.5 pb-4">
@@ -737,7 +737,7 @@ export function QuickSaleView() {
       <BottomSheet
         abierto={sheetCarritoAbierto}
         onCerrar={() => setSheetCarritoAbierto(false)}
-        titulo="Detalle del Carrito"
+        titulo="Carrito"
         subtitulo={`${cantidadTotalItems} ${cantidadTotalItems === 1 ? 'producto listo' : 'productos listos'} para cobrar`}
         maxHeight="92vh"
         footer={
@@ -756,7 +756,7 @@ export function QuickSaleView() {
                 </div>
               )}
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-texto-3">Total a cobrar:</span>
+                <span className="text-xs font-bold text-texto-3">Total</span>
                 <div className="text-right">
                   <p className="text-xl font-extrabold text-texto tabular-nums">
                     {formatearMoneda(totalEnMonedaElegida, moneda)}
@@ -769,7 +769,7 @@ export function QuickSaleView() {
                 </div>
               </div>
               {bajoCosto && (
-                <p className="text-[11px] font-bold text-peligro text-center">⚠️ Precio por debajo del costo</p>
+                <p className="text-[11px] font-bold text-peligro text-center">Por debajo del costo</p>
               )}
             </div>
 
@@ -780,7 +780,7 @@ export function QuickSaleView() {
               className="m3-press tocable flex w-full items-center justify-center gap-2 rounded-2xl bg-acento hover:bg-acento px-5 py-3.5 text-sm font-extrabold text-acento-texto shadow-lg shadow-m3-2 active:scale-[0.98] disabled:opacity-50 cursor-pointer"
             >
               {guardandoVenta ? <Loader2 size={19} className="animate-spin" /> : <CheckCircle2 size={19} />}
-              <span>{guardandoVenta ? 'Registrando en Firestore…' : 'Confirmar Venta'}</span>
+              <span>{guardandoVenta ? 'Guardando…' : 'Registrar venta'}</span>
             </button>
           </div>
         }
@@ -839,7 +839,7 @@ export function QuickSaleView() {
 
           {/* Clienta seleccionada */}
           <div className="flex flex-col gap-1">
-            <span className="text-xs font-bold text-texto-2">Clienta de la venta</span>
+            <span className="text-xs font-bold text-texto-2">Clienta</span>
             {clienteSeleccionado ? (
               <div className="flex items-center justify-between rounded-2xl bg-superficie-2 border border-borde p-3">
                 <div className="min-w-0">
@@ -863,7 +863,7 @@ export function QuickSaleView() {
                 className="m3-press flex items-center justify-center gap-2 rounded-2xl border border-dashed border-borde bg-superficie/80 p-3 text-xs font-bold text-texto-2 hover:bg-superficie-3 cursor-pointer"
               >
                 <User size={15} />
-                <span>Venta de mostrador (tocar para asignar clienta)</span>
+                <span>Mostrador · tocá para elegir clienta</span>
               </button>
             )}
           </div>
@@ -948,7 +948,7 @@ export function QuickSaleView() {
 
           {/* Opciones de Pago (Contado / Crédito) */}
           <div className="flex flex-col gap-2">
-            <span className="text-xs font-bold text-texto-2">Forma de venta</span>
+            <span className="text-xs font-bold text-texto-2">Pago</span>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
@@ -1012,7 +1012,7 @@ export function QuickSaleView() {
                   inputMode="decimal"
                   value={montoAbonoTexto}
                   onChange={(e) => setMontoAbonoTexto(e.target.value)}
-                  placeholder="0.00 (dejar en 0 si es fiado completo)"
+                  placeholder="0.00 (0 si es fiado)"
                   className="rounded-xl border border-borde bg-superficie px-3 py-2 text-sm font-bold text-texto placeholder:text-texto-3 outline-none focus:border-acento-suave"
                 />
               </div>
@@ -1028,8 +1028,7 @@ export function QuickSaleView() {
           setSheetClienteAbierto(false);
           setModoCrearCliente(false);
         }}
-        titulo={modoCrearCliente ? 'Registrar Nueva Clienta' : 'Seleccionar Clienta'}
-        subtitulo={modoCrearCliente ? 'Datos para asociar a la venta' : 'Elegir o crear una clienta para la venta'}
+        titulo={modoCrearCliente ? 'Clienta nueva' : 'Elegí la clienta'}
       >
         {!modoCrearCliente ? (
           <div className="flex flex-col gap-3 pb-4">
@@ -1040,7 +1039,7 @@ export function QuickSaleView() {
                 autoFocus
                 value={clienteQuery}
                 onChange={(e) => setClienteQuery(e.target.value)}
-                placeholder="Buscar clienta por nombre o teléfono…"
+                placeholder="Buscar por nombre o teléfono"
                 className="w-full h-11 rounded-full bg-superficie-2 pl-10 pr-4 text-xs font-semibold text-texto placeholder:text-texto-3 border border-transparent outline-none focus:bg-superficie focus:ring-2 focus:ring-acento"
               />
             </div>
@@ -1079,22 +1078,22 @@ export function QuickSaleView() {
         ) : (
           <div className="flex flex-col gap-3 pb-4">
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-bold text-texto-2">Nombre completo</label>
+              <label className="text-xs font-bold text-texto-2">Nombre</label>
               <input
                 autoFocus
                 value={nuevoNombre}
                 onChange={(e) => setNuevoNombre(e.target.value)}
-                placeholder="Ej. Carmen Rodríguez"
+                placeholder="Carmen Rodríguez"
                 className="rounded-xl border border-borde bg-superficie px-3.5 py-2.5 text-xs text-texto font-semibold outline-none focus:border-acento-suave"
               />
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-bold text-texto-2">Teléfono / WhatsApp</label>
+              <label className="text-xs font-bold text-texto-2">Teléfono</label>
               <input
                 value={nuevoTelefono}
                 onChange={(e) => setNuevoTelefono(e.target.value)}
-                placeholder="Ej. 8888 1234"
+                placeholder="8888 1234"
                 inputMode="tel"
                 className="rounded-xl border border-borde bg-superficie px-3.5 py-2.5 text-xs text-texto font-semibold outline-none focus:border-acento-suave"
               />
@@ -1167,8 +1166,7 @@ function PantallaExito({ venta, onNuevaVenta }: { venta: VentaCompleta; onNuevaV
       </div>
 
       <div>
-        <span className="text-xs font-bold text-acento uppercase tracking-wider">Transacción Completada</span>
-        <h1 className="text-2xl font-black text-texto mt-0.5">¡Venta Registrada!</h1>
+        <h1 className="text-2xl font-black text-texto">Venta registrada</h1>
         <p className="text-xs font-medium text-texto-3 mt-0.5">Comprobante #{venta.codigo}</p>
       </div>
 

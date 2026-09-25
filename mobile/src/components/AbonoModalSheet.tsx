@@ -56,14 +56,14 @@ export function AbonoModalSheet({ venta, onCerrar, onAbonoRegistrado }: AbonoMod
   async function handleConfirmar() {
     if (!montoTexto.trim()) {
       haptics.error();
-      mostrar('Escribe un monto para el abono.', 'error');
+      mostrar('Escribí el monto del abono.', 'error');
       return;
     }
 
     const centavos = parsearACentavos(montoTexto, { min: 1 });
     if (!centavos || centavos <= 0) {
       haptics.error();
-      mostrar('Ingresa un monto válido mayor a 0.', 'error');
+      mostrar('El monto tiene que ser mayor a 0.', 'error');
       return;
     }
 
@@ -111,7 +111,7 @@ export function AbonoModalSheet({ venta, onCerrar, onAbonoRegistrado }: AbonoMod
     <BottomSheet
       abierto={Boolean(venta)}
       onCerrar={handleCerrarTodo}
-      titulo="Registrar Abono / Pago"
+      titulo="Registrar abono"
       subtitulo={`${venta.cliente_nombre} · Venta #${venta.codigo}`}
     >
       {exito ? (
@@ -121,7 +121,7 @@ export function AbonoModalSheet({ venta, onCerrar, onAbonoRegistrado }: AbonoMod
           </div>
 
           <div>
-            <h3 className="text-xl font-bold text-texto">¡Abono registrado!</h3>
+            <h3 className="text-xl font-bold text-texto">Abono registrado</h3>
             <p className="text-sm text-texto-2 mt-1">
               Se recibieron <strong className="text-acento">{exito.montoFormateado}</strong> de {venta.cliente_nombre}.
             </p>
@@ -188,7 +188,7 @@ export function AbonoModalSheet({ venta, onCerrar, onAbonoRegistrado }: AbonoMod
           {/* Selector de Moneda y Método */}
           <div className="grid grid-cols-2 gap-2">
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-texto-2">Moneda del abono</label>
+              <label className="text-xs font-semibold text-texto-2">Moneda</label>
               <div className="flex rounded-xl bg-superficie-2/90 p-1">
                 <button
                   type="button"
@@ -218,7 +218,7 @@ export function AbonoModalSheet({ venta, onCerrar, onAbonoRegistrado }: AbonoMod
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-texto-2">Método de pago</label>
+              <label className="text-xs font-semibold text-texto-2">Método</label>
               <select
                 value={metodo}
                 onChange={(e) => setMetodo(e.target.value as MetodoPago)}
@@ -259,13 +259,13 @@ export function AbonoModalSheet({ venta, onCerrar, onAbonoRegistrado }: AbonoMod
           {/* Referencia opcional */}
           <div className="flex flex-col gap-1">
             <label className="text-xs font-semibold text-texto-2">
-              Referencia / Comprobante (opcional)
+              Referencia
             </label>
             <input
               type="text"
               value={referencia}
               onChange={(e) => setReferencia(e.target.value)}
-              placeholder="Ej. BAC #4829 o billete de 500"
+              placeholder="Opcional"
               className="w-full rounded-xl border border-borde bg-superficie px-3.5 py-2.5 text-xs text-texto placeholder:text-texto-3 outline-none focus:border-acento-suave"
             />
           </div>
@@ -278,7 +278,7 @@ export function AbonoModalSheet({ venta, onCerrar, onAbonoRegistrado }: AbonoMod
             className="m3-press mt-2 tocable flex w-full items-center justify-center gap-2 rounded-2xl bg-acento px-5 py-3.5 text-sm font-bold text-acento-texto shadow-lg shadow-m3-2 active:scale-[0.98] disabled:opacity-50"
           >
             {guardando ? <Loader2 size={18} className="animate-spin" /> : <DollarSign size={18} />}
-            {guardando ? 'Registrando en Firestore…' : 'Registrar Abono Ahora'}
+            {guardando ? 'Guardando…' : 'Registrar abono'}
           </button>
         </div>
       )}

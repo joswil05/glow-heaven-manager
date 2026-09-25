@@ -46,8 +46,8 @@ export function AbonoSelectorSheet({
         haptics.impact('light');
         onCerrar();
       }}
-      titulo="Registrar Abono"
-      subtitulo="Selecciona una clienta para abonar o liquidar su saldo"
+      titulo="Registrar abono"
+      subtitulo="Elegí la clienta"
     >
       <div className="flex flex-col gap-3 pb-2">
         {/* Barra de búsqueda estilo Android M3 */}
@@ -67,7 +67,7 @@ export function AbonoSelectorSheet({
           <input
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar por clienta o código de venta…"
+            placeholder="Buscar clienta o código"
             className="w-full h-11 rounded-full bg-superficie-2 text-xs font-semibold text-texto placeholder:text-texto-3 outline-none focus:bg-superficie focus:ring-2 focus:ring-acento border border-transparent transition-all"
             style={{
               paddingLeft: '44px',
@@ -119,12 +119,12 @@ export function AbonoSelectorSheet({
                 <User size={20} />
               </div>
               <p className="text-xs font-bold text-texto-2">
-                {busqueda ? 'No se encontraron cuentas con esa búsqueda' : '¡Excelente! No hay cuentas pendientes por cobrar'}
+                {busqueda ? 'Nada coincide' : 'Nadie te debe'}
               </p>
               <p className="text-[11px] text-texto-3 max-w-xs">
                 {busqueda
-                  ? 'Verifica el nombre o número de comprobante.'
-                  : 'Todas las ventas están al día y pagadas en su totalidad.'}
+                  ? 'Revisá el nombre o el código.'
+                  : 'Todas las ventas están pagadas.'}
               </p>
             </div>
           ) : (

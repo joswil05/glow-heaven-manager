@@ -55,7 +55,7 @@ export function CobranzaView() {
       setCuentas(data.panel?.por_cobrar ?? []);
     } catch (err) {
       console.error('[CobranzaView] Error al cargar cuentas por cobrar:', err);
-      setError('No se pudieron sincronizar las cuentas por cobrar.');
+      setError('No se pudieron cargar los cobros.');
     } finally {
       setCargando(false);
     }
@@ -143,7 +143,7 @@ export function CobranzaView() {
             type="text"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar por cliente, venta o teléfono…"
+            placeholder="Buscar clienta, venta o teléfono"
             className="w-full h-10 pl-9 pr-9 rounded-xl bg-superficie-2 border border-borde text-xs font-semibold text-texto placeholder:text-texto-3 focus:outline-none focus:ring-2 focus:ring-acento transition-all"
           />
           {busqueda && (
@@ -291,7 +291,7 @@ export function CobranzaView() {
                   className="m3-press flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-acento px-4 text-body font-bold text-acento-texto active:scale-95 transition-transform cursor-pointer"
                 >
                   <PlusCircle size={16} />
-                  <span>Registrar nuevo abono a clienta</span>
+                  <span>Registrar abono</span>
                 </button>
               </div>
             </div>
@@ -301,7 +301,7 @@ export function CobranzaView() {
           {cargando && cuentas.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3 text-texto-3">
               <div className="h-8 w-8 rounded-full border-2 border-alerta-suave border-t-transparent animate-spin" />
-              <p className="text-xs font-medium">Sincronizando cuentas por cobrar…</p>
+              <p className="text-xs font-medium">Cargando…</p>
             </div>
           ) : cuentasFiltradas.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 px-4 bg-superficie rounded-2xl border border-borde text-center shadow-xs">
@@ -309,12 +309,12 @@ export function CobranzaView() {
                 <CheckCircle2 size={24} />
               </div>
               <p className="text-sm font-bold text-texto">
-                {busqueda ? 'Sin coincidencias' : '¡Excelente! Sin cuentas en este filtro'}
+                {busqueda ? 'Nada coincide' : 'Nada en este filtro'}
               </p>
               <p className="text-xs text-texto-3 mt-1 max-w-xs">
                 {busqueda
-                  ? `No se encontró ninguna clienta o venta con "${busqueda}".`
-                  : 'Todas las cuentas están al día o no hay saldos pendientes en esta sección.'}
+                  ? `Ninguna clienta ni venta con "${busqueda}".`
+                  : 'Nadie debe en esta sección.'}
               </p>
               {busqueda && (
                 <button

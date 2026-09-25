@@ -43,7 +43,7 @@ export const TITULOS: Record<NavTab, string> = {
   paquetes: 'Inventario',
   ventas: 'Ventas',
   encargos: 'Encargos',
-  cobranza: 'Cobros y Abonos',
+  cobranza: 'Cobros',
   clientes: 'Clientes',
   config: 'Configuración',
 };

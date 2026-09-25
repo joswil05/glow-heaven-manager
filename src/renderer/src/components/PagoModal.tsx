@@ -264,7 +264,7 @@ export const PagoModal: React.FC<PagoModalProps> = ({
                 ))}
               </Select>
             </Field>
-            <Field label="Referencia" hint="Número de transferencia, si aplica">
+            <Field label="Referencia">
               <Input
                 value={referencia}
                 onChange={(e) => setReferencia(e.target.value)}

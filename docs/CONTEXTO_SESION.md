@@ -223,6 +223,24 @@ detectaba lo que decía cuidar hasta que se le cambió el caso.
 
 ---
 
+**La interfaz se limpió de texto el 24 de septiembre (rama `interfaz-limpia`).**
+No vuelvas a meter lo que se sacó: subtítulos que repiten el título, un
+párrafo de ayuda debajo de cada campo, íconos en cajitas de color, tres
+botones de texto en cada fila, córdobas al lado de cada precio de una tabla.
+Las reglas que quedaron:
+
+- El título de la pantalla está en la barra de arriba. La vista no lo repite:
+  arranca con el conteo y la acción principal.
+- Una ayuda debajo de un campo sólo si responde una duda que el campo no
+  resuelve ("A $7.00 la libra" sí; "Opcional" va como placeholder).
+- Cada fila de tabla tiene un solo botón visible, el menú "⋮"; tocar la fila
+  abre el detalle, que tiene todas las acciones.
+- Lo que se usa de vez en cuando se pliega ("Más costos" en el paquete).
+- Movimiento corto y sólo donde informa: lo que se ve decenas de veces al día
+  (cambiar de pantalla, pasar el mouse) casi no se anima.
+- Las pruebas buscan los campos por su `aria-label`, no por el texto de
+  ayuda, para que acortar un texto no rompa una prueba.
+
 ## 5. Cómo se verifica
 
 Las dos suites hacen falta. La de unidad prueba las fórmulas; la del emulador

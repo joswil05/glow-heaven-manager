@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Users, Plus, Search, Trash2, X, MessageCircle, MapPin, Wallet, ShoppingBag, Copy, FileEdit, Eye, CreditCard, Clock, ChevronDown } from 'lucide-react';
+import { Users, Plus, Search, Trash2, X, MessageCircle, MapPin, Wallet, ShoppingBag, Copy, FileEdit, Eye, CreditCard, Clock, ChevronDown, MoreVertical } from 'lucide-react';
 import type { ClienteDetalle, Venta, ParametrosSistema, PagoCompleto, MetodoPago, MonedaPago } from '../../../shared/types';
 import type { AbonoClienteInput } from '../../../shared/ipc-contracts';
 import {
@@ -208,16 +208,15 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
             .toUpperCase() || 'CL';
         return (
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-acento/10 text-acento-fuerte border border-acento/20 flex items-center justify-center font-bold text-caption shrink-0 shadow-xs">
+            <div className="w-9 h-9 rounded-full bg-superficie-2 text-texto-2 flex items-center justify-center font-semibold text-caption shrink-0">
               {iniciales}
             </div>
             <div className="min-w-0">
               <div className="text-body font-semibold text-texto tracking-tight truncate">{c.nombre}</div>
-              <div className="text-caption text-texto-3 truncate flex items-center gap-1.5 font-mono">
+              <div className="text-caption text-texto-3 truncate flex items-center gap-1.5 tabular">
                 {c.telefono && <span>{c.telefono}</span>}
                 {c.telefono && c.ciudad && <span>·</span>}
-                {c.ciudad && <span className="font-sans">{c.ciudad}</span>}
-                {!c.telefono && !c.ciudad && <span className="font-sans italic text-texto-3">Sin contacto</span>}
+                {c.ciudad && <span>{c.ciudad}</span>}
               </div>
             </div>
           </div>
@@ -230,16 +229,14 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
       align: 'right',
       width: '110px',
       render: (c) => (
-        <span className="text-label text-texto-2 tabular font-mono">
-          {c.compras_count} {c.compras_count === 1 ? 'pedido' : 'pedidos'}
-        </span>
+        <span className="text-label text-texto-2 tabular">{c.compras_count}</span>
       ),
     },
     {
       key: 'total',
       header: 'Total comprado',
       align: 'right',
-      width: '170px',
+      width: '140px',
       render: (c) => <Money usd_cents={c.total_comprado_usd_cents} size="sm" soloUsd />,
     },
     {
@@ -253,54 +250,30 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
             <Money usd_cents={c.saldo_pendiente_usd_cents} size="sm" soloUsd />
           </span>
         ) : (
-          <Badge tone="success">Al día</Badge>
+          <span className="text-caption text-texto-3">Al día</span>
         ),
     },
     {
       key: 'acciones',
       header: '',
       align: 'right',
-      width: '180px',
+      width: '60px',
+      // Tocar la fila abre su ficha, con los abonos. Editar y eliminar
+      // viven en este menú: no hacen falta a un clic en cada fila.
       render: (c) => (
-        <div className="flex items-center justify-end gap-1">
-          <Button
-            size="sm"
-            variant="ghost"
-            title="Ver historial de abonos y pedidos"
-            className="text-acento hover:bg-acento/10 rounded-lg text-caption font-semibold flex items-center gap-1"
-            onClick={(e) => {
-              e.stopPropagation();
-              setDetalle(c);
-            }}
-          >
-            <Clock className="w-3.5 h-3.5" />
-            <span>Abonos</span>
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={(e) => {
-              e.stopPropagation();
-              setEditando(c);
-              setModalAbierto(true);
-            }}
-          >
-            Editar
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            aria-label={`Eliminar a ${c.nombre}`}
-            title="Eliminar clienta"
-            className="text-texto-3 hover:text-danger-600 rounded-lg"
-            onClick={(e) => {
-              e.stopPropagation();
-              setArchivando(c);
-            }}
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </Button>
-        </div>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="p-1 text-texto-3 hover:text-texto rounded-lg h-7 w-7 flex items-center justify-center"
+          title="Opciones"
+          aria-label={`Opciones de ${c.nombre}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            setMenuContextual({ x: e.clientX, y: e.clientY, cliente: c });
+          }}
+        >
+          <MoreVertical className="w-3.5 h-3.5" />
+        </Button>
       ),
     },
   ];
@@ -309,19 +282,12 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
     <div className="flex-1 flex overflow-hidden">
       <div className="flex-1 overflow-y-auto p-4 md:px-6 md:py-4 animate-fade-in scroll-smooth">
         <div className="max-w-[1500px] w-full mx-auto space-y-4 stagger-children">
-          {/* Barra superior estilizada idéntica a la del inicio */}
-        <div className="flex items-center justify-between gap-3 pb-1 border-b border-borde/40 text-caption text-texto-3 shrink-0 flex-wrap">
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-texto text-body">Directorio de Clientas</span>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-acento/10 text-acento border border-acento/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-acento" />
-              {clientes.length} clienta{clientes.length === 1 ? '' : 's'}
-            </span>
-          </div>
+        {/* El título ya está en la barra de arriba: acá sólo lo que se hace. */}
+        <div className="flex items-center justify-between gap-3 shrink-0 flex-wrap">
+          <span className="text-label text-texto-3 tabular">
+            {clientes.length} clienta{clientes.length === 1 ? '' : 's'}
+          </span>
           <div className="flex items-center gap-3">
-            <span className="hidden md:inline-block text-[11px] text-texto-3">
-              Historial de compras y créditos
-            </span>
             <Button
               variant="primary"
               size="sm"
@@ -337,28 +303,19 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 stagger-children">
-          <StatTile
-            label="Clientes registrados"
-            value={clientes.length}
-            tone="info"
-            icon={Users}
-            hint="Total de clientas en la base de datos"
-            onClick={() => setBusqueda('')}
-          />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 stagger-children">
           <StatTile
             label="Te deben en total"
             usd_cents={totalDeuda}
             tone={totalDeuda > 0 ? 'warning' : 'success'}
             icon={Wallet}
-            hint={`${conDeuda} clienta(s) con saldo pendiente`}
+            hint={`${conDeuda} ${conDeuda === 1 ? 'clienta' : 'clientas'} con saldo`}
           />
           <StatTile
-            label="Total histórico comprado"
+            label="Han comprado en total"
             usd_cents={clientes.reduce((a, c) => a + c.total_comprado_usd_cents, 0)}
             tone="purple"
             icon={ShoppingBag}
-            hint="Volumen acumulado por todas las clientas"
           />
         </div>
 
@@ -367,7 +324,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
           <Input
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar por nombre o teléfono..."
+            placeholder="Buscar por nombre o teléfono"
             className="pl-9 pr-9"
             aria-label="Buscar clientes"
           />
@@ -388,11 +345,11 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
         ) : clientes.length === 0 ? (
           <EmptyState
             icon={Users}
-            title={busqueda ? 'Nadie coincide' : 'Todavía no tenés clientes'}
+            title={busqueda ? 'Nadie coincide' : 'Todavía no hay clientas'}
             description={
               busqueda
                 ? 'Probá con otro nombre o teléfono.'
-                : 'Agregá clientes para llevar el control de encargos, cuotas y saldos.'
+                : 'Con clientas registradas llevás sus cuotas y saldos.'
             }
             action={
               !busqueda ? (
@@ -479,7 +436,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
             {(detalle.telefono || detalle.direccion || detalle.ciudad) && (
               <div className="rounded-xl border border-borde/70 bg-superficie-2/30 p-3.5 space-y-2 text-label">
                 {detalle.telefono && (
-                  <div className="flex items-center gap-2 text-texto font-mono">
+                  <div className="flex items-center gap-2 text-texto tabular">
                     <span className="text-caption text-texto-3">Teléfono:</span>
                     <span>{detalle.telefono}</span>
                   </div>
@@ -496,17 +453,17 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
             {/* Resumen financiero */}
             <div className="rounded-xl border border-borde/80 bg-gradient-to-b from-superficie via-superficie to-superficie-2/30 p-4 space-y-2.5 shadow-xs">
               <div className="flex justify-between items-center gap-2">
-                <span className="text-label text-texto-2 font-medium">Ha comprado en total</span>
+                <span className="text-label text-texto-2 font-medium">Ha comprado</span>
                 <Money usd_cents={detalle.total_comprado_usd_cents} size="sm" soloUsd />
               </div>
               <div className="flex justify-between items-center gap-2 pt-2 border-t border-borde/70">
-                <span className="text-body font-bold text-texto">Debe actualmente</span>
+                <span className="text-body font-bold text-texto">Debe</span>
                 {detalle.saldo_pendiente_usd_cents > 0 ? (
                   <span className="font-bold text-alerta">
                     <Money usd_cents={detalle.saldo_pendiente_usd_cents} size="md" soloUsd />
                   </span>
                 ) : (
-                  <Badge tone="success">Al día / Sin saldo</Badge>
+                  <Badge tone="success">Al día</Badge>
                 )}
               </div>
             </div>
@@ -525,7 +482,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
                   className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-medium text-caption text-acento bg-acento/15 border border-acento/30 hover:bg-acento/25 transition-[background-color,border-color,color,box-shadow,transform,opacity] shadow-2xs active:scale-[0.98]"
                 >
                   <MessageCircle className="w-4 h-4" />
-                  <span>Cobrar saldo pendiente por WhatsApp</span>
+                  <span>Cobrar por WhatsApp</span>
                 </a>
               </div>
             )}
@@ -550,7 +507,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
                 >
                   <div className="flex items-center gap-2">
                     <CreditCard className="w-4 h-4 text-acento" />
-                    <span className="text-label font-semibold text-texto">Registrar Abono</span>
+                    <span className="text-label font-semibold text-texto">Registrar abono</span>
                     <Badge tone="warning">
                       Debe {formatearMoneda(detalle.saldo_pendiente_usd_cents, 'USD')}
                     </Badge>
@@ -575,8 +532,8 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
                           onChange={(e) => setAbonoMoneda(e.target.value as MonedaPago)}
                           className="w-full rounded-lg border border-borde bg-superficie-2 px-3 py-2 text-label text-texto focus:outline-none focus:ring-2 focus:ring-acento/50"
                         >
-                          <option value="COR">C$ Córdobas</option>
-                          <option value="USD">$ Dólares</option>
+                          <option value="COR">Córdobas</option>
+                          <option value="USD">Dólares</option>
                         </select>
                       </Field>
                       <Field label="Método" className="mb-0">
@@ -615,11 +572,11 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
                         />
                       </Field>
                     </div>
-                    <Field label="Referencia" hint="Opcional" className="mb-0">
+                    <Field label="Referencia" className="mb-0">
                       <Input
                         value={abonoReferencia}
                         onChange={(e) => setAbonoReferencia(e.target.value)}
-                        placeholder="Ej. Transferencia BAC #1234"
+                        placeholder="Opcional"
                       />
                     </Field>
                     <Button
@@ -629,7 +586,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
                       disabled={abonoGuardando || !abonoMontoTexto}
                       className="w-full"
                     >
-                      {abonoGuardando ? 'Guardando...' : 'Confirmar Abono'}
+                      {abonoGuardando ? 'Guardando...' : 'Registrar abono'}
                     </Button>
                   </div>
                 )}
@@ -639,7 +596,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
             {/* Historial de compras */}
             <div className="rounded-xl border border-borde/80 overflow-hidden shadow-xs">
               <div className="px-4 py-2.5 bg-superficie-2/50 border-b border-borde text-label font-medium text-texto flex items-center justify-between">
-                <span>Historial de pedidos</span>
+                <span>Pedidos</span>
                 <span className="text-caption text-texto-3">{ventasCliente.length} venta(s)</span>
               </div>
               {ventasCliente.length > 0 ? (
@@ -651,11 +608,11 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
                         className="w-full text-left px-4 py-3 hover:bg-superficie-2/30 transition-colors focus-visible:outline-none focus-visible:bg-superficie-2/30"
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-label font-medium text-texto font-mono">{v.codigo}</span>
+                          <span className="text-label font-medium text-texto tabular">{v.codigo}</span>
                           <Money usd_cents={v.total_usd_cents} size="sm" soloUsd />
                         </div>
                         <div className="flex items-center justify-between gap-2 mt-1">
-                          <span className="text-caption text-texto-3 font-mono">{formatearFecha(v.fecha)}</span>
+                          <span className="text-caption text-texto-3 tabular">{formatearFecha(v.fecha)}</span>
                           {v.saldo_usd_cents > 0 ? (
                             <span className="text-caption font-semibold text-alerta">
                               Debe {formatearMoneda(v.saldo_usd_cents, 'USD')}
@@ -680,7 +637,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
               <div className="px-4 py-2.5 bg-superficie-2/50 border-b border-borde text-label font-medium text-texto flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Clock className="w-3.5 h-3.5 text-texto-3" />
-                  <span className="font-semibold">Historial de Abonos</span>
+                  <span className="font-semibold">Abonos</span>
                 </div>
                 <span className="text-caption text-texto-3 font-semibold">{pagosCliente.length} pago(s)</span>
               </div>
@@ -689,7 +646,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
                   {pagosCliente.map((p) => (
                     <li key={p.id} className="px-4 py-2.5 flex items-center justify-between gap-2 hover:bg-superficie-2/25 transition-colors">
                       <div className="min-w-0">
-                        <div className="text-label text-texto font-mono flex items-center gap-1.5">
+                        <div className="text-label text-texto tabular flex items-center gap-1.5">
                           <span>{formatearFecha(p.fecha)}</span>
                           {p.es_anticipo && (
                             <Badge tone="info">Anticipo</Badge>
@@ -705,7 +662,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
                         <div className="text-right">
                           <Money usd_cents={p.monto_usd_cents} size="sm" soloUsd />
                           {p.moneda === 'COR' && (
-                            <div className="text-caption text-texto-3 font-mono">
+                            <div className="text-caption text-texto-3 tabular">
                               {formatearMoneda(p.monto_cor_cents, 'COR')}
                             </div>
                           )}
@@ -727,7 +684,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
                   <div className="w-8 h-8 rounded-full bg-superficie-2 text-texto-3 flex items-center justify-center mx-auto mb-1.5">
                     <Clock className="w-4 h-4" />
                   </div>
-                  <p className="text-label font-bold text-texto">Sin abonos registrados</p>
+                  <p className="text-label font-bold text-texto">Sin abonos todavía</p>
                   <p className="text-caption text-texto-3 mt-0.5">
                     Esta clienta todavía no tiene abonos o amortizaciones en su cuenta.
                   </p>
@@ -755,11 +712,11 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
         peligroso
         titulo="¿Anular este abono?"
         consecuencias={[
-          `Monto: ${formatearMoneda(pagoAnulando?.monto_usd_cents || 0, 'USD')}.`,
-          'El saldo adeudado por la clienta se restaurará automáticamente.',
+          `${formatearMoneda(pagoAnulando?.monto_usd_cents || 0, 'USD')}.`,
+          'Lo que debía vuelve a quedar pendiente.',
         ]}
-        textoConfirmar="Sí, anular abono"
-        textoCancelar="No, mantener"
+        textoConfirmar="Anular abono"
+        textoCancelar="Cancelar"
         onConfirmar={confirmarAnularPago}
         onCerrar={() => setPagoAnulando(null)}
       />
@@ -769,15 +726,15 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
         peligroso
         titulo={`¿Eliminar a ${archivando?.nombre ?? ''}?`}
         consecuencias={[
-          'La clienta se eliminará de la lista activa y no aparecerá al registrar nuevas ventas.',
+          'Deja de aparecer en la lista y al vender.',
           ...(archivando && archivando.saldo_pendiente_usd_cents > 0
             ? [
-                `Actualmente tiene un saldo pendiente de ${formatearMoneda(archivando.saldo_pendiente_usd_cents, 'USD')}.`,
+                `Todavía debe ${formatearMoneda(archivando.saldo_pendiente_usd_cents, 'USD')}.`,
               ]
             : []),
-          'Sus ventas y pagos anteriores quedarán conservados en el historial financiero.',
+          'Sus ventas y pagos se conservan.',
         ]}
-        textoConfirmar="Sí, eliminar"
+        textoConfirmar="Eliminar"
         onConfirmar={() => archivando && archivar(archivando)}
         onCerrar={() => setArchivando(null)}
       />
@@ -800,7 +757,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
           items={[
             {
               id: 'ver-ficha',
-              label: 'Ver ficha 360° y compras',
+              label: 'Ver ficha',
               icon: <Eye className="w-4 h-4" />,
               shortcut: 'Espacio',
               onClick: () => setDetalle(menuContextual.cliente),
@@ -826,7 +783,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
               : []),
             {
               id: 'editar',
-              label: 'Editar información',
+              label: 'Editar',
               icon: <FileEdit className="w-4 h-4" />,
               shortcut: 'Enter',
               onClick: () => {
@@ -841,7 +798,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
               icon: <Copy className="w-4 h-4" />,
               onClick: () => {
                 navigator.clipboard.writeText(menuContextual.cliente.nombre);
-                showToast({ message: 'Nombre copiado al portapapeles', type: 'info' });
+                showToast({ message: 'Nombre copiado', type: 'info' });
               },
             },
             ...(menuContextual.cliente.telefono
@@ -852,7 +809,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
                     icon: <Copy className="w-4 h-4" />,
                     onClick: () => {
                       navigator.clipboard.writeText(menuContextual.cliente.telefono ?? '');
-                      showToast({ message: 'Teléfono copiado al portapapeles', type: 'info' });
+                      showToast({ message: 'Teléfono copiado', type: 'info' });
                     },
                   },
                 ]
@@ -860,7 +817,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
             'separator' as const,
             {
               id: 'archivar',
-              label: 'Archivar cliente...',
+              label: 'Eliminar clienta',
               icon: <Trash2 className="w-4 h-4" />,
               tone: 'danger' as const,
               shortcut: 'Supr',

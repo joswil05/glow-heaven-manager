@@ -271,8 +271,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
             </div>
             <h3 className="text-title font-bold text-texto">Empezá por tu primer paquete</h3>
             <p className="mt-1 text-caption text-texto-2 max-w-md mx-auto">
-              Registrá lo que venía adentro, cuánto pesó y qué pagaste de envío. El sistema
-              reparte el costo, arma tu inventario y te propone los precios de venta.
+              Con lo que traía y lo que pagaste, arma el inventario y los precios.
             </p>
             <div className="mt-4 flex items-center justify-center gap-3">
               <Button variant="primary" size="sm" onClick={onNuevoPaquete} className="rounded-xl">
@@ -343,7 +342,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
               icon={Wallet}
               hint={
                 resumen.por_cobrar_usd_cents === 0
-                  ? 'Cartera al día'
+                  ? 'Nadie te debe'
                   : data.total_por_cobrar === 1
                     ? '1 venta con saldo'
                     : `${data.total_por_cobrar} ventas con saldo`
@@ -360,7 +359,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
               icon={PackageX}
               hint={
                 data.total_bajo_stock === 0
-                  ? 'Existencias óptimas'
+                  ? undefined
                   : data.total_bajo_stock === 1
                     ? '1 producto agotado o bajo'
                     : `${data.total_bajo_stock} productos agotados o bajos`
@@ -401,21 +400,13 @@ export const PanelView: React.FC<PanelViewProps> = ({
           <Card className="xl:col-span-2 shadow-2xs flex flex-col">
             <CardHeader className="px-4 py-2.5 shrink-0 border-b border-borde/40">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 min-w-0">
-                <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                  <div
-                    key={`icon-${tipoGrafica}`}
-                    className="w-7 h-7 rounded-lg bg-acento/10 text-acento flex items-center justify-center shrink-0 transition-[background-color,border-color,color,box-shadow,transform,opacity] duration-300 animate-in fade-in-0 zoom-in-95"
-                  >
-                    <IconoActual className="w-4 h-4" />
-                  </div>
-                  <div className="min-w-0 overflow-hidden">
-                    <h3
-                      key={`title-${tipoGrafica}`}
-                      className="text-body font-bold text-texto tracking-tight truncate transition-[background-color,border-color,color,box-shadow,transform,opacity] duration-300 animate-in fade-in-0 slide-in-from-left-1"
-                    >
-                      {infoGraficaActual.titulo}
-                    </h3>
-                  </div>
+                {/* El título cambia sin animarse: se cambia de gráfica muchas veces y el
+                    movimiento sólo retrasaba leerla. */}
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <IconoActual className="w-4 h-4 text-texto-3 shrink-0" aria-hidden="true" />
+                  <h3 className="text-body font-bold text-texto tracking-tight truncate">
+                    {infoGraficaActual.titulo}
+                  </h3>
                 </div>
 
                 {/* Selector Segmentado de Gráfica (Pills Switcher estable y suave) */}
@@ -426,7 +417,6 @@ export const PanelView: React.FC<PanelViewProps> = ({
                 >
                   {OPCIONES_GRAFICA.map((opc) => {
                     const activa = tipoGrafica === opc.id;
-                    const Icono = opc.icono;
                     return (
                       <button
                         key={opc.id}
@@ -443,7 +433,6 @@ export const PanelView: React.FC<PanelViewProps> = ({
                         )}
                         title={opc.subtitulo}
                       >
-                        <Icono className={cn('w-3.5 h-3.5 transition-colors duration-200', activa ? 'text-acento' : 'text-texto-3')} />
                         <span>{opc.etiquetaCorta}</span>
                       </button>
                     );
@@ -460,20 +449,8 @@ export const PanelView: React.FC<PanelViewProps> = ({
                   {tipoGrafica === 'costos' && <GraficaCostosIngresos datos={datosCostosIngresos} alto={160} />}
                 </div>
               ) : (
-                <div className="relative h-[145px] rounded-xl overflow-hidden flex items-center justify-between p-4 bg-gradient-to-r from-superficie to-superficie-2/40 border border-dashed border-borde/80">
-                  <div className="relative z-10 flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-acento-suave text-acento flex items-center justify-center border border-acento/20 shrink-0">
-                      <TrendingUp className="w-4 h-4 text-acento" />
-                    </div>
-                    <div>
-                      <p className="text-body font-bold text-texto">
-                        Tus métricas aparecerán aquí
-                      </p>
-                      <p className="text-caption text-texto-3 mt-0.5">
-                        Se calcularán automáticamente con las ventas entregadas y costos reales.
-                      </p>
-                    </div>
-                  </div>
+                <div className="h-[145px] rounded-xl flex items-center justify-between p-4 border border-dashed border-borde/80">
+                  <p className="text-body text-texto-2">Todavía no hay ventas entregadas.</p>
                   <Button
                     size="sm"
                     variant="primary"
@@ -499,19 +476,14 @@ export const PanelView: React.FC<PanelViewProps> = ({
                 <CardHeader className="px-4 py-2.5 border-b border-borde/40 shrink-0">
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-7 h-7 rounded-lg bg-acento/10 text-acento flex items-center justify-center shrink-0">
-                        <Wallet className="w-4 h-4" />
-                      </div>
+                      <Wallet className="w-4 h-4 text-texto-3 shrink-0" aria-hidden="true" />
                       <h3 className="text-body font-bold text-texto tracking-tight truncate">
                         Dónde está tu plata
                       </h3>
                     </div>
                     {capitalTotal > 0 && (
                       <div className="text-right shrink-0 pl-3.5 border-l border-borde/60 flex flex-col items-end justify-center">
-                        <span className="text-[10px] font-semibold uppercase tracking-wider text-texto-3 leading-none mb-0.5">
-                          Total Activo
-                        </span>
-                        <Money usd_cents={capitalTotal} size="sm" soloUsd className="font-bold text-texto font-mono leading-tight" />
+                        <Money usd_cents={capitalTotal} size="sm" soloUsd className="font-bold text-texto tabular leading-tight" />
                       </div>
                     )}
                   </div>
@@ -519,39 +491,24 @@ export const PanelView: React.FC<PanelViewProps> = ({
                 <CardContent className="p-4 flex-1 flex flex-col justify-between gap-3">
                   {capitalTotal > 0 ? (
                     <>
-                      {/* Estado diagnóstico balanceado */}
-                      <div className="rounded-xl px-3 py-2 bg-superficie-2/70 border border-borde/60 flex items-center justify-between gap-2 text-caption">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span
-                            className={cn(
-                              'w-2 h-2 rounded-full shrink-0',
-                              pctCobrar > 50 ? 'bg-alerta' : 'bg-acento'
-                            )}
-                          />
-                          <span className="text-texto-2 font-medium">
-                            {pctCobrar > 60
-                              ? 'Mayor parte en la calle'
-                              : pctBodega > 60
-                                ? 'Mayor parte en bodega'
-                                : 'Reparto equilibrado'}
-                          </span>
-                        </div>
-                        <span className="font-mono font-bold text-texto shrink-0">
-                          {pctCobrar}% a crédito
-                        </span>
-                      </div>
-
+                      {/* La barra y su leyenda ya dicen el reparto; el resumen de arriba lo repetía. */}
                       {/* Barra segmentada proporcional con etiquetas limpias */}
                       <div className="space-y-1.5">
-                        <div className="flex items-center justify-between text-[11px] font-medium">
-                          <span className="flex items-center gap-1.5 text-acento font-semibold">
-                            <span className="w-2 h-2 rounded-full bg-acento" />
-                            Bodega ({pctBodega}%)
-                          </span>
-                          <span className="flex items-center gap-1.5 text-alerta font-semibold">
-                            <span className="w-2 h-2 rounded-full bg-alerta" />
-                            Por cobrar ({pctCobrar}%)
-                          </span>
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <span className="flex items-center gap-1.5 text-caption text-texto-2">
+                              <span className="w-2 h-2 rounded-full bg-acento" />
+                              En bodega · {pctBodega}%
+                            </span>
+                            <Money usd_cents={inversionTotal} size="sm" soloUsd className="font-semibold text-texto tabular" />
+                          </div>
+                          <div className="text-right">
+                            <span className="flex items-center justify-end gap-1.5 text-caption text-texto-2">
+                              <span className="w-2 h-2 rounded-full bg-alerta" />
+                              Por cobrar · {pctCobrar}%
+                            </span>
+                            <Money usd_cents={resumen.por_cobrar_usd_cents} size="sm" soloUsd className="font-semibold text-texto tabular" />
+                          </div>
                         </div>
                         <div className="h-2.5 w-full rounded-full bg-superficie-2 flex overflow-hidden gap-1">
                           <div
@@ -597,8 +554,8 @@ export const PanelView: React.FC<PanelViewProps> = ({
                       {/* Anticipos por entregar si existen */}
                       {resumen.anticipos_por_entregar_usd_cents > 0 && (
                         <div className="px-3 py-1.5 rounded-lg border border-alerta-suave bg-alerta-suave flex items-center justify-between text-[11px]">
-                          <span className="font-medium text-alerta">Anticipos por entregar:</span>
-                          <Money usd_cents={resumen.anticipos_por_entregar_usd_cents} size="sm" soloUsd className="font-bold text-alerta font-mono" />
+                          <span className="font-medium text-alerta">Anticipos por entregar</span>
+                          <Money usd_cents={resumen.anticipos_por_entregar_usd_cents} size="sm" soloUsd className="font-bold text-alerta tabular" />
                         </div>
                       )}
 
@@ -607,18 +564,14 @@ export const PanelView: React.FC<PanelViewProps> = ({
                           "Te deben en la calle". */}
                       {resumen.cotizado_sin_confirmar_usd_cents > 0 && (
                         <div className="px-3 py-1.5 rounded-lg border border-borde bg-superficie-2/60 flex items-center justify-between text-[11px]">
-                          <span className="font-medium text-texto-2">Encargos cotizados, sin confirmar:</span>
-                          <Money usd_cents={resumen.cotizado_sin_confirmar_usd_cents} size="sm" soloUsd className="font-bold text-texto-2 font-mono" />
+                          <span className="font-medium text-texto-2">Cotizado sin confirmar</span>
+                          <Money usd_cents={resumen.cotizado_sin_confirmar_usd_cents} size="sm" soloUsd className="font-bold text-texto-2 tabular" />
                         </div>
                       )}
                     </>
                   ) : (
                     <div className="py-5 flex flex-col items-center justify-center text-center gap-1 text-texto-3">
-                      <Wallet className="w-6 h-6 text-borde-fuerte" />
-                      <p className="text-body font-semibold text-texto-2">Sin capital registrado aún</p>
-                      <p className="text-caption text-texto-3 max-w-xs">
-                        Cuando registres tu primer paquete verás el desglose de tu inversión.
-                      </p>
+                      <p className="text-body text-texto-2">Todavía no hay mercadería ni saldos.</p>
                     </div>
                   )}
                 </CardContent>
@@ -630,14 +583,12 @@ export const PanelView: React.FC<PanelViewProps> = ({
         {/* Nivel 4: Widgets Operativos Bento Pulse (Equilibrados, sin scrollbars y con micro-interacciones) */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-3 shrink-0 stagger-children">
           {/* 1. QUIÉN TE DEBE */}
-          <Card className="shadow-xs card-hover-lift flex flex-col justify-between rounded-2xl border border-borde/70 bg-superficie overflow-hidden">
+          <Card className="shadow-xs flex flex-col justify-between rounded-2xl border border-borde/70 bg-superficie overflow-hidden">
             <div>
               <CardHeader className="px-4 py-2.5 border-b border-borde/40 shrink-0">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
-                    <div className="w-7 h-7 rounded-lg bg-alerta/10 text-alerta flex items-center justify-center shrink-0">
-                      <Users className="w-4 h-4" />
-                    </div>
+                    <Users className="w-4 h-4 text-texto-3 shrink-0" aria-hidden="true" />
                     <h3 className="text-body font-bold text-texto truncate">Quién te debe</h3>
                     {data.total_por_cobrar > 0 && (
                       <Badge tone={data.por_cobrar.some((p) => p.cuotas_vencidas > 0) ? 'danger' : 'warning'}>
@@ -670,7 +621,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
                           className="w-full px-4 py-2 hover:bg-superficie-2/70 transition-colors flex items-center justify-between gap-3 group cursor-pointer"
                         >
                           <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                            <div className="w-7 h-7 rounded-full bg-superficie-2 text-texto-2 font-semibold text-xs flex items-center justify-center border border-borde/70 shrink-0 group-hover:scale-105 transition-transform">
+                            <div className="w-7 h-7 rounded-full bg-superficie-2 text-texto-2 font-semibold text-xs flex items-center justify-center border border-borde/70 shrink-0">
                               {p.cliente_nombre.charAt(0).toUpperCase()}
                             </div>
                             <div className="min-w-0 flex-1">
@@ -682,16 +633,13 @@ export const PanelView: React.FC<PanelViewProps> = ({
                                   </span>
                                 )}
                               </div>
-                              <span className="text-caption text-texto-3 font-medium">
-                                Ref: {p.codigo}
-                              </span>
+                              <span className="text-caption text-texto-3 tabular">{p.codigo}</span>
                             </div>
                           </div>
 
                           <div className="text-right shrink-0 flex items-center gap-2">
                             <div>
-                              <Money usd_cents={p.saldo_usd_cents} size="sm" soloUsd className="font-extrabold text-alerta tabular" />
-                              <div className="text-[10px] text-texto-3 font-medium">saldo</div>
+                              <Money usd_cents={p.saldo_usd_cents} size="sm" soloUsd className="font-bold text-alerta tabular" />
                             </div>
                             <button
                               type="button"
@@ -711,11 +659,8 @@ export const PanelView: React.FC<PanelViewProps> = ({
                   </ul>
                 ) : (
                   <div className="py-6 px-4 flex flex-col items-center justify-center text-center gap-1.5">
-                    <div className="w-7 h-7 rounded-full bg-acento/10 text-acento flex items-center justify-center">
-                      <CheckCircle2 className="w-4 h-4" />
-                    </div>
-                    <span className="text-body font-semibold text-texto">Cuentas al día</span>
-                    <span className="text-caption text-texto-3">No hay clientes con saldo pendiente</span>
+                    <CheckCircle2 className="w-4 h-4 text-acento" />
+                    <span className="text-body text-texto-2">Nadie te debe</span>
                   </div>
                 )}
               </CardContent>
@@ -723,14 +668,12 @@ export const PanelView: React.FC<PanelViewProps> = ({
           </Card>
 
           {/* 2. STOCK POR AGOTARSE */}
-          <Card className="shadow-xs card-hover-lift flex flex-col justify-between rounded-2xl border border-borde/70 bg-superficie overflow-hidden">
+          <Card className="shadow-xs flex flex-col justify-between rounded-2xl border border-borde/70 bg-superficie overflow-hidden">
             <div>
               <CardHeader className="px-4 py-2.5 border-b border-borde/40 shrink-0">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
-                    <div className="w-7 h-7 rounded-lg bg-peligro/10 text-peligro flex items-center justify-center shrink-0">
-                      <PackageX className="w-4 h-4" />
-                    </div>
+                    <PackageX className="w-4 h-4 text-texto-3 shrink-0" aria-hidden="true" />
                     <h3 className="text-body font-bold text-texto truncate">Stock crítico</h3>
                     {data.total_bajo_stock > 0 ? (
                       <Badge tone="danger">{data.total_bajo_stock}</Badge>
@@ -789,8 +732,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
                     <div className="w-7 h-7 rounded-full bg-acento/10 text-acento flex items-center justify-center">
                       <CheckCircle2 className="w-4 h-4" />
                     </div>
-                    <span className="text-body font-semibold text-texto">Stock saludable</span>
-                    <span className="text-caption text-texto-3">Todos los productos tienen existencias</span>
+                    <span className="text-body text-texto-2">Nada por acabarse</span>
                   </div>
                 )}
               </CardContent>
@@ -798,14 +740,12 @@ export const PanelView: React.FC<PanelViewProps> = ({
           </Card>
 
           {/* 3. LO QUE MÁS SE VENDE (TOP ROTACIÓN) */}
-          <Card className="shadow-xs card-hover-lift flex flex-col justify-between rounded-2xl border border-borde/70 bg-superficie overflow-hidden">
+          <Card className="shadow-xs flex flex-col justify-between rounded-2xl border border-borde/70 bg-superficie overflow-hidden">
             <div>
               <CardHeader className="px-4 py-2.5 border-b border-borde/40 shrink-0">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
-                    <div className="w-7 h-7 rounded-lg bg-superficie-2 text-texto-2 flex items-center justify-center shrink-0 border border-borde/60">
-                      <Award className="w-4 h-4" />
-                    </div>
+                    <Award className="w-4 h-4 text-texto-3 shrink-0" aria-hidden="true" />
                     <h3 className="text-body font-bold text-texto truncate">Más vendidos</h3>
                   </div>
                   <button
@@ -833,7 +773,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
                         className="px-4 py-2 flex items-center justify-between gap-3 hover:bg-superficie-2/70 transition-colors cursor-pointer group"
                       >
                         <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                          <span className="w-5 h-5 rounded-md text-[11px] font-mono font-bold flex items-center justify-center border shrink-0 bg-superficie-2 text-texto-2 border-borde/70">
+                          <span className="w-5 h-5 rounded-md text-[11px] tabular font-bold flex items-center justify-center border shrink-0 bg-superficie-2 text-texto-2 border-borde/70">
                             {idx + 1}
                           </span>
                           <div className="min-w-0 flex-1">
@@ -855,8 +795,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
                   </ul>
                 ) : (
                   <div className="py-6 px-4 flex flex-col items-center justify-center text-center gap-1.5">
-                    <span className="text-body font-semibold text-texto">Sin ventas aún</span>
-                    <span className="text-caption text-texto-3">Los productos destacados aparecerán con tus ventas</span>
+                    <span className="text-body text-texto-2">Todavía no hay ventas</span>
                   </div>
                 )}
               </CardContent>

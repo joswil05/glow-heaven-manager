@@ -61,7 +61,9 @@ def ir_a_ventas(page: Page) -> None:
 
 
 def caja_busqueda(page: Page):
-    return page.locator("input[placeholder*='Buscar por clienta']")
+    # Por su nombre accesible, no por el texto de ayuda: ese texto se acorta
+    # cuando se limpia la interfaz y la prueba no tiene por qué romperse.
+    return page.get_by_label("Buscar ventas")
 
 
 @caso("la lista de ventas abre acotada al período, no a la historia entera")
@@ -288,7 +290,7 @@ def caso_exportar(page: Page) -> list[str]:
 def caso_recorrido(page: Page) -> list[str]:
     fallas = []
     for pantalla in ("Inicio", "Inventario", "Paquetes", "Ventas", "Encargos",
-                     "Cobros y Abonos", "Clientes"):
+                     "Cobros", "Clientes"):
         try:
             # Paquetes es una pestaña de Inventario, no una entrada del menú.
             rol = "tab" if pantalla == "Paquetes" else "button"

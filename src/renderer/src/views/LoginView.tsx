@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShieldCheck, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
+import { AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 import type { UsuarioGoogle } from '../../../shared/ipc-contracts';
 import logoImg from '../assets/logo.jpg';
 
@@ -24,7 +24,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
         setCargando(false);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error inesperado durante la autenticación.');
+      setError(err instanceof Error ? err.message : 'No se pudo entrar. Probá de nuevo.');
       setCargando(false);
     }
   };
@@ -124,16 +124,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
           )}
         </div>
 
-        {/* Nota al pie de seguridad */}
-        <div className="mt-8 pt-6 border-t border-inverso-texto-2/15 flex flex-col items-center text-center space-y-2">
-          <p className="flex items-center gap-1.5 text-xs text-inverso-texto-2">
-            <ShieldCheck className="w-4 h-4 text-acento shrink-0" />
-            <span>Autenticación oficial Firebase Cloud de Google</span>
-          </p>
-          <p className="text-[11px] text-inverso-texto-2/70 max-w-xs">
-            Tus datos se mantienen protegidos y sincronizados de forma segura bajo las políticas de tu cuenta.
-          </p>
-        </div>
       </div>
     </div>
   );

@@ -162,7 +162,7 @@ export const PinLockView: React.FC<PinLockViewProps> = ({
           {desbloqueando && (
             <p className="text-caption text-success-700 flex items-center gap-1.5 font-medium animate-fade-in">
               <ShieldCheck className="w-4 h-4" />
-              <span>¡Bienvenido!</span>
+              <span>Listo</span>
             </p>
           )}
           {!error && !desbloqueando && (

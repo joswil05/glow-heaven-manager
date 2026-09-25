@@ -72,7 +72,9 @@ def abrir_hoja_de_abono(page: Page) -> str | None:
     fila.click()
     page.wait_for_timeout(1200)
 
-    registrar = visible(page, "button", "Registrar abono")
+    # Dentro de la hoja: la pantalla de Cobros de abajo tiene su propio
+    # "Registrar abono", tapado por la hoja y sin poder tocarse.
+    registrar = en_hoja(page, "button", "Registrar abono")
     if registrar is None:
         return "el detalle de la clienta no ofrece 'Registrar abono'"
     registrar.click()
@@ -220,7 +222,7 @@ def caso_abono_miles(page: Page) -> list[str]:
     page.wait_for_timeout(400)
     escrito = campo.input_value()
 
-    confirmar = en_hoja(page, "button", "Registrar Abono Ahora")
+    confirmar = en_hoja(page, "button", "Registrar abono")
     if confirmar is None:
         return ["no encontré el botón de confirmar el abono"]
 
@@ -265,7 +267,7 @@ def caso_abono_invalido(page: Page) -> list[str]:
             campo.type(valor)
         page.wait_for_timeout(300)
 
-        confirmar = en_hoja(page, "button", "Registrar Abono Ahora")
+        confirmar = en_hoja(page, "button", "Registrar abono")
         if confirmar is not None and confirmar.is_enabled():
             confirmar.click()
             page.wait_for_timeout(1500)
@@ -301,7 +303,7 @@ def caso_doble_toque(page: Page) -> list[str]:
         return [problema]
 
     campo = en_hoja(page, "input[inputmode='decimal']")
-    confirmar = en_hoja(page, "button", "Registrar Abono Ahora")
+    confirmar = en_hoja(page, "button", "Registrar abono")
     if campo is None or confirmar is None:
         return ["no encontré el formulario del abono"]
 

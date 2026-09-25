@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useCerrarConEscape } from '../lib/useCerrarConEscape';
 import {
-  HandCoins,
   Search,
-  Clock,
   DollarSign,
   MessageCircle,
   CheckCircle2,
@@ -244,7 +242,7 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
       header: 'Fecha',
       width: '130px',
       render: (p) => (
-        <span className="font-mono text-label text-texto font-medium">
+        <span className="tabular text-label text-texto font-medium">
           {formatearFecha(p.fecha)}
         </span>
       ),
@@ -280,7 +278,7 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
       render: (p) => (
         <div className="flex flex-col">
           <div className="flex items-center gap-1.5">
-            <span className="font-mono text-label font-bold text-texto">
+            <span className="tabular text-label font-bold text-texto">
               {p.venta_codigo || `V-#${p.venta_id}`}
             </span>
             {p.es_anticipo && (
@@ -326,7 +324,7 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
             </span>
           </div>
           {p.referencia && (
-            <span className="text-caption text-texto-3 truncate mt-0.5 font-mono">
+            <span className="text-caption text-texto-3 truncate mt-0.5 tabular">
               {p.referencia}
             </span>
           )}
@@ -339,10 +337,10 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
       align: 'right',
       render: (p) => (
         <div className="flex flex-col items-end">
-          <span className="font-extrabold text-body text-acento font-mono">
+          <span className="font-extrabold text-body text-acento tabular">
             {formatearMoneda(p.monto_usd_cents, 'USD')}
           </span>
-          <span className="text-caption text-texto-3 font-mono">
+          <span className="text-caption text-texto-3 tabular">
             ≈ {formatearMoneda(p.monto_cor_cents, 'COR')}
           </span>
         </div>
@@ -377,25 +375,10 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
     <div className="flex-1 flex flex-col overflow-hidden">
       <div className="flex-1 overflow-y-auto p-4 md:px-6 md:py-4 animate-fade-in scroll-smooth">
         <div className="max-w-[1500px] w-full mx-auto space-y-4 stagger-children">
-          {/* Header estilizado idéntico al panel */}
-          <div className="flex items-center justify-between gap-3 pb-2 border-b border-borde/40 text-caption text-texto-3 flex-wrap">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-acento/10 text-acento flex items-center justify-center font-bold">
-                <HandCoins className="w-4 h-4" />
-              </div>
-              <div>
-                <h1 className="font-extrabold text-texto text-body leading-tight">
-                  Cobros y Abonos
-                </h1>
-                <p className="text-[11px] text-texto-3">
-                  Historial de pagos recibidos y gestión de cuentas por cobrar
-                </p>
-              </div>
-            </div>
-
+          {/* El título ya está en la barra de arriba: acá las dos vistas y la acción. */}
+          <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-3">
-              {/* Botón selector de pestañas principales */}
-              <div className="flex rounded-xl bg-superficie border border-borde/80 p-1 shadow-2xs">
+              <div className="flex rounded-xl bg-superficie-2/80 border border-borde/70 p-1">
                 {/* "Por cobrar" va primero: es la deuda viva, lo accionable.
                     El historial es consulta y queda a la derecha. */}
                 <button
@@ -405,12 +388,12 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
                     'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-label font-bold cursor-pointer',
                     'transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97]',
                     tabActiva === 'por_cobrar'
-                      ? 'bg-acento text-acento-texto shadow-xs'
+                      ? 'bg-superficie text-texto shadow-xs'
                       : 'text-texto-3 hover:text-texto'
                   )}
                 >
-                  <Wallet className="w-3.5 h-3.5" />
-                  <span>Por Cobrar ({cuentasPorCobrar.length})</span>
+                  <span>Por cobrar</span>
+                  <span className="text-texto-3 font-medium tabular">{cuentasPorCobrar.length}</span>
                 </button>
                 <button
                   type="button"
@@ -419,15 +402,17 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
                     'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-label font-bold cursor-pointer',
                     'transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97]',
                     tabActiva === 'historial'
-                      ? 'bg-acento text-acento-texto shadow-xs'
+                      ? 'bg-superficie text-texto shadow-xs'
                       : 'text-texto-3 hover:text-texto'
                   )}
                 >
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>Historial de Abonos ({pagos.length})</span>
+                  <span>Abonos recibidos</span>
+                  <span className="text-texto-3 font-medium tabular">{pagos.length}</span>
                 </button>
               </div>
+            </div>
 
+            <div className="flex items-center gap-3">
               <Button
                 variant="primary"
                 size="sm"
@@ -438,7 +423,7 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
                 }}
               >
                 <DollarSign className="w-4 h-4" />
-                <span>Registrar Abono</span>
+                <span>Registrar abono</span>
               </Button>
             </div>
           </div>
@@ -446,25 +431,24 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
           {/* StatTiles métricos de cobranza */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 stagger-children">
             <StatTile
-              label="Total Recaudado en Abonos"
+              label="Recibido en abonos"
               usd_cents={totalAbonosUsd}
               tone="success"
               icon={Receipt}
-              hint={`${pagos.length} abonos registrados`}
+              hint={`${pagos.length} ${pagos.length === 1 ? 'abono' : 'abonos'}`}
             />
             <StatTile
-              label="Cartera por Cobrar"
+              label="Por cobrar"
               usd_cents={totalPorCobrarUsd}
               tone={totalPorCobrarUsd > 0 ? 'warning' : 'success'}
               icon={Wallet}
-              hint={`${cuentasPorCobrar.length} ventas con saldo activo`}
+              hint={`${cuentasPorCobrar.length} ${cuentasPorCobrar.length === 1 ? 'venta' : 'ventas'} con saldo`}
             />
             <StatTile
-              label="Clientas con Deuda"
+              label="Clientas que deben"
               value={new Set(cuentasPorCobrar.map((c) => c.cliente_nombre)).size}
               tone="info"
               icon={Users}
-              hint="Clientas con cuotas o saldos pendientes"
             />
           </div>
 
@@ -477,8 +461,8 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
                 onChange={(e) => setBusqueda(e.target.value)}
                 placeholder={
                   tabActiva === 'historial'
-                    ? 'Buscar por clienta, venta o referencia...'
-                    : 'Buscar por clienta o código de venta...'
+                    ? 'Buscar clienta, venta o referencia'
+                    : 'Buscar clienta o código'
                 }
                 className="pl-9 pr-9"
               />
@@ -555,8 +539,8 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
                     rowKey={(p) => p.id}
                     emptyMessage={
                       busqueda
-                        ? 'No se encontraron abonos con ese criterio'
-                        : 'Aún no se han registrado abonos en el sistema'
+                        ? 'Ningún abono coincide'
+                        : 'Todavía no hay abonos'
                     }
                   />
                 </div>
@@ -583,7 +567,7 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
                               <span className="font-bold text-body text-texto truncate">
                                 {c.cliente_nombre}
                               </span>
-                              <span className="font-mono text-caption text-texto-3 font-semibold">
+                              <span className="tabular text-caption text-texto-3 font-semibold">
                                 {c.codigo}
                               </span>
                               {c.cuotas_vencidas > 0 ? (
@@ -600,17 +584,17 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
                               {c.cliente_telefono && (
                                 <span>Tel: {c.cliente_telefono}</span>
                               )}
-                              <span>Total venta: {formatearMoneda(c.total_usd_cents, 'USD')}</span>
+                              <span>de {formatearMoneda(c.total_usd_cents, 'USD')}</span>
                             </div>
                           </div>
                         </div>
 
                         <div className="flex items-center gap-4 shrink-0">
                           <div className="text-right">
-                            <span className="block font-extrabold text-body text-alerta font-mono">
+                            <span className="block font-extrabold text-body text-alerta tabular">
                               Debe {formatearMoneda(c.saldo_usd_cents, 'USD')}
                             </span>
-                            <span className="block text-[11px] text-texto-3 font-mono">
+                            <span className="block text-[11px] text-texto-3 tabular">
                               ≈ {formatearMoneda(saldoCor, 'COR')}
                             </span>
                           </div>
@@ -655,7 +639,7 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
               ) : (
                 <div className="py-12 px-4 text-center">
                   <CheckCircle2 className="w-10 h-10 text-acento mx-auto mb-2 opacity-80" />
-                  <p className="text-body font-bold text-texto">Cartera 100% al día</p>
+                  <p className="text-body font-bold text-texto">Nadie te debe</p>
                   <p className="text-caption text-texto-3 mt-0.5">
                     No hay cuentas con saldo pendiente bajo el filtro seleccionado.
                   </p>
@@ -676,7 +660,7 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
             <div className="flex items-center justify-between pb-2 border-b border-borde">
               <div className="flex items-center gap-2">
                 <CreditCard className="w-5 h-5 text-acento" />
-                <h3 className="font-extrabold text-body text-texto">Registrar Nuevo Abono</h3>
+                <h3 className="font-bold text-body text-texto">Registrar abono</h3>
               </div>
               <button
                 type="button"
@@ -696,7 +680,7 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
                 >
                   {clientes.map((cli) => (
                     <option key={cli.id} value={cli.id}>
-                      {cli.nombre} {cli.saldo_pendiente_usd_cents > 0 ? `(Debe ${formatearMoneda(cli.saldo_pendiente_usd_cents, 'USD')})` : '(Sin saldo)'}
+                      {cli.nombre}{cli.saldo_pendiente_usd_cents > 0 ? ` · debe ${formatearMoneda(cli.saldo_pendiente_usd_cents, 'USD')}` : ''}
                     </option>
                   ))}
                 </select>
@@ -709,8 +693,8 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
                     onChange={(e) => setAbonoMoneda(e.target.value as MonedaPago)}
                     className="w-full rounded-lg border border-borde bg-superficie-2 px-3 py-2 text-label text-texto focus:outline-none focus:ring-2 focus:ring-acento/50"
                   >
-                    <option value="COR">C$ Córdobas</option>
-                    <option value="USD">$ Dólares</option>
+                    <option value="COR">Córdobas</option>
+                    <option value="USD">Dólares</option>
                   </select>
                 </Field>
                 <Field label="Método" className="mb-0">
@@ -738,7 +722,7 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
                     value={abonoMontoTexto}
                     onChange={(e) => setAbonoMontoTexto(e.target.value)}
                     placeholder="0.00"
-                    className="text-right font-mono"
+                    className="text-right tabular"
                     autoFocus
                   />
                 </Field>
@@ -751,19 +735,19 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
                 </Field>
               </div>
 
-              <Field label="Referencia bancaria" hint="Opcional" className="mb-0">
+              <Field label="Referencia" className="mb-0">
                 <Input
                   value={abonoReferencia}
                   onChange={(e) => setAbonoReferencia(e.target.value)}
-                  placeholder="Ej. Transferencia BAC #54321"
+                  placeholder="Opcional"
                 />
               </Field>
 
-              <Field label="Notas" hint="Opcional" className="mb-0">
+              <Field label="Notas" className="mb-0">
                 <Input
                   value={abonoNotas}
                   onChange={(e) => setAbonoNotas(e.target.value)}
-                  placeholder="Observaciones del abono..."
+                  placeholder="Opcional"
                 />
               </Field>
             </div>
@@ -783,7 +767,7 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
                 onClick={guardarAbono}
                 disabled={abonoGuardando || !abonoMontoTexto}
               >
-                {abonoGuardando ? 'Guardando...' : 'Confirmar Abono'}
+                {abonoGuardando ? 'Guardando...' : 'Registrar abono'}
               </Button>
             </div>
           </div>
@@ -797,12 +781,11 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
         peligroso
         titulo="¿Anular este abono?"
         consecuencias={[
-          `Monto: ${formatearMoneda(pagoAnulando?.monto_usd_cents || 0, 'USD')} de ${pagoAnulando?.cliente_nombre || 'la clienta'}.`,
-          'El saldo adeudado de la venta o clienta se restaurará automáticamente.',
-          'Esta acción se registrará en el historial de auditoría.',
+          `${formatearMoneda(pagoAnulando?.monto_usd_cents || 0, 'USD')} de ${pagoAnulando?.cliente_nombre || 'la clienta'}.`,
+          'Lo que debía vuelve a quedar pendiente.',
         ]}
-        textoConfirmar="Sí, anular abono"
-        textoCancelar="No, mantener"
+        textoConfirmar="Anular abono"
+        textoCancelar="Cancelar"
         onConfirmar={confirmarAnularPago}
         onCerrar={() => setPagoAnulando(null)}
       />

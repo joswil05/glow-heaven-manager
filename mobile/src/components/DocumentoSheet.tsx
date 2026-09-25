@@ -115,7 +115,7 @@ export function DocumentoSheet({
     <BottomSheet
       abierto={ventaId !== null}
       onCerrar={onCerrar}
-      titulo={esEncargo ? 'Cotización / Proforma' : 'Factura comercial'}
+      titulo={esEncargo ? 'Proforma' : 'Factura'}
       subtitulo={venta ? `${venta.codigo} · ${venta.cliente_nombre ?? 'Mostrador'}` : undefined}
       footer={
         venta ? (

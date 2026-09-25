@@ -33,7 +33,6 @@ import {
   Money,
   StatTile,
   DataTable,
-  BarraProgreso,
   Confirmar,
   ContextMenu,
   type Column,
@@ -390,24 +389,12 @@ export const VentasView: React.FC<VentasViewProps> = ({
       key: 'codigo',
       header: esEncargo ? 'Encargo' : 'Venta',
       render: (v) => (
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-superficie-2 border border-borde/80 flex items-center justify-center shrink-0 shadow-xs text-texto-2">
-            {esEncargo ? (
-              <ClipboardList className="w-4 h-4 text-texto-3" />
-            ) : (
-              <ShoppingBag className="w-4 h-4 text-texto-3" />
-            )}
+        <div className="min-w-0">
+          <div className="text-body font-semibold text-texto tracking-tight truncate">
+            {v.cliente_nombre ?? 'Mostrador'}
           </div>
-          <div className="min-w-0">
-            <div className="text-body font-semibold text-texto tracking-tight truncate">
-              {v.cliente_nombre ?? 'Mostrador'}
-            </div>
-            <div className="text-caption text-texto-3 flex items-center gap-1.5 font-mono">
-              <span className="bg-superficie-2 px-1.5 py-0.5 rounded border border-borde/60 text-[11px] text-texto-2">
-                {v.codigo}
-              </span>
-              <span>· {formatearFecha(v.fecha)}</span>
-            </div>
+          <div className="text-caption text-texto-3 tabular">
+            {v.codigo} · {formatearFecha(v.fecha)}
           </div>
         </div>
       ),
@@ -424,7 +411,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
               v.estado === 'ENTREGADA'
                 ? 'bg-acento'
                 : v.estado === 'PENDIENTE'
-                  ? 'bg-alerta animate-pulse'
+                  ? 'bg-alerta'
                   : v.estado === 'CANCELADA'
                     ? 'bg-peligro'
                     : 'bg-superficie-2'
@@ -438,26 +425,15 @@ export const VentasView: React.FC<VentasViewProps> = ({
       key: 'total',
       header: 'Total',
       align: 'right',
-      width: '160px',
-      render: (v) => <Money usd_cents={v.total_usd_cents} size="sm" />,
+      width: '120px',
+      render: (v) => <Money usd_cents={v.total_usd_cents} size="sm" soloUsd />,
     },
     {
       key: 'pagado',
       header: 'Pagado',
       align: 'right',
-      width: '160px',
-      render: (v) => (
-        <div>
-          <Money usd_cents={v.pagado_usd_cents} size="sm" soloUsd />
-          <BarraProgreso
-            className="mt-1"
-            actual={v.pagado_usd_cents}
-            total={v.total_usd_cents}
-            tono={v.saldo_usd_cents <= 0 ? 'success' : 'brand'}
-            etiqueta={`Pagado de ${v.codigo}`}
-          />
-        </div>
-      ),
+      width: '120px',
+      render: (v) => <Money usd_cents={v.pagado_usd_cents} size="sm" soloUsd />,
     },
     {
       key: 'saldo',
@@ -470,7 +446,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
             <Money usd_cents={v.saldo_usd_cents} size="sm" soloUsd />
           </span>
         ) : (
-          <Badge tone="success">Saldada</Badge>
+          <span className="text-caption text-texto-3">Saldada</span>
         ),
     },
     {
@@ -489,9 +465,9 @@ export const VentasView: React.FC<VentasViewProps> = ({
         <div className="flex items-center justify-end gap-1">
           <Button
             size="sm"
-            variant="outline"
-            className="text-acento border-acento/30 hover:bg-acento/10 font-medium text-xs px-2.5 py-1 h-7 rounded-lg"
-            title={v.tipo === 'ENCARGO' ? 'Ver / Imprimir Cotización' : 'Ver / Imprimir Factura'}
+            variant="ghost"
+            className="text-texto-2 hover:text-texto font-medium text-xs px-2.5 py-1 h-7 rounded-lg"
+            title={v.tipo === 'ENCARGO' ? 'Ver o imprimir la proforma' : 'Ver o imprimir la factura'}
             onClick={async (e) => {
               e.stopPropagation();
               await abrirDetalle(v.id);
@@ -506,7 +482,8 @@ export const VentasView: React.FC<VentasViewProps> = ({
             size="sm"
             variant="ghost"
             className="p-1 text-texto-3 hover:text-texto rounded-lg h-7 w-7 flex items-center justify-center cursor-pointer"
-            title="Más opciones de venta"
+            title="Opciones"
+            aria-label={`Opciones de ${v.codigo}`}
             onClick={(e) => {
               e.stopPropagation();
               setMenuContextual({ x: e.clientX, y: e.clientY, venta: v });
@@ -530,21 +507,12 @@ export const VentasView: React.FC<VentasViewProps> = ({
     <div className="flex-1 flex overflow-hidden">
       <div className="flex-1 overflow-y-auto p-4 md:px-6 md:py-4 animate-fade-in scroll-smooth">
         <div className="max-w-[1500px] w-full mx-auto space-y-4 stagger-children">
-          {/* Barra superior estilizada idéntica a la del inicio */}
-        <div className="flex items-center justify-between gap-3 pb-1 border-b border-borde/40 text-caption text-texto-3 shrink-0 flex-wrap">
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-texto text-body">
-              {esEncargo ? 'Gestión de Encargos Especiales' : 'Registro de Ventas'}
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-acento/10 text-acento border border-acento/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-acento" />
-              {ventas.filter((v) => v.estado !== 'CANCELADA').length} activas
-            </span>
-          </div>
+        {/* El título ya está en la barra de arriba: acá sólo lo que se hace. */}
+        <div className="flex items-center justify-between gap-3 shrink-0 flex-wrap">
+          <span className="text-label text-texto-3 tabular">
+            {ventas.filter((v) => v.estado !== 'CANCELADA').length} activas
+          </span>
           <div className="flex items-center gap-3">
-            <span className="hidden md:inline-block text-[11px] text-texto-3">
-              {esEncargo ? 'Anticipos y seguimiento' : 'Contado y cuotas'}
-            </span>
             <Button
               variant="primary"
               size="sm"
@@ -563,15 +531,14 @@ export const VentasView: React.FC<VentasViewProps> = ({
             usd_cents={totales.vendido}
             tone="info"
             icon={ShoppingBag}
-            hint={`${ventas.filter((v) => v.estado !== 'CANCELADA').length} registro(s) activos`}
             onClick={() => setFiltro('TODAS')}
           />
           <StatTile
-            label="Ganancia de entregados"
+            label="Ganancia"
             usd_cents={totales.ganancia}
             tone={totales.ganancia > 0 ? 'success' : 'neutral'}
             icon={TrendingUp}
-            hint="Margen neto sobre ventas completadas"
+            hint="De lo entregado"
             onClick={() => setFiltro('ENTREGADAS')}
           />
           <StatTile
@@ -579,13 +546,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
             usd_cents={totales.porCobrar}
             tone={totales.porCobrar > 0 ? 'warning' : 'success'}
             icon={Wallet}
-            hint={
-              filtro === 'CON_SALDO'
-                ? 'Mostrando solo ventas con saldo pendiente'
-                : totales.porCobrar > 0
-                  ? 'Clic para filtrar ventas con deuda'
-                  : 'Sin saldos pendientes'
-            }
+            hint={filtro === 'CON_SALDO' ? 'Filtrando: tocá para ver todo' : undefined}
             onClick={() => setFiltro(filtro === 'CON_SALDO' ? 'TODAS' : 'CON_SALDO')}
             className={filtro === 'CON_SALDO' ? 'ring-2 ring-alerta/50' : undefined}
           />
@@ -621,7 +582,8 @@ export const VentasView: React.FC<VentasViewProps> = ({
               type="text"
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Buscar por clienta o código de venta..."
+              placeholder="Buscar clienta o código"
+              aria-label="Buscar ventas"
               className="w-full rounded-xl border border-borde bg-superficie-2/80 py-1.5 pl-9 pr-8 text-label text-texto placeholder:text-texto-3 outline-none focus:border-acento-suave focus:ring-2 focus:ring-acento"
             />
             {busqueda && (
@@ -638,10 +600,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
 
           {/* Selector Histórico de Período */}
           <div className="inline-flex items-center gap-1.5 p-1 bg-superficie-2/80 rounded-xl border border-borde/70 text-caption font-medium">
-            <span className="text-[11px] text-texto-3 pl-2 pr-1 font-semibold flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5" />
-              Período:
-            </span>
+            <Calendar className="w-3.5 h-3.5 text-texto-3 ml-2" aria-label="Período" />
             {(
               [
                 { id: 'TODOS', etiqueta: 'Todo' },
@@ -698,10 +657,10 @@ export const VentasView: React.FC<VentasViewProps> = ({
             }
             description={
               filtro !== 'TODAS' || periodo !== 'TODOS'
-                ? 'Probá cambiando el período o quitando los filtros.'
+                ? 'Probá con otro período o quitá los filtros.'
                 : esEncargo
-                  ? 'Un encargo es un pedido especial: cotizás, cobrás anticipo, comprás y entregás.'
-                  : 'Registrá tu primera venta del inventario. Las existencias se descuentan solas.'
+                  ? 'Cotizás, cobrás el anticipo, comprás y entregás.'
+                  : 'Las existencias se descuentan solas al vender.'
             }
             action={
               filtro === 'TODAS' && periodo === 'TODOS' ? (
@@ -756,9 +715,6 @@ export const VentasView: React.FC<VentasViewProps> = ({
           {/* Cabecera pegajosa con botón de cerrar */}
           <div className="p-5 border-b border-borde bg-superficie-2/40 flex items-start justify-between gap-3 shrink-0">
             <div className="flex items-start gap-3 min-w-0">
-              <div className="w-12 h-12 rounded-xl bg-acento/10 text-acento-fuerte border border-acento/20 flex items-center justify-center shrink-0 shadow-xs">
-                {esEncargo ? <ClipboardList className="w-6 h-6" /> : <ShoppingBag className="w-6 h-6" />}
-              </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <h3 className="text-title font-bold text-texto tracking-tight truncate">
@@ -771,7 +727,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
                         ventaDetalle.estado === 'ENTREGADA'
                           ? 'bg-acento'
                           : ventaDetalle.estado === 'PENDIENTE'
-                            ? 'bg-alerta animate-pulse'
+                            ? 'bg-alerta'
                             : ventaDetalle.estado === 'CANCELADA'
                               ? 'bg-peligro'
                               : 'bg-superficie-2'
@@ -780,7 +736,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
                     {ESTADO_TEXTO[ventaDetalle.estado]}
                   </Badge>
                 </div>
-                <p className="text-caption text-texto-3 font-mono mt-0.5">
+                <p className="text-caption text-texto-3 tabular mt-0.5">
                   {ventaDetalle.codigo} · {formatearFecha(ventaDetalle.fecha)}
                 </p>
               </div>
@@ -798,7 +754,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
 
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
             {/* Tarjeta de estado de la cuenta */}
-            <div className="rounded-xl border border-borde/80 bg-gradient-to-b from-superficie via-superficie to-superficie-2/30 p-4 space-y-2.5 shadow-xs">
+            <div className="rounded-xl border border-borde/80 bg-superficie p-4 space-y-2.5">
               {(ventaDetalle.descuento_usd_cents ?? 0) > 0 && (
                 <>
                   <div className="flex justify-between items-center gap-2">
@@ -816,7 +772,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
                     <span className="text-label font-medium">
                       Descuento{ventaDetalle.descuento_motivo ? ` (${ventaDetalle.descuento_motivo})` : ''}
                     </span>
-                    <span className="text-label font-bold font-mono">
+                    <span className="text-label font-bold tabular">
                       -{formatearMoneda(ventaDetalle.descuento_usd_cents!, 'USD')}
                     </span>
                   </div>
@@ -824,7 +780,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
               )}
               <div className="flex justify-between items-center gap-2">
                 <span className="text-label text-texto-2 font-medium">
-                  {(ventaDetalle.descuento_usd_cents ?? 0) > 0 ? 'Total con descuento' : 'Total facturado'}
+                  {(ventaDetalle.descuento_usd_cents ?? 0) > 0 ? 'Total con descuento' : 'Total'}
                 </span>
                 <Money usd_cents={ventaDetalle.total_usd_cents} size="sm" />
               </div>
@@ -839,11 +795,11 @@ export const VentasView: React.FC<VentasViewProps> = ({
                     <Money usd_cents={ventaDetalle.saldo_usd_cents} size="md" soloUsd />
                   </span>
                 ) : (
-                  <Badge tone="success">Saldada completamente</Badge>
+                  <Badge tone="success">Saldada</Badge>
                 )}
               </div>
               <div className="flex justify-between items-center gap-2 pt-2 border-t border-borde/70">
-                <span className="text-label text-texto-2 font-medium">Ganancia neta</span>
+                <span className="text-label text-texto-2 font-medium">Ganancia</span>
                 <Money
                   usd_cents={ventaDetalle.ganancia_usd_cents}
                   size="sm"
@@ -856,8 +812,8 @@ export const VentasView: React.FC<VentasViewProps> = ({
             {/* Lista de productos */}
             <div className="rounded-xl border border-borde/80 overflow-hidden shadow-xs">
               <div className="px-4 py-2.5 bg-superficie-2/50 border-b border-borde text-label font-medium text-texto flex items-center justify-between">
-                <span>Prendas / Artículos</span>
-                <span className="text-caption text-texto-3">{ventaDetalle.lineas.length} línea(s)</span>
+                <span>Artículos</span>
+                <span className="text-caption text-texto-3">{ventaDetalle.lineas.length}</span>
               </div>
               <ul className="divide-y divide-borde/60 max-h-[300px] overflow-y-auto">
                 {ventaDetalle.lineas.map((l) => (
@@ -873,12 +829,12 @@ export const VentasView: React.FC<VentasViewProps> = ({
                             </span>
                           )}
                         </div>
-                        <div className="text-caption text-texto-3 font-mono">
+                        <div className="text-caption text-texto-3 tabular">
                           {l.cantidad} × {formatearMoneda(l.precio_unitario_usd_cents, 'USD')}
                           {l.es_paquete && ' · paquete completo'}
                         </div>
                       </div>
-                      <span className="text-body font-semibold text-texto tabular shrink-0 font-mono">
+                      <span className="text-body font-semibold text-texto tabular shrink-0">
                         {formatearMoneda(l.subtotal_usd_cents, 'USD')}
                       </span>
                     </div>
@@ -889,7 +845,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
 
             {ventaDetalle.notas && (
               <div className="rounded-xl border border-borde/70 bg-superficie-2/20 p-3.5 shadow-xs">
-                <div className="text-caption font-medium text-texto-3 mb-1">Notas de la clienta</div>
+                <div className="text-caption font-medium text-texto-3 mb-1">Notas</div>
                 <p className="text-label text-texto-2 leading-relaxed">{ventaDetalle.notas}</p>
               </div>
             )}
@@ -899,18 +855,16 @@ export const VentasView: React.FC<VentasViewProps> = ({
               <div className="px-4 py-2.5 bg-superficie-2/50 border-b border-borde text-label font-medium text-texto flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Clock className="w-3.5 h-3.5 text-texto-3" />
-                  <span className="font-semibold">Historial de abonos</span>
+                  <span className="font-semibold">Abonos</span>
                 </div>
-                <span className="text-caption text-texto-3 font-semibold">
-                  {ventaDetalle.pagos?.length || 0} pago(s)
-                </span>
+                <span className="text-caption text-texto-3">{ventaDetalle.pagos?.length || 0}</span>
               </div>
               {ventaDetalle.pagos && ventaDetalle.pagos.length > 0 ? (
                 <ul className="divide-y divide-borde/60 max-h-44 overflow-y-auto">
                   {ventaDetalle.pagos.map((p) => (
                     <li key={p.id} className="px-4 py-2 flex items-center justify-between gap-2 hover:bg-superficie-2/20 transition-colors">
                       <div className="min-w-0">
-                        <div className="text-label text-texto font-mono flex items-center gap-1.5">
+                        <div className="text-label text-texto tabular flex items-center gap-1.5">
                           <span>{formatearFecha(p.fecha)}</span>
                           {p.es_anticipo && (
                             <Badge tone="info">Anticipo</Badge>
@@ -924,7 +878,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
                       <div className="text-right shrink-0">
                         <Money usd_cents={p.monto_usd_cents} size="sm" soloUsd />
                         {p.moneda === 'COR' && (
-                          <div className="text-caption text-texto-3 font-mono">
+                          <div className="text-caption text-texto-3 tabular">
                             {formatearMoneda(p.monto_cor_cents, 'COR')}
                           </div>
                         )}
@@ -934,7 +888,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
                 </ul>
               ) : (
                 <div className="py-4 px-4 text-center text-caption text-texto-3">
-                  Sin abonos registrados en esta venta
+                  Sin abonos todavía.
                 </div>
               )}
             </div>
@@ -942,12 +896,12 @@ export const VentasView: React.FC<VentasViewProps> = ({
             {/* Acciones principales */}
             <div className="space-y-2.5 pt-1">
               <Button
-                variant="outline"
-                className="w-full flex items-center justify-center gap-1.5 border-acento/40 text-acento hover:bg-acento/10 font-semibold"
+                variant="secondary"
+                className="w-full flex items-center justify-center gap-1.5"
                 onClick={() => setDocumentoAbierto(true)}
               >
                 <FileText className="w-4 h-4" />
-                <span>{esEncargo ? 'Ver Proforma / Cotización' : 'Ver Factura Comercial'}</span>
+                <span>{esEncargo ? 'Ver proforma' : 'Ver factura'}</span>
               </Button>
 
               {ventaDetalle.estado !== 'CANCELADA' && ventaDetalle.saldo_usd_cents > 0 && (
@@ -965,7 +919,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
                     variant="outline"
                     className="w-full text-acento bg-acento/10 border-acento/30 hover:bg-acento/20 hover:text-acento font-medium"
                     onClick={() => enviarCobroWhatsApp(ventaDetalle)}
-                    title="Enviar recordatorio con cuentas bancarias por WhatsApp"
+                    title="Mandar el recordatorio por WhatsApp"
                   >
                     <MessageCircle className="w-4 h-4 mr-1.5" />
                     <span>WhatsApp</span>
@@ -985,10 +939,9 @@ export const VentasView: React.FC<VentasViewProps> = ({
               )}
 
               {ventaDetalle.estado === 'COTIZADA' && (
-                <p className="text-caption text-texto-3 text-center p-2 rounded-lg bg-superficie-2 border border-borde/60">
-                  Este encargo se desbloquea cuando el anticipo de{' '}
-                  <strong className="text-texto font-semibold">{formatearMoneda(ventaDetalle.anticipo_esperado_usd_cents, 'USD')}</strong> esté
-                  cubierto.
+                <p className="text-caption text-texto-3 text-center p-2 rounded-lg bg-superficie-2">
+                  Se confirma cuando pague el anticipo de{' '}
+                  <strong className="text-texto font-semibold">{formatearMoneda(ventaDetalle.anticipo_esperado_usd_cents, 'USD')}</strong>.
                 </p>
               )}
             </div>
@@ -1072,7 +1025,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
           items={[
             {
               id: 'ver-detalle',
-              label: 'Ver detalle y artículos',
+              label: 'Ver detalle',
               icon: <Eye className="w-4 h-4" />,
               shortcut: 'Espacio',
               onClick: () => abrirDetalle(menuContextual.venta.id),
@@ -1080,9 +1033,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
             {
               id: 'ver-factura',
               label:
-                menuContextual.venta.tipo === 'ENCARGO'
-                  ? 'Ver Proforma / Cotización'
-                  : 'Ver Factura Comercial',
+                menuContextual.venta.tipo === 'ENCARGO' ? 'Ver proforma' : 'Ver factura',
               icon: <FileText className="w-4 h-4" />,
               onClick: async () => {
                 await abrirDetalle(menuContextual.venta.id);
@@ -1094,7 +1045,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
               ? [
                   {
                     id: 'abono',
-                    label: 'Registrar abono / pago',
+                    label: 'Registrar abono',
                     icon: <DollarSign className="w-4 h-4" />,
                     tone: 'success' as const,
                     onClick: async () => {
@@ -1117,7 +1068,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
               icon: <Copy className="w-4 h-4" />,
               onClick: () => {
                 navigator.clipboard.writeText(menuContextual.venta.codigo);
-                showToast({ message: 'Código de venta copiado al portapapeles', type: 'info' });
+                showToast({ message: 'Código copiado', type: 'info' });
               },
             },
             {
@@ -1126,7 +1077,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
               icon: <Copy className="w-4 h-4" />,
               onClick: () => {
                 navigator.clipboard.writeText(menuContextual.venta.cliente_nombre ?? 'Mostrador');
-                showToast({ message: 'Clienta copiada al portapapeles', type: 'info' });
+                showToast({ message: 'Nombre copiado', type: 'info' });
               },
             },
             'separator' as const,

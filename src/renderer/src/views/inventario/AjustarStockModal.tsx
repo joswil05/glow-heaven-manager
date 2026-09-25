@@ -111,9 +111,9 @@ export const AjustarStockModal: React.FC<Props> = ({
           </div>
 
           <Field
-            label="¿Cuántas unidades físicas tenés?"
-            hint={`El sistema registra actualmente: ${ajuste.actual} unidad(es)`}
-            error={texto.trim() && !valido ? 'Escribí un número válido mayor o igual a 0.' : undefined}
+            label="¿Cuántas hay?"
+            hint={`Registradas: ${ajuste.actual}`}
+            error={texto.trim() && !valido ? 'Tiene que ser 0 o más.' : undefined}
           >
             <Input
               ref={campoRef}
@@ -152,39 +152,21 @@ export const AjustarStockModal: React.FC<Props> = ({
           )}
 
           {valido && diferencia !== 0 && (
-            <div
+            <p
               className={cn(
-                'rounded-xl border p-3 text-caption flex items-center gap-2.5 transition-colors',
-                diferencia > 0
-                  ? 'bg-acento-suave text-acento border-acento-suave'
-                  : 'bg-peligro-suave text-peligro border-peligro-suave'
+                'text-label font-semibold tabular',
+                diferencia > 0 ? 'text-acento' : 'text-peligro'
               )}
             >
-              <span
-                className={cn(
-                  'px-2 py-0.5 rounded-full text-xs font-bold shrink-0',
-                  diferencia > 0
-                    ? 'bg-acento-suave text-acento-fuerte'
-                    : 'bg-peligro-suave text-peligro-fuerte'
-                )}
-              >
-                {diferencia > 0 ? `+${diferencia}` : diferencia}
-              </span>
-              <span>
-                {diferencia > 0
-                  ? `Se sumarán ${diferencia} unidad(es) al inventario.`
-                  : `Se descontarán ${Math.abs(diferencia)} unidad(es) del inventario.`}{' '}
-                El cambio quedará registrado en el historial.
-              </span>
-            </div>
+              {diferencia > 0 ? `+${diferencia}` : `−${Math.abs(diferencia)}`}{' '}
+              {Math.abs(diferencia) === 1 ? 'unidad' : 'unidades'}
+            </p>
           )}
 
           {valido && diferencia > 0 && (
-            <div className="rounded-xl border border-alerta-suave bg-alerta-suave p-3 text-caption text-alerta space-y-2">
+            <div className="rounded-xl bg-alerta-suave p-3 text-caption text-alerta space-y-2">
               <p>
-                <strong className="font-semibold">¿Estas unidades llegaron en un paquete?</strong>{' '}
-                Registralas en el paquete: entran con su precio de tienda, su 7% y su parte del
-                flete. Un ajuste las suma al costo que ya tenía el producto.
+                ¿Llegaron en un paquete? Registralas ahí, así entran con su costo real.
               </p>
               {onRegistrarPaquete && (
                 <Button
@@ -197,7 +179,7 @@ export const AjustarStockModal: React.FC<Props> = ({
                     onRegistrarPaquete();
                   }}
                 >
-                  Registrar el paquete
+                  Registrar paquete
                 </Button>
               )}
             </div>

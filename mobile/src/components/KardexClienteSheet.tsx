@@ -145,7 +145,7 @@ export function KardexClienteSheet({
         haptics.impact('light');
         onCerrar();
       }}
-      titulo="Kardex de Abonos"
+      titulo="Abonos"
       subtitulo={cliente.cliente_nombre}
     >
       <div className="flex flex-col gap-3 pb-3">
@@ -240,7 +240,7 @@ export function KardexClienteSheet({
           }`}
         >
           <DollarSign size={16} className={saldoUsd > 0 ? 'text-peligro' : 'text-acento'} />
-          <span>{saldoUsd > 0 ? 'Registrar Nuevo Abono' : 'Registrar Abono Anticipado'}</span>
+          <span>{saldoUsd > 0 ? 'Registrar abono' : 'Registrar anticipo'}</span>
         </button>
 
         {/* Lista de Abonos */}
@@ -255,7 +255,7 @@ export function KardexClienteSheet({
           {cargando ? (
             <div className="flex flex-col items-center justify-center py-8 gap-2">
               <Loader2 className="animate-spin text-acento" size={24} />
-              <span className="text-xs text-texto-3 font-medium">Cargando pagos...</span>
+              <span className="text-xs text-texto-3 font-medium">Cargando…</span>
             </div>
           ) : error ? (
             <div className="flex items-center gap-2 p-3 rounded-xl bg-peligro-suave border border-peligro-suave text-peligro text-xs">

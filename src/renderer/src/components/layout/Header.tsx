@@ -47,7 +47,7 @@ export const Header: React.FC<HeaderProps> = ({
               type="button"
               onClick={onRefrescar}
               disabled={cargando}
-              title={cargando ? 'Actualizando datos del sistema...' : 'Actualizar datos ahora'}
+              title={cargando ? 'Actualizando...' : 'Actualizar'}
               aria-label="Actualizar datos del sistema"
               className={cn(
                 'p-1 rounded-md text-texto-3 hover:text-acento hover:bg-superficie transition-[background-color,border-color,color,box-shadow,transform,opacity] active:scale-90 cursor-pointer group',

@@ -152,7 +152,7 @@ export function InventoryQuickView() {
           <input
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar por nombre, código o tono…"
+            placeholder="Buscar por nombre, código o tono"
             className="w-full rounded-xl bg-superficie-2 text-xs font-medium text-texto placeholder:text-texto-3 outline-none focus:bg-superficie focus:ring-2 focus:ring-acento/30 transition-all border border-borde"
             style={{
               paddingLeft: '38px',
@@ -272,7 +272,7 @@ export function InventoryQuickView() {
           {cargando && (
             <div className="flex flex-col items-center justify-center py-16 gap-3 text-texto-3">
               <div className="h-8 w-8 rounded-full border-2 border-acento border-t-transparent animate-spin" />
-              <p className="text-xs font-medium">Sincronizando catálogo…</p>
+              <p className="text-xs font-medium">Cargando…</p>
             </div>
           )}
 
@@ -360,7 +360,7 @@ export function InventoryQuickView() {
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-superficie-2 text-texto-3 mb-3">
                 <Search size={24} />
               </div>
-              <p className="text-sm font-bold text-texto-2">Sin productos encontrados</p>
+              <p className="text-sm font-bold text-texto-2">Ningún producto coincide</p>
               <p className="text-xs text-texto-3 mt-1 max-w-xs">
                 No hay coincidencias para "{busqueda}" en la categoría "{nombreCategoriaActiva}".
               </p>

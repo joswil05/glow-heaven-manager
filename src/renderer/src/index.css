@@ -144,23 +144,23 @@
   animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* Escalonado: cada hijo se anima con delay progresivo */
+/* Escalonado: cada hijo aparece apenas después del anterior.
+ * Se ve cada vez que se cambia de pantalla, decenas de veces al día, así que
+ * es sólo opacidad, corto y con un retraso que no pasa de 90ms. Antes subía
+ * 16px en 350ms y la última tarjeta llegaba a los 650ms: la pantalla se
+ * sentía lenta sin serlo. */
+@keyframes aparecer {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
 .stagger-children > * {
   opacity: 0;
-  animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: aparecer 0.18s ease-out forwards;
 }
 .stagger-children > *:nth-child(1) { animation-delay: 0ms; }
-.stagger-children > *:nth-child(2) { animation-delay: 50ms; }
-.stagger-children > *:nth-child(3) { animation-delay: 100ms; }
-.stagger-children > *:nth-child(4) { animation-delay: 150ms; }
-.stagger-children > *:nth-child(5) { animation-delay: 200ms; }
-.stagger-children > *:nth-child(6) { animation-delay: 250ms; }
-/* A partir del séptimo el retraso se congela en 300ms.
- * La cascada se lee en los primeros elementos; estirarla hasta 550ms sólo
- * hacía que la última tarjeta llegara medio segundo tarde y que el panel se
- * sintiera lento al abrirlo. El escalonado es decorativo: nunca debe retrasar
- * lo que la persona vino a ver. */
-.stagger-children > *:nth-child(n + 7) { animation-delay: 300ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 30ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 60ms; }
+.stagger-children > *:nth-child(n + 4) { animation-delay: 90ms; }
 
 /* Scale-in para modales y popovers */
 @keyframes scaleIn {

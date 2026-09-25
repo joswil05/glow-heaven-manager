@@ -55,7 +55,7 @@ export const DocumentoModal: React.FC<DocumentoModalProps> = ({
 
   if (!abierto || !venta) return null;
 
-  const titulo = esEncargo ? 'Cotización / Proforma' : 'Factura Comercial';
+  const titulo = esEncargo ? 'Proforma' : 'Factura';
 
   const handleGuardarPdf = async () => {
     setGuardandoPdf(true);
@@ -66,7 +66,7 @@ export const DocumentoModal: React.FC<DocumentoModalProps> = ({
           nombreSugerido: `${esEncargo ? 'Cotizacion' : 'Factura'}-${venta.codigo}`,
         });
         if (res.success && res.data.guardado) {
-          showToast({ message: 'Documento guardado como PDF en tu equipo', type: 'success' });
+          showToast({ message: 'PDF guardado', type: 'success' });
         } else if (!res.success) {
           showToast({ message: res.error || 'No se pudo generar el PDF', type: 'error' });
         }
@@ -74,7 +74,7 @@ export const DocumentoModal: React.FC<DocumentoModalProps> = ({
         imprimirHtml(html);
       }
     } catch {
-      showToast({ message: 'Error al exportar PDF', type: 'error' });
+      showToast({ message: 'No se pudo guardar el PDF', type: 'error' });
     } finally {
       setGuardandoPdf(false);
     }
@@ -86,13 +86,13 @@ export const DocumentoModal: React.FC<DocumentoModalProps> = ({
       if (window.api?.documentos?.imprimir) {
         const res = await window.api.documentos.imprimir(html);
         if (!res.success) {
-          showToast({ message: res.error || 'Error al enviar a la impresora', type: 'error' });
+          showToast({ message: res.error || 'No se pudo imprimir', type: 'error' });
         }
       } else {
         imprimirHtml(html);
       }
     } catch {
-      showToast({ message: 'Error al abrir diálogo de impresión', type: 'error' });
+      showToast({ message: 'No se pudo abrir la impresión', type: 'error' });
     } finally {
       setImprimiendo(false);
     }

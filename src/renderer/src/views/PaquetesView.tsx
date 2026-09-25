@@ -191,21 +191,16 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
       key: 'codigo',
       header: 'Paquete',
       render: (c) => (
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-superficie-2 border border-borde/80 flex items-center justify-center shrink-0 shadow-xs text-texto-2">
-            <Package className="w-4 h-4 text-texto-3" />
-          </div>
-          <div className="min-w-0">
-            <div className="text-body font-semibold text-texto tracking-tight whitespace-nowrap">{c.codigo}</div>
-            <div className="text-caption font-mono text-texto-3 whitespace-nowrap">{formatearFecha(c.fecha)}</div>
-          </div>
+        <div className="min-w-0">
+          <div className="text-body font-semibold text-texto tracking-tight whitespace-nowrap">{c.codigo}</div>
+          <div className="text-caption text-texto-3 whitespace-nowrap">{formatearFecha(c.fecha)}</div>
         </div>
       ),
     },
     {
       key: 'estado',
       header: 'Estado',
-      width: '140px',
+      width: '130px',
       render: (c) => {
         const e = estadoVisible(c);
         return (
@@ -225,21 +220,21 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
       key: 'peso',
       header: 'Peso',
       align: 'right',
-      width: '100px',
+      width: '90px',
       render: (c) => (
-        <span className="text-label text-texto-2 tabular font-mono">
+        <span className="text-label text-texto-2 tabular whitespace-nowrap">
           {formatearPeso(c.peso_total_mlb)}
         </span>
       ),
     },
     {
       key: 'mercaderia',
-      header: 'Tienda + 7%',
+      header: 'Mercadería',
       align: 'right',
-      width: '140px',
+      width: '120px',
       render: (c) =>
         estadoVisible(c) === 'SIN_CONTENIDO' ? (
-          <span className="text-caption text-texto-3">sin registrar</span>
+          <span className="text-caption text-texto-3">sin contenido</span>
         ) : (
           <Money
             usd_cents={c.subtotal_productos_usd_cents + c.tax_total_usd_cents}
@@ -252,21 +247,21 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
       key: 'envio',
       header: 'Flete',
       align: 'right',
-      width: '120px',
+      width: '100px',
       render: (c) => <Money usd_cents={c.envio_total_usd_cents + c.otros_costos_usd_cents} size="sm" soloUsd />,
     },
     {
       key: 'total',
       header: 'Pagado',
       align: 'right',
-      width: '150px',
-      render: (c) => <Money usd_cents={c.total_usd_cents} size="sm" />,
+      width: '110px',
+      render: (c) => <Money usd_cents={c.total_usd_cents} size="sm" soloUsd />,
     },
     {
       key: 'acciones',
       header: '',
       align: 'right',
-      width: '230px',
+      width: '190px',
       render: (c) => {
         const e = estadoVisible(c);
         return (
@@ -274,8 +269,8 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
             {e === 'CARGANDO' && (
               <Button
                 size="sm"
-                variant="primary"
-                className="shadow-xs"
+                variant="secondary"
+                className="whitespace-nowrap"
                 onClick={(ev) => {
                   ev.stopPropagation();
                   abrirEditor(c.id);
@@ -308,7 +303,7 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
                 }}
               >
                 <FileSearch className="w-3.5 h-3.5" />
-                <span>Completar contenido</span>
+                <span>Completar</span>
               </Button>
             )}
             {e === 'CARGANDO' && (
@@ -338,14 +333,10 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
     <div className="flex-1 flex overflow-hidden">
       <div className="flex-1 overflow-y-auto p-4 md:px-6 md:py-4 animate-fade-in scroll-smooth">
         <div className="max-w-[1500px] w-full mx-auto space-y-4 stagger-children">
-          <div className="flex items-center justify-between gap-3 pb-1 border-b border-borde/40 text-caption text-texto-3 flex-wrap">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-texto text-body">Paquetes</span>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-acento/10 text-acento border border-acento/20">
-                <span className="w-1.5 h-1.5 rounded-full bg-acento" />
-                {compras.length} paquete{compras.length === 1 ? '' : 's'}
-              </span>
-            </div>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <span className="text-label text-texto-3 tabular">
+              {compras.length} paquete{compras.length === 1 ? '' : 's'}
+            </span>
             <Button
               variant="primary"
               size="sm"
@@ -369,8 +360,8 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
                 icon={Boxes}
                 hint={
                   sinContenido.length > 0
-                    ? `${sinContenido.length} sin contenido: sólo cuenta su flete. Completalo.`
-                    : `${enInventario.length} paquete${enInventario.length === 1 ? '' : 's'}: tienda + 7% + flete`
+                    ? `${sinContenido.length} sin contenido: sólo cuenta su flete`
+                    : `${enInventario.length} paquete${enInventario.length === 1 ? '' : 's'}`
                 }
               />
               <StatTile
@@ -380,10 +371,10 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
                 icon={Scale}
                 hint={
                   costoPorLibra > 0
-                    ? `El flete te sale a ${$(costoPorLibra)} por libra`
+                    ? `Flete a ${$(costoPorLibra)} la libra`
                     : cargandose.length > 0
-                      ? `${cargandose.length} paquete${cargandose.length === 1 ? '' : 's'} cargándose`
-                      : 'De los paquetes en inventario'
+                      ? `${cargandose.length} cargándose`
+                      : undefined
                 }
               />
               <StatTile
@@ -391,11 +382,7 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
                 value={encargos.length}
                 tone={encargos.length > 0 ? 'warning' : 'success'}
                 icon={Clock}
-                hint={
-                  encargos.length > 0
-                    ? 'Confirmados: el anticipo ya entró'
-                    : 'Sin encargos confirmados pendientes'
-                }
+                hint={encargos.length > 0 ? 'Con el anticipo pagado' : undefined}
               />
             </div>
           )}
@@ -406,7 +393,7 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
             <EmptyState
               icon={Package}
               title="Todavía no hay paquetes"
-              description="Registrá el paquete cuando llegue: lo que trajo, lo que costó en la tienda, cuánto pesó y el flete. Así entra al inventario con su costo real."
+              description="Cuando llegue una caja, registrala con lo que trajo."
               action={
                 <Button
                   variant="primary"
@@ -422,7 +409,13 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
             />
           ) : (
             <DataTable
-              columns={columnas}
+              // Con el detalle abierto la tabla no entraba y cortaba las
+              // acciones. El desglose ya está en el panel.
+              columns={
+                detalle
+                  ? columnas.filter((c) => !['peso', 'mercaderia', 'envio'].includes(String(c.key)))
+                  : columnas
+              }
               rows={compras}
               rowKey={(c) => c.id}
               selectedKey={detalle?.id}
@@ -462,11 +455,9 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
 
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
             {estadoDetalle === 'CARGANDO' && (
-              <div className="p-3.5 rounded-xl border border-alerta-suave bg-alerta-suave flex items-center justify-between gap-3">
-                <p className="text-caption text-alerta leading-snug">
-                  Se está cargando: nada entró todavía al inventario.
-                </p>
-                <Button size="sm" variant="primary" onClick={() => abrirEditor(detalle.id)}>
+              <div className="px-3.5 py-2.5 rounded-xl bg-alerta-suave flex items-center justify-between gap-3">
+                <p className="text-label text-alerta">Todavía no entró al inventario.</p>
+                <Button size="sm" variant="primary" className="whitespace-nowrap" onClick={() => abrirEditor(detalle.id)}>
                   Seguir cargando
                 </Button>
               </div>
@@ -474,21 +465,19 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
 
             {estadoDetalle === 'SIN_CONTENIDO' && (
               <div className="p-3.5 rounded-xl border border-borde bg-superficie-2/60 space-y-2">
-                <p className="text-caption text-texto-2 leading-relaxed">
-                  Este paquete se registró antes de que los paquetes guardaran lo que traían: su
-                  total es sólo el flete. Lo que costó la mercadería está en los productos que se
-                  cargaron con él.
+                <p className="text-caption text-texto-2">
+                  Se registró sólo con el flete. Lo que costó la mercadería está en sus productos.
                 </p>
                 <Button size="sm" variant="outline" onClick={() => setReconstruyendo(detalle)}>
                   <FileSearch className="w-3.5 h-3.5" />
-                  <span>Ver y completar su contenido</span>
+                  <span>Completar contenido</span>
                 </Button>
               </div>
             )}
 
             <Card className="rounded-xl border-borde/80 shadow-xs overflow-hidden">
               <div className="px-4 py-2.5 bg-superficie-2/50 border-b border-borde text-label font-medium text-texto">
-                Lo que se pagó
+                Pagado
               </div>
               <CardContent className="p-4 space-y-2">
                 <Fila etiqueta="Precio de tienda" usd={detalle.subtotal_productos_usd_cents} />
@@ -511,9 +500,11 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
 
             <Card className="rounded-xl border-borde/80 shadow-xs overflow-hidden">
               <div className="px-4 py-2.5 bg-superficie-2/50 border-b border-borde text-label font-medium text-texto flex items-center justify-between">
-                <span>Qué vino adentro</span>
+                <span>Contenido</span>
                 {detalle.lineas.length > 0 && (
-                  <span className="text-caption text-texto-3">{detalle.lineas.length} línea(s)</span>
+                  <span className="text-caption text-texto-3">
+                    {detalle.lineas.length} {detalle.lineas.length === 1 ? 'línea' : 'líneas'}
+                  </span>
                 )}
               </div>
               {detalle.lineas.length === 0 ? (
@@ -561,7 +552,7 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
 
             {detalle.resumen_ingreso && detalle.resumen_ingreso.length > 0 && (
               <div>
-                <h4 className="text-label font-medium text-texto mb-2">Cómo quedó cada producto al entrar</h4>
+                <h4 className="text-label font-medium text-texto mb-2">Al entrar</h4>
                 <ResumenIngreso
                   compacto
                   modo="ingreso"
@@ -585,7 +576,7 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
                 onClick={() => abrirEditor(detalle.id)}
               >
                 <Wrench className="w-3.5 h-3.5 mr-1.5" />
-                <span>Corregir este paquete</span>
+                <span>Corregir</span>
               </Button>
             </div>
           )}
@@ -616,8 +607,8 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
         peligroso
         titulo={`¿Eliminar ${borrando?.codigo ?? ''}?`}
         consecuencias={[
-          'Se está cargando: todavía no entró nada al inventario, así que no cambia la bodega.',
-          'Los productos nuevos que creaste para este paquete siguen en el catálogo, sin existencias.',
+          'No entró nada al inventario: la bodega no cambia.',
+          'Los productos nuevos que creaste quedan en el catálogo, sin unidades.',
         ]}
         textoConfirmar="Sí, eliminarlo"
         onConfirmar={() => borrando && borrar(borrando)}

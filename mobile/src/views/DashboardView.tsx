@@ -71,7 +71,7 @@ export function DashboardView({
     } catch (err) {
       console.error('[DashboardView] Error cargando el panel:', err);
       if (!cacheDashboardGlobal.panel) {
-        setError('No se pudo sincronizar el panel.');
+        setError('No se pudo cargar el panel.');
       }
     } finally {
       setCargando(false);
@@ -238,7 +238,7 @@ export function DashboardView({
                     className="m3-press flex h-10 items-center justify-center gap-1.5 rounded-xl bg-acento px-3 text-caption font-bold text-acento-texto active:scale-95 transition-transform cursor-pointer sm:text-label"
                   >
                     <PlusCircle size={15} />
-                    <span>Venta Rápida</span>
+                    <span>Venta rápida</span>
                   </button>
                 )}
                 <button
@@ -250,7 +250,7 @@ export function DashboardView({
                   className="m3-press flex h-10 items-center justify-center gap-1.5 rounded-xl border border-borde bg-superficie-2 px-3 text-caption font-bold text-texto active:scale-95 transition-transform cursor-pointer sm:text-label"
                 >
                   <HandCoins size={15} className="text-texto-2" />
-                  <span>Cobros y Abonos</span>
+                  <span>Cobros</span>
                 </button>
               </div>
             </div>
@@ -280,7 +280,7 @@ export function DashboardView({
                 <MoneyDual usdCents={panel?.resumen.por_cobrar_usd_cents ?? 0} size="md" soloUsd />
               </div>
               <span className="text-[11px] sm:text-caption text-texto-3 mt-1.5 font-semibold flex items-center justify-between">
-                <span>Gestionar cobros</span>
+                <span>Ver cobros</span>
                 <ChevronRight size={13} />
               </span>
             </div>
@@ -480,7 +480,7 @@ export function DashboardView({
       <BottomSheet
         abierto={mostrarStockSheet}
         onCerrar={() => setMostrarStockSheet(false)}
-        titulo="Stock Crítico"
+        titulo="Stock crítico"
         subtitulo={
           panel?.bajo_stock && panel.total_bajo_stock > 0
             ? `${panel.total_bajo_stock} producto${panel.total_bajo_stock === 1 ? '' : 's'} que requiere${panel.total_bajo_stock === 1 ? '' : 'n'} atención`
@@ -506,7 +506,7 @@ export function DashboardView({
                 }}
                 className="m3-press flex-1 rounded-xl bg-acento hover:bg-acento py-3 text-label font-bold text-acento-texto shadow-md shadow-m3-2 cursor-pointer flex items-center justify-center gap-1.5"
               >
-                <span>Ir al Inventario</span>
+                <span>Ver catálogo</span>
                 <ChevronRight size={16} />
               </button>
             )}

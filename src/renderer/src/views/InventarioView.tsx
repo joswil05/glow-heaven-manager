@@ -87,8 +87,8 @@ export const InventarioView: React.FC<InventarioViewProps> = (props) => {
         >
           {(
             [
-              { id: 'productos', etiqueta: 'Productos', icono: Boxes },
-              { id: 'paquetes', etiqueta: 'Paquetes', icono: PackagePlus },
+              { id: 'productos', etiqueta: 'Productos' },
+              { id: 'paquetes', etiqueta: 'Paquetes' },
             ] as const
           ).map((t) => (
             <button
@@ -98,14 +98,13 @@ export const InventarioView: React.FC<InventarioViewProps> = (props) => {
               aria-selected={pestana === t.id}
               onClick={() => onCambiarPestana(t.id)}
               className={cn(
-                'inline-flex items-center gap-2 px-3.5 py-2 -mb-px border-b-2 text-label font-semibold transition-colors',
+                'inline-flex items-center px-3.5 py-2 -mb-px border-b-2 text-label font-semibold transition-colors',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento rounded-t-lg',
                 pestana === t.id
-                  ? 'border-acento text-acento-fuerte'
+                  ? 'border-acento text-texto'
                   : 'border-transparent text-texto-3 hover:text-texto'
               )}
             >
-              <t.icono className="w-4 h-4" />
               {t.etiqueta}
             </button>
           ))}
@@ -329,7 +328,7 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
     setTodosLosProductos([]);
 
     showUndoToast(
-      datos.id ? 'Producto actualizado' : `'${datos.nombre}' agregado al inventario`,
+      datos.id ? 'Producto actualizado' : `${datos.nombre} creado`,
       () => {
         cargar();
         cargarTotalesGenerales();
@@ -372,7 +371,7 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
       return;
     }
     showUndoToast(
-      `'${p.nombre}' descatalogado del catálogo activo`,
+      `${p.nombre} descatalogado`,
       () => {
         cargar();
         cargarTotalesGenerales();
@@ -391,7 +390,7 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
       return;
     }
     showUndoToast(
-      `'${p.nombre}' reactivado en el inventario activo`,
+      `${p.nombre} reactivado`,
       () => {
         cargar();
         cargarTotalesGenerales();
@@ -410,7 +409,7 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
       return;
     }
     showToast({
-      message: `'${p.nombre}' eliminado por completo de la base de datos`,
+      message: `${p.nombre} eliminado`,
       type: 'success',
     });
     await Promise.all([cargar(), cargarTotalesGenerales()]);
@@ -459,22 +458,20 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
             <img
               src={p.foto}
               alt=""
-              className="w-10 h-10 rounded-xl object-cover border border-borde/80 shrink-0 shadow-xs"
+              className="w-9 h-9 rounded-lg object-cover border border-borde/80 shrink-0"
             />
           ) : (
             <div
               aria-hidden="true"
-              className="w-10 h-10 rounded-xl bg-superficie-2 border border-borde/80 flex items-center justify-center shrink-0 shadow-xs"
+              className="w-9 h-9 rounded-lg bg-superficie-2 flex items-center justify-center shrink-0"
             >
-              <Package className="w-4 h-4 text-texto-3" />
+              <Package className="w-4 h-4 text-texto-3/70" />
             </div>
           )}
           <div className="min-w-0">
             <div className="text-body font-medium text-texto truncate">{p.nombre}</div>
             <div className="text-caption text-texto-3 flex items-center gap-1.5 truncate">
-              <span className="font-mono text-[11px] text-texto-2 bg-superficie-2 px-1.5 py-0.5 rounded border border-borde/60">
-                {p.codigo}
-              </span>
+              <span className="tabular">{p.codigo}</span>
               {p.categoria_nombre && <span>· {p.categoria_nombre}</span>}
               {p.tiene_variantes && <span>· {p.variantes.length} variante(s)</span>}
               {/* De qué paquete vino. Es la pregunta que se hace mirando el
@@ -512,24 +509,17 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
       key: 'costo',
       header: 'Te cuesta',
       align: 'right',
-      width: '150px',
-      render: (p) => (
-        <div className="flex flex-col items-end">
-          <Money usd_cents={p.costo_unitario_usd_cents} size="sm" soloUsd />
-          {/* De dónde sale está en el detalle, paquete por paquete. La leyenda
-              sólo es cierta si vino en un paquete. */}
-          {((p.paquetes ?? []).length > 0 || p.paquete_id) && (
-            <span className="text-[11px] text-texto-3 whitespace-nowrap">con 7% y flete</span>
-          )}
-        </div>
-      ),
+      width: '120px',
+      // Con 7% y flete adentro. De dónde sale está en el detalle, paquete por
+      // paquete; repetirlo en cada fila no agregaba nada.
+      render: (p) => <Money usd_cents={p.costo_unitario_usd_cents} size="sm" soloUsd />,
     },
     {
       key: 'precio',
       header: 'Lo vendés en',
       align: 'right',
-      width: '170px',
-      render: (p) => <Money usd_cents={p.precio_venta_usd_cents} size="sm" />,
+      width: '130px',
+      render: (p) => <Money usd_cents={p.precio_venta_usd_cents} size="sm" soloUsd />,
     },
     {
       key: 'ganancia',
@@ -562,7 +552,7 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
       key: 'acciones',
       header: '',
       align: 'right',
-      width: '260px',
+      width: '120px',
       render: (p) => (
         <div className="flex items-center justify-end gap-1">
           {!p.activo ? (
@@ -594,67 +584,22 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
               </Button>
             </div>
           ) : (
-            <>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-7 text-xs px-2 text-texto-2 hover:text-texto"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (p.variantes.length === 1) {
-                    setAjustando({
-                      variante_id: p.variantes[0].id,
-                      producto_id: p.id,
-                      nombre: p.nombre,
-                      actual: p.variantes[0].existencias,
-                    });
-                  } else {
-                    setDetalleId(p.id);
-                  }
-                }}
-              >
-                <SlidersHorizontal className="w-3.5 h-3.5 mr-1 text-texto-3" />
-                <span>Ajustar</span>
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-7 text-xs px-2 text-texto-2 hover:text-texto"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setProductoEditando(p);
-                  setModalAbierto(true);
-                }}
-              >
-                Editar
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                aria-label={`Descatalogar ${p.nombre}`}
-                title="Descatalogar del inventario (pasa a descatalogados sin perder historial)"
-                className="h-7 text-xs px-2 text-alerta hover:bg-alerta/10 hover:text-alerta font-medium rounded-lg"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setArchivando(p);
-                }}
-              >
-                <Archive className="w-3.5 h-3.5 mr-1 text-alerta" />
-                <span>Descatalogar</span>
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="p-1 text-texto-3 hover:text-texto rounded-lg h-7 w-7 flex items-center justify-center cursor-pointer"
-                title="Más opciones"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMenuContextual({ x: e.clientX, y: e.clientY, producto: p });
-                }}
-              >
-                <MoreVertical className="w-3.5 h-3.5" />
-              </Button>
-            </>
+            // Editar, ajustar y descatalogar viven en este menú y en el
+            // detalle. Tres botones de texto en cada fila eran la mitad del
+            // ruido de la tabla, y descatalogar no merece estar a un clic.
+            <Button
+              size="sm"
+              variant="ghost"
+              className="p-1 text-texto-3 hover:text-texto rounded-lg h-7 w-7 flex items-center justify-center cursor-pointer"
+              title="Opciones"
+              aria-label={`Opciones de ${p.nombre}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setMenuContextual({ x: e.clientX, y: e.clientY, producto: p });
+              }}
+            >
+              <MoreVertical className="w-3.5 h-3.5" />
+            </Button>
           )}
         </div>
       ),
@@ -667,15 +612,11 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
     <div className="flex-1 flex overflow-hidden">
       <div className="flex-1 overflow-y-auto p-4 md:px-6 md:py-4 animate-fade-in scroll-smooth">
         <div className="max-w-[1500px] w-full mx-auto space-y-4 stagger-children">
-          {/* Barra superior estilizada idéntica a la del inicio */}
-        <div className="flex items-center justify-between gap-3 pb-1 border-b border-borde/40 text-caption text-texto-3 shrink-0 flex-wrap">
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-texto text-body">Catálogo e Inventario</span>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-acento/10 text-acento border border-acento/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-acento" />
-              {productos.length} producto{productos.length === 1 ? '' : 's'}
-            </span>
-          </div>
+        {/* El título ya está en la barra de arriba: acá sólo lo que se hace. */}
+        <div className="flex items-center justify-between gap-3 shrink-0 flex-wrap">
+          <span className="text-label text-texto-3 tabular">
+            {productos.length} producto{productos.length === 1 ? '' : 's'}
+          </span>
           <div className="flex items-center gap-2">
             <Button
               variant="secondary"
@@ -703,15 +644,13 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
         </div>
 
         {precios.length > 0 && (
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-alerta-suave bg-alerta-suave px-4 py-3">
-            <div className="flex items-start gap-2.5 min-w-0">
-              <Tag className="w-4 h-4 text-alerta shrink-0 mt-0.5" />
-              <p className="text-caption text-alerta leading-snug">
-                <strong className="font-semibold">
-                  {precios.length} producto{precios.length === 1 ? ' tiene' : 's tienen'} un precio
-                  que no corresponde a su costo.
-                </strong>{' '}
-                Se calcularon antes de que el flete entrara al costo. Revisalos antes de cotizar.
+          <div className="flex items-center justify-between gap-3 rounded-xl bg-alerta-suave px-4 py-2.5">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Tag className="w-4 h-4 text-alerta shrink-0" />
+              <p className="text-label text-alerta">
+                {precios.length === 1
+                  ? '1 precio no corresponde a su costo.'
+                  : `${precios.length} precios no corresponden a su costo.`}
               </p>
             </div>
             <Button
@@ -734,8 +673,8 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
             icon={Boxes}
             hint={
               hayFiltroActivo
-                ? `${totales.unidades} unid. visibles (Total bodega: ${formatearMoneda(totalesGenerales.valor, 'USD')})`
-                : `${totalesGenerales.unidades} unidad(es) en existencias`
+                ? `${totales.unidades} unid. de ${formatearMoneda(totalesGenerales.valor, 'USD')} en total`
+                : `${totalesGenerales.unidades} ${totalesGenerales.unidades === 1 ? 'unidad' : 'unidades'}`
             }
             onClick={() => {
               setFiltro('TODOS');
@@ -748,7 +687,7 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
             usd_cents={totales.gananciaPotencial}
             tone="success"
             icon={TrendingUp}
-            hint="Si vendés todo lo que hay a los precios de hoy"
+            hint="Si vendés todo a los precios de hoy"
             onClick={() => {
               setFiltro('TODOS');
             }}
@@ -764,13 +703,7 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
                 : 'success'
             }
             icon={AlertTriangle}
-            hint={
-              filtro === 'BAJO_STOCK'
-                ? 'Mostrando solo bajo stock'
-                : productos.some((p) => p.stock_minimo > 0 && p.existencias <= p.stock_minimo)
-                  ? 'Clic para filtrar artículos críticos'
-                  : 'Catálogo con existencias saludables'
-            }
+            hint={filtro === 'BAJO_STOCK' ? 'Filtrando: tocá para ver todo' : undefined}
             onClick={() => setFiltro(filtro === 'BAJO_STOCK' ? 'TODOS' : 'BAJO_STOCK')}
             className={filtro === 'BAJO_STOCK' ? 'ring-2 ring-danger-500/50' : undefined}
           />
@@ -933,7 +866,7 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
                 <h3 className="text-title font-semibold text-texto leading-snug truncate">
                   {detalle.nombre}
                 </h3>
-                <p className="text-caption font-mono text-texto-3">{detalle.codigo}</p>
+                <p className="text-caption tabular text-texto-3">{detalle.codigo}</p>
                 <div className="mt-1 flex items-center gap-2 flex-wrap">
                   <Badge tone={detalle.existencias === 0 ? 'danger' : 'neutral'}>
                     {detalle.existencias} en existencia
@@ -957,12 +890,7 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
 
           {!detalle.activo && (
             <div className="mx-5 mt-4 p-3.5 bg-alerta/10 border border-alerta/30 rounded-xl flex items-center justify-between gap-3 shrink-0">
-              <div className="text-caption text-alerta min-w-0">
-                <span className="font-semibold block truncate">Producto descatalogado</span>
-                <span className="text-[11px] text-alerta/90 leading-tight block">
-                  Oculto del inventario activo y protegido en historiales.
-                </span>
-              </div>
+              <span className="text-label font-medium text-alerta truncate">Descatalogado</span>
               <Button
                 size="sm"
                 variant="outline"
@@ -1023,7 +951,7 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
               <CardContent className="p-0">
                 <div className="px-4 py-2.5 bg-superficie-2/50 border-b border-borde flex items-center gap-2 text-label font-medium text-texto">
                   <Receipt className="w-3.5 h-3.5 text-texto-3" />
-                  De dónde sale el costo
+                  Costo
                 </div>
                 <div className="px-4 py-3 border-b border-borde/60 text-caption text-texto-2 tabular">
                   {detalle.existencias > 0 ? (
@@ -1055,7 +983,7 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
                               <span className="text-caption text-texto-3 font-normal"> · cargándose</span>
                             )}
                           </span>
-                          <span className="text-caption text-texto-3 font-mono">{formatearFecha(e.fecha)}</span>
+                          <span className="text-caption text-texto-3 tabular">{formatearFecha(e.fecha)}</span>
                         </div>
                         <p className="mt-0.5 text-caption text-texto-2 tabular">
                           {e.linea.cantidad} ×{' '}
@@ -1077,9 +1005,8 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
                     ))}
                   </ul>
                 ) : (
-                  <p className="px-4 py-4 text-caption text-texto-3">
-                    Ningún paquete registrado trae este producto todavía. Si vino en uno de antes del
-                    cambio, completá el contenido de ese paquete en la pestaña Paquetes.
+                  <p className="px-4 py-3 text-caption text-texto-3">
+                    Ningún paquete lo trae todavía.
                   </p>
                 )}
               </CardContent>
@@ -1089,7 +1016,7 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
               <CardContent className="p-0">
                 <div className="px-4 py-2.5 bg-superficie-2/50 border-b border-borde flex items-center gap-2 text-label font-medium text-texto">
                   <History className="w-3.5 h-3.5 text-texto-3" />
-                  Movimientos de existencias
+                  Movimientos
                 </div>
                 {movimientos.length > 0 ? (
                   <ul className="divide-y divide-borde/60 max-h-[420px] overflow-y-auto">
@@ -1111,7 +1038,7 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
                                 ? `-${m.cantidad}`
                                 : `= ${m.existencias_despues}`}
                           </Badge>
-                          <span className="text-caption text-texto-3 tabular font-mono">
+                          <span className="text-caption text-texto-3 tabular">
                             {formatearFecha(m.fecha)}
                           </span>
                         </div>
@@ -1122,9 +1049,7 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
                     ))}
                   </ul>
                 ) : (
-                  <p className="px-4 py-6 text-center text-body text-texto-3">
-                    Sin movimientos todavía.
-                  </p>
+                  <p className="px-4 py-3 text-caption text-texto-3">Sin movimientos todavía.</p>
                 )}
               </CardContent>
             </Card>
@@ -1158,7 +1083,7 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
                       actual: detalle.variantes[0].existencias,
                     });
                   } else {
-                    showToast({ message: 'Selecciona una variante arriba para ajustar su stock', type: 'info' });
+                    showToast({ message: 'Elegí la talla o el tono arriba.', type: 'info' });
                   }
                 }}
               >
@@ -1171,11 +1096,11 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
               <Button
                 variant="ghost"
                 size="sm"
-                className="w-full justify-center text-xs font-semibold text-alerta hover:bg-alerta/10 border border-alerta/30 rounded-xl"
+                className="w-full justify-center text-xs text-texto-3 hover:text-alerta rounded-xl"
                 onClick={() => setArchivando(detalle)}
               >
-                <Archive className="w-3.5 h-3.5 mr-1.5 text-alerta" />
-                <span>Descatalogar producto</span>
+                <Archive className="w-3.5 h-3.5 mr-1.5" />
+                <span>Descatalogar</span>
               </Button>
             ) : (
               <div className="grid grid-cols-2 gap-2">
@@ -1208,12 +1133,12 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
         peligroso
         titulo={`¿Descatalogar "${archivando?.nombre ?? ''}"?`}
         consecuencias={[
-          'El producto se ocultará de la lista activa y no estará disponible para ventas inmediatas.',
-          'Todo el historial de ventas pasadas, ganancias y métricas se mantendrá 100% intacto.',
-          'Podrás reactivarlo en cualquier momento desde la pestaña "Descatalogados" con 1 solo clic.',
+          'Deja de aparecer en la lista y al vender.',
+          'Sus ventas y ganancias pasadas no cambian.',
+          'Se reactiva desde "Descatalogados".',
           ...(archivando && archivando.existencias > 0
             ? [
-                `Tenés ${archivando.existencias} unidad${archivando.existencias === 1 ? '' : 'es'} en existencia; dejarán de contar como inversión activa en bodega.`,
+                `${archivando.existencias === 1 ? 'Su unidad deja' : `Sus ${archivando.existencias} unidades dejan`} de contar en la bodega.`,
               ]
             : []),
         ]}
@@ -1227,11 +1152,10 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
         peligroso
         titulo={`¿Eliminar definitivamente "${eliminandoDefinitivo?.nombre ?? ''}"?`}
         consecuencias={[
-          'Esta acción es IRREVERSIBLE. El producto se eliminará por completo de la base de datos Firestore.',
-          'Ideal para productos creados por error, duplicados o pruebas.',
-          'Si este producto tiene ventas históricas registradas, se recomienda "Descatalogar" en su lugar para mantener los reportes financieros 100% exactos.',
+          'No se puede deshacer.',
+          'Si tiene ventas, mejor descatalogalo: así los reportes no cambian.',
         ]}
-        textoConfirmar="Sí, eliminar definitivamente"
+        textoConfirmar="Eliminar"
         onConfirmar={() => eliminandoDefinitivo && eliminarDefinitivo(eliminandoDefinitivo)}
         onCerrar={() => setEliminandoDefinitivo(null)}
       />
@@ -1285,7 +1209,7 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
               icon: <Copy className="w-4 h-4" />,
               onClick: () => {
                 navigator.clipboard.writeText(menuContextual.producto.codigo);
-                showToast({ message: 'Código copiado al portapapeles', type: 'info' });
+                showToast({ message: 'Código copiado', type: 'info' });
               },
             },
             {
@@ -1294,7 +1218,7 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
               icon: <Copy className="w-4 h-4" />,
               onClick: () => {
                 navigator.clipboard.writeText(menuContextual.producto.nombre);
-                showToast({ message: 'Nombre copiado al portapapeles', type: 'info' });
+                showToast({ message: 'Nombre copiado', type: 'info' });
               },
             },
             'separator',

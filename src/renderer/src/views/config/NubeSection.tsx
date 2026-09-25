@@ -5,7 +5,6 @@ import {
   CheckCircle2,
   AlertTriangle,
   RefreshCw,
-  ShieldCheck,
 } from 'lucide-react';
 import type { EstadoNube } from '../../../../shared/ipc-contracts';
 import { Card, CardHeader, CardContent, SectionHeader, Button, Badge } from '../../components/ui';
@@ -67,8 +66,7 @@ export const NubeSection: React.FC = () => {
       <CardHeader>
         <SectionHeader
           icon={conectado ? Cloud : CloudOff}
-          title="Base de datos en la nube (Firebase)"
-          description="Tus datos (inventario, ventas, clientes y paquetes) se respaldan automáticamente en Firestore"
+          title="Nube"
           action={
             <Badge tone={conectado ? 'success' : configurado ? 'danger' : 'warning'}>
               {conectado ? 'Sincronizado' : configurado ? 'Sin conexión' : 'Sin configurar'}
@@ -79,21 +77,13 @@ export const NubeSection: React.FC = () => {
 
       <CardContent className="space-y-4">
         {conectado && (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-success-500/30 bg-success-50/40 p-4">
-            <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-full bg-success-500/15 flex items-center justify-center text-success-700 shrink-0 mt-0.5">
-                <ShieldCheck className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-label font-semibold text-texto flex items-center gap-1.5">
-                  <span>Conexión activa con Google Cloud</span>
-                  <CheckCircle2 className="w-4 h-4 text-success-600" />
-                </p>
-                <p className="text-caption text-texto-2 mt-0.5">
-                  Autenticado como <strong className="text-texto font-medium">{estado?.correo}</strong>. Los cambios se guardan en tiempo real en la nube.
-                </p>
-              </div>
-            </div>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <p className="text-label text-texto-2 flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-success-600 shrink-0" />
+              <span>
+                Todo se guarda solo, con <strong className="text-texto font-medium">{estado?.correo}</strong>.
+              </span>
+            </p>
 
             <Button
               variant="secondary"
@@ -103,7 +93,7 @@ export const NubeSection: React.FC = () => {
               className="shrink-0 bg-superficie hover:bg-superficie-2 border-borde"
             >
               <RefreshCw className={ocupado ? 'w-3.5 h-3.5 animate-spin' : 'w-3.5 h-3.5'} />
-              <span>{ocupado ? 'Verificando...' : 'Comprobar sincronización'}</span>
+              <span>{ocupado ? 'Comprobando...' : 'Comprobar'}</span>
             </Button>
           </div>
         )}
@@ -117,11 +107,8 @@ export const NubeSection: React.FC = () => {
 
         {!configurado && (
           <div className="rounded-lg border border-warning-200 bg-warning-50 p-3.5 space-y-2">
-            <p className="text-label font-medium text-warning-900">
-              No hay sesión iniciada en la aplicación.
-            </p>
-            <p className="text-caption text-warning-800">
-              Inicia sesión con tu cuenta de Google en la pantalla de acceso para sincronizar automáticamente tus datos.
+            <p className="text-label text-warning-900">
+              No hay sesión. Entrá con tu cuenta de Google para guardar en la nube.
             </p>
           </div>
         )}

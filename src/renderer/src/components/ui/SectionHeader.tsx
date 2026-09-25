@@ -15,14 +15,11 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({
   action,
 }) => (
   <div className="flex items-start justify-between gap-3">
-    <div className="flex items-start gap-2.5">
-      {Icon && (
-        <div className="w-7 h-7 rounded-lg bg-acento/10 text-acento flex items-center justify-center shrink-0 border border-acento/15">
-          <Icon className="w-4 h-4" />
-        </div>
-      )}
+    <div className="flex items-start gap-2">
+      {/* El ícono acompaña al título; no necesita su propia cajita de color. */}
+      {Icon && <Icon className="w-4 h-4 text-texto-3 shrink-0 mt-1" aria-hidden="true" />}
       <div>
-        <h3 className="text-title font-bold text-texto tracking-tight">{title}</h3>
+        <h3 className="text-title font-semibold text-texto tracking-tight">{title}</h3>
         {description && <p className="text-label text-texto-3 mt-0.5">{description}</p>}
       </div>
     </div>

@@ -8,17 +8,24 @@ import type { Tone } from './Badge';
 
 export interface StatTileProps {
   label: string;
-  /** Monto en centavos USD. Se muestra con su equivalente en C$. */
+  /** Monto en centavos USD. */
   usd_cents?: number;
   /** Alternativa a `usd_cents` para valores que no son dinero. */
   value?: React.ReactNode;
   hint?: string;
   tone?: Tone | 'purple';
+  /**
+   * Se acepta por compatibilidad y no se dibuja: el ícono en su cajita repetía
+   * lo que ya dice la etiqueta, en cada tarjeta de cada pantalla.
+   */
   icon?: LucideIcon;
   /** Comparación con el periodo anterior, ya formateada. */
   delta?: { texto: string; positivo: boolean };
   size?: 'md' | 'lg';
-  /** Si es true, solo muestra el monto en USD sin la conversión inferior en C$. */
+  /**
+   * Por omisión la tarjeta muestra sólo dólares, que es la moneda del negocio.
+   * El equivalente en córdobas se pide explícitamente con `soloUsd={false}`.
+   */
   soloUsd?: boolean;
   /** Si es true, muestra el enlace textual 'Ver ->' en el pie. Por defecto false. */
   mostrarVer?: boolean;
@@ -26,135 +33,84 @@ export interface StatTileProps {
   className?: string;
 }
 
-const ESTILOS_TONO: Record<
-  Tone | 'purple',
-  {
-    borde: string;
-    iconBox: string;
-    glowBg: string;
-    tagClass?: string;
-  }
-> = {
-  neutral: {
-    borde: 'border-borde hover:border-borde-fuerte',
-    iconBox: 'bg-superficie-2 text-texto-2 border-borde/80 shadow-2xs',
-    glowBg: 'hover:shadow-superficie-2/50',
-  },
-  success: {
-    borde: 'border-borde hover:border-acento/40',
-    iconBox: 'bg-acento/10 text-acento border-acento/20 shadow-2xs',
-    glowBg: 'hover:shadow-lg',
-  },
-  warning: {
-    borde: 'border-borde hover:border-alerta/40',
-    iconBox: 'bg-alerta/10 text-alerta border-alerta/20 shadow-2xs',
-    glowBg: 'hover:shadow-lg',
-  },
-  danger: {
-    borde: 'border-borde hover:border-peligro/40',
-    iconBox: 'bg-peligro/10 text-peligro border-peligro/20 shadow-2xs',
-    glowBg: 'hover:shadow-lg',
-  },
-  info: {
-    borde: 'border-borde hover:border-borde-fuerte',
-    iconBox: 'bg-superficie-3 text-texto-2 border-borde shadow-2xs',
-    glowBg: 'hover:shadow-md',
-  },
-  purple: {
-    borde: 'border-borde hover:border-borde-fuerte',
-    iconBox: 'bg-superficie-2 text-texto-2 border-borde/80 shadow-2xs',
-    glowBg: 'hover:shadow-superficie-2/50',
-  },
-};
-
+/**
+ * Una cifra con su etiqueta. Tres niveles como máximo: etiqueta, número y una
+ * línea de contexto que diga algo que el número no dice.
+ */
 export const StatTile: React.FC<StatTileProps> = ({
   label,
   usd_cents,
   value,
   hint,
   tone = 'neutral',
-  icon: Icon,
   delta,
   size = 'lg',
-  soloUsd = false,
+  soloUsd = true,
   mostrarVer = false,
   onClick,
   className,
 }) => {
-  const estilo = ESTILOS_TONO[tone] ?? ESTILOS_TONO.neutral;
-
   const contenido = (
-    <div className="flex flex-col h-full justify-between">
-      {/* Fila superior: Icono + Label + Indicador click. */}
-      <div className="flex items-start justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-2.5 min-w-0 flex-1 basis-[130px]">
-          {Icon && (
-            <div
-              className={cn(
-                'w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border transition-[background-color,border-color,color,box-shadow,transform,opacity] duration-200 group-hover:scale-105',
-                estilo.iconBox
-              )}
-            >
-              <Icon className="w-4 h-4" />
-            </div>
-          )}
-          <span className="text-label font-semibold text-texto-2 truncate">{label}</span>
-        </div>
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex items-center gap-1.5 min-w-0">
+          {/* Un punto de color sólo cuando la cifra pide atención. */}
+          {(tone === 'warning' || tone === 'danger') && <StatusDot tone={tone} />}
+          <span className="text-label font-medium text-texto-2 truncate">{label}</span>
+        </span>
 
-        <div className="flex items-center gap-1.5 shrink-0">
-          {delta && (
-            <span
-              className={cn(
-                'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold tabular border shrink-0 shadow-2xs',
-                delta.positivo
-                  ? 'bg-acento-suave text-acento border-acento-suave'
-                  : 'bg-peligro-suave text-peligro border-peligro-suave'
-              )}
-            >
-              {delta.positivo ? (
-                <TrendingUp className="w-3 h-3 text-acento" />
-              ) : (
-                <TrendingDown className="w-3 h-3 text-peligro" />
-              )}
-              {delta.texto}
-            </span>
-          )}
-          {onClick && (
-            <div className="w-5 h-5 rounded-md bg-superficie-2/70 flex items-center justify-center text-texto-3 group-hover:text-acento group-hover:bg-acento-suave/50 transition-colors">
-              <ArrowUpRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-            </div>
-          )}
-          {tone !== 'neutral' && !Icon && <StatusDot tone={tone as Tone} />}
-        </div>
+        {onClick && (
+          <ArrowUpRight
+            aria-hidden
+            className="w-3.5 h-3.5 shrink-0 text-texto-3 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100"
+          />
+        )}
       </div>
 
-      {/* Fila central: Métrica principal */}
-      <div className={cn('flex items-baseline justify-between gap-2', size === 'lg' ? 'mt-2' : 'mt-1.5')}>
-        <div className="flex flex-col min-w-0">
-          {usd_cents !== undefined ? (
-            <Money
-              usd_cents={usd_cents}
-              size={size === 'lg' ? 'xl' : 'lg'}
-              soloUsd={soloUsd}
-              layout={soloUsd ? 'inline' : 'stacked'}
-              className="font-extrabold tracking-tight text-texto"
-            />
-          ) : (
-            <span className={cn('text-texto tabular font-extrabold tracking-tight leading-none', size === 'lg' ? 'text-2xl' : 'text-xl')}>
-              {value}
-            </span>
-          )}
-        </div>
+      {/* La comparación va junto al número que compara, no peleando con la
+          etiqueta por el ancho: ahí la cortaba a "Ganancia de e...". */}
+      <div className={cn('min-w-0 flex items-baseline gap-2 flex-wrap', size === 'lg' ? 'mt-2' : 'mt-1.5')}>
+        {delta && (
+          <span
+            className={cn(
+              'order-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[11px] font-semibold tabular',
+              delta.positivo ? 'bg-acento-suave text-acento' : 'bg-peligro-suave text-peligro'
+            )}
+          >
+            {delta.positivo ? (
+              <TrendingUp className="w-3 h-3" />
+            ) : (
+              <TrendingDown className="w-3 h-3" />
+            )}
+            {delta.texto}
+          </span>
+        )}
+        {usd_cents !== undefined ? (
+          <Money
+            usd_cents={usd_cents}
+            size={size === 'lg' ? 'xl' : 'lg'}
+            soloUsd={soloUsd}
+            layout={soloUsd ? 'inline' : 'stacked'}
+            className="font-bold tracking-tight text-texto"
+          />
+        ) : (
+          <span
+            className={cn(
+              'block text-texto tabular font-bold tracking-tight leading-none',
+              size === 'lg' ? 'text-2xl' : 'text-xl'
+            )}
+          >
+            {value}
+          </span>
+        )}
       </div>
 
-      {/* Fila inferior: Contexto / Pista */}
       {hint && (
-        <div className={cn('border-t border-borde/40 flex items-center justify-between text-caption text-texto-3 leading-tight', size === 'lg' ? 'mt-2 pt-2' : 'mt-1.5 pt-1.5')}>
-          <span className="truncate font-medium">{hint}</span>
+        <div className="mt-1.5 flex items-center justify-between text-caption text-texto-3 leading-tight">
+          <span className="truncate">{hint}</span>
           {mostrarVer && onClick && (
-            <span className="text-[11px] font-medium text-acento inline-flex items-center gap-0.5 group-hover:underline ml-1.5 shrink-0">
+            <span className="text-[11px] font-medium text-acento ml-1.5 shrink-0 group-hover:underline">
               Ver
-              <span className="transition-transform duration-200 group-hover:translate-x-0.5">&rarr;</span>
             </span>
           )}
         </div>
@@ -163,27 +119,21 @@ export const StatTile: React.FC<StatTileProps> = ({
   );
 
   const clases = cn(
-    // Superficie plana, no degradada.
-    //
-    // El degradado terminaba en `superficie-2/20`, que se mezcla con lo que
-    // haya detras: al ser la pagina un negro mas profundo, el pie de la
-    // tarjeta quedaba MAS oscuro que su propia base y la tarjeta se hundia
-    // hacia abajo. En modo oscuro la elevacion se lee por luz: una superficie
-    // elevada no puede oscurecerse hacia el borde. El relieve lo dan el borde
-    // y la sombra, que no dependen del fondo.
-    'group relative bg-superficie rounded-xl border text-left w-full shadow-2xs',
-    'transition-[transform,box-shadow,border-color] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md',
-    size === 'lg' ? 'p-3' : 'p-2.5',
-    estilo.borde,
-    estilo.glowBg,
+    // Superficie plana, no degradada: en modo oscuro un degradado hacia
+    // `superficie-2` dejaba el pie más oscuro que la base y la tarjeta se
+    // hundía. El relieve lo dan el borde y la sombra.
+    'group relative bg-superficie rounded-xl border border-borde text-left w-full shadow-2xs',
+    size === 'lg' ? 'px-4 py-3.5' : 'px-3 py-2.5',
+    // Sólo reacciona al mouse lo que se puede apretar. Una tarjeta que se
+    // levanta sin hacer nada promete una acción que no existe.
     onClick &&
-      'cursor-pointer active:scale-[0.985] active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento',
+      'cursor-pointer transition-[border-color,box-shadow,transform] duration-150 ease-out hover:border-borde-fuerte active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento',
     className
   );
 
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} className={cn(clases, "active:scale-[0.99]")}>
+      <button type="button" onClick={onClick} className={clases}>
         {contenido}
       </button>
     );
