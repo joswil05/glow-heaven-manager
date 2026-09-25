@@ -53,6 +53,8 @@ interface PaquetesViewProps {
   parametros: ParametrosSistema | null;
   categorias: Categoria[];
   abrirEditorAlEntrar?: boolean;
+  /** Un producto recién creado: se agrega al paquete que se esté cargando, o a uno nuevo. */
+  productoParaAgregar?: number;
   onCambio: () => void;
 }
 
@@ -90,6 +92,7 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
   parametros,
   categorias,
   abrirEditorAlEntrar = false,
+  productoParaAgregar,
   onCambio,
 }) => {
   const { showToast, showUndoToast } = useToast();
@@ -97,7 +100,12 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
   const [compras, setCompras] = useState<Compra[]>([]);
   const [encargos, setEncargos] = useState<Venta[]>([]);
   const [cargando, setCargando] = useState(true);
-  const [editorAbierto, setEditorAbierto] = useState(abrirEditorAlEntrar);
+  // Con un producto para agregar, el editor no abre de entrada: abre recién
+  // cuando se sabe a qué paquete va, y así arranca ya con la línea puesta.
+  const [editorAbierto, setEditorAbierto] = useState(abrirEditorAlEntrar && !productoParaAgregar);
+  // El producto se agrega UNA vez: al abrir el editor para él. Si quedara en
+  // el prop, se volvería a agregar a cada paquete que se abra después.
+  const [productoPendiente, setProductoPendiente] = useState<number | undefined>(undefined);
   const [compraEditando, setCompraEditando] = useState<CompraCompleta | null>(null);
   const [detalle, setDetalle] = useState<CompraCompleta | null>(null);
   const [reconstruyendo, setReconstruyendo] = useState<Compra | null>(null);
@@ -130,11 +138,32 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
   }, [cargar]);
 
   useEffect(() => {
-    if (abrirEditorAlEntrar) {
+    if (!abrirEditorAlEntrar) return;
+    if (!productoParaAgregar) {
       setCompraEditando(null);
       setEditorAbierto(true);
+      return;
     }
-  }, [abrirEditorAlEntrar]);
+    // Con un producto para agregar, va al paquete que se está cargando (el más
+    // reciente) en vez de abrir uno nuevo: es donde se anota lo que se compró.
+    let vivo = true;
+    (async () => {
+      const r = await window.api.compras.list();
+      if (!vivo) return;
+      const cargando = r.success ? r.data.filter((c) => c.estado !== 'RECIBIDA') : [];
+      setProductoPendiente(productoParaAgregar);
+      if (cargando.length > 0) {
+        await abrirEditor(cargando[0].id);
+      } else {
+        setCompraEditando(null);
+        setEditorAbierto(true);
+      }
+    })();
+    return () => {
+      vivo = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [abrirEditorAlEntrar, productoParaAgregar]);
 
   const abrirEditor = async (id: number) => {
     const r = await window.api.compras.get(id);
@@ -588,9 +617,11 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
         compra={compraEditando}
         parametros={parametros}
         categorias={categorias}
+        productoInicialId={productoPendiente}
         onCerrar={() => {
           setEditorAbierto(false);
           setCompraEditando(null);
+          setProductoPendiente(undefined);
         }}
         onGuardado={alGuardar}
       />

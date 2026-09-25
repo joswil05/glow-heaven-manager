@@ -1,12 +1,17 @@
 # Plan: lotes, el flujo del paquete y los encargos
 
-> **Para quién es esto**: Joswill, para decidir antes de tocar código, y la
-> sesión que lo implemente.
+> **Para quién es esto**: Joswill, y la sesión que lo implemente o lo revise.
 > **Estado del árbol cuando se escribió**: `v2.13.0`, publicado.
 > **Fecha**: 24 de septiembre de 2026.
-> **Decidido**: el costo pasa de promedio ponderado a lotes (lo primero que
-> entra es lo primero que sale), y el precio por margen se calcula sobre el
-> lote más caro que queda.
+> **Decidido con Joswill**:
+> - el costo pasa de promedio ponderado a **lotes**: lo primero que entra es lo
+>   primero que sale;
+> - el precio por margen se calcula sobre **el lote más caro que queda**;
+> - la relación entre encargos y paquetes va en las dos direcciones, **pieza
+>   por pieza**;
+> - si la clienta se arrepiente después de que llegó, la pantalla pregunta qué
+>   pasa con el anticipo;
+> - se pueden comprar encargos todavía cotizados, marcados "sin confirmar".
 
 ---
 
@@ -20,259 +25,285 @@ paquete tiene dos destinos:
 - **Encargo**: algo que una clienta ya pidió. Es una venta hecha antes de
   comprar, y su costo real recién se sabe cuando llega el paquete.
 
-Todo lo demás de este plan sale de esa diferencia.
-
 ---
 
 ## 2. El flujo de un paquete
 
-El paquete es la única puerta de entrada de mercadería. Se arma mientras se
-compra, no cuando llega:
+El paquete es la única puerta de entrada de mercadería, y se arma mientras se
+compra:
 
-1. **Comprás en línea** → abrís "Registrar paquete" y anotás cada cosa que
-   compraste: el producto, las unidades y el **precio de compra por unidad**.
+1. **Comprás en línea** → "Registrar paquete". Por cada cosa: el producto, las
+   unidades y el **precio de compra por unidad**.
    - Producto que ya tenés: lo buscás.
-   - Producto nuevo: "Crear 'X' como producto nuevo" abre la ficha (nombre,
-     categoría, cómo se calcula el precio) y vuelve al paquete con la línea
-     lista para las unidades y el precio.
-   - Algo que te encargó una clienta: "Agregar encargo" muestra sólo los
-     confirmados que todavía no están en ningún paquete.
-   - "Guardar y seguir después": el paquete queda **Cargando**. No mueve nada.
-2. **Llega la factura del courier** → escribís el peso de la caja (el flete
-   se calcula a la tarifa por libra) o el flete pagado, y si hubo, otros
-   gastos o un impuesto distinto al 7%.
-3. **Llega la caja** → revisás y "Pasar al inventario". En ese momento:
-   - cada línea de bodega se vuelve un **lote** con su costo real (compra +
-     7% + su parte del flete);
-   - cada línea de encargo le fija su costo real a ese encargo, que pasa a
-     **Llegó, por entregar**;
-   - los precios por margen se recalculan (regla de la sección 4.4).
-4. **Si algo quedó mal** → "Corregir" en el paquete. Cambia el costo del lote
-   de esa línea, sólo en lo que queda de él.
+   - Producto nuevo: "Crear 'X' como producto nuevo" abre la ficha y vuelve
+     con la línea lista para unidades y precio.
+   - Pieza de un encargo: "Agregar encargo" muestra las piezas que todavía no
+     están en ningún paquete; primero las confirmadas, aparte las "sin
+     confirmar".
+   - "Guardar y seguir después" lo deja **Cargando**. No mueve la bodega.
+2. **Llega la factura del courier** → peso de la caja (el flete sale a la
+   tarifa por libra) o el flete pagado; otros gastos o un impuesto distinto
+   al 7% están bajo "Más costos".
+3. **Llega la caja** → "Pasar al inventario":
+   - cada línea de bodega crea un **lote** con su costo real;
+   - cada pieza de encargo toma su costo real y queda **llegó, por entregar**;
+   - los precios por margen se recalculan con la regla de la sección 4.5.
+4. **Si algo quedó mal** → "Corregir". Cambia el costo del lote de esa línea,
+   sólo en lo que queda de él.
 
-### 2.1 Para qué es "Producto nuevo" en Inventario
+### 2.1 Para qué es "Producto nuevo"
 
 Es **sólo la ficha**: nombre, foto, categoría, cómo se calcula el precio,
-tallas, pack y aviso de stock. No lleva unidades ni precio de compra, porque
-eso lo trae cada paquete y puede ser distinto cada vez.
+tallas, pack y aviso de stock. Sirve para tener un producto en el catálogo
+antes de comprarlo o para editarlo. Las unidades y el precio de compra los
+trae cada paquete, porque pueden ser distintos cada vez.
 
-Cuándo usarlo:
+- La ficha lo dice en una línea.
+- Al crear un producto desde Inventario, se ofrece **"Agregarlo a un
+  paquete"**: abre el paquete que esté Cargando (el más reciente, si hay
+  varios) o uno nuevo, con la línea ya puesta.
+- La columna del paquete dice **"Precio de compra"**.
 
-- para dejar un producto en el catálogo antes de comprarlo (por ejemplo, para
-  cotizarlo);
-- para editar la ficha de uno que ya existe.
+### 2.2 Compras fuera de un paquete
 
-Para meter mercadería se usa el paquete. La 2.13.0 sacó el aviso que lo
-explicaba y el formulario quedó pareciendo incompleto. Se corrige así:
-
-- la ficha vuelve a decir, en una línea, que las unidades y el precio de
-  compra entran con el paquete;
-- al crear un producto desde Inventario, se ofrece "Agregarlo a un paquete":
-  abre el paquete que esté Cargando (o uno nuevo) con la línea ya puesta;
-- la columna del paquete deja de decir "Tienda" y dice **"Precio de compra"**.
-
-### 2.2 Compras que no vienen en un paquete
-
-Si algo se compra en Nicaragua, se registra igual como paquete, sin peso ni
-flete. Si pasa seguido, se puede nombrar "Compra local" en la lista; no hace
-falta otra pantalla.
+Una compra en Nicaragua se registra como un paquete sin peso ni flete.
 
 ---
 
-## 3. Arreglo inmediato: el buscador del paquete
+## 3. Arreglos de pantalla (`2.13.1`)
 
-Al buscar un producto en "Registrar paquete", la lista de resultados queda
-**recortada** por el recuadro "Qué vino adentro" (`overflow-hidden` en la
-`section` de `PaqueteEditor.tsx`). Con el paquete vacío no se ve ningún
-resultado. Viene desde la 2.12.0.
-
-- La lista se dibuja fuera del recuadro, o el recuadro deja de recortar.
-- Prueba nueva: el primer resultado tiene que ser el elemento que está
-  **visible en ese punto de la pantalla** (`elementFromPoint`), no sólo
-  existir. Las pruebas de hoy lo tocaban aunque estuviera tapado.
+1. **El buscador del paquete**: la lista de resultados quedaba recortada por
+   el recuadro "Qué vino adentro" (`overflow-hidden`). Con el paquete vacío no
+   se veía ningún resultado. El recuadro deja de recortar. Prueba nueva: el
+   primer resultado tiene que ser el elemento que está **visible en ese punto
+   de la pantalla** (`document.elementFromPoint`).
+2. La línea de aviso en la ficha, "Precio de compra" en el paquete y
+   "Agregarlo a un paquete" (sección 2.1).
 
 ---
 
-## 4. Lotes (primero que entra, primero que sale)
+## 4. Lotes
 
-### 4.1 Qué cambia, con un ejemplo
+### 4.1 El modelo
 
-| Boxers en bodega | Unidades | Costo c/u |
-|---|---|---|
-| Lote PQ-0001 (agosto) | 4 | $8.49 |
-| Lote PQ-0002 (septiembre) | 10 | $6.35 |
+Cada producto guarda sus lotes en su propio documento, así no se agregan
+lecturas: el producto ya se lee en cada venta y en cada entrada.
 
-- Las primeras 4 ventas se miden contra $8.49; las siguientes, contra $6.35.
-  Hoy todas se medirían contra el promedio, $6.96, y la ganancia de esas
-  cuatro se vería más alta de lo que fue.
-- El valor de la bodega sigue siendo la suma exacta: $97.46.
+```ts
+interface Lote {
+  id: string;                 // "pq12-l3" (paquete 12, línea 3), "saldo-1", "aj-…"
+  variante_id: number;        // cada talla o tono tiene sus lotes
+  cantidad: number;           // lo que queda
+  valor_usd_cents: number;    // lo que vale lo que queda, al costo
+  cantidad_inicial: number;
+  costo_unitario_usd_cents: number;   // el de la línea del paquete, para mostrar
+  fecha: string;              // orden: primero lo más viejo
+  orden: number;              // desempate estable
+  origen: 'PAQUETE' | 'SALDO' | 'AJUSTE' | 'DEVOLUCION' | 'ENCARGO';
+  compra_id?: number; compra_codigo?: string; compra_linea_id?: number;
+  // Lo que ya salió de este lote por ventas, para "cuánto te dejó el paquete".
+  vendidas: number; ingreso_usd_cents: number; costo_vendido_usd_cents: number;
+  bajas: number;              // dañados, perdidos, regalos
+}
+```
+
+Invariantes, comprobadas por las pruebas en cada paso:
+
+- las unidades de cada variante son la suma de las de sus lotes;
+- `valor_inventario_usd_cents` es la suma de los valores de los lotes;
+- los lotes agotados **no se borran**: guardan lo que dejaron y reciben las
+  devoluciones.
+
+Todo el cálculo vive en `src/core/lotes.ts`, puro y probado aparte.
 
 ### 4.2 Las reglas
 
-| Qué pasa | Qué hace con los lotes |
+| Qué pasa | Qué hace |
 |---|---|
-| Entra un paquete | Cada línea de bodega crea un lote (por talla o tono, si tiene). |
-| Venta | Saca del lote más viejo. La línea de la venta guarda de qué lotes salió y a qué costo. |
-| Anular una venta | Devuelve cada unidad **al lote del que salió**, con su costo. |
-| Dañado, perdido, regalo | Sale del lote más viejo. |
-| Conteo que da de más | Entra como lote "ajuste" al costo del lote más nuevo. |
-| Devolución de clienta | Vuelve al lote de la venta. |
-| Corregir un paquete | Cambia el costo de ese lote y sólo de las unidades que le quedan. Hoy la corrección se reparte en proporción; con lotes es exacta. |
+| Entra un paquete | Cada línea de bodega crea un lote con su costo de línea. |
+| Venta | Saca del lote más viejo de esa variante. La línea de la venta guarda `lotes_consumidos`: de qué lote, cuántas, a qué costo y con qué ingreso. |
+| Anular una venta | Cada unidad vuelve **a su lote**, con su costo, y se descuenta lo que el lote había registrado como vendido. Una venta anterior a los lotes devuelve a un lote "devolución" con la fecha de la venta. |
+| Dañado, perdido, regalo | Sale del lote más viejo y cuenta como baja. |
+| Conteo que da de más | Lote "ajuste" al costo del lote más nuevo de esa variante. |
+| Corregir un paquete | Cambia el valor del lote de esa línea: `diferencia × lo que queda del lote ÷ unidades de la línea`. Lo vendido conserva su costo. |
 
-Centavos: un lote guarda unidades y valor total en centavos enteros. Sacar
-`k` de `n` unidades cuesta `valor − round(valor × (n − k) / n)`, así la última
-unidad se lleva el residuo y la suma nunca se descuadra.
+Centavos: sacar `k` de un lote con `n` unidades y valor `V` cuesta
+`V − round(V × (n − k) / n)`, y vaciarlo se lleva `V` entero. La suma nunca se
+descuadra.
 
-### 4.3 Dónde se guardan
+El ingreso de una venta se reparte entre sus líneas descontando el descuento
+de la venta en proporción (mayor residuo), y el de cada línea entre los lotes
+de los que salió. Así "cuánto te dejó el paquete" coincide con la ganancia
+real de las ventas.
 
-Dentro del documento del producto, como un arreglo por variante. El producto
-ya se lee en cada venta y en cada entrada, así que **no agrega lecturas** a
-Firestore. `valor_inventario_usd_cents` pasa a ser la suma de sus lotes.
+### 4.3 Migración sin script, y la versión vieja
 
-El PWA usa los mismos repositorios (`@repos/...`), así que una venta desde el
-celular consume lotes igual que una del escritorio.
+No hay un paso de migración aparte. `normalizarLotes` arma los lotes cuando
+faltan o no cuadran, **dentro de la misma transacción** que mueve el producto:
 
-### 4.4 El precio
+- **Producto sin lotes** (todos los de hoy): un lote "saldo" por variante con
+  existencias, con el valor de la bodega repartido por unidades. Si el
+  producto dice de qué paquete vino (`paquete_id`), el lote lo lleva.
+- **Lotes que no cuadran**: pasa si la app vieja (2.13.0) vendió mientras Ross
+  no actualizaba. Sobran unidades → se sacan del lote más viejo. Faltan → lote
+  "saldo". El valor que no cuadre se ajusta en el lote más viejo.
 
-- Un producto sigue teniendo **un solo precio**.
-- Por margen: se calcula sobre **el lote más caro que queda**. Ninguna unidad
-  se vende por debajo del margen pedido.
-- Cuando ese lote se acaba, el precio **no baja solo**: "Revisar precios"
-  propone el nuevo y ella decide. Se mantiene la regla de siempre: el precio
-  no cambia al vender.
-- Un precio escrito a mano no se toca; sólo avisa si queda debajo del costo de
-  algún lote.
+La pantalla muestra siempre los lotes normalizados, aunque todavía no se hayan
+escrito. La bodega vale lo mismo antes y después; se comprueba sobre una copia
+de producción con `scripts/comparar-respaldos.mjs`.
 
-### 4.5 Lo que se gana en pantalla
+### 4.4 Qué se ve
 
-- Detalle del producto: los lotes que quedan (paquete, fecha, unidades,
-  costo).
-- Detalle del paquete: de cada línea, cuánto se vendió, cuánto queda y
-  **cuánto te dejó el paquete**. Estaba pendiente y con lotes sale exacto.
+- **Inventario**: "Te cuesta" es el costo del lote más caro que queda (el que
+  manda el precio). Si hay lotes a costos distintos, el detalle los lista.
+- **Detalle del producto**: sus lotes con paquete, fecha, unidades, costo y
+  lo que dejó cada uno.
+- **Detalle del paquete**: por línea, cuántas se vendieron y cuántas quedan;
+  al pie, **cuánto te dejó el paquete** hasta hoy.
+- **Nueva venta**: la ganancia que se anticipa usa el costo de las unidades
+  que van a salir (el lote más viejo), no un promedio.
 
-### 4.6 Migración
+### 4.5 El precio
 
-Producción tiene 22 productos que entraron con PQ-0001. Cada variante con
-existencias pasa a tener un lote "PQ-0001" con las unidades y el valor que
-tiene hoy. La bodega no cambia ni un centavo; se comprueba antes y después con
-`scripts/comparar-respaldos.mjs`.
+- Un producto tiene **un solo precio**.
+- Por margen: se calcula sobre **el lote más caro que queda**.
+- Al entrar un paquete se recalcula (sube si el lote nuevo es más caro).
+- Al venderse el lote más caro, el precio **no baja solo**: "Revisar precios"
+  propone el nuevo y ella decide. El precio sigue sin cambiar al vender.
+- Un precio escrito a mano no se toca; el aviso de "debajo del costo" mira el
+  lote más caro.
 
 ---
 
 ## 5. Encargos
 
-### 5.1 Cómo funcionan hoy
+### 5.1 Cómo funcionaban hasta la 2.13.0
 
-- Se crean en la pestaña Encargos con el mismo formulario de venta: clienta
-  obligatoria, líneas con descripción (o un producto del catálogo), precio,
-  costo estimado y anticipo.
-- Estados: **Cotizado** (sin anticipo) → **Pendiente** (anticipo cubierto) →
-  **Entregado**, o **Anulado**.
-- En el paquete, "Agregar encargo" suma sus líneas con destino encargo: no
-  entran a la bodega, y al pasar el paquete le fijan al encargo su costo real.
-- "Marcar como entregada" cierra el encargo. Si sus líneas apuntan a un
-  producto del catálogo, además saca unidades de la bodega.
+- Estados guardados: Cotizado → Pendiente (anticipo cubierto) → Entregado, o
+  Anulado.
+- "Agregar encargo" sumaba sus líneas al paquete; al pasarlo, le fijaban al
+  encargo su costo real sin entrar a la bodega.
+- La relación la guardaba **sólo la línea del paquete**; el encargo no sabía
+  en qué paquete venía.
 
 ### 5.2 Huecos encontrados
 
-1. **No se sabe si ya se compró ni si ya llegó.** Un encargo en un paquete
-   sigue diciendo "Pendiente" hasta entregarse. Por eso:
-   - "Encargos por comprar" (Paquetes) y el número del menú cuentan también
-     los que ya se compraron y los que ya llegaron;
-   - el aviso "lleva más de 10 días" mira sólo la fecha del encargo: salta
-     aunque ya esté comprado o esperando que lo retiren;
-   - el mismo encargo se puede agregar **a dos paquetes**, y el segundo le
-     pisa el costo al primero.
-2. **Doble descuento.** Si un encargo apunta a un producto del catálogo y
-   además llega en un paquete como encargo, al entregarlo se descuenta una
-   unidad de la bodega que nunca salió del estante.
-3. **Entregado desde la bodega, con el costo equivocado.** Cuando un encargo
-   se cubre con algo que ya había en bodega, la unidad sale al costo de la
-   bodega, pero el encargo se queda con el costo estimado. Su ganancia no es
-   la real.
-4. **Se ofrecen para comprar encargos sin confirmar.** La lista del paquete
-   muestra también los cotizados, sin distinguirlos.
-5. **Si la clienta se arrepiente después de que llegó**, anular el encargo
-   deja la pieza fuera de todo: no está en la bodega y su costo no aparece
-   en ninguna parte, aunque se pagó en el paquete.
+1. No se sabía si ya se compró ni si ya llegó: "Encargos por comprar" y el
+   aviso de "lleva más de N días" contaban también lo comprado y lo que
+   esperaba ser retirado; el mismo encargo se podía meter en dos paquetes y el
+   segundo le pisaba el costo al primero.
+2. Doble descuento: un encargo que apuntaba a un producto del catálogo y además
+   llegaba en un paquete descontaba al entregarse una unidad del estante.
+3. Entregado desde la bodega, quedaba con el costo estimado y no con el real.
+4. La lista del paquete mezclaba cotizados con confirmados.
+5. Anular un encargo que ya llegó dejaba la pieza fuera de la bodega, y su
+   costo, pagado en el paquete, desaparecía.
+6. Anular siempre devolvía el anticipo (anulaba sus pagos), aunque ella
+   quisiera quedárselo.
 
-### 5.3 Cómo debería funcionar
+### 5.3 La relación pieza por pieza
 
-El encargo es **una venta cuya mercadería todavía no se compró**. Su ciclo,
-visible en la lista y en el detalle:
+Cada línea del encargo (una **pieza**) sabe de dónde sale:
 
-```
-Cotizado → Confirmado → Comprado → Llegó → Entregado
- (sin       (anticipo    (está en    (el paquete   (se cobra el
- anticipo)   cubierto)    un paquete  pasó al       saldo y se
-                          Cargando)   inventario)   entrega)
+```ts
+// En la línea de la venta (VentaLinea), sólo para encargos:
+compra_id?: number;           // el paquete donde viene
+compra_codigo?: string;
+compra_linea_id?: number;
+llego_el?: string;            // la fecha del paquete, cuando pasó al inventario
+lotes_consumidos?: Consumo[]; // si salió de la bodega
 ```
 
-"Comprado" y "Llegó" no se escriben a mano: salen de en qué paquete está cada
-línea y del estado de ese paquete. Así no se desincronizan.
+Y el encargo guarda el resumen, para que las listas no tengan que leer
+líneas:
 
-Con eso:
+```ts
+// En la venta (Venta), sólo para encargos:
+piezas?: { total: number; compradas: number; llegadas: number; de_bodega: number };
+llego_el?: string;            // cuando llegó la última pieza
+```
 
-- **Paquete**: "Agregar encargo" ofrece los confirmados que no están en
-  ningún paquete; los cotizados aparecen aparte, marcados "sin confirmar".
-  Un encargo que ya está en un paquete no se puede agregar a otro.
-- **Llegada**: al pasar el paquete, cada encargo toma su costo real y queda
-  "Llegó, por entregar", con el saldo que falta cobrar.
-- **Entrega**: "Entregar" ofrece cobrar el saldo en el mismo paso. Un
-  encargo que no llegó no se entrega, salvo que se elija **sacarlo de la
-  bodega**: ahí sale de un lote y toma ese costo.
-- **Nunca las dos cosas**: una línea de encargo o viene en un paquete o sale
-  de la bodega. Eso cierra el doble descuento.
-- **Arrepentimiento**: anular un encargo que ya llegó pregunta qué pasa con
-  la pieza: **pasarla a la bodega** (entra como lote con su costo real, en un
-  producto existente o nuevo) o darla por perdida. El anticipo se devuelve o
-  se retiene, según decida ella (sección 7).
-- **Avisos**: "confirmado hace N días y todavía sin comprar" y "llegó hace N
-  días y no lo retiraron". El de hoy desaparece.
-- **Panel**: "Anticipos por entregar" sigue igual; se suma "Por entregar"
-  con lo que ya llegó.
+Quién mantiene esos datos:
 
-### 5.4 Cotizar con números reales
+- **Guardar un paquete Cargando**: marca las piezas que entraron al paquete y
+  desmarca las que se quitaron. Rechaza una pieza que ya está en otro paquete
+  activo: "La pieza 'X' del encargo E-0005 ya viene en PQ-0003".
+- **Eliminar un paquete Cargando**: sus piezas vuelven a "por comprar".
+- **Pasar al inventario**: fija el costo real y `llego_el`.
 
-Hoy el costo estimado de un encargo se escribe a ojo. Al cotizar se puede
-pedir lo mismo que pide el paquete: **precio en la tienda y peso aproximado**.
-La app suma el 7% y el flete a la tarifa por libra, y propone el precio con el
-margen de la categoría. Cuando llega, el costo real reemplaza al estimado y se
-ve la diferencia.
+### 5.4 El ciclo, derivado
+
+`core/encargos.ts` calcula la etapa a partir del estado guardado y las piezas.
+No se escribe a mano, así no se desincroniza:
+
+| Etapa | Cuándo |
+|---|---|
+| Cotizado | sin anticipo cubierto |
+| Por comprar | confirmado, con piezas que no están en ningún paquete |
+| En camino | todas sus piezas están compradas y alguna todavía no llegó ("1 de 2 llegó") |
+| Por entregar | todo llegó o sale de la bodega |
+| Entregado / Anulado | lo guardado |
+
+Una pieza que apunta a un producto del catálogo y no está en ningún paquete
+**sale de la bodega** al entregar.
+
+### 5.5 Entregar
+
+- Si una pieza viene en un paquete que no llegó: no se entrega ("'X' todavía
+  no llegó: viene en PQ-0003").
+- Las piezas de la bodega salen del lote más viejo y el encargo toma ese
+  costo. Si no hay unidades, no se entrega.
+- Una pieza sin paquete ni producto (un encargo viejo): se entrega con su
+  costo estimado, y la pantalla lo avisa.
+- Una pieza que vino en un paquete **nunca** descuenta de la bodega.
+
+### 5.6 Anular
+
+| La pieza está... | Qué pasa |
+|---|---|
+| Por comprar | Nada. |
+| En un paquete Cargando | Ya se compró: la línea del paquete pasa a la bodega, con el producto de la pieza o uno nuevo con su nombre al recibir. |
+| Llegó, sin entregar | Ella elige: **a la bodega** (entra como lote con su costo real) o **perdida**. |
+| Entregada | Si salió de la bodega, vuelve a su lote. Si vino en un paquete, lo mismo que "llegó". |
+
+Y el anticipo: **devolverlo** (se anulan los pagos, como hasta ahora) o
+**quedártelo** (los pagos quedan; la venta se anula igual y no cuenta como
+deuda ni como ganancia).
+
+Sin elegir (el celular, una llamada vieja): si alguna pieza llegó y no se
+entregó, se rechaza con "Anulalo desde la computadora para decidir qué pasa
+con la pieza". En los demás casos se comporta como antes.
+
+### 5.7 Avisos y contadores
+
+- "Encargos por comprar" y el número del menú: los confirmados con piezas
+  por comprar, más los que llegaron y esperan entrega.
+- Avisos: "confirmado hace más de N días y sin comprar" (desde la fecha del
+  encargo) y "llegó hace más de N días y no se entregó" (desde `llego_el`).
+  Desaparece el aviso de hoy, que mezclaba los dos.
+
+### 5.8 Cotizar con números
+
+En un encargo, cada pieza puede llevar **precio en la tienda** y **peso
+aproximado**. La app estima el costo (tienda + 7% + peso × tarifa por libra),
+lo pone en "Costo estimado" y propone un precio con el margen por defecto. Al
+llegar, el costo real reemplaza al estimado.
 
 ---
 
 ## 6. Orden de trabajo
 
-Cada paso sale con sus pruebas y no rompe el anterior.
+1. `2.13.1`: los arreglos de pantalla de la sección 3.
+2. `core/lotes.ts` y `core/encargos.ts` con sus pruebas, escritas antes y
+   viéndolas fallar.
+3. Repositorios: productos (entrada, salida, ajuste, lista), paquetes
+   (guardar, recibir, corregir, eliminar), ventas (crear, entregar, anular),
+   panel (avisos y contadores).
+4. Pruebas contra el Firestore falso y la invariante nueva en
+   `tests/motor-real/invariantes.ts`.
+5. Pantallas: lotes en el detalle, "cuánto te dejó", etapas y piezas del
+   encargo, entrega, anulación con opciones, cotizar con números.
+6. Verificación completa: typecheck, pruebas, emulador, suites de pantalla,
+   auditorías, y la base real con datos "Prueba" borrados después.
 
-1. **Arreglos de la pantalla del paquete** (sección 3 y 2.1): buscador visible,
-   aviso en la ficha, "Precio de compra", "Agregarlo a un paquete". Chico;
-   puede salir solo como `2.13.1`.
-2. **Lotes en el motor** (`src/core/`): entrada, salida, devolución, ajuste,
-   corrección y precio, con pruebas unitarias que fallen primero.
-3. **Lotes en los repositorios** (paquete, ventas, anulación, ajustes) y la
-   invariante nueva en `tests/motor-real/invariantes.ts`: el valor de la
-   bodega es la suma de los lotes, y cada venta guarda de qué lote salió.
-4. **Migración** de producción con respaldo antes y después, y cero
-   diferencias en la bodega.
-5. **Encargos**: ciclo derivado, reglas del paquete, entrega, arrepentimiento
-   y avisos.
-6. **Pantallas**: lotes en el detalle del producto, "cuánto te dejó" en el
-   paquete, ciclo del encargo.
-7. **Verificación completa**: typecheck, pruebas, suite del emulador, suites
-   de pantalla, y una pasada sobre la base real con datos "Prueba" que se
-   borran después (sección 6 de `CONTEXTO_SESION.md`).
-
-Pasos 2 a 7 salen juntos como `2.14.0`.
-
----
-
-## 7. Decisiones que faltan
-
-| Decisión | Recomendación |
-|---|---|
-| Si la clienta se arrepiente después de que llegó, ¿el anticipo se devuelve? | Que la pantalla pregunte en cada caso: devolverlo o quedárselo como pago de la pieza. |
-| ¿Se pueden comprar encargos todavía cotizados? | Sí, pero marcados "sin confirmar" y separados de los confirmados. |
-| Conteo que da más unidades de las registradas: ¿a qué costo entran? | Al del lote más nuevo. |
-| ¿"Compra local" como tipo de paquete? | Sólo si compra en Nicaragua seguido; si no, un paquete sin flete alcanza. |
+Los pasos 2 a 6 salen juntos como `2.14.0`.

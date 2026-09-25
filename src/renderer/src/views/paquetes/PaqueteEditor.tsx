@@ -65,6 +65,8 @@ interface PaqueteEditorProps {
   compra: CompraCompleta | null;
   parametros: ParametrosSistema | null;
   categorias: Categoria[];
+  /** Un producto que el editor agrega como línea al abrirse, si no está ya. */
+  productoInicialId?: number;
   onCerrar: () => void;
   onGuardado: () => Promise<void> | void;
 }
@@ -186,6 +188,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
   compra,
   parametros,
   categorias,
+  productoInicialId,
   onCerrar,
   onGuardado,
 }) => {
@@ -274,6 +277,11 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
         setTaxReciboTexto('');
         setNotas('');
         setLineas([]);
+      }
+      // El producto que se acaba de crear en Inventario entra como línea.
+      const inicial = productoInicialId ? mapa.get(productoInicialId) : undefined;
+      if (inicial && !(compra?.lineas ?? []).some((l) => l.producto_id === inicial.id)) {
+        agregarProducto(inicial);
       }
     })();
     return () => {
@@ -777,9 +785,13 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                   )}
                 </section>
 
-                {/* Lo que vino adentro */}
-                <section className="rounded-xl border border-borde overflow-hidden">
-                  <div className="px-4 py-2.5 bg-superficie-2/60 border-b border-borde flex items-center justify-between gap-3 flex-wrap">
+                {/* Lo que vino adentro.
+                    Sin `overflow-hidden`: recortaba la lista de resultados del
+                    buscador, que se abre debajo del recuadro. Con el paquete
+                    vacío no se veía ningún resultado. Las esquinas se redondean
+                    en la cabecera y en el pie. */}
+                <section className="rounded-xl border border-borde">
+                  <div className="px-4 py-2.5 bg-superficie-2/60 border-b border-borde rounded-t-xl flex items-center justify-between gap-3 flex-wrap">
                     <h4 className="text-label font-semibold text-texto">Qué vino adentro</h4>
                     <span className="text-caption text-texto-3">
                       {unidades} unidad{unidades === 1 ? '' : 'es'} de {productosDistintos} producto
@@ -794,7 +806,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                           <tr className="border-b border-borde/70">
                             <th className="text-left font-medium px-4 py-2">Producto</th>
                             <th className="text-right font-medium px-2 py-2 w-40">Unidades</th>
-                            <th className="text-right font-medium px-2 py-2 w-36">Tienda</th>
+                            <th className="text-right font-medium px-2 py-2 w-36">Precio de compra</th>
                             <th className="text-right font-medium px-2 py-2 w-28">{taxBp / 100}%</th>
                             <th className="text-right font-medium px-2 py-2 w-24">Peso (lb)</th>
                             <th className="text-right font-medium px-2 py-2 w-24">Flete</th>
@@ -1009,7 +1021,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                   )}
 
                   {/* Agregar */}
-                  <div className="px-4 py-3 border-t border-borde/70 bg-superficie-2/30 flex items-start gap-2 flex-wrap">
+                  <div className="px-4 py-3 border-t border-borde/70 bg-superficie-2/30 rounded-b-xl flex items-start gap-2 flex-wrap">
                     <div className="relative flex-1 min-w-[260px]">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-texto-3 pointer-events-none" />
                       <Input

@@ -68,14 +68,16 @@ interface InventarioViewProps {
   pestana: PestanaInventario;
   /** Abre el editor de paquete al entrar a la pestaña Paquetes. */
   abrirEditorPaquete?: boolean;
-  onCambiarPestana: (pestana: PestanaInventario, abrirEditor?: boolean) => void;
+  /** Un producto recién creado que el editor agrega como línea. */
+  productoParaPaquete?: number;
+  onCambiarPestana: (pestana: PestanaInventario, abrirEditor?: boolean, productoId?: number) => void;
   onCambio: () => void;
 }
 
 type Filtro = 'TODOS' | 'CON_STOCK' | 'BAJO_STOCK' | 'AGOTADOS' | 'DESCATALOGADOS';
 
 export const InventarioView: React.FC<InventarioViewProps> = (props) => {
-  const { pestana, onCambiarPestana, categorias, parametros, abrirEditorPaquete, onCambio } = props;
+  const { pestana, onCambiarPestana, categorias, parametros, abrirEditorPaquete, productoParaPaquete, onCambio } = props;
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -116,6 +118,7 @@ export const InventarioView: React.FC<InventarioViewProps> = (props) => {
           parametros={parametros}
           categorias={categorias}
           abrirEditorAlEntrar={abrirEditorPaquete}
+          productoParaAgregar={productoParaPaquete}
           onCambio={onCambio}
         />
       ) : (
@@ -157,6 +160,7 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
   const [modalAbierto, setModalAbierto] = useState(false);
   const [productoEditando, setProductoEditando] = useState<ProductoConStock | null>(null);
   const [archivando, setArchivando] = useState<ProductoConStock | null>(null);
+  const [recienCreado, setRecienCreado] = useState<{ id: number; nombre: string } | null>(null);
   const [eliminandoDefinitivo, setEliminandoDefinitivo] = useState<ProductoConStock | null>(null);
   const [menuContextual, setMenuContextual] = useState<{
     x: number;
@@ -326,6 +330,12 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
     // Después de crear o editar, la lista completa también cambió: la de los
     // totales se relee, no se reusa.
     setTodosLosProductos([]);
+    // Una ficha nueva no tiene unidades ni costo: se ofrece llevarla al
+    // paquete, que es donde se anotan. Sin esto quedaba en $0 sin avisar.
+    if (!datos.id) {
+      const creado = r.data as { id?: number };
+      if (creado.id) setRecienCreado({ id: creado.id, nombre: datos.nombre });
+    }
 
     showUndoToast(
       datos.id ? 'Producto actualizado' : `${datos.nombre} creado`,
@@ -1127,6 +1137,20 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
           </div>
         </aside>
       )}
+
+      <Confirmar
+        abierto={recienCreado !== null}
+        titulo={`¿Agregás ${recienCreado?.nombre ?? 'el producto'} a un paquete?`}
+        consecuencias={['Ahí anotás cuántas vinieron y cuánto te costó cada una.']}
+        textoConfirmar="Agregar a un paquete"
+        textoCancelar="Después"
+        onConfirmar={() => {
+          const id = recienCreado?.id;
+          setRecienCreado(null);
+          if (id) onCambiarPestana('paquetes', true, id);
+        }}
+        onCerrar={() => setRecienCreado(null)}
+      />
 
       <Confirmar
         abierto={archivando !== null}

@@ -55,6 +55,28 @@ def sembrar_venta_vieja(page: Page) -> dict:
     }""")
 
 
+def se_ve_de_verdad(loc) -> bool:
+    """
+    Si el elemento es lo que de verdad está en pantalla en su centro.
+
+    Playwright considera visible un elemento recortado por un `overflow` del
+    padre, y lo toca igual. Una persona no lo ve. `elementFromPoint` devuelve
+    lo que está encima en ese punto, que es lo que ella tocaría.
+
+    Sin `scroll_into_view_if_needed`: un contenedor con `overflow-hidden` se
+    deja desplazar por código, y eso "arreglaba" el recorte justo antes de
+    mirarlo. Con la lista recortada, la prueba pasaba en verde.
+    """
+    caja = loc.bounding_box()
+    if not caja:
+        return False
+    centro = {"x": caja["x"] + caja["width"] / 2, "y": caja["y"] + caja["height"] / 2}
+    return loc.evaluate(
+        "(el, p) => { const t = document.elementFromPoint(p.x, p.y); return !!t && (el === t || el.contains(t)); }",
+        centro,
+    )
+
+
 def ir_a_ventas(page: Page) -> None:
     page.get_by_role("button", name="Ventas", exact=True).click()
     page.wait_for_timeout(1200)
@@ -322,7 +344,12 @@ def caso_registrar_paquete(page: Page) -> list[str]:
     page.wait_for_selector("text=Qué vino adentro", timeout=8000)
 
     page.get_by_label("Buscar producto para agregar").fill("Crema Nivea")
-    page.get_by_role("button", name="Crema Nivea de prueba", exact=False).first.click()
+    resultado = page.get_by_role("button", name="Crema Nivea de prueba", exact=False).first
+    # Existir no alcanza: en la 2.13.0 el resultado estaba en la página pero
+    # recortado por el recuadro, y la prueba lo tocaba igual.
+    if not se_ve_de_verdad(resultado):
+        fallas.append("el resultado del buscador existe pero no se ve: algo lo tapa o lo recorta")
+    resultado.click()
     page.get_by_label("Unidades de Crema Nivea de prueba").fill("10")
     page.get_by_label("Precio por unidad en la tienda").fill("5.00")
     page.get_by_label("Flete pagado").fill("10.00")
@@ -347,6 +374,45 @@ def caso_registrar_paquete(page: Page) -> list[str]:
         fallas.append(f"la bodega del producto vale {p['valor_inventario_usd_cents']} centavos, no 6350")
     if p["precio_venta_usd_cents"] <= 635:
         fallas.append("el precio no se calculó con el costo que trajo el paquete")
+    return fallas
+
+
+@caso("una ficha nueva ofrece ir al paquete, y entra ahí como línea")
+def caso_ficha_al_paquete(page: Page) -> list[str]:
+    fallas = []
+    page.get_by_role("button", name="Inventario", exact=False).first.click()
+    page.wait_for_timeout(800)
+    page.get_by_role("tab", name="Productos").click()
+    page.wait_for_timeout(600)
+    page.get_by_role("button", name="Producto nuevo").first.click()
+    page.wait_for_selector("text=Las unidades y el precio de compra se anotan en el paquete", timeout=5000)
+    page.get_by_label("Nombre").fill("Rimel flujo")
+    page.get_by_role("button", name="Crear producto").click()
+
+    ofrecer = page.get_by_role("button", name="Agregar a un paquete")
+    try:
+        ofrecer.wait_for(timeout=5000)
+    except Exception:
+        return ["al crear la ficha no se ofrece agregarla a un paquete"]
+    ofrecer.click()
+    page.wait_for_selector("text=Qué vino adentro", timeout=8000)
+    page.wait_for_timeout(1500)
+
+    lineas = page.locator("input[aria-label^='Unidades de']")
+    nombres = [lineas.nth(i).get_attribute("aria-label") or "" for i in range(lineas.count())]
+    if not any("flujo" in n.lower() for n in nombres):
+        fallas.append(f"el paquete abrió sin la línea del producto nuevo (líneas: {nombres})")
+    page.get_by_role("button", name="Cancelar").click()
+    page.wait_for_timeout(600)
+
+    # Abrir otro paquete después no la vuelve a agregar.
+    page.get_by_role("button", name="Registrar paquete").first.click()
+    page.wait_for_selector("text=Qué vino adentro", timeout=8000)
+    page.wait_for_timeout(1200)
+    if page.locator("input[aria-label^='Unidades de']").count() > 0:
+        fallas.append("el producto nuevo se volvió a agregar a otro paquete")
+    page.get_by_role("button", name="Cancelar").click()
+    page.wait_for_timeout(400)
     return fallas
 
 

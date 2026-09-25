@@ -340,6 +340,15 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
           </header>
 
           <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+            {/* La 2.13.0 sacó este aviso y la ficha parecía que se olvidaba de
+                pedir el precio de compra. No lo pide porque cada paquete trae
+                el suyo, y puede ser distinto cada vez. */}
+            <p className="text-label text-texto-2">
+              {esNuevo
+                ? 'Las unidades y el precio de compra se anotan en el paquete que lo trae.'
+                : 'El costo sale de los paquetes que lo trajeron.'}
+            </p>
+
             {error && (
               <div
                 role="alert"

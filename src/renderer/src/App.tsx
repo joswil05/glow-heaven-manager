@@ -47,6 +47,8 @@ export const App: React.FC = () => {
 
   // Selección que viaja entre vistas al hacer clic en una alerta.
   const [productoSeleccionado, setProductoSeleccionado] = useState<number | undefined>();
+  /** Un producto recién creado que hay que meter en un paquete al abrirlo. */
+  const [productoParaPaquete, setProductoParaPaquete] = useState<number | undefined>();
   const [ventaSeleccionada, setVentaSeleccionada] = useState<number | undefined>();
   const [clienteSeleccionado, setClienteSeleccionado] = useState<number | undefined>();
   const [abrirEditor, setAbrirEditor] = useState<NavTab | null>(null);
@@ -238,6 +240,7 @@ export const App: React.FC = () => {
     setVentaSeleccionada(destino === 'ventas' || destino === 'encargos' ? id : undefined);
     setClienteSeleccionado(destino === 'clientes' ? id : undefined);
     setAbrirEditor(abrirNuevo ? destino : null);
+    setProductoParaPaquete(undefined);
     setTab(destino);
   };
 
@@ -366,9 +369,12 @@ export const App: React.FC = () => {
                   productoInicialId={productoSeleccionado}
                   pestana={tab === 'paquetes' ? 'paquetes' : 'productos'}
                   abrirEditorPaquete={abrirEditor === 'paquetes'}
-                  onCambiarPestana={(p, abrir) =>
-                    irA(p === 'paquetes' ? 'paquetes' : 'inventario', undefined, abrir)
-                  }
+                  productoParaPaquete={productoParaPaquete}
+                  onCambiarPestana={(p, abrir, productoId) => {
+                    irA(p === 'paquetes' ? 'paquetes' : 'inventario', undefined, abrir);
+                    // Después de irA, que lo limpia: el último set gana.
+                    setProductoParaPaquete(productoId);
+                  }}
                   onCambio={cargar}
                 />
               )}
