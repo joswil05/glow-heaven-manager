@@ -2,8 +2,8 @@
 
 > **Para quién es esto**: el modelo o la persona que abre este proyecto sin
 > haber estado en la sesión anterior.
-> **Estado del árbol**: `v2.15.0` (pedidos sin precio, sección 2; antes, la
-> 2.14 con lotes y encargos). Los datos de producción se
+> **Estado del árbol**: `v2.15.1`, publicada en el celular y en Windows
+> (pedidos sin precio, sección 2; antes, la 2.14 con lotes y encargos). Los datos de producción se
 > migraron al flujo nuevo con `scripts/migrar-a-lotes.ts` (sección 3).
 > **Última actualización**: 26 de septiembre de 2026.
 
@@ -350,6 +350,11 @@ que tiene que ser rechazada. Si esa pasa, el arnés no está probando nada.
 npm run deploy:mobile          # PWA a los dos sitios de Firebase Hosting
 npm run release:windows        # instalador NSIS + GitHub Release
 ```
+
+Para forzar la actualización de Windows en una máquina: descargarla
+(`window.api.actualizador.verificarManual()` por CDP) y **cerrar la app**, que
+la instala en silencio al cerrarse. Hasta la 2.15.0, "reiniciar e instalar"
+abría el asistente del instalador y se quedaba esperando.
 
 Si `deploy:mobile` falla con "Your credentials are no longer valid" (la sesión
 de la CLI de Firebase vence y renovarla pide el navegador), la PWA se publica
