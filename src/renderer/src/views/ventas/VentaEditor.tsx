@@ -357,6 +357,11 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
     );
   };
 
+  // Un encargo con alguna pieza sin precio es un pedido: ella lo anota para
+  // acordarse, sin saber todavía cuánto vale ni si lo va a conseguir. Se
+  // cotiza después, desde su detalle.
+  const esPedido = esEncargo && lineas.some((l) => !l.precio.trim());
+
   const validarPaso = (p: 1 | 2 | 3): boolean => {
     if (p === 1) {
       if (lineas.length === 0) {
@@ -374,9 +379,10 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
           setError('Cada cantidad tiene que ser un número entero, 1 o más.');
           return false;
         }
-        const precioCents = parsearACentavos(l.precio, { min: 0.01 });
+        // En un encargo el precio puede quedar vacío: es un pedido.
+        const precioCents = esEncargo && !l.precio.trim() ? 0 : parsearACentavos(l.precio, { min: 0.01 });
         if (precioCents === null) {
-          setError('Cada producto necesita un precio mayor a $0.');
+          setError(esEncargo ? 'El precio tiene que ser mayor a $0, o quedar vacío.' : 'Cada producto necesita un precio mayor a $0.');
           return false;
         }
         if (esEncargo && l.costo_estimado.trim()) {
@@ -561,7 +567,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
       }
 
       showToast({
-        message: esEncargo ? 'Encargo registrado con éxito' : 'Venta registrada con éxito',
+        message: esPedido ? 'Pedido guardado' : esEncargo ? 'Encargo registrado' : 'Venta registrada',
         type: 'success',
       });
       await onGuardado();
@@ -859,7 +865,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                           <Input
                             value={l.precio}
                             onChange={(e) => actualizarLinea(l.clave, 'precio', e.target.value)}
-                            placeholder="0.00"
+                            placeholder={esEncargo ? 'Sin precio' : '0.00'}
                             className="text-right font-medium"
                           />
                         </Field>
@@ -1181,7 +1187,11 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
               <div className="rounded-xl border border-borde p-5 bg-superficie space-y-4">
                 <h4 className="text-label font-semibold text-texto">Cobro</h4>
 
-                {esEncargo ? (
+                {esPedido ? (
+                  <p className="text-label text-texto-2 rounded-lg bg-superficie-2 p-3.5">
+                    Se guarda como pedido, sin precio. El anticipo se calcula cuando lo cotices.
+                  </p>
+                ) : esEncargo ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <Field label="Anticipo (%)">
                       <Input
@@ -1483,7 +1493,9 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                     <p className="text-caption text-texto-3 tabular">{fecha}</p>
                   </div>
                   <Badge tone={formaCobro === 'CONTADO' && !esEncargo ? 'success' : 'warning'}>
-                    {esEncargo
+                    {esPedido
+                      ? 'Pedido'
+                      : esEncargo
                       ? 'Encargo'
                       : formaCobro === 'CONTADO'
                       ? 'Contado'
@@ -1491,7 +1503,16 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                   </Badge>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                {esPedido && (
+                  <p className="text-label text-texto-2">
+                    {lineas.filter((l) => !l.precio.trim()).length === 1
+                      ? 'Una pieza queda por cotizar.'
+                      : `${lineas.filter((l) => !l.precio.trim()).length} piezas quedan por cotizar.`}{' '}
+                    No cuenta en tus ventas ni en lo que te deben hasta que le pongas precio.
+                  </p>
+                )}
+
+                <div className={cn('grid grid-cols-2 sm:grid-cols-3 gap-4', esPedido && 'hidden')}>
                   <div className="rounded-lg bg-superficie-2 p-3">
                     <span className="text-caption text-texto-3 block">
                       {totales.descuentoCents > 0 ? 'Subtotal' : 'Total'}
@@ -1586,12 +1607,16 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                           {l.descripcion || 'Prenda'}
                         </span>
                         <span className="text-caption text-texto-3 block tabular">
-                          {l.cantidad} × {formatearMoneda(aCentavos(l.precio), 'USD')}
+                          {esEncargo && !l.precio.trim()
+                            ? `${l.cantidad} · sin precio`
+                            : `${l.cantidad} × ${formatearMoneda(aCentavos(l.precio), 'USD')}`}
                           {l.es_paquete && ' · pack'}
                         </span>
                       </div>
                       <span className="font-semibold text-texto tabular">
-                        {formatearMoneda(aCentavos(l.precio) * Math.max(1, Math.round(num(l.cantidad))), 'USD')}
+                        {esEncargo && !l.precio.trim()
+                          ? '—'
+                          : formatearMoneda(aCentavos(l.precio) * Math.max(1, Math.round(num(l.cantidad))), 'USD')}
                       </span>
                     </div>
                   ))}
@@ -1630,7 +1655,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
             <div className="hidden sm:block text-right pr-2">
               <span className="text-caption text-texto-3 block leading-tight">Total</span>
               <span className="text-body font-bold text-texto tabular leading-tight">
-                {formatearMoneda(totales.total, 'USD')}
+                {esPedido && totales.total === 0 ? 'Por cotizar' : formatearMoneda(totales.total, 'USD')}
               </span>
             </div>
 
@@ -1648,6 +1673,8 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
               >
                 {guardando
                   ? 'Guardando...'
+                  : esPedido
+                  ? 'Guardar pedido'
                   : esEncargo
                   ? 'Registrar encargo'
                   : 'Registrar venta'}

@@ -254,6 +254,12 @@ export function registrarHandlers(): void {
     return { evento_grupo_id };
   });
 
+  manejar(IPC.VENTAS_COTIZAR, async (id: number, lineas: Parameters<typeof VentasRepo.cotizar>[1]) => {
+    const evento_grupo_id = nuevoGrupo();
+    await VentasRepo.cotizar(id, lineas, evento_grupo_id);
+    return { evento_grupo_id };
+  });
+
   // -------------------------------------------------------------------------
   // Pagos
   // -------------------------------------------------------------------------

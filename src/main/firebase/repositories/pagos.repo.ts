@@ -142,7 +142,9 @@ export class PagosRepoFirestore {
       }
 
       // Un encargo con el anticipo cubierto pasa a PENDIENTE: ya se puede comprar.
-      if (venta.tipo === 'ENCARGO' && venta.estado === 'COTIZADA' && anticipoCubierto) {
+      // Un pedido con piezas sin precio no se confirma: primero se cotiza.
+      const porCotizar = ((venta as { piezas?: { sin_precio?: number } }).piezas?.sin_precio ?? 0) > 0;
+      if (venta.tipo === 'ENCARGO' && venta.estado === 'COTIZADA' && anticipoCubierto && !porCotizar) {
         cambiosVenta.estado = 'PENDIENTE';
       }
 

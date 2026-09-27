@@ -335,9 +335,20 @@ function calcularAlertas(s: Instantanea, parametros?: ParametrosSistema): Alerta
   // clienta ya confirmó, y entregar lo que ya llegó. Antes había uno solo que
   // miraba la fecha del encargo y saltaba aunque ya estuviera comprado.
   for (const v of s.ventas) {
-    if (v.tipo !== 'ENCARGO' || v.estado !== 'PENDIENTE') continue;
+    if (v.tipo !== 'ENCARGO' || (v.estado !== 'PENDIENTE' && v.estado !== 'COTIZADA')) continue;
     const nombre = v.cliente_id ? (cliMap.get(v.cliente_id) ?? 'Cliente') : 'Cliente';
     const etapa = etapaEncargo(v);
+    // Un pedido anotado sin precio: el aviso es lo que evita que se olvide.
+    if (etapa === 'POR_COTIZAR' && v.fecha <= limiteEncargos) {
+      const que = (v.lineas || []).map((l) => l.descripcion).filter(Boolean).join(', ');
+      alertas.push({
+        id: `encargo-cotizar-${v.id}`,
+        severidad: 'atencion',
+        titulo: `El pedido de ${nombre} lleva más de ${diasEncargo} días sin cotizar`,
+        detalle: `${v.codigo}${que ? `: ${que}` : ''}`,
+        destino: { vista: 'ventas', id: v.id },
+      });
+    }
     if (etapa === 'POR_COMPRAR' && v.fecha <= limiteEncargos) {
       alertas.push({
         id: `encargo-comprar-${v.id}`,

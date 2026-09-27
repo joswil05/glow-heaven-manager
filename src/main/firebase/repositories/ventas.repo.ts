@@ -53,10 +53,10 @@ export interface LineaVentaInput {
   peso_mlb?: number;
 }
 
-import type { PagoInicialInput } from '../../../shared/ipc-contracts';
+import type { PagoInicialInput, LineaCotizacion } from '../../../shared/ipc-contracts';
 import { hoyISO, sumarDiasAFecha } from '../../../core/fechas';
 import { esDeuda, estadoInicialEncargo } from '../../../core/cobranza';
-import { piezasDe, estadoPieza } from '../../../core/encargos';
+import { piezasDe, estadoPieza, sinPrecio } from '../../../core/encargos';
 import { repartirMayorResiduo } from '../../../core/prorrateo';
 import { lotesDe } from './productos.repo';
 import { unidadesDeLotes, type Consumo } from '../../../core/lotes';
@@ -435,6 +435,13 @@ export class VentasRepoFirestore {
       precios.map((p, i) => ({ id: i, base_valor: p.subtotal }))
     );
 
+    // Un pedido: piezas anotadas sin precio, porque ella todavía no sabe
+    // cuánto valen. Nace cotizado y sin pago; se cotiza después.
+    const piezasSinPrecio = esEncargo ? precios.filter((p) => p.precioUnitario <= 0).length : 0;
+    if (piezasSinPrecio > 0 && input.pago_inicial && (input.pago_inicial.monto_cents ?? 1) > 0) {
+      throw new Error('Un pedido sin precio todavía no lleva pago: cotizalo primero.');
+    }
+
     try {
       for (let i = 0; i < input.lineas.length; i++) {
         const linea = input.lineas[i];
@@ -554,6 +561,7 @@ export class VentasRepoFirestore {
               total_usd_cents: total,
               pagado_usd_cents: pagadoUsdCents,
               anticipo_esperado_usd_cents: anticipoEsperado,
+              sin_precio: piezasSinPrecio,
             })
           : input.entregar_ahora === false
             ? 'PENDIENTE'
@@ -570,6 +578,7 @@ export class VentasRepoFirestore {
         pagado_usd_cents: pagadoUsdCents,
         saldo_usd_cents: saldoUsdCents,
         anticipo_esperado_usd_cents: anticipoEsperado,
+        anticipo_bp: esEncargo ? anticipoBp : undefined,
         piezas: esEncargo ? piezasDe(lineasGuardadas) : undefined,
         notas: input.notas?.trim() || undefined,
         lineas: lineasGuardadas.map((l) => sinUndefined(l as unknown as Record<string, unknown>)) as unknown as VentaLinea[],
@@ -698,6 +707,118 @@ export class VentasRepoFirestore {
    * necesita saber qué pasa con ellas. Fallar acá deja todo como estaba.
    */
   /**
+   * Le pone precio a las piezas de un encargo: cotizar un pedido anotado sin
+   * precio, o corregir el de uno cotizado. Recalcula total, costo estimado,
+   * anticipo y saldo con la misma cuenta que al crearlo.
+   *
+   * En uno confirmado (anticipo pagado) sólo se cotizan las piezas que no
+   * tenían precio: el que la clienta aceptó no cambia. El costo de una pieza
+   * que ya llegó es el real y no se toca.
+   */
+  static async cotizar(venta_id: number, cambios: readonly LineaCotizacion[], evento_grupo_id: string): Promise<void> {
+    const db = getFirestoreDb();
+    const ventaRef = doc(db, 'ventas', String(venta_id));
+    const params = await ParametrosRepoFirestore.getParametros();
+    const porId = new Map(cambios.map((c) => [c.id, c]));
+
+    const anterior = await runTransaction(db, async (tx) => {
+      const snap = await tx.get(ventaRef);
+      if (!snap.exists()) throw new Error(`El encargo #${venta_id} no existe.`);
+      const venta = snap.data() as VentaDoc;
+      if (venta.tipo !== 'ENCARGO') throw new Error('Sólo un encargo se cotiza.');
+      if (venta.estado !== 'COTIZADA' && venta.estado !== 'PENDIENTE') {
+        throw new Error(`${venta.codigo} ya está ${venta.estado === 'ENTREGADA' ? 'entregado' : 'anulado'}.`);
+      }
+
+      const lineas = (venta.lineas || []).map((l) => {
+        const c = porId.get(l.id);
+        if (!c) return l;
+        const precio = Math.max(0, Math.round(c.precio_unitario_usd_cents || 0));
+        if (venta.estado === 'PENDIENTE' && !sinPrecio(l) && precio !== l.precio_unitario_usd_cents) {
+          throw new Error(
+            `${venta.codigo} ya está confirmado: el precio de '${l.descripcion}' ya lo aceptó la clienta.`
+          );
+        }
+        // Llegó, o salió de la bodega: su costo ya es el real.
+        const costoReal = estadoPieza(l) === 'LLEGO' || (l.lotes_consumidos?.length ?? 0) > 0;
+        const costoUnitario = costoReal
+          ? l.costo_unitario_usd_cents
+          : Math.max(0, Math.round(c.costo_estimado_unitario_usd_cents ?? l.costo_unitario_usd_cents ?? 0));
+        return {
+          ...l,
+          descripcion: c.descripcion?.trim() || l.descripcion,
+          precio_unitario_usd_cents: precio,
+          subtotal_usd_cents: precio * l.cantidad,
+          costo_unitario_usd_cents: costoUnitario,
+          costo_total_usd_cents: costoReal ? l.costo_total_usd_cents : costoUnitario * l.cantidad,
+          precio_tienda_usd_cents: c.precio_tienda_usd_cents ?? l.precio_tienda_usd_cents,
+          peso_mlb: c.peso_mlb ?? l.peso_mlb,
+        };
+      });
+
+      // La misma cuenta que al crearlo: descuento, total, anticipo.
+      const subtotal = lineas.reduce((s, l) => s + (l.subtotal_usd_cents || 0), 0);
+      let descuento = 0;
+      if (venta.descuento_tipo === 'PORCENTAJE' && (venta.descuento_valor ?? 0) > 0) {
+        descuento = Math.round((subtotal * venta.descuento_valor!) / 100);
+      } else if (venta.descuento_tipo === 'MONTO_FIJO' && (venta.descuento_valor ?? 0) > 0) {
+        descuento = Math.round(venta.descuento_valor! * 100);
+      }
+      descuento = Math.min(subtotal, Math.max(0, descuento));
+      const total = Math.max(0, subtotal - descuento);
+      const costo = lineas.reduce((s, l) => s + (l.costo_total_usd_cents || 0), 0);
+      const anticipoBp =
+        venta.anticipo_bp ??
+        ((venta.total_usd_cents || 0) > 0
+          ? Math.round(((venta.anticipo_esperado_usd_cents || 0) * 10000) / venta.total_usd_cents)
+          : (params.anticipo_defecto_bp ?? 5000));
+      const anticipo = Math.round((total * anticipoBp) / 10000);
+      const pagado = venta.pagado_usd_cents || 0;
+      const piezas = piezasDe(lineas);
+      const estado =
+        venta.estado === 'PENDIENTE'
+          ? 'PENDIENTE'
+          : estadoInicialEncargo({
+              total_usd_cents: total,
+              pagado_usd_cents: pagado,
+              anticipo_esperado_usd_cents: anticipo,
+              sin_precio: piezas.sin_precio,
+            });
+
+      tx.set(
+        ventaRef,
+        {
+          lineas: lineas.map((x) => sinUndefined(x as unknown as Record<string, unknown>)),
+          subtotal_usd_cents: subtotal,
+          descuento_usd_cents: descuento,
+          total_usd_cents: total,
+          costo_total_usd_cents: costo,
+          ganancia_usd_cents: total - costo,
+          anticipo_esperado_usd_cents: anticipo,
+          anticipo_bp: anticipoBp,
+          saldo_usd_cents: total - pagado,
+          piezas,
+          estado,
+          actualizado_en: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+      return venta;
+    });
+
+    await EventosRepoFirestore.registrarEvento({
+      evento_grupo_id,
+      entidad_tipo: 'ventas',
+      entidad_id: venta_id,
+      tipo_evento: 'ACTUALIZACION',
+      valor_anterior: anterior as unknown as Record<string, unknown>,
+      detalle: `${anterior.codigo}: cotizado`,
+    });
+    await ClientesRepoFirestore.refrescarTotales(anterior.cliente_id);
+    await ResumenesRepoFirestore.invalidarPorFecha(anterior.fecha);
+  }
+
+  /**
    * "Ya lo compré": las piezas quedan compradas, esperando paquete. Ella no
    * sabe en qué paquete vienen; cuando carga el próximo, se le ofrecen
    * primero. Con `comprado` en falso se desmarcan. Sólo se tocan piezas sin
@@ -779,6 +900,10 @@ export class VentasRepoFirestore {
     const lineas = venta.lineas || [];
 
     if (estado === 'ENTREGADA') {
+      const sinCotizar = lineas.find((l) => sinPrecio(l));
+      if (sinCotizar) {
+        throw new Error(`'${sinCotizar.descripcion}' todavía no tiene precio: cotizalo antes de entregarlo.`);
+      }
       const deBodega = lineas.filter((l) => estadoPieza(l) === 'DE_BODEGA');
       for (const l of lineas) {
         if (estadoPieza(l) === 'EN_CAMINO') {
@@ -866,7 +991,16 @@ export class VentasRepoFirestore {
       const data = snap.data() as VentaDoc;
       if (data.estado === estado) return null;
 
-      tx.set(ventaRef, { estado, actualizado_en: ahora }, { merge: true });
+      tx.set(
+        ventaRef,
+        {
+          estado,
+          // "No se consiguió" queda anotado: la lista lo dice en vez de "Anulado".
+          ...(estado === 'CANCELADA' && opciones.motivo ? { motivo_anulacion: opciones.motivo } : {}),
+          actualizado_en: ahora,
+        },
+        { merge: true }
+      );
       return data;
     });
 

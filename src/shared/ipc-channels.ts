@@ -43,6 +43,7 @@ export const IPC = {
   VENTAS_CREAR: 'ventas:crear',
   VENTAS_CAMBIAR_ESTADO: 'ventas:cambiarEstado',
   VENTAS_MARCAR_COMPRADAS: 'ventas:marcarCompradas',
+  VENTAS_COTIZAR: 'ventas:cotizar',
 
   // Pagos
   PAGOS_REGISTRAR: 'pagos:registrar',

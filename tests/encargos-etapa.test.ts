@@ -7,6 +7,7 @@ import {
   costoEstimadoDePieza,
   sinPaquete,
 } from '@core/encargos';
+import { estadoInicialEncargo } from '@core/cobranza';
 
 describe('de dónde sale cada pieza', () => {
   it('en un paquete que no llegó, está en camino; cuando llega, llegó', () => {
@@ -60,7 +61,7 @@ describe('la etapa del encargo', () => {
   it('comprado y esperando paquete ya no está por comprar: está en camino', () => {
     const v = pendiente([{ comprado_el: '2026-09-25' }, { compra_id: 4 }]);
     expect(etapaEncargo(v)).toBe('EN_CAMINO');
-    expect(v.piezas).toEqual({ total: 2, compradas: 2, llegadas: 0, de_bodega: 0, esperan_paquete: 1 });
+    expect(v.piezas).toEqual({ total: 2, compradas: 2, llegadas: 0, de_bodega: 0, esperan_paquete: 1, sin_precio: 0 });
   });
 
   it('cuántas piezas todavía no vienen en ningún paquete', () => {
@@ -94,5 +95,34 @@ describe('cotizar con números', () => {
     expect(
       costoEstimadoDePieza({ tienda_usd_cents: 4500, peso_mlb: 1500, tax_bp: 700, tarifa_cents_lb: 700 })
     ).toBe(4500 + 315 + 1050);
+  });
+});
+
+describe('pedidos: un encargo antes del precio', () => {
+  // Una clienta pide algo que ella nunca compró: no sabe cuánto vale ni si lo
+  // va a conseguir. Lo anota sin precio y lo cotiza cuando lo encuentra.
+  it('una pieza con precio cero todavía no tiene precio', () => {
+    expect(piezasDe([{ precio_unitario_usd_cents: 0 }, { precio_unitario_usd_cents: 4500 }]).sin_precio).toBe(1);
+  });
+
+  it('con alguna pieza sin precio, está por cotizar', () => {
+    const v = { estado: 'COTIZADA' as const, piezas: piezasDe([{ precio_unitario_usd_cents: 0 }]) };
+    expect(etapaEncargo(v)).toBe('POR_COTIZAR');
+    expect(textoEtapa('POR_COTIZAR', v.piezas)).toBe('Por cotizar');
+  });
+
+  it('con todo cotizado, es un cotizado como siempre', () => {
+    expect(etapaEncargo({ estado: 'COTIZADA', piezas: piezasDe([{ precio_unitario_usd_cents: 4500 }]) })).toBe('COTIZADO');
+  });
+
+  it('un pedido nace cotizado: sin precio no hay anticipo que lo confirme', () => {
+    expect(
+      estadoInicialEncargo({ total_usd_cents: 0, pagado_usd_cents: 0, anticipo_esperado_usd_cents: 0, sin_precio: 1 })
+    ).toBe('COTIZADA');
+  });
+
+  it('el que no se consiguió lo dice', () => {
+    expect(textoEtapa('ANULADO', undefined, 'NO_SE_CONSIGUIO')).toBe('No se consiguió');
+    expect(textoEtapa('ANULADO')).toBe('Anulado');
   });
 });

@@ -555,6 +555,65 @@ def caso_comprado_espera_paquete(page: Page) -> list[str]:
     return fallas
 
 
+@caso("un pedido se anota sin precio y se cotiza después")
+def caso_pedido_sin_precio(page: Page) -> list[str]:
+    # Una clienta pide algo que ella nunca compró: no sabe cuánto vale. Se
+    # anota para acordarse y se le pone precio cuando lo encuentra.
+    fallas = []
+    page.get_by_role("button", name="Inicio", exact=False).first.click()
+    page.wait_for_timeout(500)
+    page.get_by_role("button", name="Encargos", exact=False).first.click()
+    page.wait_for_timeout(900)
+    page.get_by_role("button", name="Nuevo encargo").first.click()
+    page.wait_for_timeout(700)
+    page.get_by_placeholder("Ej: Vestido floral").first.fill("Pedido sin precio")
+    page.get_by_role("button", name="Siguiente").click()
+    page.wait_for_timeout(500)
+    if page.get_by_text("Cada producto necesita un precio").count() > 0:
+        return ["el encargo sigue pidiendo precio para anotarse"]
+    page.get_by_placeholder("Buscar clienta por nombre o teléfono").fill("Mar")
+    page.wait_for_timeout(500)
+    page.get_by_role("button", name="María López").first.click()
+    page.wait_for_timeout(300)
+    if page.get_by_text("Se guarda como pedido, sin precio").count() == 0:
+        fallas.append("el paso de la clienta no avisa que se guarda como pedido")
+    page.get_by_role("button", name="Siguiente").click()
+    page.wait_for_timeout(500)
+    try:
+        page.get_by_role("button", name="Guardar pedido").click(timeout=4000)
+    except Exception:
+        return fallas + ["no aparece 'Guardar pedido'"]
+    page.wait_for_timeout(1200)
+
+    fila = page.locator("tr", has_text="María López").filter(has_text="Por cotizar")
+    if fila.count() == 0:
+        return fallas + ["el pedido no aparece 'Por cotizar' en la lista"]
+    fila.first.click()
+    page.wait_for_timeout(800)
+    try:
+        page.get_by_role("button", name="Cotizar", exact=True).click(timeout=4000)
+    except Exception:
+        return fallas + ["el detalle del pedido no ofrece 'Cotizar'"]
+    page.wait_for_timeout(600)
+    modal = page.get_by_role("dialog")
+    modal.get_by_label("En la tienda ($)").fill("30")
+    modal.get_by_label("Peso aprox. (lb)").fill("1")
+    page.wait_for_timeout(300)
+    usar = modal.get_by_role("button", name="Usar")
+    if usar.count() == 0:
+        fallas.append("con tienda y peso no sugiere un precio")
+    else:
+        usar.first.click()
+    modal.get_by_role("button", name="Guardar precios").click()
+    page.wait_for_timeout(1000)
+    badge = page.locator("tr", has_text="María López").filter(has_text="Cotizado")
+    if badge.count() == 0:
+        fallas.append("cotizado, el encargo no pasa a 'Cotizado'")
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(300)
+    return fallas
+
+
 @caso("no quedan errores de consola")
 def caso_consola(page: Page) -> list[str]:
     return []  # lo evalúa el corredor al final

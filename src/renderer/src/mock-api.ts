@@ -36,7 +36,7 @@ import {
   type ProductoAntesDelPaquete,
 } from '@core/paquete';
 import { normalizarLotes, sacarFIFO, costoBase, valorDeLotes, type Lote } from '@core/lotes';
-import { piezasDe, estadoPieza } from '@core/encargos';
+import { piezasDe, estadoPieza, sinPrecio } from '@core/encargos';
 import { algunoContiene, normalizar } from '@core/texto';
 import { esDeuda, esCotizacion, estadoInicialEncargo } from '@core/cobranza';
 import { hoyISO, sumarDiasAFecha } from '@core/fechas';
@@ -1142,6 +1142,7 @@ const api: ApiPuente = {
               total_usd_cents: total,
               pagado_usd_cents: pagadoUsdCents,
               anticipo_esperado_usd_cents: anticipoEsperado,
+              sin_precio: piezasDe(lineas).sin_precio,
             })
           : input.entregar_ahora === false
             ? 'PENDIENTE'
@@ -1153,6 +1154,7 @@ const api: ApiPuente = {
         pagado_usd_cents: pagadoUsdCents,
         saldo_usd_cents: saldoUsdCents,
         anticipo_esperado_usd_cents: anticipoEsperado,
+        anticipo_bp: esEncargo ? (input.anticipo_bp ?? db.parametros.anticipo_defecto_bp) : undefined,
         notas: input.notas,
         activo: true,
         lineas,
@@ -1183,6 +1185,55 @@ const api: ApiPuente = {
       }
 
       return ok({ ...grupo(), id });
+    },
+    cotizar: (id, cambios) => {
+      const venta = db.ventas.find((v) => v.id === id);
+      if (!venta) return Promise.resolve({ success: false as const, error: 'El encargo no existe.' });
+      const porId = new Map(cambios.map((c) => [c.id, c]));
+      const lineas = venta.lineas.map((l) => {
+        const c = porId.get(l.id);
+        if (!c) return l;
+        const costoReal = estadoPieza(l) === 'LLEGO';
+        const costo = costoReal ? l.costo_unitario_usd_cents : (c.costo_estimado_unitario_usd_cents ?? l.costo_unitario_usd_cents);
+        return {
+          ...l,
+          descripcion: c.descripcion?.trim() || l.descripcion,
+          precio_unitario_usd_cents: c.precio_unitario_usd_cents,
+          subtotal_usd_cents: c.precio_unitario_usd_cents * l.cantidad,
+          costo_unitario_usd_cents: costo,
+          costo_total_usd_cents: costoReal ? l.costo_total_usd_cents : costo * l.cantidad,
+          precio_tienda_usd_cents: c.precio_tienda_usd_cents ?? l.precio_tienda_usd_cents,
+          peso_mlb: c.peso_mlb ?? l.peso_mlb,
+        };
+      });
+      const total = lineas.reduce((s, l) => s + l.subtotal_usd_cents, 0);
+      const costo = lineas.reduce((s, l) => s + l.costo_total_usd_cents, 0);
+      const anticipo = Math.round((total * (venta.anticipo_bp ?? db.parametros.anticipo_defecto_bp)) / 10000);
+      const piezas = piezasDe(lineas);
+      db.ventas = db.ventas.map((v) =>
+        v.id === id
+          ? {
+              ...v,
+              lineas,
+              piezas,
+              total_usd_cents: total,
+              costo_total_usd_cents: costo,
+              ganancia_usd_cents: total - costo,
+              anticipo_esperado_usd_cents: anticipo,
+              saldo_usd_cents: total - v.pagado_usd_cents,
+              estado:
+                v.estado === 'PENDIENTE'
+                  ? 'PENDIENTE'
+                  : estadoInicialEncargo({
+                      total_usd_cents: total,
+                      pagado_usd_cents: v.pagado_usd_cents,
+                      anticipo_esperado_usd_cents: anticipo,
+                      sin_precio: piezas.sin_precio,
+                    }),
+            }
+          : v
+      );
+      return ok(grupo());
     },
     marcarCompradas: (id, linea_ids, comprado) => {
       const hoy = hoyISO();
@@ -1224,6 +1275,13 @@ const api: ApiPuente = {
             error: `'${enCamino.descripcion}' todavía no llegó: viene en ${enCamino.compra_codigo ?? 'un paquete'}.`,
           });
         }
+        const sinCotizar = lineas.find((l) => sinPrecio(l));
+        if (estado === 'ENTREGADA' && sinCotizar) {
+          return Promise.resolve({
+            success: false as const,
+            error: `'${sinCotizar.descripcion}' todavía no tiene precio: cotizalo antes de entregarlo.`,
+          });
+        }
         const esperando = lineas.find((l) => estadoPieza(l) === 'COMPRADA');
         if (estado === 'ENTREGADA' && esperando) {
           return Promise.resolve({
@@ -1251,7 +1309,11 @@ const api: ApiPuente = {
       // productos que se anula movería mercadería y no sería reversible.
       const movioMercaderia =
         estado === 'CANCELADA' && (venta?.lineas ?? []).some((l) => l.producto_id);
-      db.ventas = db.ventas.map((v) => (v.id === id ? { ...v, estado } : v));
+      db.ventas = db.ventas.map((v) =>
+        v.id === id
+          ? { ...v, estado, ...(estado === 'CANCELADA' && opciones.motivo ? { motivo_anulacion: opciones.motivo } : {}) }
+          : v
+      );
       return ok({ ...grupo(), reversible: !movioMercaderia });
     },
   },

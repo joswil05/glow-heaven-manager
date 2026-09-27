@@ -47,8 +47,11 @@ export function estadoInicialEncargo(params: {
   total_usd_cents: number;
   pagado_usd_cents: number;
   anticipo_esperado_usd_cents: number;
+  /** Piezas sin precio. Un pedido queda cotizado: $0 pagados de $0 no confirman nada. */
+  sin_precio?: number;
 }): 'COTIZADA' | 'PENDIENTE' {
   const { total_usd_cents, pagado_usd_cents, anticipo_esperado_usd_cents } = params;
+  if ((params.sin_precio ?? 0) > 0) return 'COTIZADA';
   if (pagado_usd_cents >= total_usd_cents) return 'PENDIENTE';
   if (anticipo_esperado_usd_cents <= 0) return 'PENDIENTE';
   return pagado_usd_cents >= anticipo_esperado_usd_cents ? 'PENDIENTE' : 'COTIZADA';

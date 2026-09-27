@@ -77,7 +77,12 @@ export interface Consumo {
 /**
  * Qué hacer al anular un encargo. Ver `VentasRepoFirestore.cambiarEstado`.
  */
+/** Por qué se anuló un encargo, cuando no es sólo que la clienta se arrepintió. */
+export type MotivoAnulacion = 'NO_SE_CONSIGUIO';
+
 export interface OpcionesAnulacion {
+  /** "No se consiguió": lo que ella no pudo comprar. */
+  motivo?: MotivoAnulacion;
   /** Lo que ya pagó: se devuelve (se anulan los pagos) o se queda. */
   anticipo?: 'DEVOLVER' | 'RETENER';
   /** Cada pieza que ya llegó, por id de línea: a la bodega o perdida. */
@@ -99,6 +104,8 @@ export interface PiezasEncargo {
    * `compradas`. Un resumen guardado antes de existir este campo no lo trae.
    */
   esperan_paquete?: number;
+  /** Piezas que todavía no tienen precio: el encargo es un pedido por cotizar. */
+  sin_precio?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -519,6 +526,10 @@ export interface Venta {
   pagado_usd_cents: number;
   saldo_usd_cents: number;
   anticipo_esperado_usd_cents: number;
+  /** Encargos: el anticipo pedido, en puntos básicos. Cotizar lo vuelve a aplicar al total nuevo. */
+  anticipo_bp?: number;
+  /** Encargos anulados: "no se consiguió". */
+  motivo_anulacion?: MotivoAnulacion;
 
   /** Encargos: el resumen de sus piezas, para listarlo sin leer las líneas. */
   piezas?: PiezasEncargo;

@@ -8,11 +8,12 @@
  *
  * Ver `docs/PLAN_LOTES_Y_ENCARGOS.md`, sección 5.
  */
-import type { EstadoVenta, PiezasEncargo } from '../shared/types';
+import type { EstadoVenta, MotivoAnulacion, PiezasEncargo } from '../shared/types';
 
 export type { PiezasEncargo };
 
 export type EtapaEncargo =
+  | 'POR_COTIZAR'
   | 'COTIZADO'
   | 'POR_COMPRAR'
   | 'EN_CAMINO'
@@ -35,6 +36,17 @@ export interface PiezaParaEtapa {
   compra_id?: number;
   llego_el?: string;
   comprado_el?: string;
+  /** Cero: todavía no tiene precio (un pedido). */
+  precio_unitario_usd_cents?: number;
+}
+
+/**
+ * La pieza todavía no tiene precio: es un pedido que ella anotó sin saber
+ * cuánto vale ni si lo va a conseguir. Una pieza sin el campo (un objeto de
+ * prueba, un documento a medias) no cuenta como sin precio.
+ */
+export function sinPrecio(p: Pick<PiezaParaEtapa, 'precio_unitario_usd_cents'>): boolean {
+  return typeof p.precio_unitario_usd_cents === 'number' && p.precio_unitario_usd_cents <= 0;
 }
 
 /** De dónde sale una pieza, hoy. */
@@ -52,6 +64,7 @@ export function piezasDe(lineas: readonly PiezaParaEtapa[]): PiezasEncargo {
     llegadas: 0,
     de_bodega: 0,
     esperan_paquete: 0,
+    sin_precio: 0,
   };
   for (const l of lineas) {
     const e = estadoPieza(l);
@@ -59,6 +72,7 @@ export function piezasDe(lineas: readonly PiezaParaEtapa[]): PiezasEncargo {
     if (e === 'COMPRADA') r.esperan_paquete++;
     if (e === 'LLEGO') r.llegadas++;
     if (e === 'DE_BODEGA') r.de_bodega++;
+    if (sinPrecio(l)) r.sin_precio++;
   }
   return r;
 }
@@ -82,6 +96,8 @@ export function sinPaquete(p: PiezasEncargo | undefined): number {
 export function etapaEncargo(v: { estado: EstadoVenta; piezas?: PiezasEncargo }): EtapaEncargo {
   if (v.estado === 'CANCELADA') return 'ANULADO';
   if (v.estado === 'ENTREGADA') return 'ENTREGADO';
+  // Mientras falte un precio, lo que hay que hacer es cotizarlo.
+  if ((v.piezas?.sin_precio ?? 0) > 0) return 'POR_COTIZAR';
   if (v.estado === 'COTIZADA') return 'COTIZADO';
   const p = v.piezas;
   if (!p || p.total === 0) return 'POR_COMPRAR';
@@ -91,8 +107,10 @@ export function etapaEncargo(v: { estado: EstadoVenta; piezas?: PiezasEncargo })
 }
 
 /** "En camino · 1 de 2 llegó", para la lista. */
-export function textoEtapa(etapa: EtapaEncargo, piezas?: PiezasEncargo): string {
+export function textoEtapa(etapa: EtapaEncargo, piezas?: PiezasEncargo, motivo?: MotivoAnulacion): string {
   switch (etapa) {
+    case 'POR_COTIZAR':
+      return 'Por cotizar';
     case 'COTIZADO': {
       // Se puede comprar antes de que confirme: que no quede escondido.
       if (!piezas || piezas.compradas === 0) return 'Cotizado';
@@ -110,7 +128,7 @@ export function textoEtapa(etapa: EtapaEncargo, piezas?: PiezasEncargo): string 
     case 'ENTREGADO':
       return 'Entregado';
     case 'ANULADO':
-      return 'Anulado';
+      return motivo === 'NO_SE_CONSIGUIO' ? 'No se consiguió' : 'Anulado';
   }
 }
 

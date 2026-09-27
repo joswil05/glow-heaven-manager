@@ -2,8 +2,8 @@
 
 > **Para quién es esto**: el modelo o la persona que abre este proyecto sin
 > haber estado en la sesión anterior.
-> **Estado del árbol**: `v2.14.1` (lotes y encargos, sección 2; incluye los
-> arreglos de pantalla que iban a ser la 2.13.1). Los datos de producción se
+> **Estado del árbol**: `v2.15.0` (pedidos sin precio, sección 2; antes, la
+> 2.14 con lotes y encargos). Los datos de producción se
 > migraron al flujo nuevo con `scripts/migrar-a-lotes.ts` (sección 3).
 > **Última actualización**: 26 de septiembre de 2026.
 
@@ -87,6 +87,18 @@ sus paquetes. Cada línea del encargo es una pieza que apunta a la línea del
 paquete que la trae. La etapa se deriva de las piezas
 ([`src/core/encargos.ts`](../src/core/encargos.ts)): por comprar, en camino
 ("1 de 2 llegó"), por entregar. Reglas:
+
+- **Un encargo puede empezar sin precio** (`v2.15`): una clienta pide algo que
+  ella nunca compró y no sabe cuánto vale ni si lo va a conseguir. Se anota
+  con la descripción y la clienta ("Guardar pedido"), queda "Por cotizar" y
+  no cuenta en ventas, deuda ni ganancia. Por dentro es un encargo `COTIZADA`
+  con piezas en `precio_unitario_usd_cents: 0` (`piezas.sin_precio`); no hay
+  estado nuevo. "Cotizar" en el detalle (`VentasRepoFirestore.cotizar`) le
+  pone precio con tienda y peso, recalcula total, costo y anticipo, y también
+  corrige el precio de un cotizado; en uno confirmado sólo cotiza lo que no
+  tenía precio. Sin precio no se cobra anticipo ni se entrega. Anular pregunta
+  si fue porque "No se consiguió" (`motivo_anulacion`), y el panel avisa de
+  los pedidos que llevan días sin cotizar.
 
 - Ella no sabe en qué paquete viene lo que compra; sólo que lo más probable
   es que en el próximo. En el detalle del encargo, "Ya lo compré" deja la
@@ -338,6 +350,12 @@ que tiene que ser rechazada. Si esa pasa, el arnés no está probando nada.
 npm run deploy:mobile          # PWA a los dos sitios de Firebase Hosting
 npm run release:windows        # instalador NSIS + GitHub Release
 ```
+
+Si `deploy:mobile` falla con "Your credentials are no longer valid" (la sesión
+de la CLI de Firebase vence y renovarla pide el navegador), la PWA se publica
+con la sesión de `gcloud`: `npm run build:mobile && node
+scripts/desplegar-movil.mjs`. Usa la API REST de Hosting con la misma
+configuración de `firebase.json`.
 
 **`release:windows` casi siempre falla al final con `GitHub Personal Access
 Token is not set`.** No exportes el token a una variable de entorno; Joswill ya

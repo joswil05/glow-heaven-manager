@@ -400,7 +400,7 @@ describe('encargos: comprado, sin saber en qué paquete viene', () => {
     const v = (await Ventas.getById(e))!;
     expect(v.lineas[0].comprado_el).toBe(HOY);
     expect(await etapa(e)).toBe('EN_CAMINO');
-    expect(v.piezas).toEqual({ total: 1, compradas: 1, llegadas: 0, de_bodega: 0, esperan_paquete: 1 });
+    expect(v.piezas).toEqual({ total: 1, compradas: 1, llegadas: 0, de_bodega: 0, esperan_paquete: 1, sin_precio: 0 });
 
     await Ventas.marcarCompradas(e, [pieza.id], false, g());
     expect(await etapa(e)).toBe('POR_COMPRAR');
@@ -453,5 +453,117 @@ describe('encargos: comprado, sin saber en qué paquete viene', () => {
     await Ventas.marcarCompradas(e, [(await piezaDe(e)).id], true, grupo);
     await Eventos.deshacerGrupo(grupo);
     expect(await etapa(e)).toBe('POR_COMPRAR');
+  });
+});
+
+describe('pedidos: anotar sin precio, cotizar después', () => {
+  // Una clienta pide algo que ella nunca compró: no sabe cuánto vale ni si lo
+  // va a conseguir. Lo anota para acordarse y lo cotiza cuando lo encuentra.
+  const pedido = (lineas?: LineaVentaInput[]) =>
+    Ventas.crear(
+      {
+        fecha: HOY,
+        tipo: 'ENCARGO',
+        anticipo_bp: 5000,
+        lineas: lineas ?? [{ descripcion: 'Bolso que vio en Instagram', cantidad: 1, precio_unitario_usd_cents: 0 }],
+      },
+      g()
+    );
+  const cotizacion = (id: number, precio: number, extra: Record<string, unknown> = {}) => ({
+    id,
+    precio_unitario_usd_cents: precio,
+    costo_estimado_unitario_usd_cents: 3800,
+    precio_tienda_usd_cents: 3000,
+    peso_mlb: 1000,
+    ...extra,
+  });
+
+  it('se anota sin precio: queda por cotizar y no cuenta en nada', async () => {
+    const e = await pedido();
+    const v = (await Ventas.getById(e))!;
+    expect([v.estado, v.total_usd_cents, v.saldo_usd_cents]).toEqual(['COTIZADA', 0, 0]);
+    expect(await etapa(e)).toBe('POR_COTIZAR');
+    const panel = await Panel.cargar(true);
+    expect([panel.resumen.por_cobrar_usd_cents, panel.resumen.cotizado_sin_confirmar_usd_cents]).toEqual([0, 0]);
+  });
+
+  it('sin precio no se cobra un anticipo', async () => {
+    await expect(
+      Ventas.crear(
+        {
+          fecha: HOY,
+          tipo: 'ENCARGO',
+          lineas: [{ descripcion: 'Bolso', cantidad: 1, precio_unitario_usd_cents: 0 }],
+          pago_inicial: { moneda: 'USD', metodo: 'EFECTIVO', monto_cents: 1000 },
+        },
+        g()
+      )
+    ).rejects.toThrow(/sin precio/);
+  });
+
+  it('cotizarlo le pone precio, costo y anticipo: queda cotizado', async () => {
+    const e = await pedido();
+    const pieza = (await Ventas.getById(e))!.lineas[0];
+    await Ventas.cotizar(e, [cotizacion(pieza.id, 6000, { descripcion: 'Bolso Coach Tabby negro' })], g());
+    const v = (await Ventas.getById(e))!;
+    expect([v.total_usd_cents, v.saldo_usd_cents, v.anticipo_esperado_usd_cents, v.costo_total_usd_cents]).toEqual([6000, 6000, 3000, 3800]);
+    expect(v.lineas[0].descripcion).toBe('Bolso Coach Tabby negro');
+    expect(v.lineas[0].precio_tienda_usd_cents).toBe(3000);
+    expect(await etapa(e)).toBe('COTIZADO');
+    expect((await Panel.cargar(true)).resumen.cotizado_sin_confirmar_usd_cents).toBe(6000);
+  });
+
+  it('un cotizado se puede corregir; uno confirmado no cambia el precio que ella aceptó', async () => {
+    const cotizado = await encargo({ pago_inicial: undefined });
+    const p1 = (await Ventas.getById(cotizado))!.lineas[0];
+    await Ventas.cotizar(cotizado, [cotizacion(p1.id, 5500)], g());
+    expect((await Ventas.getById(cotizado))!.total_usd_cents).toBe(5500);
+
+    const confirmado = await encargo();
+    const p2 = (await Ventas.getById(confirmado))!.lineas[0];
+    await expect(Ventas.cotizar(confirmado, [cotizacion(p2.id, 5500)], g())).rejects.toThrow(/confirm/);
+  });
+
+  it('no se entrega sin precio', async () => {
+    const e = await pedido();
+    await expect(Ventas.cambiarEstado(e, 'ENTREGADA', g())).rejects.toThrow(/no tiene precio/);
+  });
+
+  it('una pieza que ya llegó conserva su costo real al cotizarla', async () => {
+    const e = await pedido();
+    const pieza = (await Ventas.getById(e))!.lineas[0];
+    const pq = await Compras.guardar({ fecha: HOY, envio_total_usd_cents: 0, lineas: [await lineaDeEncargo(e)] }, g());
+    await Compras.recibir(pq, g());
+    await Ventas.cotizar(e, [cotizacion(pieza.id, 6000, { costo_estimado_unitario_usd_cents: 9999 })], g());
+    expect((await Ventas.getById(e))!.costo_total_usd_cents).toBe(3000);
+  });
+
+  it('no se consiguió: se anula con ese motivo', async () => {
+    const e = await pedido();
+    await Ventas.cambiarEstado(e, 'CANCELADA', g(), { motivo: 'NO_SE_CONSIGUIO' });
+    const v = (await Ventas.getById(e))!;
+    expect([v.estado, v.motivo_anulacion]).toEqual(['CANCELADA', 'NO_SE_CONSIGUIO']);
+  });
+
+  it('un pedido que lleva días sin cotizar avisa, para no olvidarlo', async () => {
+    const viejo = await Ventas.crear(
+      { fecha: sumarDiasAFecha(HOY, -20), tipo: 'ENCARGO', lineas: [{ descripcion: 'Perfume raro', cantidad: 1, precio_unitario_usd_cents: 0 }] },
+      g()
+    );
+    const nuevo = await pedido();
+    const alertas = await Panel.cargar(true);
+    const aviso = alertas.alertas.find((a) => a.id === `encargo-cotizar-${viejo}`);
+    expect(aviso?.detalle).toContain('Perfume raro');
+    expect(alertas.alertas.map((a) => a.id)).not.toContain(`encargo-cotizar-${nuevo}`);
+  });
+
+  it('deshacer la cotización la deja como estaba', async () => {
+    const e = await pedido();
+    const pieza = (await Ventas.getById(e))!.lineas[0];
+    const grupo = g();
+    await Ventas.cotizar(e, [cotizacion(pieza.id, 6000)], grupo);
+    await Eventos.deshacerGrupo(grupo);
+    expect(await etapa(e)).toBe('POR_COTIZAR');
+    expect((await Ventas.getById(e))!.total_usd_cents).toBe(0);
   });
 });

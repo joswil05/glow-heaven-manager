@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import type { OpcionesAnulacion, Venta, VentaCompleta } from '../../../../shared/types';
 import { Button, Portal } from '../../components/ui';
-import { estadoPieza } from '@core/encargos';
+import { estadoPieza, etapaEncargo } from '@core/encargos';
 import { formatearMoneda, formatearFecha } from '@core/moneda';
 import { cn } from '../../lib/cn';
 
@@ -46,6 +46,7 @@ export const AnularEncargoModal: React.FC<AnularEncargoModalProps> = ({ venta, o
   const [completa, setCompleta] = useState<VentaCompleta | null>(null);
   const [destinos, setDestinos] = useState<Record<number, Destino>>({});
   const [anticipo, setAnticipo] = useState<'DEVOLVER' | 'RETENER'>('DEVOLVER');
+  const [noSeConsiguio, setNoSeConsiguio] = useState(false);
   const salidaRef = useRef<HTMLButtonElement>(null);
 
   // Las piezas hacen falta enteras: una venta de la lista viene sin líneas.
@@ -53,6 +54,8 @@ export const AnularEncargoModal: React.FC<AnularEncargoModalProps> = ({ venta, o
     if (!venta) return;
     setDestinos({});
     setAnticipo('DEVOLVER');
+    // Un pedido que se anula casi siempre es porque no se encontró.
+    setNoSeConsiguio(etapaEncargo(venta) === 'POR_COTIZAR');
     if ('lineas' in venta && venta.lineas) {
       setCompleta(venta);
       return;
@@ -88,7 +91,7 @@ export const AnularEncargoModal: React.FC<AnularEncargoModalProps> = ({ venta, o
   const confirmar = () => {
     const piezas: OpcionesAnulacion['piezas'] = {};
     for (const l of llegadas) piezas[l.id] = { destino: destinos[l.id] ?? 'BODEGA' };
-    onConfirmar({ anticipo, piezas });
+    onConfirmar({ anticipo, piezas, motivo: noSeConsiguio ? 'NO_SE_CONSIGUIO' : undefined });
     onCerrar();
   };
 
@@ -121,6 +124,18 @@ export const AnularEncargoModal: React.FC<AnularEncargoModalProps> = ({ venta, o
               <p className="text-label text-texto-3">Cargando sus piezas…</p>
             ) : (
               <>
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <p className="text-body text-texto">Por qué</p>
+                  <div className="inline-flex rounded-lg bg-superficie-2 p-0.5" role="radiogroup" aria-label="Por qué se anula">
+                    <Opcion activa={!noSeConsiguio} onClick={() => setNoSeConsiguio(false)}>
+                      Ya no lo quiere
+                    </Opcion>
+                    <Opcion activa={noSeConsiguio} onClick={() => setNoSeConsiguio(true)}>
+                      No se consiguió
+                    </Opcion>
+                  </div>
+                </div>
+
                 {llegadas.map((l) => (
                   <div key={l.id} className="flex items-center justify-between gap-3 flex-wrap">
                     <div className="min-w-0">
@@ -184,7 +199,7 @@ export const AnularEncargoModal: React.FC<AnularEncargoModalProps> = ({ venta, o
                   </div>
                 )}
 
-                {llegadas.length === 0 && enCamino.length === 0 && esperando.length === 0 && pagado === 0 && (
+                {llegadas.length === 0 && enCamino.length === 0 && esperando.length === 0 && pagado === 0 && venta.total_usd_cents > 0 && (
                   <p className="text-label text-texto-2">Deja de contar en tus ganancias.</p>
                 )}
               </>

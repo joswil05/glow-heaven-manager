@@ -81,6 +81,10 @@ La ficha del producto es catálogo: no tiene costo, existencias ni paquete.
   viene lo que compra (lo más probable es que en el próximo): "Ya lo compré"
   deja la pieza comprada, esperando paquete (`comprado_el`), y el paquete
   nuevo se la ofrece primero.
+- **Un encargo puede anotarse sin precio: es un pedido "por cotizar".** No
+  cuenta en nada hasta que se cotiza (`VentasRepoFirestore.cotizar`). Un
+  total de $0 no confirma el encargo: `estadoInicialEncargo` recibe
+  `sin_precio`, y un pago no lo pasa a pendiente mientras falte un precio.
 - **El costo se congela en la venta.** `venta_lineas.costo_unitario_usd_cents`
   guarda con qué costo salió la unidad. Recalcularlo después reescribiría la
   ganancia histórica cada vez que llega un paquete nuevo.
@@ -205,7 +209,7 @@ ID viaja dentro de la aplicación, así que nunca fue un secreto.
 
 ## Comandos de verificación
 
-- `npm test` — 368 pruebas contra el Firestore falso, sin red.
+- `npm test` — 382 pruebas contra el Firestore falso, sin red.
 - `npm run typecheck` — cero errores con `strict: true`
 - `npm run build` — compila y empaqueta
 - `npm run build:exe` — instalador NSIS. Borrá `release/` antes para

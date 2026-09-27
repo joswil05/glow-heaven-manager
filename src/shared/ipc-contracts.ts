@@ -193,6 +193,19 @@ export interface PreviewCompra {
 // Ventas
 // ---------------------------------------------------------------------------
 
+/**
+ * El precio de una pieza de un encargo, al cotizarlo. `descripcion` permite
+ * precisar lo que se encontró ("Bolso" pasa a "Bolso Coach Tabby negro").
+ */
+export interface LineaCotizacion {
+  id: number;
+  precio_unitario_usd_cents: number;
+  costo_estimado_unitario_usd_cents?: number;
+  precio_tienda_usd_cents?: number;
+  peso_mlb?: number;
+  descripcion?: string;
+}
+
 export interface LineaVentaInput {
   producto_id?: number;
   variante_id?: number;
@@ -395,6 +408,8 @@ export interface ApiPuente {
      * esperan paquete. Ver `VentasRepoFirestore.marcarCompradas`.
      */
     marcarCompradas(id: number, linea_ids: number[], comprado: boolean): Promise<Resultado<ConGrupo>>;
+    /** Le pone precio a las piezas de un encargo. Ver `VentasRepoFirestore.cotizar`. */
+    cotizar(id: number, lineas: LineaCotizacion[]): Promise<Resultado<ConGrupo>>;
   };
   pagos: {
     registrar(input: RegistrarPagoInput): Promise<Resultado<ResultadoPago>>;
