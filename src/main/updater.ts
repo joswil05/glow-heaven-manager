@@ -66,7 +66,11 @@ export function iniciarActualizador(win: BrowserWindow): void {
   // Manejador IPC para reiniciar e instalar
   ipcMain.handle('app:restart-and-install-update', () => {
     console.log('[AutoUpdater] Cerrando app e instalando nueva versión...');
-    autoUpdater.quitAndInstall(false, true);
+    // Silencioso: el instalador no es de un clic, y sin esto abría el
+    // asistente ("¿Para quién se instalará?") y se quedaba esperando. Así
+    // instala sobre la misma carpeta y vuelve a abrir la app, igual que
+    // cuando se instala sola al cerrarla.
+    autoUpdater.quitAndInstall(true, true);
   });
 
   // Manejador IPC para chequeo manual desde Configuración
