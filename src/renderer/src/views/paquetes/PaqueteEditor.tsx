@@ -26,7 +26,7 @@ import {
   calcularPaquete,
   efectoDeEntradas,
   efectoDeCorreccion,
-  loteDeLinea,
+  lotesDeLinea,
   type EfectoEnProducto,
   type LineaPaquete,
   type ProductoAntesDelPaquete,
@@ -34,6 +34,7 @@ import {
 import { margenEfectivo } from '@core/precios';
 import { algunoContiene } from '@core/texto';
 import { hoyISO } from '@core/fechas';
+import { estadoPieza, sinPaquete } from '@core/encargos';
 import { useToast } from '../../context/ToastContext';
 import { useCerrarConEscape } from '../../lib/useCerrarConEscape';
 import { cn } from '../../lib/cn';
@@ -60,6 +61,30 @@ import { ResumenIngreso } from './ResumenIngreso';
  *   · en el inventario: se corrige. Las líneas que ya entraron sólo cambian
  *     montos; se pueden agregar líneas olvidadas.
  */
+
+/** Cómo se agrupan los encargos que puede traer un paquete. */
+type GrupoEncargo = 'COMPRADOS' | 'CONFIRMADOS' | 'SIN_CONFIRMAR';
+const ORDEN_GRUPO: Record<GrupoEncargo, number> = { COMPRADOS: 0, CONFIRMADOS: 1, SIN_CONFIRMAR: 2 };
+const TITULO_GRUPO: Record<GrupoEncargo, string> = {
+  COMPRADOS: 'Comprados, esperan paquete',
+  CONFIRMADOS: 'Por comprar',
+  SIN_CONFIRMAR: 'Sin confirmar',
+};
+function grupoDeEncargo(v: Venta): GrupoEncargo {
+  if ((v.piezas?.esperan_paquete ?? 0) > 0) return 'COMPRADOS';
+  return v.estado === 'PENDIENTE' ? 'CONFIRMADOS' : 'SIN_CONFIRMAR';
+}
+/** "1 comprada, espera paquete", "2 de 3 por comprar". */
+function textoSinPaquete(v: Venta): string {
+  const p = v.piezas;
+  if (!p) return 'Por comprar';
+  const esperan = p.esperan_paquete ?? 0;
+  const porComprar = sinPaquete(p) - esperan;
+  const partes: string[] = [];
+  if (esperan > 0) partes.push(esperan === 1 ? '1 comprada, espera paquete' : `${esperan} compradas, esperan paquete`);
+  if (porComprar > 0) partes.push(`${porComprar} de ${p.total} por comprar`);
+  return partes.join(' · ');
+}
 
 interface PaqueteEditorProps {
   abierto: boolean;
@@ -251,13 +276,14 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
       if (!vivo) return;
       if (rEnc.success) {
         // Sólo los que tienen piezas que todavía no vienen en ningún paquete.
-        // Los confirmados primero: los cotizados se pueden comprar, pero la
-        // clienta todavía no pagó el anticipo.
+        // Primero los que ya se compraron: lo más probable es que vengan en
+        // éste. Después los confirmados, y al final los cotizados, que se
+        // pueden comprar aunque la clienta todavía no pagó el anticipo.
         setEncargos(
           rEnc.data
             .filter((v) => v.estado === 'COTIZADA' || v.estado === 'PENDIENTE')
-            .filter((v) => !v.piezas || v.piezas.compradas < v.piezas.total)
-            .sort((a, b) => (a.estado === b.estado ? 0 : a.estado === 'PENDIENTE' ? -1 : 1))
+            .filter((v) => !v.piezas || sinPaquete(v.piezas) > 0)
+            .sort((a, b) => ORDEN_GRUPO[grupoDeEncargo(a)] - ORDEN_GRUPO[grupoDeEncargo(b)])
         );
       }
       const mapa = new Map(lista.map((p) => [p.id, p]));
@@ -385,17 +411,17 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
       if (esCorreccion) {
         const cambios = suyas
           .filter((l) => l.bloqueada)
-          .map((l) => {
+          .flatMap((l) => {
             const c = calcPorClave.get(l.clave);
-            return {
+            const cambio = {
               unidades_de_la_linea: c?.cantidad ?? 0,
               diferencia_usd_cents: (c?.costo_linea_usd_cents ?? 0) - (l.costoLineaAnterior ?? 0),
-              lote_id:
-                compra && l.id !== undefined
-                  ? loteDeLinea(p.lotes ?? [], compra.id, l.id, l.variante_id)?.id
-                  : undefined,
               nuevo_costo_unitario_usd_cents: c?.costo_unitario_usd_cents,
             };
+            // Un cambio por lote: una línea repartida entre tallas tiene varios.
+            const suyos =
+              compra && l.id !== undefined ? lotesDeLinea(p.lotes ?? [], compra.id, l.id, l.variante_id) : [];
+            return suyos.length > 0 ? suyos.map((x) => ({ ...cambio, lote_id: x.id })) : [cambio];
           })
           .filter((c) => c.diferencia_usd_cents !== 0);
         salida.set(pid, efectoDeCorreccion(antes, cambios, entradas, paso));
@@ -472,7 +498,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
     return r.data.id;
   };
 
-  const agregarEncargo = async (v: Venta) => {
+  const agregarEncargo = async (v: Venta, soloCompradas = false) => {
     const r = await window.api.ventas.get(v.id);
     if (!r.success || !r.data) {
       showToast({ message: r.success ? 'No se encontró el encargo.' : r.error, type: 'error' });
@@ -481,10 +507,13 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
     const ya = new Set(lineas.filter((l) => l.venta_id === v.id).map((l) => l.venta_linea_id));
     // Una pieza que ya viene en otro paquete no se ofrece: no puede venir en dos.
     const libres = r.data.lineas.filter(
-      (vl) => !ya.has(vl.id) && (!vl.compra_id || vl.compra_id === compra?.id)
+      (vl) =>
+        !ya.has(vl.id) &&
+        (!vl.compra_id || vl.compra_id === compra?.id) &&
+        (!soloCompradas || estadoPieza(vl) === 'COMPRADA')
     );
     if (libres.length === 0) {
-      showToast({ message: 'Todas sus piezas ya vienen en un paquete.', type: 'info' });
+      if (!soloCompradas) showToast({ message: 'Todas sus piezas ya vienen en un paquete.', type: 'info' });
       setVerEncargos(false);
       return;
     }
@@ -501,6 +530,18 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
       );
     setLineas((prev) => [...prev, ...nuevas]);
     setVerEncargos(false);
+  };
+
+  // Las piezas compradas que esperan paquete y todavía no están en éste. Lo
+  // más probable es que hayan venido: se ofrecen de una vez.
+  const esperando = esCorreccion
+    ? []
+    : encargos.filter(
+        (v) => (v.piezas?.esperan_paquete ?? 0) > 0 && !lineas.some((l) => l.venta_id === v.id)
+      );
+  const piezasEsperando = esperando.reduce((s, v) => s + (v.piezas?.esperan_paquete ?? 0), 0);
+  const agregarEsperando = async () => {
+    for (const v of esperando) await agregarEncargo(v, true);
   };
 
   const cambiar = (clave: string, cambios: Partial<LineaEnPantalla>) =>
@@ -829,6 +870,19 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                     </span>
                   </div>
 
+                  {piezasEsperando > 0 && (
+                    <div className="px-4 py-2.5 border-b border-borde flex items-center justify-between gap-3 flex-wrap bg-acento-suave">
+                      <span className="text-label text-texto">
+                        {piezasEsperando === 1
+                          ? 'Una pieza de encargo ya comprada espera paquete.'
+                          : `${piezasEsperando} piezas de encargos ya compradas esperan paquete.`}
+                      </span>
+                      <Button size="sm" variant="secondary" onClick={agregarEsperando}>
+                        {piezasEsperando === 1 ? 'Agregarla' : 'Agregarlas'}
+                      </Button>
+                    </div>
+                  )}
+
                   {lineas.length > 0 && (
                     <div className="overflow-x-auto">
                       <table className="w-full text-label min-w-[980px]">
@@ -1130,9 +1184,9 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                           <ul className="absolute z-20 right-0 mt-1 w-80 max-h-72 overflow-y-auto rounded-xl border border-borde bg-superficie shadow-xl">
                             {encargos.map((v, i) => (
                               <li key={v.id}>
-                                {(i === 0 || encargos[i - 1].estado !== v.estado) && (
+                                {(i === 0 || grupoDeEncargo(encargos[i - 1]) !== grupoDeEncargo(v)) && (
                                   <div className="px-3 pt-2 pb-1 text-caption font-medium text-texto-3">
-                                    {v.estado === 'PENDIENTE' ? 'Confirmados' : 'Sin confirmar'}
+                                    {TITULO_GRUPO[grupoDeEncargo(v)]}
                                   </div>
                                 )}
                                 <button
@@ -1144,10 +1198,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                                     {v.cliente_nombre ?? 'Sin clienta'} · {v.codigo}
                                   </span>
                                   <span className="text-caption text-texto-3">
-                                    {v.piezas
-                                      ? `${v.piezas.total - v.piezas.compradas} de ${v.piezas.total} por comprar`
-                                      : 'Por comprar'}{' '}
-                                    · {$(v.total_usd_cents)}
+                                    {textoSinPaquete(v)} · {$(v.total_usd_cents)}
                                   </span>
                                 </button>
                               </li>

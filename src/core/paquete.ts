@@ -307,6 +307,25 @@ export function loteDeLinea(
   return saldos.find((l) => l.compra_id === compra_id) ?? saldos[0];
 }
 
+/**
+ * Todos los lotes de una línea de paquete. Casi siempre es uno; una línea de
+ * antes de la 2.14 cuyas unidades se repartieron después entre tallas quedó
+ * en un lote por talla. Sin lotes propios, el saldo que da `loteDeLinea`.
+ */
+export function lotesDeLinea(
+  lotes: readonly Lote[],
+  compra_id: number,
+  linea_id: number,
+  variante_id?: number
+): Lote[] {
+  const propios = lotes.filter(
+    (l) => l.origen === 'PAQUETE' && l.compra_id === compra_id && l.compra_linea_id === linea_id
+  );
+  if (propios.length > 0) return propios;
+  const saldo = loteDeLinea(lotes, compra_id, linea_id, variante_id);
+  return saldo ? [saldo] : [];
+}
+
 /** Los lotes con que arranca el cálculo: los suyos o un saldo armado. */
 function lotesDe(p: ProductoAntesDelPaquete): Lote[] {
   if (p.lotes) return p.lotes.map((l) => ({ ...l }));

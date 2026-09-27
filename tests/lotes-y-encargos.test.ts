@@ -15,6 +15,7 @@ import { ComprasRepoFirestore as Compras } from '../src/main/firebase/repositori
 import { VentasRepoFirestore as Ventas } from '../src/main/firebase/repositories/ventas.repo';
 import { ParametrosRepoFirestore as Parametros } from '../src/main/firebase/repositories/parametros.repo';
 import { PanelRepoFirestore as Panel } from '../src/main/firebase/repositories/panel.repo';
+import { EventosRepoFirestore as Eventos } from '../src/main/firebase/repositories/eventos.repo';
 import { etapaEncargo } from '../src/core/encargos';
 import { hoyISO, sumarDiasAFecha } from '../src/core/fechas';
 import type { LineaCompraInput, LineaVentaInput } from '../src/shared/ipc-contracts';
@@ -384,5 +385,73 @@ describe('encargos: avisos', () => {
     expect(alertas).toContain(`encargo-comprar-${sinComprar}`);
     expect(alertas).toContain(`encargo-entregar-${llegado}`);
     expect(alertas).not.toContain(`encargo-comprar-${llegado}`);
+  });
+});
+
+describe('encargos: comprado, sin saber en qué paquete viene', () => {
+  // Ella compra y lo más probable es que venga en el próximo paquete, pero no
+  // lo sabe. "Ya lo compré" deja la pieza esperando paquete.
+  const piezaDe = async (e: number) => (await Ventas.getById(e))!.lineas[0];
+
+  it('"ya lo compré" la saca de por comprar; y se puede desmarcar', async () => {
+    const e = await encargo();
+    const pieza = await piezaDe(e);
+    await Ventas.marcarCompradas(e, [pieza.id], true, g());
+    const v = (await Ventas.getById(e))!;
+    expect(v.lineas[0].comprado_el).toBe(HOY);
+    expect(await etapa(e)).toBe('EN_CAMINO');
+    expect(v.piezas).toEqual({ total: 1, compradas: 1, llegadas: 0, de_bodega: 0, esperan_paquete: 1 });
+
+    await Ventas.marcarCompradas(e, [pieza.id], false, g());
+    expect(await etapa(e)).toBe('POR_COMPRAR');
+    expect((await piezaDe(e)).comprado_el).toBeUndefined();
+  });
+
+  it('comprada, ya no avisa que falta comprarla', async () => {
+    const e = await encargo({ fecha: sumarDiasAFecha(HOY, -20) });
+    await Ventas.marcarCompradas(e, [(await piezaDe(e)).id], true, g());
+    const alertas = (await Panel.cargar(true)).alertas.map((a) => a.id);
+    expect(alertas).not.toContain(`encargo-comprar-${e}`);
+  });
+
+  it('un cotizado también se puede comprar', async () => {
+    const e = await encargo({ pago_inicial: undefined });
+    expect((await Ventas.getById(e))!.estado).toBe('COTIZADA');
+    await Ventas.marcarCompradas(e, [(await piezaDe(e)).id], true, g());
+    expect((await piezaDe(e)).comprado_el).toBe(HOY);
+  });
+
+  it('no se entrega mientras espera paquete', async () => {
+    const e = await encargo();
+    await Ventas.marcarCompradas(e, [(await piezaDe(e)).id], true, g());
+    await expect(Ventas.cambiarEstado(e, 'ENTREGADA', g())).rejects.toThrow(/todavía no llegó/);
+  });
+
+  it('el paquete que la trae la pone en camino; si ese paquete se elimina, vuelve a esperar', async () => {
+    const e = await encargo();
+    await Ventas.marcarCompradas(e, [(await piezaDe(e)).id], true, g());
+    const pq = await Compras.guardar({ fecha: HOY, envio_total_usd_cents: 0, lineas: [await lineaDeEncargo(e)] }, g());
+    expect((await piezaDe(e)).compra_codigo).toBe('PQ-0001');
+    expect((await Ventas.getById(e))!.piezas!.esperan_paquete).toBe(0);
+
+    await Compras.archivar(pq, g());
+    const pieza = await piezaDe(e);
+    expect(pieza.compra_id).toBeUndefined();
+    expect(pieza.comprado_el).toBe(HOY);
+    expect((await Ventas.getById(e))!.piezas!.esperan_paquete).toBe(1);
+  });
+
+  it('lo que ya viene en un paquete o sale de la bodega no se marca', async () => {
+    const e = await encargo();
+    await Compras.guardar({ fecha: HOY, envio_total_usd_cents: 0, lineas: [await lineaDeEncargo(e)] }, g());
+    await expect(Ventas.marcarCompradas(e, [(await piezaDe(e)).id], true, g())).rejects.toThrow(/no hay piezas/i);
+  });
+
+  it('deshacer lo devuelve a como estaba', async () => {
+    const e = await encargo();
+    const grupo = g();
+    await Ventas.marcarCompradas(e, [(await piezaDe(e)).id], true, grupo);
+    await Eventos.deshacerGrupo(grupo);
+    expect(await etapa(e)).toBe('POR_COMPRAR');
   });
 });

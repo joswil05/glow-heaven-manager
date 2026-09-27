@@ -697,6 +697,79 @@ export class VentasRepoFirestore {
    * la bodega las que salen de ahí. Anular uno con piezas que ya llegaron
    * necesita saber qué pasa con ellas. Fallar acá deja todo como estaba.
    */
+  /**
+   * "Ya lo compré": las piezas quedan compradas, esperando paquete. Ella no
+   * sabe en qué paquete vienen; cuando carga el próximo, se le ofrecen
+   * primero. Con `comprado` en falso se desmarcan. Sólo se tocan piezas sin
+   * paquete que no salen de la bodega.
+   */
+  static async marcarCompradas(
+    venta_id: number,
+    linea_ids: readonly number[],
+    comprado: boolean,
+    evento_grupo_id: string
+  ): Promise<void> {
+    const db = getFirestoreDb();
+    const ventaRef = doc(db, 'ventas', String(venta_id));
+    const ids = new Set(linea_ids);
+    const hoy = hoyISO();
+
+    // En una transacción: guardar un paquete también reescribe las piezas.
+    const { anterior, tocadas } = await runTransaction(db, async (tx) => {
+      const snap = await tx.get(ventaRef);
+      if (!snap.exists()) throw new Error(`El encargo #${venta_id} no existe.`);
+      const venta = snap.data() as VentaDoc;
+      if (venta.tipo !== 'ENCARGO') throw new Error('Sólo las piezas de un encargo se marcan como compradas.');
+      if (venta.estado !== 'COTIZADA' && venta.estado !== 'PENDIENTE') {
+        throw new Error(`${venta.codigo} ya está ${venta.estado === 'ENTREGADA' ? 'entregado' : 'anulado'}.`);
+      }
+
+      let n = 0;
+      const lineas = (venta.lineas || []).map((l) => {
+        if (!ids.has(l.id)) return l;
+        const e = estadoPieza(l);
+        if (comprado && e === 'POR_COMPRAR') {
+          n++;
+          return { ...l, comprado_el: hoy };
+        }
+        if (!comprado && e === 'COMPRADA') {
+          n++;
+          const { comprado_el: _c, ...resto } = l;
+          return resto;
+        }
+        return l;
+      });
+      if (n === 0) {
+        throw new Error(
+          comprado ? 'No hay piezas por comprar en ese encargo.' : 'No hay piezas compradas esperando paquete.'
+        );
+      }
+
+      tx.set(
+        ventaRef,
+        {
+          lineas: lineas.map((x) => sinUndefined(x as unknown as Record<string, unknown>)),
+          piezas: piezasDe(lineas),
+          actualizado_en: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+      return { anterior: venta, tocadas: n };
+    });
+
+    await EventosRepoFirestore.registrarEvento({
+      evento_grupo_id,
+      entidad_tipo: 'ventas',
+      entidad_id: venta_id,
+      tipo_evento: 'ACTUALIZACION',
+      valor_anterior: anterior as unknown as Record<string, unknown>,
+      detalle:
+        tocadas === 1
+          ? `${anterior.codigo}: una pieza ${comprado ? 'ya se compró, espera paquete' : 'vuelve a estar por comprar'}`
+          : `${anterior.codigo}: ${tocadas} piezas ${comprado ? 'ya se compraron, esperan paquete' : 'vuelven a estar por comprar'}`,
+    });
+  }
+
   private static async validarCambio(
     venta: VentaDoc,
     estado: EstadoVenta,
@@ -710,6 +783,9 @@ export class VentasRepoFirestore {
       for (const l of lineas) {
         if (estadoPieza(l) === 'EN_CAMINO') {
           throw new Error(`'${l.descripcion}' todavía no llegó: viene en ${l.compra_codigo ?? 'un paquete'}.`);
+        }
+        if (estadoPieza(l) === 'COMPRADA') {
+          throw new Error(`'${l.descripcion}' todavía no llegó: se compró y espera paquete.`);
         }
       }
       if (deBodega.length > 0) {

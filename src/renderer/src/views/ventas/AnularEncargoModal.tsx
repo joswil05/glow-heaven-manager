@@ -82,6 +82,7 @@ export const AnularEncargoModal: React.FC<AnularEncargoModalProps> = ({ venta, o
   const lineas = completa?.lineas ?? [];
   const llegadas = lineas.filter((l) => estadoPieza(l) === 'LLEGO');
   const enCamino = lineas.filter((l) => estadoPieza(l) === 'EN_CAMINO');
+  const esperando = lineas.filter((l) => estadoPieza(l) === 'COMPRADA');
   const pagado = venta.pagado_usd_cents || 0;
 
   const confirmar = () => {
@@ -159,6 +160,14 @@ export const AnularEncargoModal: React.FC<AnularEncargoModalProps> = ({ venta, o
                   </p>
                 )}
 
+                {esperando.length > 0 && (
+                  <p className="text-label text-texto-2">
+                    {esperando.length === 1
+                      ? `“${esperando[0].descripcion}” ya se compró: cuando llegue, cargala en su paquete para la bodega.`
+                      : `${esperando.length} piezas ya se compraron: cuando lleguen, cargalas en su paquete para la bodega.`}
+                  </p>
+                )}
+
                 {pagado > 0 && (
                   <div className="flex items-center justify-between gap-3 flex-wrap border-t border-borde pt-4">
                     <p className="text-body text-texto">
@@ -175,7 +184,7 @@ export const AnularEncargoModal: React.FC<AnularEncargoModalProps> = ({ venta, o
                   </div>
                 )}
 
-                {llegadas.length === 0 && enCamino.length === 0 && pagado === 0 && (
+                {llegadas.length === 0 && enCamino.length === 0 && esperando.length === 0 && pagado === 0 && (
                   <p className="text-label text-texto-2">Deja de contar en tus ganancias.</p>
                 )}
               </>

@@ -100,6 +100,7 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
 
   const [compras, setCompras] = useState<Compra[]>([]);
   const [encargos, setEncargos] = useState<Venta[]>([]);
+  const [esperanPaquete, setEsperanPaquete] = useState(0);
   const [cargando, setCargando] = useState(true);
   // Con un producto para agregar, el editor no abre de entrada: abre recién
   // cuando se sabe a qué paquete va, y así arranca ya con la línea puesta.
@@ -129,7 +130,11 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
       ]);
       if (rc.success) setCompras(rc.data);
       // Los que de verdad falta comprar: los que ya vienen en un paquete no.
-      if (re.success) setEncargos(re.data.filter((v) => etapaEncargo(v) === 'POR_COMPRAR'));
+      if (re.success) {
+        setEncargos(re.data.filter((v) => etapaEncargo(v) === 'POR_COMPRAR'));
+        // Ya comprados, sin saber en qué paquete vienen.
+        setEsperanPaquete(re.data.filter((v) => (v.piezas?.esperan_paquete ?? 0) > 0).length);
+      }
     } finally {
       setCargando(false);
     }
@@ -413,7 +418,13 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
                 value={encargos.length}
                 tone={encargos.length > 0 ? 'warning' : 'success'}
                 icon={Clock}
-                hint={encargos.length > 0 ? 'Con el anticipo pagado' : undefined}
+                hint={
+                  esperanPaquete > 0
+                    ? `${esperanPaquete} ya comprado${esperanPaquete === 1 ? '' : 's'}, esperan paquete`
+                    : encargos.length > 0
+                      ? 'Con el anticipo pagado'
+                      : undefined
+                }
               />
             </div>
           )}

@@ -20,30 +20,57 @@ export type EtapaEncargo =
   | 'ENTREGADO'
   | 'ANULADO';
 
-export type EstadoPieza = 'POR_COMPRAR' | 'EN_CAMINO' | 'LLEGO' | 'DE_BODEGA';
+/**
+ * - POR_COMPRAR: todavía no se compró.
+ * - COMPRADA: se compró y espera paquete. Ella no sabe en cuál viene; lo más
+ *   probable es que en el próximo, y ahí se la ofrece primero.
+ * - EN_CAMINO: está en un paquete que todavía no pasó al inventario.
+ * - LLEGO: su paquete ya pasó al inventario.
+ * - DE_BODEGA: no se compra, sale de lo que hay en la bodega.
+ */
+export type EstadoPieza = 'POR_COMPRAR' | 'COMPRADA' | 'EN_CAMINO' | 'LLEGO' | 'DE_BODEGA';
 
 export interface PiezaParaEtapa {
   producto_id?: number;
   compra_id?: number;
   llego_el?: string;
+  comprado_el?: string;
 }
 
 /** De dónde sale una pieza, hoy. */
 export function estadoPieza(p: PiezaParaEtapa): EstadoPieza {
   if (p.compra_id) return p.llego_el ? 'LLEGO' : 'EN_CAMINO';
   if (p.producto_id) return 'DE_BODEGA';
+  if (p.comprado_el) return 'COMPRADA';
   return 'POR_COMPRAR';
 }
 
 export function piezasDe(lineas: readonly PiezaParaEtapa[]): PiezasEncargo {
-  const r: PiezasEncargo = { total: lineas.length, compradas: 0, llegadas: 0, de_bodega: 0 };
+  const r: Required<PiezasEncargo> = {
+    total: lineas.length,
+    compradas: 0,
+    llegadas: 0,
+    de_bodega: 0,
+    esperan_paquete: 0,
+  };
   for (const l of lineas) {
     const e = estadoPieza(l);
-    if (e === 'EN_CAMINO' || e === 'LLEGO') r.compradas++;
+    if (e === 'COMPRADA' || e === 'EN_CAMINO' || e === 'LLEGO') r.compradas++;
+    if (e === 'COMPRADA') r.esperan_paquete++;
     if (e === 'LLEGO') r.llegadas++;
     if (e === 'DE_BODEGA') r.de_bodega++;
   }
   return r;
+}
+
+/**
+ * Cuántas piezas todavía no vienen en ningún paquete: las que falta comprar
+ * y las compradas que esperan paquete. Son las que un paquete puede traer.
+ */
+export function sinPaquete(p: PiezasEncargo | undefined): number {
+  if (!p) return 0;
+  const enPaquete = p.compradas - (p.esperan_paquete ?? 0);
+  return Math.max(0, p.total - p.de_bodega - enPaquete);
 }
 
 /**

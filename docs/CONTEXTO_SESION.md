@@ -2,11 +2,10 @@
 
 > **Para quién es esto**: el modelo o la persona que abre este proyecto sin
 > haber estado en la sesión anterior.
-> **Estado del árbol**: publicada está la `v2.13.0` (PWA y Windows). El
-> árbol trae encima, **sin publicar**, la 2.13.1 (el buscador del paquete y la
-> ficha nueva que lleva al paquete) y la 2.14.0 (lotes y encargos, sección 2).
-> Todo verde; falta la prueba sobre la base real (sección 3).
-> **Última actualización**: 25 de septiembre de 2026.
+> **Estado del árbol**: `v2.14.0` (lotes y encargos, sección 2; incluye los
+> arreglos de pantalla que iban a ser la 2.13.1). Los datos de producción se
+> migraron al flujo nuevo con `scripts/migrar-a-lotes.ts` (sección 3).
+> **Última actualización**: 26 de septiembre de 2026.
 
 Leé este archivo primero. Después:
 
@@ -77,6 +76,9 @@ dejó cada paquete. Ahora cada línea de paquete es un lote en
   lotes, la siguiente transacción lo cuadra contra el lote más viejo.
 - El detalle del producto lista sus lotes; el del paquete dice cuántas quedan
   de cada línea y cuánto le dejó lo vendido ("Te dejó hasta hoy").
+- Una línea cuyas unidades se repartieron entre tallas tiene un lote por
+  talla (`pq1-l12` y `pq1-l12-t2`). El paquete los suma y una corrección los
+  reparte (`lotesDeLinea` en `core/paquete.ts`).
 
 ### Encargos (desde `v2.14`)
 
@@ -86,9 +88,17 @@ paquete que la trae. La etapa se deriva de las piezas
 ([`src/core/encargos.ts`](../src/core/encargos.ts)): por comprar, en camino
 ("1 de 2 llegó"), por entregar. Reglas:
 
+- Ella no sabe en qué paquete viene lo que compra; sólo que lo más probable
+  es que en el próximo. En el detalle del encargo, "Ya lo compré" deja la
+  pieza **comprada, esperando paquete** (`comprado_el`, sin `compra_id`), y
+  el encargo pasa a "En camino". Al registrar el paquete siguiente, arriba
+  aparece "N piezas compradas esperan paquete · Agregarlas". Si no vinieron,
+  se quitan del paquete y vuelven a esperar.
+
 - Una pieza no puede venir en dos paquetes. Guardar el borrador la marca;
-  borrarlo la libera; recibirlo le pone la fecha de llegada y el costo real.
-- No se entrega un encargo con una pieza en camino. Una pieza que salió de
+  borrarlo la devuelve a como estaba (por comprar, o comprada esperando
+  paquete); recibirlo le pone la fecha de llegada y el costo real.
+- No se entrega un encargo con una pieza comprada que no llegó. Una pieza que salió de
   la bodega sale del lote más viejo al entregar; una que vino en un paquete
   nunca descuenta de la bodega (antes se contaba dos veces).
 - Un encargo cotizado se puede comprar igual; queda "sin confirmar".

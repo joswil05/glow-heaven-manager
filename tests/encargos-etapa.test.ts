@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { etapaEncargo, piezasDe, textoEtapa, estadoPieza, costoEstimadoDePieza } from '@core/encargos';
+import {
+  etapaEncargo,
+  piezasDe,
+  textoEtapa,
+  estadoPieza,
+  costoEstimadoDePieza,
+  sinPaquete,
+} from '@core/encargos';
 
 describe('de dónde sale cada pieza', () => {
   it('en un paquete que no llegó, está en camino; cuando llega, llegó', () => {
@@ -9,6 +16,13 @@ describe('de dónde sale cada pieza', () => {
 
   it('con un producto del catálogo y sin paquete, sale de la bodega', () => {
     expect(estadoPieza({ producto_id: 7 })).toBe('DE_BODEGA');
+  });
+
+  it('comprada y sin paquete todavía: espera paquete; al entrar en uno, está en camino', () => {
+    // Ella no sabe en qué paquete viene: sólo que ya lo compró.
+    expect(estadoPieza({ comprado_el: '2026-09-25' })).toBe('COMPRADA');
+    expect(estadoPieza({ comprado_el: '2026-09-25', compra_id: 3 })).toBe('EN_CAMINO');
+    expect(estadoPieza({})).toBe('POR_COMPRAR');
   });
 
   it('si vino en un paquete, no sale de la bodega aunque apunte a un producto', () => {
@@ -41,6 +55,20 @@ describe('la etapa del encargo', () => {
     expect(textoEtapa('COTIZADO', { total: 2, compradas: 1, llegadas: 1, de_bodega: 0 })).toBe('Cotizado · en camino');
     expect(textoEtapa('COTIZADO', { total: 1, compradas: 1, llegadas: 1, de_bodega: 0 })).toBe('Cotizado · llegó');
     expect(textoEtapa('COTIZADO', { total: 1, compradas: 0, llegadas: 0, de_bodega: 0 })).toBe('Cotizado');
+  });
+
+  it('comprado y esperando paquete ya no está por comprar: está en camino', () => {
+    const v = pendiente([{ comprado_el: '2026-09-25' }, { compra_id: 4 }]);
+    expect(etapaEncargo(v)).toBe('EN_CAMINO');
+    expect(v.piezas).toEqual({ total: 2, compradas: 2, llegadas: 0, de_bodega: 0, esperan_paquete: 1 });
+  });
+
+  it('cuántas piezas todavía no vienen en ningún paquete', () => {
+    // Las que ofrece el paquete: por comprar o compradas, sin paquete.
+    expect(sinPaquete(piezasDe([{}, { comprado_el: '2026-09-25' }, { compra_id: 3 }, { producto_id: 7 }]))).toBe(2);
+    // Un resumen guardado antes de este campo no sabe de compradas sin paquete.
+    expect(sinPaquete({ total: 3, compradas: 1, llegadas: 0, de_bodega: 1 })).toBe(1);
+    expect(sinPaquete(undefined)).toBe(0);
   });
 
   it('todo llegó o sale de la bodega: por entregar', () => {

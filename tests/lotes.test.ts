@@ -19,6 +19,7 @@ import {
   costoDeSacar,
   type Lote,
 } from '@core/lotes';
+import { lotesDeLinea, efectoDeCorreccion } from '@core/paquete';
 
 const lote = (id: string, cantidad: number, valor: number, fecha: string, variante_id = 1, orden = 0): Lote =>
   crearLote({ id, variante_id, cantidad, valor_usd_cents: valor, fecha, orden, origen: 'PAQUETE' });
@@ -236,5 +237,36 @@ describe('lo que el producto escribe', () => {
 
   it('agotado, se queda con el último costo conocido', () => {
     expect(camposDesdeLotes([{ id: 1, existencias: 0 }], [], 849).costo_unitario_usd_cents).toBe(849);
+  });
+});
+
+describe('una línea repartida entre tallas', () => {
+  // Una línea de antes de la 2.14 cuyas unidades se repartieron después entre
+  // dos tallas queda en un lote por talla. El paquete las cuenta juntas y una
+  // corrección se reparte entre las dos.
+  const partida = (): Lote[] => [
+    crearLote({ id: 'pq1-l12', variante_id: 1, cantidad: 3, valor_usd_cents: 1582, fecha: '2026-09-16', orden: 10012, origen: 'PAQUETE', compra_id: 1, compra_linea_id: 12 }),
+    crearLote({ id: 'pq1-l12-t2', variante_id: 2, cantidad: 3, valor_usd_cents: 1581, fecha: '2026-09-16', orden: 10012, origen: 'PAQUETE', compra_id: 1, compra_linea_id: 12 }),
+  ];
+
+  it('los dos lotes son de la línea', () => {
+    expect(lotesDeLinea(partida(), 1, 12).map((l) => l.id)).toEqual(['pq1-l12', 'pq1-l12-t2']);
+  });
+
+  it('corregir la línea mueve los dos, en total lo que cambió', () => {
+    const r = efectoDeCorreccion(
+      { lotes: partida(), existencias: 6, valor_inventario_usd_cents: 3163, costo_unitario_usd_cents: 527, precio_venta_usd_cents: 800, modo_precio: 'MANUAL', margen_bp: 5000, precio_manual_usd_cents: 800 },
+      lotesDeLinea(partida(), 1, 12).map((l) => ({ unidades_de_la_linea: 6, diferencia_usd_cents: 600, lote_id: l.id })),
+      [],
+      100
+    );
+    expect(r.aplicado_usd_cents).toBe(600);
+    expect(valorDeLotes(r.lotes_despues)).toBe(3163 + 600);
+  });
+
+  it('sin lotes propios, es el saldo de siempre', () => {
+    const saldo = normalizarLotes({ variantes: [{ id: 1, existencias: 2 }], valor_inventario_usd_cents: 1000, paquete_id: 1 }).lotes;
+    expect(lotesDeLinea(saldo, 1, 5)).toHaveLength(1);
+    expect(lotesDeLinea(saldo, 1, 5)[0].origen).toBe('SALDO');
   });
 });

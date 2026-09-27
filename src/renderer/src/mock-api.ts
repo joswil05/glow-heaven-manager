@@ -1184,6 +1184,34 @@ const api: ApiPuente = {
 
       return ok({ ...grupo(), id });
     },
+    marcarCompradas: (id, linea_ids, comprado) => {
+      const hoy = hoyISO();
+      let tocadas = 0;
+      db.ventas = db.ventas.map((v) => {
+        if (v.id !== id) return v;
+        const lineas = v.lineas.map((l) => {
+          if (!linea_ids.includes(l.id)) return l;
+          const e = estadoPieza(l);
+          if (comprado && e === 'POR_COMPRAR') {
+            tocadas++;
+            return { ...l, comprado_el: hoy };
+          }
+          if (!comprado && e === 'COMPRADA') {
+            tocadas++;
+            return { ...l, comprado_el: undefined };
+          }
+          return l;
+        });
+        return { ...v, lineas, piezas: piezasDe(lineas) };
+      });
+      if (tocadas === 0) {
+        return Promise.resolve({
+          success: false as const,
+          error: comprado ? 'No hay piezas por comprar en ese encargo.' : 'No hay piezas compradas esperando paquete.',
+        });
+      }
+      return ok(grupo());
+    },
     cambiarEstado: (id, estado, opciones = {}) => {
       const venta = db.ventas.find((v) => v.id === id);
       // Las mismas reglas del repositorio para las piezas de un encargo.
@@ -1194,6 +1222,13 @@ const api: ApiPuente = {
           return Promise.resolve({
             success: false as const,
             error: `'${enCamino.descripcion}' todavía no llegó: viene en ${enCamino.compra_codigo ?? 'un paquete'}.`,
+          });
+        }
+        const esperando = lineas.find((l) => estadoPieza(l) === 'COMPRADA');
+        if (estado === 'ENTREGADA' && esperando) {
+          return Promise.resolve({
+            success: false as const,
+            error: `'${esperando.descripcion}' todavía no llegó: se compró y espera paquete.`,
           });
         }
         const sinDecidir = lineas.find((l) => estadoPieza(l) === 'LLEGO' && !opciones.piezas?.[l.id]);

@@ -87,12 +87,18 @@ export interface OpcionesAnulacion {
 /** El resumen de las piezas de un encargo, para listarlo sin leer sus líneas. */
 export interface PiezasEncargo {
   total: number;
-  /** Están en un paquete, haya llegado o no. */
+  /** Ya se compraron: esperan paquete o están en uno, haya llegado o no. */
   compradas: number;
   /** Están en un paquete que ya pasó al inventario. */
   llegadas: number;
   /** Apuntan a un producto del catálogo y no a un paquete: salen de la bodega. */
   de_bodega: number;
+  /**
+   * Compradas que todavía no están en ningún paquete: ella no sabe en cuál
+   * vienen, sólo que lo más probable es que en el próximo. También cuentan en
+   * `compradas`. Un resumen guardado antes de existir este campo no lo trae.
+   */
+  esperan_paquete?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -472,6 +478,8 @@ export interface VentaLinea {
   lotes_consumidos?: Consumo[];
 
   // Sólo en encargos: de dónde sale esta pieza. Ver core/encargos.ts.
+  /** Cuándo la compró, aunque todavía no sepa en qué paquete viene. */
+  comprado_el?: string;
   /** El paquete donde viene. */
   compra_id?: number;
   compra_codigo?: string;

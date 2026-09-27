@@ -499,6 +499,62 @@ def caso_encargo_en_camino(page: Page) -> list[str]:
     return fallas
 
 
+@caso("un encargo comprado espera paquete, y el paquete nuevo lo ofrece")
+def caso_comprado_espera_paquete(page: Page) -> list[str]:
+    # Ella no sabe en qué paquete viene lo que compró: sólo que lo más
+    # probable es que en el próximo.
+    fallas = []
+    e = page.evaluate("""async () => {
+      const d = new Date();
+      const hoy = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+      const cliente = (await window.api.clientes.list('')).data[0];
+      const r = await window.api.ventas.crear({
+        cliente_id: cliente.id, fecha: hoy, tipo: 'ENCARGO',
+        lineas: [{ descripcion: 'Perfume espera', cantidad: 1, precio_unitario_usd_cents: 5000, costo_estimado_unitario_usd_cents: 3000 }],
+        pago_inicial: { monto_cents: 3000, moneda: 'USD', metodo: 'EFECTIVO' },
+      });
+      return (await window.api.ventas.get(r.data.id)).data;
+    }""")
+    # Salir y volver: la lista se trae al entrar.
+    page.get_by_role("button", name="Inicio", exact=False).first.click()
+    page.wait_for_timeout(600)
+    page.get_by_role("button", name="Encargos", exact=False).first.click()
+    page.wait_for_timeout(1000)
+    page.get_by_text(e["codigo"]).first.click()
+    page.wait_for_timeout(800)
+    try:
+        page.get_by_role("button", name="Ya lo compré").click(timeout=5000)
+    except Exception:
+        return ["la pieza por comprar no ofrece 'Ya lo compré'"]
+    page.wait_for_timeout(800)
+    if page.get_by_text("espera paquete").count() == 0:
+        fallas.append("después de comprarla no dice que espera paquete")
+    fila = page.locator("tr", has_text=e["codigo"])
+    if fila.count() == 0 or "En camino" not in fila.first.inner_text():
+        fallas.append("comprada, la fila no pasa a 'En camino'")
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(400)
+
+    page.get_by_role("button", name="Inventario", exact=False).first.click()
+    page.wait_for_timeout(800)
+    page.get_by_role("button", name="Registrar paquete").first.click()
+    page.wait_for_selector("text=Qué vino adentro", timeout=8000)
+    page.wait_for_timeout(1200)
+    ofrecer = page.get_by_role("button", name="Agregarla")
+    if ofrecer.count() == 0:
+        fallas.append("el paquete nuevo no ofrece la pieza comprada que espera paquete")
+    else:
+        ofrecer.first.click()
+        page.wait_for_timeout(800)
+        lineas = page.locator("input[aria-label^='Unidades de']")
+        nombres = [lineas.nth(i).get_attribute("aria-label") or "" for i in range(lineas.count())]
+        if not any("Perfume espera" in n for n in nombres):
+            fallas.append(f"'Agregarla' no puso la pieza en el paquete (líneas: {nombres})")
+    page.get_by_role("button", name="Cancelar").click()
+    page.wait_for_timeout(500)
+    return fallas
+
+
 @caso("no quedan errores de consola")
 def caso_consola(page: Page) -> list[str]:
     return []  # lo evalúa el corredor al final

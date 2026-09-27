@@ -237,7 +237,7 @@ export function ActividadView({ onVolver }: { onVolver: () => void }) {
                 </span>
                 {it.cancelada && (
                   <span className="rounded-full bg-peligro-suave px-2 py-0.5 text-caption font-bold text-peligro-fuerte">
-                    Cancelada
+                    Anulada
                   </span>
                 )}
               </div>

@@ -61,6 +61,8 @@ export const api: ApiPuente = {
     get: (id) => ipcRenderer.invoke(IPC.VENTAS_GET, id),
     crear: (input) => ipcRenderer.invoke(IPC.VENTAS_CREAR, input),
     cambiarEstado: (id, estado, opciones) => ipcRenderer.invoke(IPC.VENTAS_CAMBIAR_ESTADO, id, estado, opciones),
+    marcarCompradas: (id, linea_ids, comprado) =>
+      ipcRenderer.invoke(IPC.VENTAS_MARCAR_COMPRADAS, id, linea_ids, comprado),
   },
   accesos: {
     list: () => ipcRenderer.invoke(IPC.ACCESOS_LIST),

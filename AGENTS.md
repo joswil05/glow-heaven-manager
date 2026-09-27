@@ -77,7 +77,10 @@ La ficha del producto es catálogo: no tiene costo, existencias ni paquete.
   (`compra_id`, `compra_linea_id`, `llego_el`). La etapa del encargo (por
   comprar, en camino, por entregar) se deriva de sus piezas en
   `core/encargos.ts`; no se guarda a mano. Una pieza que vino en un paquete
-  nunca descuenta de la bodega al entregarse.
+  nunca descuenta de la bodega al entregarse. Ella no sabe en qué paquete
+  viene lo que compra (lo más probable es que en el próximo): "Ya lo compré"
+  deja la pieza comprada, esperando paquete (`comprado_el`), y el paquete
+  nuevo se la ofrece primero.
 - **El costo se congela en la venta.** `venta_lineas.costo_unitario_usd_cents`
   guarda con qué costo salió la unidad. Recalcularlo después reescribiría la
   ganancia histórica cada vez que llega un paquete nuevo.
@@ -202,7 +205,7 @@ ID viaja dentro de la aplicación, así que nunca fue un secreto.
 
 ## Comandos de verificación
 
-- `npm test` — 355 pruebas contra el Firestore falso, sin red.
+- `npm test` — 368 pruebas contra el Firestore falso, sin red.
 - `npm run typecheck` — cero errores con `strict: true`
 - `npm run build` — compila y empaqueta
 - `npm run build:exe` — instalador NSIS. Borrá `release/` antes para

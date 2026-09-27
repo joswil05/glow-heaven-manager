@@ -73,7 +73,7 @@ const ESTADO_TEXTO: Record<EstadoVenta, string> = {
   COTIZADA: 'Cotizado',
   PENDIENTE: 'Pendiente',
   ENTREGADA: 'Entregada',
-  CANCELADA: 'Cancelada',
+  CANCELADA: 'Anulada',
 };
 
 type Filtro = 'TODAS' | 'CON_SALDO' | 'PENDIENTES' | 'EN_CAMINO' | 'POR_ENTREGAR' | 'ENTREGADAS';
@@ -84,6 +84,10 @@ const ETAPA_DEL_FILTRO: Partial<Record<Filtro, EtapaEncargo>> = {
   EN_CAMINO: 'EN_CAMINO',
   POR_ENTREGAR: 'POR_ENTREGAR',
 };
+
+/** Alguna pieza ya se compró y todavía no llegó: no se puede entregar. */
+const algoViene = (v: VentaCompleta) =>
+  v.lineas.some((l) => estadoPieza(l) === 'COMPRADA' || estadoPieza(l) === 'EN_CAMINO');
 
 const TONO_ETAPA: Record<EtapaEncargo, Tone> = {
   COTIZADO: 'neutral',
@@ -391,7 +395,14 @@ export const VentasView: React.FC<VentasViewProps> = ({
       showToast({ message: r.error, type: 'error' });
       return;
     }
-    const mensaje = `${v.codigo}: ${ESTADO_TEXTO[estado].toLowerCase()}`;
+    // "Encargo" es masculino: "E-0012: anulado", "V-0031: anulada".
+    const mensaje = `${v.codigo}: ${
+      v.tipo === 'ENCARGO' && (estado === 'CANCELADA' || estado === 'ENTREGADA')
+        ? estado === 'CANCELADA'
+          ? 'anulado'
+          : 'entregado'
+        : ESTADO_TEXTO[estado].toLowerCase()
+    }`;
 
     // Anular una venta devuelve su mercadería al inventario, y entregar un
     // encargo la saca. Eso no se revierte restaurando el documento, así que
@@ -411,6 +422,27 @@ export const VentasView: React.FC<VentasViewProps> = ({
     }
     await cargar();
     if (ventaDetalle?.id === v.id) await abrirDetalle(v.id);
+    onCambio();
+  };
+
+  /** "Ya lo compré", o desmarcarlo: la pieza espera paquete sin saber cuál. */
+  const marcarComprada = async (v: VentaCompleta, linea_id: number, comprado: boolean) => {
+    const r = await window.api.ventas.marcarCompradas(v.id, [linea_id], comprado);
+    if (!r.success) {
+      showToast({ message: r.error, type: 'error' });
+      return;
+    }
+    showUndoToast(
+      comprado ? 'Comprado: espera paquete' : 'Otra vez por comprar',
+      async () => {
+        await cargar();
+        await abrirDetalle(v.id);
+        onCambio();
+      },
+      r.data.evento_grupo_id
+    );
+    await cargar();
+    await abrirDetalle(v.id);
     onCambio();
   };
 
@@ -478,7 +510,10 @@ export const VentasView: React.FC<VentasViewProps> = ({
       align: 'right',
       width: '130px',
       render: (v) =>
-        v.saldo_usd_cents > 0 ? (
+        // Una venta anulada no debe nada, aunque su saldo guardado diga otra cosa.
+        v.estado === 'CANCELADA' ? (
+          <span className="text-caption text-texto-3">—</span>
+        ) : v.saldo_usd_cents > 0 ? (
           <span className="font-semibold text-alerta">
             <Money usd_cents={v.saldo_usd_cents} size="sm" soloUsd />
           </span>
@@ -845,7 +880,9 @@ export const VentasView: React.FC<VentasViewProps> = ({
               </div>
               <div className="flex justify-between items-center gap-2 pt-2 border-t border-borde/70">
                 <span className="text-body font-bold text-texto">Debe</span>
-                {ventaDetalle.saldo_usd_cents > 0 ? (
+                {ventaDetalle.estado === 'CANCELADA' ? (
+                  <span className="text-label text-texto-3">Nada: está anulada</span>
+                ) : ventaDetalle.saldo_usd_cents > 0 ? (
                   <span className="font-bold text-alerta">
                     <Money usd_cents={ventaDetalle.saldo_usd_cents} size="md" soloUsd />
                   </span>
@@ -890,14 +927,38 @@ export const VentasView: React.FC<VentasViewProps> = ({
                         </div>
                         {/* De dónde sale cada pieza de un encargo. */}
                         {esEncargo && ventaDetalle.estado !== 'CANCELADA' && ventaDetalle.estado !== 'ENTREGADA' && (
-                          <div className="text-caption text-texto-2">
+                          <div className="text-caption text-texto-2 flex items-center gap-2 flex-wrap">
                             {(() => {
                               const e = estadoPieza(l);
                               if (e === 'LLEGO')
                                 return `Llegó en ${l.compra_codigo ?? 'su paquete'}${l.llego_el ? ` el ${formatearFecha(l.llego_el)}` : ''}`;
                               if (e === 'EN_CAMINO') return `Viene en ${l.compra_codigo ?? 'un paquete'}`;
                               if (e === 'DE_BODEGA') return 'Sale de la bodega';
-                              return 'Por comprar';
+                              // Ella no sabe en qué paquete viene: sólo que ya lo compró.
+                              const accion = (texto: string, comprado: boolean) => (
+                                <button
+                                  type="button"
+                                  onClick={() => marcarComprada(ventaDetalle, l.id, comprado)}
+                                  className="text-acento font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento rounded"
+                                >
+                                  {texto}
+                                </button>
+                              );
+                              if (e === 'COMPRADA')
+                                return (
+                                  <>
+                                    <span>
+                                      Comprado{l.comprado_el ? ` el ${formatearFecha(l.comprado_el)}` : ''}, espera paquete
+                                    </span>
+                                    {accion('Desmarcar', false)}
+                                  </>
+                                );
+                              return (
+                                <>
+                                  <span>Por comprar</span>
+                                  {accion('Ya lo compré', true)}
+                                </>
+                              );
                             })()}
                           </div>
                         )}
@@ -995,13 +1056,13 @@ export const VentasView: React.FC<VentasViewProps> = ({
                 </div>
               )}
 
-              {ventaDetalle.estado === 'PENDIENTE' && esEncargo && etapaEncargo(ventaDetalle) === 'EN_CAMINO' && (
+              {ventaDetalle.estado === 'PENDIENTE' && esEncargo && algoViene(ventaDetalle) && (
                 <p className="text-caption text-texto-3 text-center p-2 rounded-lg bg-superficie-2">
                   Se entrega cuando llegue todo.
                 </p>
               )}
 
-              {ventaDetalle.estado === 'PENDIENTE' && !(esEncargo && etapaEncargo(ventaDetalle) === 'EN_CAMINO') && (
+              {ventaDetalle.estado === 'PENDIENTE' && !(esEncargo && algoViene(ventaDetalle)) && (
                 <Button
                   variant="secondary"
                   className="w-full"

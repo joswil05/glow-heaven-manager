@@ -248,6 +248,12 @@ export function registrarHandlers(): void {
     }
   );
 
+  manejar(IPC.VENTAS_MARCAR_COMPRADAS, async (id: number, linea_ids: number[], comprado: boolean) => {
+    const evento_grupo_id = nuevoGrupo();
+    await VentasRepo.marcarCompradas(id, linea_ids, comprado, evento_grupo_id);
+    return { evento_grupo_id };
+  });
+
   // -------------------------------------------------------------------------
   // Pagos
   // -------------------------------------------------------------------------

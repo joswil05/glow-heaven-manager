@@ -390,6 +390,11 @@ export interface ApiPuente {
       estado: EstadoVenta,
       opciones?: OpcionesAnulacion
     ): Promise<Resultado<ConGrupoReversible>>;
+    /**
+     * "Ya lo compré" (o desmarcarlo): piezas de un encargo compradas que
+     * esperan paquete. Ver `VentasRepoFirestore.marcarCompradas`.
+     */
+    marcarCompradas(id: number, linea_ids: number[], comprado: boolean): Promise<Resultado<ConGrupo>>;
   };
   pagos: {
     registrar(input: RegistrarPagoInput): Promise<Resultado<ResultadoPago>>;

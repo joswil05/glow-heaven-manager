@@ -40,7 +40,7 @@ import {
   efectoDeEntradas,
   efectoDeCorreccion,
   idLoteDeLinea,
-  loteDeLinea,
+  lotesDeLinea,
   type LineaPaquete,
   type PaqueteCalculado,
   type ProductoAntesDelPaquete,
@@ -438,7 +438,8 @@ function marcarPiezasEnCamino(
     const vLineas = [...(v.lineas || [])].map((x) => ({ ...x }));
     const antes = JSON.stringify(vLineas);
 
-    // Las que eran de este paquete y ya no están en él vuelven a "por comprar".
+    // Las que eran de este paquete y ya no están en él vuelven a como
+    // estaban: por comprar, o compradas esperando paquete.
     for (const vl of vLineas) {
       if (vl.compra_id !== compra.id) continue;
       const sigue = nuevas.some(
@@ -527,18 +528,28 @@ export class ComprasRepoFirestore {
     // Lo que pasó con el lote de cada línea: cuántas quedan y, si el lote es
     // de ella sola, cuánto dejó lo que se vendió.
     const lotesPorProducto = new Map<number, Lote[]>();
-    const loteDe = (l: CompraLinea): Lote | undefined => {
-      if (data.estado !== 'RECIBIDA' || l.destino !== 'INVENTARIO' || !l.producto_id) return undefined;
+    const lotesDeLa = (l: CompraLinea): Lote[] => {
+      if (data.estado !== 'RECIBIDA' || l.destino !== 'INVENTARIO' || !l.producto_id) return [];
       const prod = productos.get(String(l.producto_id));
-      if (!prod) return undefined;
+      if (!prod) return [];
       if (!lotesPorProducto.has(l.producto_id)) lotesPorProducto.set(l.producto_id, lotesDe(prod));
-      return loteDeLinea(lotesPorProducto.get(l.producto_id)!, data.id, l.id, l.variante_id);
+      return lotesDeLinea(lotesPorProducto.get(l.producto_id)!, data.id, l.id, l.variante_id);
     };
 
     const lineasCompletas = lineas.map((l) => {
       const venta = l.venta_id ? ventas.get(String(l.venta_id)) : undefined;
-      const lote = loteDe(l);
-      const propio = lote?.id === idLoteDeLinea(data.id, l.id);
+      // Una línea repartida entre tallas tiene un lote por talla: se suman.
+      const suyos = lotesDeLa(l);
+      const propio = suyos.length > 0 && suyos[0].origen === 'PAQUETE';
+      const sumar = (f: (x: Lote) => number) => suyos.reduce((s, x) => s + f(x), 0);
+      const lote = suyos.length > 0
+        ? {
+            cantidad: sumar((x) => x.cantidad),
+            vendidas: sumar((x) => x.vendidas),
+            ingreso_usd_cents: sumar((x) => x.ingreso_usd_cents),
+            costo_vendido_usd_cents: sumar((x) => x.costo_vendido_usd_cents),
+          }
+        : undefined;
       return {
         ...l,
         producto_nombre: l.producto_id ? productos.get(String(l.producto_id))?.nombre : undefined,
@@ -1162,10 +1173,14 @@ export class ComprasRepoFirestore {
           .map((l) => ({
             unidades_de_la_linea: l.cantidad,
             diferencia_usd_cents: l.costo_linea_usd_cents - porIdViejas.get(l.id)!.costo_linea_usd_cents,
-            lote_id: loteDeLinea(antes.lotes ?? [], input.id, l.id, l.variante_id)?.id,
             nuevo_costo_unitario_usd_cents: l.costo_unitario_usd_cents,
+            linea: l,
           }))
-          .filter((c) => c.diferencia_usd_cents !== 0);
+          .filter((c) => c.diferencia_usd_cents !== 0)
+          // Un cambio por lote: una línea repartida entre tallas tiene varios.
+          .flatMap(({ linea: l, ...c }) =>
+            lotesDeLinea(antes.lotes ?? [], input.id, l.id, l.variante_id).map((lote) => ({ ...c, lote_id: lote.id }))
+          );
         if (cambios.length === 0 && nuevas.length === 0) continue;
 
         const efecto = efectoDeCorreccion(
