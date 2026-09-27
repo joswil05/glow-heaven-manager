@@ -317,7 +317,9 @@ escritorio suma el caso del encargo que viene en camino y se anula) y las
 tres auditorías. El simulador del navegador imita lotes y piezas para que las
 pantallas se puedan revisar con datos.
 
-Falta publicar y la prueba sobre la base real.
+Publicada como 2.14.0 y 2.14.1 el 26 de septiembre, con los datos de
+producción migrados (`scripts/migrar-a-lotes.ts`) y probada en la app
+instalada contra la base real (ver `CONTEXTO_SESION.md`, sección 3).
 
 Cambios respecto de lo escrito arriba, al verlo en pantalla:
 
@@ -326,3 +328,7 @@ Cambios respecto de lo escrito arriba, al verlo en pantalla:
 - El detalle del encargo muestra la etapa (la misma de la lista), no el
   estado guardado.
 - El contador de arriba cuenta lo que muestra el filtro de etapa.
+- Ella no sabe en qué paquete viene lo que compra, sólo que lo más probable
+  es que en el próximo. Se agregó el estado "comprada, espera paquete"
+  ("Ya lo compré"), y el paquete nuevo ofrece esas piezas primero.
+- Una venta anulada no muestra deuda ni ganancia en la lista.

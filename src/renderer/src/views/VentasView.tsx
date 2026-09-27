@@ -526,7 +526,13 @@ export const VentasView: React.FC<VentasViewProps> = ({
       header: 'Ganancia',
       align: 'right',
       width: '130px',
-      render: (v) => <Money usd_cents={v.ganancia_usd_cents} size="sm" soloUsd colorearSigno />,
+      // Anulada, no dejó ganancia: la cifra guardada es la que habría dejado.
+      render: (v) =>
+        v.estado === 'CANCELADA' ? (
+          <span className="text-caption text-texto-3">—</span>
+        ) : (
+          <Money usd_cents={v.ganancia_usd_cents} size="sm" soloUsd colorearSigno />
+        ),
     },
     {
       key: 'acciones',
@@ -892,12 +898,16 @@ export const VentasView: React.FC<VentasViewProps> = ({
               </div>
               <div className="flex justify-between items-center gap-2 pt-2 border-t border-borde/70">
                 <span className="text-label text-texto-2 font-medium">Ganancia</span>
-                <Money
-                  usd_cents={ventaDetalle.ganancia_usd_cents}
-                  size="sm"
-                  soloUsd
-                  colorearSigno
-                />
+                {ventaDetalle.estado === 'CANCELADA' ? (
+                  <span className="text-label text-texto-3">—</span>
+                ) : (
+                  <Money
+                    usd_cents={ventaDetalle.ganancia_usd_cents}
+                    size="sm"
+                    soloUsd
+                    colorearSigno
+                  />
+                )}
               </div>
             </div>
 

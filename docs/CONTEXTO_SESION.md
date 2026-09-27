@@ -2,7 +2,7 @@
 
 > **Para quién es esto**: el modelo o la persona que abre este proyecto sin
 > haber estado en la sesión anterior.
-> **Estado del árbol**: `v2.14.0` (lotes y encargos, sección 2; incluye los
+> **Estado del árbol**: `v2.14.1` (lotes y encargos, sección 2; incluye los
 > arreglos de pantalla que iban a ser la 2.13.1). Los datos de producción se
 > migraron al flujo nuevo con `scripts/migrar-a-lotes.ts` (sección 3).
 > **Última actualización**: 26 de septiembre de 2026.
@@ -168,13 +168,24 @@ un error.
 
 ## 3. Lo que está pendiente, en orden
 
-### P1: probar la 2.14 sobre la base real
+### Hecho el 26 de septiembre, sobre producción
 
-Después de publicarla, con el procedimiento de la sección 6: respaldo, un
-encargo y un paquete de prueba que recorran las etapas, anulación con pieza
-llegada, y limpieza con cero diferencias. Antes que nada, confirmar que la
-migración perezosa deja la bodega igual: los 22 productos reciben su lote
-"Anterior" y el valor total no se mueve ni un centavo.
+- **Los datos quedaron en el flujo de lotes**, con
+  `scripts/migrar-a-lotes.ts` (ensayo, después `--aplicar`, en un commit con
+  condiciones previas). Cada línea de PQ-0001 es su lote; las tres ventas
+  activas guardan de qué lote salieron (V-0001 está anulada). Cambiaron sólo
+  `productos.lotes` (22) y `ventas.lineas` (3): la bodega sigue en $278.77, y
+  PQ-0001 dice "Te dejó hasta hoy $27.61". El Pack de Calzones Calvin Klein
+  vino en una línea de 6 y hoy está en dos tallas: quedó en `pq1-l12` y
+  `pq1-l12-t2`, 3 y 3. No había encargos.
+- **La 2.14 se probó en la app instalada contra la base real**, con datos
+  "Prueba": 15 de 15 bien (lotes, venta del lote viejo y su anulación, "Ya lo
+  compré", no entregar con una pieza en camino, anular con la pieza llegada
+  a la bodega y quedarse el anticipo). Se limpió como dice la sección 6 y la
+  base volvió a quedar idéntica (136 documentos, cero diferencias).
+- La migración perezosa de la app sigue ahí para lo que el script no toque:
+  un producto sin lotes recibe su lote "Anterior" la primera vez que se lo
+  usa.
 
 ### Hecho el 24 de septiembre, sobre producción
 
