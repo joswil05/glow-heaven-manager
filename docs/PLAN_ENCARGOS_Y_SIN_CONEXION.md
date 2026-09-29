@@ -359,6 +359,74 @@ dice la memoria del proyecto.
 
 ---
 
+## 2b. Corregir una venta y un abono (`2.16.0`, en las dos apps)
+
+**Por qué.** Pedido de Joswill el 29 de septiembre: Ross se equivoca al
+cargar (un producto por otro, un monto) y no hay forma de corregir en ninguna
+de las dos apps. Para arreglar V-0007 la borró desde la consola de Firebase, y
+eso dejó dos productos en "agotado" y un pago contado como cobrado (reparado
+el mismo día, ver `CONTEXTO_SESION.md`, sección 3).
+
+### Corregir una venta (`VentasRepo.corregir`)
+
+- **Sólo ventas de inventario** que no estén anuladas. Un encargo se corrige
+  como hasta ahora: "Cotizar", "No se consiguió" y anular.
+- **Se corrige lo que se cargó**: la clienta, la fecha, las líneas (producto,
+  talla, cantidad, precio; o una línea libre), el descuento y las notas. Los
+  abonos no: se corrigen aparte.
+- **Mantiene su número.** No se anula y se crea otra: la venta es la misma,
+  bien cargada.
+- **En una sola transacción**: se leen la venta y todos los productos que
+  tocan la versión vieja y la nueva. Las unidades de la vieja vuelven a sus
+  lotes (`devolverConsumos`) y la nueva sale del lote más viejo (`sacarFIFO`),
+  con el mismo reparto del descuento que al crear. O se corrige entera, o no
+  cambia nada. Si una línea sin tocar vuelve y sale, sale del mismo lote: el
+  resultado es el de haberla cargado bien desde el principio.
+- **El costo se congela de nuevo**, con lo que sale ahora.
+- **Si lo pagado queda por encima del total nuevo**, se rechaza: "Pagó $X y el
+  nuevo total es $Y. Corregí el abono primero".
+- **Si falta stock**, se rechaza contando las unidades que la venta devuelve:
+  "Disponibles: 2 (contando las de esta venta), pedidas: 3".
+- **Una venta con cuotas** conserva sus fechas; los montos se reparten de nuevo
+  sobre lo financiado, y lo pagado se vuelve a aplicar en orden.
+- **El rastro**: un evento con la venta de antes, que no se deshace (movió
+  mercadería), y un movimiento por producto sólo si cambió la cantidad neta
+  ("Corrección de V-0008: vuelven 1", "salen 1").
+
+### Corregir un abono (`PagosRepo.corregir`)
+
+- Monto, moneda, fecha, método, referencia y notas. Con la **tasa congelada**
+  del abono: corregir no reescribe la tasa.
+- Sólo un abono activo de una venta que no esté anulada.
+- El pagado y el saldo de la venta se recalculan en la misma transacción, con
+  sus cuotas. Un encargo sin aceptar que ahora cubre el anticipo queda
+  aceptado; uno aceptado sigue aceptado aunque el abono baje.
+- **Se puede deshacer**: guarda el abono de antes (y la venta, si cambió su
+  estado).
+
+### Aceptar queda firme
+
+Anular un abono ya no "desacepta" un encargo. Hasta ahora, si el anticipo
+dejaba de estar cubierto, volvía a cotizado; con "Aceptó" como paso propio,
+eso borraba una aceptación que no dependía del pago.
+
+### Dónde está el botón
+
+- **PC**: "Corregir venta" en el detalle de una venta abre el editor de ventas
+  con la venta cargada, sin la parte del cobro, y el último paso muestra qué
+  cambia. "Corregir" junto a cada abono: en el detalle de la venta, en
+  "Registrar abono", en el historial de Cobros y en los pagos de un encargo.
+- **Celular**: en Actividad, "Corregir venta" (una hoja con sus productos:
+  cantidades, quitar, agregar del catálogo y la clienta) y "Corregir abono".
+
+### Tareas
+
+C1 núcleo (cuotas a `core/cuotas.ts`), C2 `VentasRepo.corregir`, C3
+`PagosRepo.corregir` y aceptar firme, C4 IPC y simulador, C5 PC, C6 celular,
+C7 verificación (unidad, emulador, las dos suites de interfaz).
+
+---
+
 ## 3. Encargos en el celular (`2.17.0`)
 
 Los repositorios ya se comparten: el celular llama a los mismos métodos de la
