@@ -621,6 +621,62 @@ describe('encargos por fases', () => {
   );
 });
 
+describe('corregir una venta y un abono', () => {
+  beforeEach(async () => {
+    if (!disponible) return;
+    await limpiar();
+    await autorizarUid(uidPrueba);
+    const { Parametros } = await repos();
+    Parametros.invalidarCache();
+    await Parametros.getParametros();
+  });
+
+  it.skipIf(!disponible)(
+    'un producto por otro y otra clienta, en una transacción que las reglas aceptan; después el abono',
+    async () => {
+      const { Productos, Ventas, Pagos, Clientes } = await repos();
+      const polvo = await Productos.crear(
+        { nombre: 'Polvo Rosa', stock_inicial: { cantidad: 1, costo_unitario_usd_cents: 706 } },
+        g()
+      );
+      const banana = await Productos.crear(
+        { nombre: 'Banana Republic', stock_inicial: { cantidad: 2, costo_unitario_usd_cents: 1134 } },
+        g()
+      );
+      const ana = await Clientes.guardar({ nombre: 'Ana' }, g());
+      const bea = await Clientes.guardar({ nombre: 'Bea' }, g());
+      const v = await Ventas.crear(
+        {
+          cliente_id: ana,
+          fecha: HOY,
+          tipo: 'INVENTARIO',
+          lineas: [{ producto_id: polvo, cantidad: 1, precio_unitario_usd_cents: 1500 }],
+          pago_inicial: { moneda: 'USD', metodo: 'EFECTIVO', monto_cents: 500 },
+        },
+        g()
+      );
+
+      await Ventas.corregir(
+        v,
+        { cliente_id: bea, fecha: HOY, lineas: [{ producto_id: banana, cantidad: 1, precio_unitario_usd_cents: 1500 }] },
+        g()
+      );
+      const c = (await Ventas.getById(v))!;
+      expect([c.cliente_id, c.lineas[0].producto_id, c.saldo_usd_cents]).toEqual([bea, banana, 1000]);
+      expect((await Productos.getById(polvo))!.existencias).toBe(1);
+      expect((await Productos.getById(banana))!.existencias).toBe(1);
+      // El abono sigue a la venta: ahora es de Bea.
+      expect(c.pagos.map((p) => p.cliente_id)).toEqual([bea]);
+      expect((await Clientes.getById(ana))!.saldo_pendiente_usd_cents).toBe(0);
+
+      await Pagos.corregir(c.pagos[0].id, { fecha: HOY, monto_cents: 300, moneda: 'USD', metodo: 'EFECTIVO' }, g());
+      const d = (await Ventas.getById(v))!;
+      expect([d.pagado_usd_cents, d.saldo_usd_cents]).toEqual([300, 1200]);
+    },
+    120000
+  );
+});
+
 describe('reglas de seguridad de Firestore', () => {
   /**
    * Comprueba que Firestore rechazó por permisos.

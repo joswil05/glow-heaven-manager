@@ -250,7 +250,9 @@ describe('encargos con anticipo', () => {
   });
 
   it.skipIf(!disponible)(
-    'anular el anticipo vuelve a bloquear el encargo, y volver a pagarlo lo desbloquea',
+    // Desde la 2.16, "Aceptó" es un paso propio y queda firme: anular el pago
+    // devuelve lo que debe, pero no borra una aceptación que la clienta dio.
+    'pagar el anticipo acepta el encargo, y anularlo no lo desacepta: vuelve a deber',
     async () => {
       const { Ventas, Pagos, Clientes } = await repos();
 
@@ -275,13 +277,8 @@ describe('encargos con anticipo', () => {
       expect((await Ventas.getById(encargo))!.estado).toBe('PENDIENTE');
 
       await Pagos.anular(pago.pago_id, g());
-      expect((await Ventas.getById(encargo))!.estado).toBe('COTIZADA');
-
-      await Pagos.registrar(
-        { venta_id: encargo, fecha: HOY, monto_cents: 5000, moneda: 'USD', metodo: 'EFECTIVO' },
-        g()
-      );
-      expect((await Ventas.getById(encargo))!.estado).toBe('PENDIENTE');
+      const v = (await Ventas.getById(encargo))!;
+      expect([v.estado, v.pagado_usd_cents, v.saldo_usd_cents]).toEqual(['PENDIENTE', 0, 10000]);
     },
     45_000
   );
