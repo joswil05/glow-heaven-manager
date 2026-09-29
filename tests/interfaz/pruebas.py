@@ -452,6 +452,76 @@ def caso_corregir(page: Page) -> list[str]:
     return fallas
 
 
+def stock_en_catalogo(page: Page, nombre: str) -> int | None:
+    """Las unidades que el Catálogo muestra para un producto ("17 disp.")."""
+    import re
+    ir_a(page, "Catálogo")
+    m = re.search(re.escape(nombre) + r"[\s\S]{0,300}?(\d+) disp\.", page.locator("body").inner_text())
+    return int(m.group(1)) if m else None
+
+
+def stock_en_base(nombre: str) -> int:
+    p = next(x for x in listar_coleccion("productos") if x.get("nombre") == nombre)
+    return sum(v.get("existencias", 0) for v in p.get("variantes", []) if v.get("activo", True))
+
+
+@caso("lo que se corrige o se cancela en el Historial se ve en Cobros y en el Catálogo")
+def caso_reacciona(page: Page) -> list[str]:
+    """
+    Fase de pruebas de la 2.16.1: editar o anular algo tiene que verse en las
+    otras pantallas sin recargar la app. Cancelar una venta desde el Historial
+    devolvía las unidades a la bodega, pero el Catálogo seguía mostrando el
+    stock de antes.
+    """
+    fallas = []
+    venta = next(v for v in listar_coleccion("ventas") if v.get("codigo") == "V-0001")
+
+    # Cobros muestra el saldo que quedó después de corregir venta y abono.
+    ir_a(page, "Cobros")
+    saldo = f"${venta['saldo_usd_cents'] / 100:,.2f}"
+    if venta["saldo_usd_cents"] > 0 and saldo not in page.locator("body").inner_text():
+        fallas.append(f"Cobros no muestra el saldo corregido de Ana ({saldo})")
+
+    antes = stock_en_catalogo(page, "Labial Mate Rojo")
+    if antes != stock_en_base("Labial Mate Rojo"):
+        fallas.append(f"el Catálogo muestra {antes} labiales y la bodega tiene {stock_en_base('Labial Mate Rojo')}")
+
+    # Cancelar V-0001 desde el Historial.
+    problema = abrir_historial(page, "Ventas")
+    if problema:
+        return fallas + [problema]
+    fila = visible(page, "main button", "Ana Prueba")
+    if fila is None:
+        return fallas + ["la venta de Ana no está en el Historial"]
+    fila.click()
+    page.wait_for_timeout(800)
+    cancelar = en_hoja(page, "button", "Cancelar esta venta")
+    if cancelar is None:
+        return fallas + ["el detalle no ofrece cancelar la venta"]
+    cancelar.click()
+    page.wait_for_timeout(300)
+    confirmar = en_hoja(page, "button", "Sí, cancelar la venta")
+    if confirmar is None:
+        return fallas + ["cancelar no pide confirmación"]
+    confirmar.click()
+    page.wait_for_timeout(2500)
+
+    despues = stock_en_catalogo(page, "Labial Mate Rojo")
+    esperado = stock_en_base("Labial Mate Rojo")
+    if esperado != (antes or 0) + sum(l["cantidad"] for l in venta["lineas"]):
+        fallas.append(f"cancelar no devolvió los labiales a la bodega: quedan {esperado}")
+    if despues != esperado:
+        fallas.append(f"después de cancelar, el Catálogo muestra {despues} labiales y la bodega tiene {esperado}")
+
+    ir_a(page, "Cobros")
+    if visible(page, "button", "Ana Prueba") is not None and venta["saldo_usd_cents"] > 0:
+        otras = [v for v in listar_coleccion("ventas") if v.get("cliente_id") == venta.get("cliente_id")
+                 and v.get("estado") != "CANCELADA" and v.get("saldo_usd_cents", 0) > 0]
+        if not otras:
+            fallas.append("Ana sigue en Cobros después de cancelar su única venta con saldo")
+    return fallas
+
+
 @caso("no quedan errores de consola al recorrer la app")
 def caso_consola(page: Page) -> list[str]:
     # Lo llena el registrador; se evalúa al final de la corrida.

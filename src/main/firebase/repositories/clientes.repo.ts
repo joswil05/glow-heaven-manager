@@ -162,7 +162,30 @@ export class ClientesRepoFirestore {
     if (totales.saldo_pendiente_usd_cents > 0) {
       throw new Error(
         `${anterior.nombre} todavía debe ${formatearMoneda(totales.saldo_pendiente_usd_cents, 'USD')}. ` +
-          'Cobrá o cancelá esas ventas antes de archivarlo.'
+          'Cobrá o anulá esas ventas antes de eliminarla.'
+      );
+    }
+
+    // Tampoco lo que está en curso sin ser deuda: un encargo cotizado (que no
+    // se debe hasta que acepta) o una venta apartada que ya pagó. Eliminada
+    // la clienta, el encargo quedaba sin a quién mandarle la cotización y la
+    // venta sin a quién entregársela. Lo encontró la simulación del negocio.
+    const db = getFirestoreDb();
+    const suyas = await getDocs(
+      query(collection(db, 'ventas'), where('activo', '==', true), where('cliente_id', '==', id))
+    );
+    const enCurso = suyas.docs
+      .map((d) => d.data() as { codigo: string; tipo: string; estado: string })
+      .filter((v) => (v.tipo === 'ENCARGO' && v.estado !== 'ENTREGADA' && v.estado !== 'CANCELADA') || v.estado === 'PENDIENTE');
+    if (enCurso.length > 0) {
+      const encargos = enCurso.filter((v) => v.tipo === 'ENCARGO').map((v) => v.codigo);
+      const porEntregar = enCurso.filter((v) => v.tipo !== 'ENCARGO').map((v) => v.codigo);
+      const partes = [
+        encargos.length > 0 ? `${encargos.join(', ')} en curso` : '',
+        porEntregar.length > 0 ? `${porEntregar.join(', ')} por entregar` : '',
+      ].filter(Boolean);
+      throw new Error(
+        `${anterior.nombre} tiene ${partes.join(' y ')}. Terminalo o anulalo antes de eliminarla.`
       );
     }
 

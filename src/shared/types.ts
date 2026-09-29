@@ -710,8 +710,9 @@ export interface PanelData {
   ganancia_mes_actual: GananciaMes | null;
   ganancia_mes_anterior: GananciaMes | null;
   historico: GananciaMes[];
+  /** Todas las ventas que se deben (desde la 2.16.2): Cobros las lista enteras. */
   por_cobrar: FilaPorCobrar[];
-  /** Cuántas ventas tienen saldo. `por_cobrar` trae sólo las primeras diez. */
+  /** Cuántas ventas tienen saldo: el largo de `por_cobrar`. */
   total_por_cobrar: number;
   bajo_stock: FilaBajoStock[];
   /** Cuántos productos están en el mínimo. `bajo_stock` trae sólo diez. */

@@ -53,7 +53,7 @@ interface Item {
 const TANDA = 50;
 
 export function HistorialView() {
-  const { version, marcarCambio } = useDatosNegocio();
+  const { version, marcarCambio, recargarProductos } = useDatosNegocio();
   const { mostrar } = useSnackbar();
 
   const [ventas, setVentas] = useState<Venta[]>([]);
@@ -152,6 +152,10 @@ export function HistorialView() {
       } else if (item.tipo === 'venta' && item.venta) {
         await VentasRepoFirestore.cambiarEstado(item.venta.id, 'CANCELADA', nuevoGrupoEvento());
         mostrar('Venta cancelada. Se devolvieron las existencias.', 'success');
+        // Las unidades volvieron a la bodega: Catálogo y Vender tienen que
+        // verlas. `marcarCambio` sólo refresca los totales; los productos
+        // tienen su propia caché. Lo encontró la fase de pruebas de la 2.16.1.
+        void recargarProductos(true);
       }
       haptics.impact('medium');
       cerrarDetalle();

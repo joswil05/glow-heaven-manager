@@ -458,7 +458,11 @@ export class PanelRepoFirestore {
       ganancia_mes_actual: buscarMes(mesActual()),
       ganancia_mes_anterior: buscarMes(mesAnterior()),
       historico,
-      por_cobrar: calcularPorCobrar(s, 10),
+      // Entera, no las primeras diez: las dos pantallas de Cobros arman su
+      // lista y su total con esto, y con once deudas escondían la undécima y
+      // el total salía corto. Inicio corta por su cuenta. No cuesta lecturas:
+      // sale de la misma instantánea.
+      por_cobrar: calcularPorCobrar(s, Infinity),
       // Los conteos van aparte: las tarjetas mostraban el largo de la lista
       // cortada en diez, y con trece productos en el mínimo decían diez.
       total_por_cobrar: ventasConDeuda(s).length,

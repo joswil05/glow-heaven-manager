@@ -534,7 +534,7 @@ export class PagosRepoFirestore {
       });
 
     if (ventasConSaldo.length === 0) {
-      throw new Error('El cliente no tiene ventas o encargos con saldo pendiente.');
+      throw new Error('Esa clienta no tiene ventas ni encargos con saldo pendiente.');
     }
 
     // Si solo hay una venta con saldo, o el monto cabe en la primera venta

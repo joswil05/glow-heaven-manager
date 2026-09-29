@@ -308,7 +308,7 @@ function armarPanel(): PanelData {
     total_por_cobrar: conDeuda.length,
     total_bajo_stock: bajoStock.length,
     por_cobrar:
-      conDeuda.slice(0, 10).map((v) => ({
+      conDeuda.map((v) => ({
         venta_id: v.id,
         codigo: v.codigo,
         fecha: v.fecha,
