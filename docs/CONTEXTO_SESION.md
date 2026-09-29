@@ -4,9 +4,10 @@
 > haber estado en la sesión anterior.
 > **Estado del árbol**: `v2.16.0` publicada en el celular y en Windows el 29
 > de septiembre: los encargos por fases y corregir una venta y un abono en las
-> dos apps (sección 2 y sección 3). Joswill la está probando él mismo. Los
-> datos de producción se migraron a lotes con `scripts/migrar-a-lotes.ts`
-> (sección 3).
+> dos apps (sección 2 y sección 3). Joswill la está probando él mismo. En
+> `main`, sin publicar, la 2.16.1: el historial a la vista, quién registró
+> cada cosa y los abonos en su moneda (sección 3). Los datos de producción se
+> migraron a lotes con `scripts/migrar-a-lotes.ts` (sección 3).
 > **Última actualización**: 29 de septiembre de 2026.
 
 Leé este archivo primero. Después:
@@ -219,11 +220,39 @@ Joswill. Queda:
    anticipo, tener precio ya no confirma; una pieza que no se consiguió sale
    del total; anular el anticipo ya no desacepta un encargo (vuelve a deber).
    Y lo nuevo: una venta o un abono mal cargado se corrige ("Corregir venta"
-   en su detalle, el lápiz junto a cada abono; en el celular, desde
-   Actividad), nunca borrándolo en Firebase.
+   en su detalle, "Corregir" junto a cada abono; en el celular, desde la
+   pestaña Historial), nunca borrándolo en Firebase.
 
-Después viene la 2.17 (encargos en el celular). El orden completo está en la
-sección 0 del plan.
+### La 2.16.1, hecha en local el 29 de septiembre, sin publicar
+
+Lo primero que encontró Joswill al probar la 2.16.0 (sección 2c del plan):
+el historial del celular escondido, corregir poco visible en Cobros, no se
+sabía quién cargó un abono, y un abono en córdobas se mostraba en dólares.
+Tareas H1 a H6, commits `d165df1` a `95e8359`:
+
+- **La moneda del abono**: se guardaba bien (moneda, monto en las dos y
+  tasa); lo que fallaba era mostrarla. Ahora cada abono se ve como se pagó
+  (`core/abonos.ts`), corregirlo marca la moneda original y avisa si se
+  cambia, y una venta al contado pagada con un solo abono lleva el abono
+  con ella al corregirla, en su moneda y con su tasa (`ajustar_abono`).
+- **Quién lo registró**: ventas y abonos nuevos guardan `registrado_por`;
+  corregirlos, `corregido_por` y `corregido_en`. Lo anterior dice "Sin dato
+  de quién". Cada app le dice a `client.ts` cómo saber la cuenta
+  (`registrarAutor`), así los repositorios compartidos no dependen de cómo
+  inicia sesión cada una.
+- **Celular**: la pestaña Historial reemplaza a Actividad (agrupada por día,
+  búsqueda, "Ver más"), y el historial de la clienta en Cobros corrige.
+- **Windows**: Cobros agrupa los abonos por día, con "Corregir" y "Anular"
+  escritos; Clientes también corrige.
+
+Verificado: `tsc` de las dos apps, 483 pruebas, 93 contra el emulador, 18
+casos de interfaz de escritorio, 10 de la PWA, las tres auditorías y el build
+del celular. Falta, con el visto bueno de Joswill: versión 2.16.1 y publicar
+las dos apps, igual que la 2.16.0.
+
+Después viene la 2.17 (encargos en el celular). Ojo: la quinta pestaña del
+celular ya es Historial; "Encargos" necesita otro lugar (sección 2c del plan).
+El orden completo está en la sección 0 del plan.
 
 ### Hecho el 29 de septiembre, sobre producción: V-0007 borrada a mano
 

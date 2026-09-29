@@ -845,3 +845,19 @@ Cambios respecto de lo escrito arriba, al implementarlo:
 
 **Publicada como `v2.16.0` el mismo 29** (Windows por GitHub, con
 `latest.yml`, y la PWA), a pedido de Joswill, que la prueba él mismo.
+
+**2.16.1, hecha en local el mismo 29** (sección 2c, tareas H1 a H6), sin
+publicar. Cambios respecto de lo escrito en 2c, al hacerlo:
+
+- **En Windows, tocar un abono abre la corrección** en vez de un panel al
+  costado: la ventana de corregir ya muestra el abono, quién lo registró y
+  cómo queda la venta.
+- **"Ver más" en el Historial corre un corte común**: se muestran ventas y
+  abonos hasta el día más nuevo en que alguna de las dos listas se quedó sin
+  traer, sin incluirlo, para que "Todo" no muestre días a medias.
+- **Un centavo de diferencia entre lo pagado y el total cuenta como pagada
+  entera** al decidir si una venta es al contado: es el redondeo de pagar en
+  córdobas.
+- **El nombre que se muestra es el primero de la cuenta de Google** ("Rosa"
+  de "Rosa María Pérez"), o lo de antes de la arroba si la cuenta no tiene
+  nombre.

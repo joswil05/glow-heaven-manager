@@ -97,8 +97,18 @@ La ficha del producto es catálogo: no tiene costo, existencias ni paquete.
   `v2.16`). `VentasRepo.corregir` (sólo inventario, no anulada) conserva el
   número y, en una transacción, devuelve las unidades de antes a sus lotes y
   saca las nuevas del más viejo; si lo pagado queda por encima del total
-  nuevo, se rechaza (primero se corrige el abono). No se deshace: movió
-  mercadería. `PagosRepo.corregir` usa la tasa del abono y sí se deshace.
+  nuevo, se rechaza (primero se corrige el abono). Una venta al contado
+  pagada con un solo abono puede llevarlo con ella (`ajustar_abono`, en la
+  moneda y con la tasa del abono). No se deshace: movió mercadería.
+  `PagosRepo.corregir` usa la tasa del abono y sí se deshace.
+- **Un abono se muestra en la moneda en que se pagó** (`core/abonos.ts` →
+  `textoPagado`, desde `v2.16.1`): "C$600.00", y su equivalente con la tasa
+  del abono, nunca con la de hoy. Mostrarlo primero en dólares hacía creer
+  que se había cargado en la moneda equivocada.
+- **Ventas y abonos dicen quién los registró** (`registrado_por`,
+  `corregido_por`, desde `v2.16.1`), con `autorActual()` de `client.ts`. Cada
+  app registra al arrancar cómo saber la cuenta (`registrarAutor`); un
+  repositorio nuevo que escriba ventas o abonos tiene que anotarlo.
   Borrar un documento desde la consola de Firebase deja la mercadería
   vendida sin venta: ver `scripts/reparar-venta-borrada.ts`.
 - **Una pieza que no se consiguió** (`descartada_el`) queda en la lista con
