@@ -16,7 +16,6 @@ import { EventosRepoFirestore } from './eventos.repo';
 import type { Pago, PagoCompleto, Cuota, MetodoPago, MonedaPago } from '../../../shared/types';
 import { formatearMoneda } from '../../../core/moneda';
 import { pagoAcepta } from '../../../core/cobranza';
-import { hoyISO } from '../../../core/fechas';
 
 export interface RegistrarPagoInput {
   venta_id: number;
@@ -154,7 +153,9 @@ export class PagosRepoFirestore {
         pagoAcepta({ pagado_usd_cents: pagado, anticipo_esperado_usd_cents: anticipoEsperado });
       if (acepta) {
         cambiosVenta.estado = 'PENDIENTE';
-        cambiosVenta.aceptado_el = hoyISO();
+        // La fecha del pago, no la de hoy: un pago cargado tarde dice cuándo
+        // aceptó de verdad, y desde ahí cuenta el aviso de "sin comprar".
+        cambiosVenta.aceptado_el = input.fecha;
       }
 
       tx.set(

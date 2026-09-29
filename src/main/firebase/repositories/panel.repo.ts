@@ -1,4 +1,4 @@
-import { etapaEncargo } from '../../../core/encargos';
+import { etapaEncargo, quePidio } from '../../../core/encargos';
 import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { getFirestoreDb } from '../client';
 import { ProductosRepoFirestore } from './productos.repo';
@@ -331,31 +331,49 @@ function calcularAlertas(s: Instantanea, parametros?: ParametrosSistema): Alerta
   const diasEncargo = parametros?.dias_alerta_encargos ?? 10;
   const limiteEncargos = haceDias(diasEncargo);
 
-  // Dos avisos distintos, porque piden cosas distintas: comprar lo que la
-  // clienta ya confirmó, y entregar lo que ya llegó. Antes había uno solo que
-  // miraba la fecha del encargo y saltaba aunque ya estuviera comprado.
+  // Un aviso por fase que se estanca, cada uno desde la fecha que le toca:
+  // cotizar lo que pidió, que responda a la cotización, comprar lo que
+  // aceptó, entregar lo que llegó. Antes había uno solo que miraba la fecha
+  // del encargo y saltaba aunque ya estuviera comprado.
+  //
+  // Todos llevan a la pantalla de encargos. Antes iban a "ventas", y un pedido
+  // sin precio (que no debe nada, así que no está en "por cobrar") terminaba
+  // abriéndose en la pantalla de ventas.
   for (const v of s.ventas) {
     if (v.tipo !== 'ENCARGO' || (v.estado !== 'PENDIENTE' && v.estado !== 'COTIZADA')) continue;
     const nombre = v.cliente_id ? (cliMap.get(v.cliente_id) ?? 'Cliente') : 'Cliente';
     const etapa = etapaEncargo(v);
+    const destino = { vista: 'encargos', id: v.id };
     // Un pedido anotado sin precio: el aviso es lo que evita que se olvide.
     if (etapa === 'POR_BUSCAR' && v.fecha <= limiteEncargos) {
-      const que = (v.lineas || []).map((l) => l.descripcion).filter(Boolean).join(', ');
+      const que = quePidio(v.lineas || []);
       alertas.push({
         id: `encargo-cotizar-${v.id}`,
         severidad: 'atencion',
         titulo: `El pedido de ${nombre} lleva más de ${diasEncargo} días sin cotizar`,
         detalle: `${v.codigo}${que ? `: ${que}` : ''}`,
-        destino: { vista: 'ventas', id: v.id },
+        destino,
       });
     }
-    if (etapa === 'POR_COMPRAR' && v.fecha <= limiteEncargos) {
+    if (etapa === 'ESPERANDO' && v.cotizacion_enviada_el && v.cotizacion_enviada_el <= limiteEncargos) {
+      alertas.push({
+        id: `encargo-respuesta-${v.id}`,
+        severidad: 'atencion',
+        titulo: `Le mandaste la cotización a ${nombre} hace más de ${diasEncargo} días y no respondió`,
+        detalle: `${v.codigo}, mandada el ${v.cotizacion_enviada_el}`,
+        destino,
+      });
+    }
+    // Desde que aceptó; un encargo anterior a la 2.16 no lo guardó y cuenta
+    // desde que lo pidió, como antes.
+    const aceptoEl = v.aceptado_el ?? v.fecha;
+    if (etapa === 'POR_COMPRAR' && aceptoEl <= limiteEncargos) {
       alertas.push({
         id: `encargo-comprar-${v.id}`,
         severidad: 'atencion',
-        titulo: `El encargo de ${nombre} está confirmado hace más de ${diasEncargo} días y sin comprar`,
-        detalle: `${v.codigo}, confirmado desde el ${v.fecha}`,
-        destino: { vista: 'ventas', id: v.id },
+        titulo: `${nombre} aceptó hace más de ${diasEncargo} días y el encargo sigue sin comprar`,
+        detalle: `${v.codigo}, aceptó el ${aceptoEl}`,
+        destino,
       });
     }
     if (etapa === 'POR_ENTREGAR' && v.llego_el && v.llego_el <= limiteEncargos) {
@@ -364,7 +382,7 @@ function calcularAlertas(s: Instantanea, parametros?: ParametrosSistema): Alerta
         severidad: 'atencion',
         titulo: `El encargo de ${nombre} llegó hace más de ${diasEncargo} días y no se entregó`,
         detalle: `${v.codigo}, llegó el ${v.llego_el}`,
-        destino: { vista: 'ventas', id: v.id },
+        destino,
       });
     }
   }

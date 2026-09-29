@@ -7,6 +7,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { reiniciarFirestoreFalso, reiniciarContadores, contadores } from './firestore-fake';
+import { doc, setDoc } from 'firebase/firestore';
+import { getFirestoreDb } from '../src/main/firebase/client';
 import { ProductosRepoFirestore as Productos } from '../src/main/firebase/repositories/productos.repo';
 import { ComprasRepoFirestore as Compras } from '../src/main/firebase/repositories/compras.repo';
 import { VentasRepoFirestore as Ventas } from '../src/main/firebase/repositories/ventas.repo';
@@ -332,5 +334,48 @@ describe('lo que cuesta cada paso', () => {
     reiniciarContadores();
     await Ventas.aceptar(e, g());
     expect(contadores()).toMatchObject({ lecturas: 1, escrituras: 0 });
+  });
+});
+
+describe('los avisos del camino', () => {
+  // Con los días de aviso de siempre: 10. Mandar y aceptar escriben la fecha
+  // de hoy, así que para que algo sea "de hace días" se corre la fecha a mano.
+  const correrFecha = (id: number, datos: Record<string, unknown>) =>
+    setDoc(doc(getFirestoreDb(), 'ventas', String(id)), datos, { merge: true });
+  const avisos = async () => (await Panel.cargar(true)).alertas;
+
+  it('una cotización mandada hace días, sin respuesta, avisa; una de hace poco, no', async () => {
+    const ana = await Clientes.guardar({ nombre: 'Ana' }, g());
+    const vieja = await encargo(undefined, { cliente_id: ana });
+    await Ventas.marcarEnviada(vieja, g());
+    await correrFecha(vieja, { cotizacion_enviada_el: sumarDiasAFecha(HOY, -12) });
+    const nueva = await encargo();
+    await Ventas.marcarEnviada(nueva, g());
+
+    const lista = await avisos();
+    const aviso = lista.find((a) => a.id === `encargo-respuesta-${vieja}`);
+    expect(aviso?.titulo).toBe('Le mandaste la cotización a Ana hace más de 10 días y no respondió');
+    expect(aviso?.destino).toEqual({ vista: 'encargos', id: vieja });
+    expect(lista.map((a) => a.id)).not.toContain(`encargo-respuesta-${nueva}`);
+  });
+
+  it('aceptado y sin comprar avisa desde que aceptó, no desde que lo pidió', async () => {
+    const e = await encargo(undefined, { fecha: sumarDiasAFecha(HOY, -30) });
+    await Ventas.aceptar(e, g());
+    expect((await avisos()).map((a) => a.id)).not.toContain(`encargo-comprar-${e}`);
+
+    await correrFecha(e, { aceptado_el: sumarDiasAFecha(HOY, -12) });
+    const aviso = (await avisos()).find((a) => a.id === `encargo-comprar-${e}`);
+    expect(aviso?.destino).toEqual({ vista: 'encargos', id: e });
+  });
+
+  it('un pedido sin cotizar lleva a la pantalla de encargos', async () => {
+    // Un pedido no debe nada: no está en "por cobrar", y antes su aviso
+    // terminaba abriéndose en Ventas.
+    const e = await encargo([{ descripcion: 'Perfume raro', cantidad: 1, precio_unitario_usd_cents: 0 }], {
+      fecha: sumarDiasAFecha(HOY, -20),
+    });
+    const aviso = (await avisos()).find((a) => a.id === `encargo-cotizar-${e}`);
+    expect(aviso?.destino).toEqual({ vista: 'encargos', id: e });
   });
 });

@@ -42,7 +42,7 @@ import { useToast } from '../context/ToastContext';
 import { cn } from '../lib/cn';
 import { useScrollReveal } from '../lib/useScrollReveal';
 
-export type DestinoPanel = 'inventario' | 'paquetes' | 'ventas' | 'clientes' | 'cobranza';
+export type DestinoPanel = 'inventario' | 'paquetes' | 'ventas' | 'encargos' | 'clientes' | 'cobranza';
 export type TipoGraficaPanel = 'rentabilidad' | 'volumen' | 'margen' | 'costos';
 
 const OPCIONES_GRAFICA: {

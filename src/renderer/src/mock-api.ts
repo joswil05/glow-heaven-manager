@@ -1455,7 +1455,7 @@ const api: ApiPuente = {
         pagoAcepta({ pagado_usd_cents: venta.pagado_usd_cents, anticipo_esperado_usd_cents: venta.anticipo_esperado_usd_cents });
       if (acepta) {
         venta.estado = 'PENDIENTE';
-        venta.aceptado_el = hoyISO();
+        venta.aceptado_el = input.fecha;
       }
 
       return ok({
