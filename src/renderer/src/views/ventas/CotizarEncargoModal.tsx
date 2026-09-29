@@ -1,21 +1,23 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { ParametrosSistema, Venta, VentaCompleta } from '../../../../shared/types';
 import type { LineaCotizacion } from '../../../../shared/ipc-contracts';
-import { Button, Field, Input, Portal } from '../../components/ui';
-import { costoEstimadoDePieza, estadoPieza, sinPrecio } from '@core/encargos';
+import { Button, Dialogo, Field, Input } from '../../components/ui';
+import { costoEstimadoDePieza, descartable, estadoPieza, sinPrecio } from '@core/encargos';
 import { calcularPrecio } from '@core/precios';
 import { formatearMoneda } from '@core/moneda';
 import { parsearACentavos, parsearDecimal } from '@core/numeros';
+import { resaltar } from '../../lib/resaltar';
+import { cn } from '../../lib/cn';
 
 /**
  * Ponerle precio a un encargo: cotizar un pedido que se anotó sin precio, o
- * corregir el de uno cotizado.
+ * corregir el de uno cotizado. Una pieza que no se encontró se marca "No se
+ * consiguió": sale del total y la cotización sale con lo demás.
  *
  * Con el precio en la tienda y el peso se estima el costo (tienda + impuesto
- * + flete por libra) y se sugiere un precio con el margen de siempre, la
- * misma cuenta que al crear el encargo. Una pieza que ya llegó tiene su costo
- * real y no se toca. En uno confirmado, el precio que la clienta aceptó
- * tampoco.
+ * + flete por libra) y se sugiere un precio con el margen de siempre. Una
+ * pieza que ya llegó tiene su costo real y no se toca. En uno aceptado, el
+ * precio que la clienta aceptó tampoco.
  */
 interface CotizarEncargoModalProps {
   venta: Venta | VentaCompleta | null;
@@ -36,6 +38,10 @@ interface Borrador {
   costoReal: boolean;
   /** Precio que la clienta ya aceptó: no se cambia. */
   fijo: boolean;
+  /** "No se consiguió". */
+  descartada: boolean;
+  /** Se puede marcar "No se consiguió": no se compró. */
+  puedeDescartar: boolean;
 }
 
 const aTexto = (cents?: number) => (cents && cents > 0 ? (cents / 100).toFixed(2) : '');
@@ -43,18 +49,23 @@ const centavos = (texto: string) => (texto.trim() ? (parsearACentavos(texto, { m
 
 export const CotizarEncargoModal: React.FC<CotizarEncargoModalProps> = ({ venta, parametros, onGuardado, onCerrar }) => {
   const [piezas, setPiezas] = useState<Borrador[] | null>(null);
+  const [inicial, setInicial] = useState('');
+  /** El error de cada pieza, en su campo. */
+  const [errores, setErrores] = useState<Record<number, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
-  const primeraRef = useRef<HTMLInputElement>(null);
+  const precioRefs = useRef(new Map<number, HTMLInputElement>());
+  const descripcionRefs = useRef(new Map<number, HTMLInputElement>());
 
   // Las piezas hacen falta enteras: una venta de la lista viene sin líneas.
   useEffect(() => {
     if (!venta) return;
     setError(null);
+    setErrores({});
     setPiezas(null);
     let vivo = true;
-    const armar = (v: VentaCompleta) =>
-      v.lineas.map<Borrador>((l) => ({
+    const armar = (v: VentaCompleta) => {
+      const lista = v.lineas.map<Borrador>((l) => ({
         id: l.id,
         descripcion: l.descripcion,
         cantidad: l.cantidad,
@@ -63,13 +74,18 @@ export const CotizarEncargoModal: React.FC<CotizarEncargoModalProps> = ({ venta,
         costo: aTexto(l.costo_unitario_usd_cents),
         precio: aTexto(l.precio_unitario_usd_cents),
         costoReal: estadoPieza(l) === 'LLEGO' || (l.lotes_consumidos?.length ?? 0) > 0,
-        fijo: v.estado === 'PENDIENTE' && !sinPrecio(l),
+        fijo: v.estado === 'PENDIENTE' && !sinPrecio(l) && !l.descartada_el,
+        descartada: Boolean(l.descartada_el),
+        puedeDescartar: Boolean(l.descartada_el) || descartable(l),
       }));
+      setPiezas(lista);
+      setInicial(JSON.stringify(lista));
+    };
     if ('lineas' in venta && venta.lineas) {
-      setPiezas(armar(venta));
+      armar(venta);
     } else {
       window.api.ventas.get(venta.id).then((r) => {
-        if (vivo && r.success && r.data) setPiezas(armar(r.data));
+        if (vivo && r.success && r.data) armar(r.data);
       });
     }
     return () => {
@@ -77,24 +93,22 @@ export const CotizarEncargoModal: React.FC<CotizarEncargoModalProps> = ({ venta,
     };
   }, [venta]);
 
-  useEffect(() => {
-    if (!venta) return;
-    const alPresionar = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCerrar();
-    };
-    window.addEventListener('keydown', alPresionar);
-    return () => window.removeEventListener('keydown', alPresionar);
-  }, [venta, onCerrar]);
-
-  // El foco va a la primera pieza cuando terminan de cargar, no a cada tecla.
+  // El foco va a la primera pieza que falta cotizar cuando terminan de
+  // cargar, no a cada tecla.
   const cargadas = piezas !== null;
   useEffect(() => {
-    if (cargadas) primeraRef.current?.focus();
+    if (!cargadas || !piezas) return;
+    const primera = piezas.find((p) => !p.fijo && !p.descartada && !p.precio) ?? piezas.find((p) => !p.fijo);
+    if (primera) setTimeout(() => descripcionRefs.current.get(primera.id)?.focus(), 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cargadas]);
 
-  if (!venta) return null;
-
-  const cambiar = (id: number, cambios: Partial<Borrador>) =>
+  const cambiar = (id: number, cambios: Partial<Borrador>) => {
+    setErrores((e) => {
+      if (!e[id]) return e;
+      const { [id]: _quitado, ...resto } = e;
+      return resto;
+    });
     setPiezas((prev) =>
       (prev ?? []).map((p) => {
         if (p.id !== id) return p;
@@ -116,6 +130,7 @@ export const CotizarEncargoModal: React.FC<CotizarEncargoModalProps> = ({ venta,
         return nueva;
       })
     );
+  };
 
   const sugerido = (p: Borrador) => {
     const costo = centavos(p.costo);
@@ -128,19 +143,34 @@ export const CotizarEncargoModal: React.FC<CotizarEncargoModalProps> = ({ venta,
     }).precio_usd_cents;
   };
 
+  const usarSugerido = (p: Borrador, precio: number) => {
+    cambiar(p.id, { precio: aTexto(precio) });
+    resaltar(precioRefs.current.get(p.id));
+  };
+
   const lista = piezas ?? [];
-  const total = lista.reduce((s, p) => s + centavos(p.precio) * p.cantidad, 0);
-  const anticipoBp = venta.anticipo_bp ?? parametros?.anticipo_defecto_bp ?? 5000;
-  const faltan = lista.filter((p) => !p.precio.trim()).length;
-  const porCotizar = lista.some((p) => !p.fijo && !aTexto(centavos(p.precio)));
+  const vivas = lista.filter((p) => !p.descartada);
+  const total = vivas.reduce((s, p) => s + centavos(p.precio) * p.cantidad, 0);
+  const anticipoBp = venta?.anticipo_bp ?? parametros?.anticipo_defecto_bp ?? 5000;
+  const faltan = vivas.filter((p) => !p.precio.trim()).length;
+  const porCotizar = lista.some((p) => !p.fijo && !p.descartada && !aTexto(centavos(p.precio)));
+  const hayCambios = piezas !== null && JSON.stringify(piezas) !== inicial;
 
   const guardar = async () => {
+    if (!venta || !piezas || guardando) return;
+    const nuevos: Record<number, string> = {};
     for (const p of lista) {
-      if (p.fijo) continue;
-      if (!p.descripcion.trim()) return setError('Cada pieza necesita una descripción.');
-      if (p.precio.trim() && parsearACentavos(p.precio, { min: 0.01 }) === null) {
-        return setError(`El precio de '${p.descripcion}' tiene que ser mayor a $0, o quedar vacío.`);
+      if (p.fijo || p.descartada) continue;
+      if (!p.descripcion.trim()) nuevos[p.id] = 'Escribí qué es.';
+      else if (p.precio.trim() && parsearACentavos(p.precio, { min: 0.01 }) === null) {
+        nuevos[p.id] = 'El precio tiene que ser mayor a $0, o quedar vacío.';
       }
+    }
+    if (Object.keys(nuevos).length > 0) {
+      setErrores(nuevos);
+      const primera = lista.find((p) => nuevos[p.id])!;
+      (nuevos[primera.id] === 'Escribí qué es.' ? descripcionRefs : precioRefs).current.get(primera.id)?.focus();
+      return;
     }
     const lineas: LineaCotizacion[] = lista
       .filter((p) => !p.fijo)
@@ -151,6 +181,7 @@ export const CotizarEncargoModal: React.FC<CotizarEncargoModalProps> = ({ venta,
         costo_estimado_unitario_usd_cents: p.costoReal || !p.costo.trim() ? undefined : centavos(p.costo),
         precio_tienda_usd_cents: p.tienda.trim() ? centavos(p.tienda) : undefined,
         peso_mlb: p.peso.trim() ? Math.round((parsearDecimal(p.peso, { min: 0 }) ?? 0) * 1000) || undefined : undefined,
+        descartada: p.puedeDescartar ? p.descartada : undefined,
       }));
     setGuardando(true);
     setError(null);
@@ -162,123 +193,137 @@ export const CotizarEncargoModal: React.FC<CotizarEncargoModalProps> = ({ venta,
   };
 
   return (
-    <Portal>
-      <div
-        className="fixed inset-0 z-[110] flex items-center justify-center bg-velo/60 backdrop-blur-xs p-4 animate-fade-in cursor-pointer"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="titulo-cotizar"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) onCerrar();
-        }}
-      >
-        <div
-          onClick={(e) => e.stopPropagation()}
-          className="bg-superficie rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col animate-modal-pop border border-borde cursor-default"
-        >
-          <header className="px-5 py-4 border-b border-borde">
-            <h3 id="titulo-cotizar" className="text-title text-texto">
-              {porCotizar ? `Cotizar ${venta.codigo}` : `Precios de ${venta.codigo}`}
-            </h3>
-          </header>
-
-          <div className="p-5 space-y-5 overflow-y-auto">
-            {!piezas ? (
-              <p className="text-label text-texto-3">Cargando sus piezas…</p>
-            ) : (
-              lista.map((p, i) => {
-                const sug = sugerido(p);
-                return (
-                  <div key={p.id} className="space-y-3">
-                    <Field label={lista.length > 1 ? `Pieza ${i + 1}` : 'Qué pidió'}>
-                      <Input
-                        ref={i === 0 ? primeraRef : undefined}
-                        value={p.descripcion}
-                        onChange={(e) => cambiar(p.id, { descripcion: e.target.value })}
-                        disabled={p.fijo}
-                        aria-label={`Descripción de la pieza ${i + 1}`}
-                      />
-                    </Field>
-                    {p.fijo ? (
-                      <p className="text-caption text-texto-3">
-                        {p.cantidad} × {formatearMoneda(centavos(p.precio), 'USD')}: ya lo aceptó la clienta.
-                      </p>
-                    ) : (
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        <Field label="En la tienda ($)">
-                          <Input
-                            value={p.tienda}
-                            onChange={(e) => cambiar(p.id, { tienda: e.target.value })}
-                            placeholder="0.00"
-                            className="text-right"
-                            disabled={p.costoReal}
-                          />
-                        </Field>
-                        <Field label="Peso aprox. (lb)">
-                          <Input
-                            value={p.peso}
-                            onChange={(e) => cambiar(p.id, { peso: e.target.value })}
-                            placeholder="0.0"
-                            className="text-right"
-                            disabled={p.costoReal}
-                          />
-                        </Field>
-                        <Field label={p.costoReal ? 'Te costó ($)' : 'Costo ($)'}>
-                          <Input
-                            value={p.costo}
-                            onChange={(e) => cambiar(p.id, { costo: e.target.value })}
-                            placeholder="0.00"
-                            className="text-right"
-                            disabled={p.costoReal}
-                          />
-                        </Field>
-                        <Field label="Precio ($)">
-                          <Input
-                            value={p.precio}
-                            onChange={(e) => cambiar(p.id, { precio: e.target.value })}
-                            placeholder="Sin precio"
-                            className="text-right font-medium"
-                            aria-label={`Precio de la pieza ${i + 1}`}
-                          />
-                        </Field>
-                        {sug > 0 && centavos(p.precio) !== sug && (
-                          <p className="col-span-2 sm:col-span-4 text-caption text-texto-3 text-right">
-                            <span className="tabular">Sugerido {formatearMoneda(sug, 'USD')}</span>{' '}
-                            <button
-                              type="button"
-                              onClick={() => cambiar(p.id, { precio: aTexto(sug) })}
-                              className="text-acento font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento rounded"
-                            >
-                              Usar
-                            </button>
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })
-            )}
-            {error && <p className="text-label text-danger-600">{error}</p>}
-          </div>
-
-          <footer className="flex items-center justify-between gap-3 px-5 py-4 border-t border-borde flex-wrap">
-            <span className="text-label text-texto-2 tabular">
-              {faltan > 0 && total === 0
+    <Dialogo
+      abierto={Boolean(venta)}
+      titulo={venta ? (porCotizar ? `Cotizar ${venta.codigo}` : `Precios de ${venta.codigo}`) : ''}
+      ancho="xl"
+      encima
+      hayCambios={hayCambios}
+      onCerrar={onCerrar}
+      onEnviar={guardar}
+      pie={
+        <>
+          <span className="text-label text-texto-2 tabular">
+            {vivas.length === 0 && lista.length > 0
+              ? 'No se consiguió nada'
+              : faltan > 0 && total === 0
                 ? 'Sin precio todavía'
                 : `Total ${formatearMoneda(total, 'USD')} · anticipo ${formatearMoneda(Math.round((total * anticipoBp) / 10000), 'USD')}`}
-            </span>
-            <div className="flex items-center gap-2">
-              <Button variant="secondary" onClick={onCerrar} disabled={guardando}>
-                Cancelar
-              </Button>
-              <Button variant="primary" onClick={guardar} disabled={!piezas || guardando}>
-                {guardando ? 'Guardando…' : 'Guardar precios'}
-              </Button>
+          </span>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" onClick={onCerrar} disabled={guardando}>
+              Cancelar
+            </Button>
+            <Button variant="primary" onClick={guardar} disabled={!piezas || guardando} className="min-w-[9rem]">
+              {guardando ? 'Guardando…' : 'Guardar precios'}
+            </Button>
+          </div>
+        </>
+      }
+    >
+      {!piezas ? (
+        <p className="text-label text-texto-3">Cargando sus piezas…</p>
+      ) : (
+        lista.map((p, i) => {
+          const sug = sugerido(p);
+          const apagada = p.fijo || p.descartada;
+          return (
+            <div key={p.id} className="space-y-3">
+              <div className="flex items-end gap-3">
+                <Field label={lista.length > 1 ? `Pieza ${i + 1}` : 'Qué pidió'} className="flex-1 min-w-0" error={errores[p.id] === 'Escribí qué es.' ? errores[p.id] : undefined}>
+                  <Input
+                    ref={(el) => {
+                      if (el) descripcionRefs.current.set(p.id, el);
+                    }}
+                    value={p.descripcion}
+                    onChange={(e) => cambiar(p.id, { descripcion: e.target.value })}
+                    disabled={apagada}
+                    className={cn(p.descartada && 'line-through')}
+                    aria-label={`Descripción de la pieza ${i + 1}`}
+                  />
+                </Field>
+                {p.puedeDescartar && !p.fijo && (
+                  <button
+                    type="button"
+                    aria-pressed={p.descartada}
+                    onClick={() => cambiar(p.id, { descartada: !p.descartada })}
+                    className={cn(
+                      'h-9 px-3 rounded-md border text-label whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento',
+                      p.descartada
+                        ? 'border-borde-fuerte bg-superficie-2 text-texto font-medium'
+                        : 'border-borde text-texto-3 hover:text-texto'
+                    )}
+                  >
+                    No se consiguió
+                  </button>
+                )}
+              </div>
+              {p.fijo ? (
+                <p className="text-caption text-texto-3 tabular">
+                  {p.cantidad} × {formatearMoneda(centavos(p.precio), 'USD')}: ya lo aceptó la clienta.
+                </p>
+              ) : p.descartada ? (
+                <p className="text-caption text-texto-3">Sale de la cotización. Se le avisa a la clienta que no se consiguió.</p>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <Field label="En la tienda ($)">
+                    <Input
+                      value={p.tienda}
+                      onChange={(e) => cambiar(p.id, { tienda: e.target.value })}
+                      placeholder="0.00"
+                      className="text-right tabular"
+                      disabled={p.costoReal}
+                    />
+                  </Field>
+                  <Field label="Peso aprox. (lb)">
+                    <Input
+                      value={p.peso}
+                      onChange={(e) => cambiar(p.id, { peso: e.target.value })}
+                      placeholder="0.0"
+                      className="text-right tabular"
+                      disabled={p.costoReal}
+                    />
+                  </Field>
+                  <Field label={p.costoReal ? 'Te costó ($)' : 'Costo ($)'}>
+                    <Input
+                      value={p.costo}
+                      onChange={(e) => cambiar(p.id, { costo: e.target.value })}
+                      placeholder="0.00"
+                      className="text-right tabular"
+                      disabled={p.costoReal}
+                    />
+                  </Field>
+                  <Field label="Precio ($)" error={errores[p.id] && errores[p.id] !== 'Escribí qué es.' ? errores[p.id] : undefined}>
+                    <Input
+                      ref={(el) => {
+                        if (el) precioRefs.current.set(p.id, el);
+                      }}
+                      value={p.precio}
+                      onChange={(e) => cambiar(p.id, { precio: e.target.value })}
+                      placeholder="Sin precio"
+                      className="text-right font-medium tabular"
+                      aria-label={`Precio de la pieza ${i + 1}`}
+                    />
+                  </Field>
+                  {sug > 0 && centavos(p.precio) !== sug && (
+                    <p className="col-span-2 sm:col-span-4 text-caption text-texto-3 text-right">
+                      <span className="tabular">Sugerido {formatearMoneda(sug, 'USD')}</span>{' '}
+                      <button
+                        type="button"
+                        onClick={() => usarSugerido(p, sug)}
+                        className="text-acento font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento rounded"
+                      >
+                        Usar
+                      </button>
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
-          </footer>
-        </div>
-      </div>
-    </Portal>
+          );
+        })
+      )}
+      {error && <p className="text-label text-danger-600">{error}</p>}
+    </Dialogo>
   );
 };

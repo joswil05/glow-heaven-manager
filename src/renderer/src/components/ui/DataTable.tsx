@@ -17,6 +17,12 @@ export interface DataTableProps<T> {
   onRowClick?: (row: T) => void;
   onRowContextMenu?: (row: T, e: React.MouseEvent) => void;
   emptyMessage?: string;
+  /**
+   * Un título de grupo antes de la primera fila de cada grupo, dentro de la
+   * misma tabla (los encargos por fase). Las filas tienen que venir ya
+   * ordenadas por grupo.
+   */
+  grupoDe?: (row: T) => string;
 }
 
 export function DataTable<T>({
@@ -27,6 +33,7 @@ export function DataTable<T>({
   onRowClick,
   onRowContextMenu,
   emptyMessage = 'No hay nada que mostrar.',
+  grupoDe,
 }: DataTableProps<T>) {
   if (rows.length === 0) {
     return (
@@ -57,12 +64,25 @@ export function DataTable<T>({
             </tr>
           </thead>
           <tbody className="divide-y divide-borde/70">
-            {rows.map((row) => {
+            {rows.map((row, i) => {
               const key = rowKey(row);
               const esSeleccionado = selectedKey === key;
+              const grupo = grupoDe?.(row);
+              const nuevoGrupo = grupo !== undefined && (i === 0 || grupoDe!(rows[i - 1]) !== grupo);
               return (
+                <React.Fragment key={key}>
+                {nuevoGrupo && (
+                  <tr className="bg-superficie-2/40">
+                    <th
+                      scope="colgroup"
+                      colSpan={columns.length}
+                      className="px-4 pt-4 pb-2 text-left text-label font-semibold text-texto"
+                    >
+                      {grupo}
+                    </th>
+                  </tr>
+                )}
                 <tr
-                  key={key}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
                   onContextMenu={
                     onRowContextMenu
@@ -95,6 +115,7 @@ export function DataTable<T>({
                     </td>
                   ))}
                 </tr>
+                </React.Fragment>
               );
             })}
           </tbody>

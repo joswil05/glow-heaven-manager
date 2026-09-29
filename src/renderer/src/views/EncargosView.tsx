@@ -1,14 +1,35 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ClipboardList, Plus, Search, X } from 'lucide-react';
+import { ClipboardList, MoreVertical, Plus, Search, X } from 'lucide-react';
 import type { ClienteDetalle, ParametrosSistema, Venta, VentaCompleta, EstadoVenta, OpcionesAnulacion } from '../../../shared/types';
-import { Badge, Button, DataTable, StatTile, type Column, type Tone } from '../components/ui';
+import {
+  Badge,
+  Button,
+  Confirmar,
+  ContextMenu,
+  DataTable,
+  type Column,
+  type ContextMenuItem,
+  type Tone,
+} from '../components/ui';
 import { EmptyState } from '../components/shared/EmptyState';
 import { PagoModal } from '../components/PagoModal';
 import { DocumentoModal } from '../components/DocumentoModal';
 import { CotizarEncargoModal } from './ventas/CotizarEncargoModal';
 import { AnularEncargoModal } from './ventas/AnularEncargoModal';
 import { NuevoEncargoModal } from './encargos/NuevoEncargoModal';
-import { etapaEncargo, textoEtapa, estadoPieza, sinPrecio, quePidio, type EtapaEncargo } from '@core/encargos';
+import { MandarCotizacionModal } from './encargos/MandarCotizacionModal';
+import { AceptarEncargoModal } from './encargos/AceptarEncargoModal';
+import {
+  etapaEncargo,
+  textoEtapa,
+  estadoPieza,
+  sinPrecio,
+  quePidio,
+  descartable,
+  piezasVivas,
+  FASES_EN_CURSO,
+  type EtapaEncargo,
+} from '@core/encargos';
 import { formatearMoneda, formatearFecha } from '@core/moneda';
 import { hoyISO } from '@core/fechas';
 import { algunoContiene } from '@core/texto';
@@ -18,17 +39,19 @@ import { useClickOutside } from '../lib/useClickOutside';
 import { cn } from '../lib/cn';
 
 /**
- * Encargos: lo que las clientas pidieron, en qué va cada uno y qué hay que
- * hacer después.
+ * Encargos, por fases: lo que las clientas pidieron y qué toca hacer con cada
+ * uno. El camino es el de Ross: buscarlo, mandarle la cotización, esperar que
+ * diga que sí, comprarlo, que llegue, entregarlo.
  *
- * Antes era la pantalla de ventas con un interruptor: siete filtros, un
- * período que escondía encargos viejos todavía en curso, y un detalle con
- * cinco botones sin decir cuál tocaba. Acá:
- *   · "En curso" muestra todo lo que falta terminar, sin importar la fecha;
- *     las tarjetas de arriba lo separan por lo que hay que hacer.
- *   · cada fila dice qué pidió;
- *   · el detalle tiene UN botón principal, el siguiente paso, y lo demás
- *     queda como enlaces chicos.
+ *   · Una sola barra de fases (antes, cinco tarjetas y tres pestañas que
+ *     filtraban lo mismo de dos formas). Sin fase elegida, la lista sale
+ *     agrupada en el orden del camino.
+ *   · Cada fila dice qué pidió y en qué va ("Esperando respuesta · hace 3
+ *     días"), con un solo botón visible: el "⋮".
+ *   · El detalle muestra en qué fase va, sus piezas, la plata y UN botón: lo
+ *     que toca ahora. Lo demás está en "Más".
+ *
+ * Ver `docs/PLAN_ENCARGOS_Y_SIN_CONEXION.md`, sección 2.6.
  */
 interface EncargosViewProps {
   clientes: ClienteDetalle[];
@@ -38,21 +61,24 @@ interface EncargosViewProps {
   onCambio: () => void;
 }
 
-type Vista = 'EN_CURSO' | 'ENTREGADOS' | 'ANULADOS';
+type Vista = 'EN_CURSO' | 'CERRADOS';
+type Cerrados = 'ENTREGADA' | 'CANCELADA';
 
-/** Las etapas en las que hay algo que hacer, en el orden en que pasan. */
-const ETAPAS: { etapa: EtapaEncargo; titulo: string; hint: string }[] = [
-  { etapa: 'POR_BUSCAR', titulo: 'Por buscar', hint: 'Esperan precio' },
-  { etapa: 'POR_MANDAR', titulo: 'Por mandar', hint: 'Falta mandarla' },
-  { etapa: 'ESPERANDO', titulo: 'Esperando', hint: 'Que responda' },
-  { etapa: 'POR_COMPRAR', titulo: 'Por comprar', hint: 'Ya confirmados' },
-  { etapa: 'EN_CAMINO', titulo: 'En camino', hint: 'Comprados' },
-  { etapa: 'POR_ENTREGAR', titulo: 'Por entregar', hint: 'Ya llegaron' },
-];
+/** Cada fase: corta en la barra, entera como título de su grupo. */
+const FASE: Record<EtapaEncargo, { barra: string; titulo: string }> = {
+  POR_BUSCAR: { barra: 'Por buscar', titulo: 'Por buscar' },
+  POR_MANDAR: { barra: 'Por mandar', titulo: 'Por mandar la cotización' },
+  ESPERANDO: { barra: 'Esperando', titulo: 'Esperando respuesta' },
+  POR_COMPRAR: { barra: 'Por comprar', titulo: 'Por comprar' },
+  EN_CAMINO: { barra: 'En camino', titulo: 'En camino' },
+  POR_ENTREGAR: { barra: 'Por entregar', titulo: 'Por entregar' },
+  ENTREGADO: { barra: 'Entregados', titulo: 'Entregados' },
+  ANULADO: { barra: 'No se concretaron', titulo: 'No se concretaron' },
+};
 
 const TONO: Record<EtapaEncargo, Tone> = {
   POR_BUSCAR: 'purple',
-  POR_MANDAR: 'neutral',
+  POR_MANDAR: 'warning',
   ESPERANDO: 'neutral',
   POR_COMPRAR: 'warning',
   EN_CAMINO: 'info',
@@ -72,6 +98,25 @@ const queDe = (v: Venta | VentaCompleta) => v.que_pidio ?? ('lineas' in v && v.l
 /** Sin ningún precio todavía: no hay total, deuda ni ganancia que mostrar. */
 const sinTotal = (v: Venta) => etapaEncargo(v) === 'POR_BUSCAR' && (v.total_usd_cents || 0) === 0;
 
+/** Una píldora de la barra de fases, activa o no. */
+const pildora = (activa: boolean, apagada = false) =>
+  cn(
+    'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-label transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento',
+    activa
+      ? 'bg-superficie text-texto font-semibold shadow-xs border border-borde/50'
+      : apagada
+        ? 'text-texto-3/70 hover:text-texto'
+        : 'text-texto-2 hover:text-texto'
+  );
+
+interface Paso {
+  texto: string;
+  accion: () => void;
+  nota?: string;
+  /** Un segundo botón, cuando la fase tiene dos salidas ("No aceptó"). */
+  otro?: { texto: string; accion: () => void };
+}
+
 export const EncargosView: React.FC<EncargosViewProps> = ({
   clientes,
   parametros,
@@ -84,15 +129,22 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
   const [cerrados, setCerrados] = useState<Venta[] | null>(null);
   const [cargando, setCargando] = useState(true);
   const [vista, setVista] = useState<Vista>('EN_CURSO');
-  const [etapa, setEtapa] = useState<EtapaEncargo | null>(null);
+  const [cerradosDe, setCerradosDe] = useState<Cerrados>('ENTREGADA');
+  const [fase, setFase] = useState<EtapaEncargo | null>(null);
   const [busqueda, setBusqueda] = useState('');
   const [detalle, setDetalle] = useState<VentaCompleta | null>(null);
   const [nuevoAbierto, setNuevoAbierto] = useState(abrirNuevoAlEntrar);
   const [cotizando, setCotizando] = useState<VentaCompleta | null>(null);
+  const [mandando, setMandando] = useState<VentaCompleta | null>(null);
+  const [aceptando, setAceptando] = useState<VentaCompleta | null>(null);
   const [anulando, setAnulando] = useState<VentaCompleta | null>(null);
+  const [comprando, setComprando] = useState<{ venta: VentaCompleta; ids: number[] } | null>(null);
   const [pagoAbierto, setPagoAbierto] = useState(false);
   const [documentoAbierto, setDocumentoAbierto] = useState(false);
+  const [verPagos, setVerPagos] = useState(false);
+  const [menu, setMenu] = useState<{ x: number; y: number; items: (ContextMenuItem | 'separator')[] } | null>(null);
 
+  const hoy = hoyISO();
   const lateralRef = useClickOutside<HTMLElement>(Boolean(detalle), () => setDetalle(null));
 
   // En curso: todos, sin importar la fecha. Un encargo de hace tres meses que
@@ -125,12 +177,11 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
     setCargando(true);
     try {
       await cargarActivos();
-      if (vista === 'ENTREGADOS') await cargarCerrados('ENTREGADA');
-      if (vista === 'ANULADOS') await cargarCerrados('CANCELADA');
+      if (vista === 'CERRADOS') await cargarCerrados(cerradosDe);
     } finally {
       setCargando(false);
     }
-  }, [vista, cargarActivos, cargarCerrados]);
+  }, [vista, cerradosDe, cargarActivos, cargarCerrados]);
 
   useEffect(() => {
     cargar();
@@ -138,7 +189,10 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
 
   const abrirDetalle = useCallback(async (id: number) => {
     const r = await window.api.ventas.get(id);
-    if (r.success && r.data) setDetalle(r.data);
+    if (r.success && r.data) {
+      setDetalle(r.data);
+      setVerPagos(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -159,20 +213,38 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
     [cargar, abrirDetalle, onCambio]
   );
 
+  /** Lo que se hace sobre una fila de la lista, que viene sin sus piezas. */
+  const conCompleta = useCallback(
+    async (id: number, fn: (v: VentaCompleta) => void) => {
+      const r = await window.api.ventas.get(id);
+      if (r.success && r.data) fn(r.data);
+      else if (!r.success) showToast({ message: r.error, type: 'error' });
+    },
+    [showToast]
+  );
+
   const cuenta = useMemo(() => {
     const c = new Map<EtapaEncargo, number>();
     for (const v of activos) c.set(etapaEncargo(v), (c.get(etapaEncargo(v)) ?? 0) + 1);
     return c;
   }, [activos]);
 
+  const agrupada = vista === 'EN_CURSO' && !fase;
+
   const filas = useMemo(() => {
     let lista = vista === 'EN_CURSO' ? activos : (cerrados ?? []);
-    if (vista === 'EN_CURSO' && etapa) lista = lista.filter((v) => etapaEncargo(v) === etapa);
+    if (vista === 'EN_CURSO' && fase) lista = lista.filter((v) => etapaEncargo(v) === fase);
     if (busqueda.trim()) {
       lista = lista.filter((v) => algunoContiene([v.cliente_nombre, v.codigo, v.que_pidio], busqueda));
     }
+    // Agrupada, en el orden del camino; dentro de cada fase, lo más nuevo arriba.
+    if (agrupada) {
+      lista = [...lista].sort(
+        (a, b) => FASES_EN_CURSO.indexOf(etapaEncargo(a)) - FASES_EN_CURSO.indexOf(etapaEncargo(b))
+      );
+    }
     return lista;
-  }, [vista, activos, cerrados, etapa, busqueda]);
+  }, [vista, activos, cerrados, fase, busqueda, agrupada]);
 
   // ---------------------------------------------------------------------------
   // Acciones
@@ -200,25 +272,65 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
     await refrescar(v.id);
   };
 
-  /** El siguiente paso de un encargo: un solo botón, lo que toca ahora. */
-  const siguientePaso = (v: VentaCompleta): { texto: string; accion: () => void; nota?: string } | null => {
+  /**
+   * "Ya lo compré". Si aceptó y el anticipo no está cubierto, lo dice antes,
+   * sin impedirlo: ella decide si compra con la palabra de la clienta.
+   */
+  const comprar = (v: VentaCompleta, ids: number[]) => {
+    const sinAnticipo = v.estado === 'PENDIENTE' && v.pagado_usd_cents < v.anticipo_esperado_usd_cents;
+    if (sinAnticipo) setComprando({ venta: v, ids });
+    else void marcarCompradas(v, ids, true);
+  };
+
+  const descartar = async (v: VentaCompleta, id: number, descartarla: boolean) => {
+    const pieza = v.lineas.find((l) => l.id === id);
+    const r = await window.api.ventas.descartarPiezas(v.id, [id], descartarla);
+    if (!r.success) {
+      showToast({ message: r.error, type: 'error' });
+      return;
+    }
+    showUndoToast(
+      descartarla ? `'${pieza?.descripcion ?? 'La pieza'}' no se consiguió` : `'${pieza?.descripcion ?? 'La pieza'}' se vuelve a buscar`,
+      () => refrescar(v.id),
+      r.data.evento_grupo_id
+    );
+    await refrescar(v.id);
+  };
+
+  /** El siguiente paso de un encargo: lo que toca ahora, en un solo botón. */
+  const siguientePaso = (v: VentaCompleta): Paso | null => {
     const e = etapaEncargo(v);
     const porComprar = v.lineas.filter((l) => estadoPieza(l) === 'POR_COMPRAR');
     switch (e) {
       case 'POR_BUSCAR':
-        return { texto: 'Cotizar', accion: () => setCotizando(v), nota: 'Ponele precio cuando lo encuentres.' };
+        if (v.piezas && piezasVivas(v.piezas) <= 0) {
+          return { texto: 'Cerrar: no se consiguió', accion: () => setAnulando(v) };
+        }
+        return {
+          texto: 'Cotizar',
+          accion: () => setCotizando(v),
+          nota: 'Ponele precio cuando lo encuentres, o marcá lo que no se consiguió.',
+        };
       case 'POR_MANDAR':
+        return {
+          texto: 'Mandar cotización',
+          accion: () => setMandando(v),
+          nota: v.cotizacion_enviada_el ? 'Cambió el precio: la que tiene la clienta quedó vieja.' : undefined,
+        };
       case 'ESPERANDO':
         return {
-          texto: 'Registrar anticipo',
-          accion: () => setPagoAbierto(true),
-          nota: `Se confirma con ${$(v.anticipo_esperado_usd_cents)}.`,
+          texto: 'Aceptó',
+          accion: () => setAceptando(v),
+          otro: { texto: 'No aceptó', accion: () => setAnulando(v) },
         };
       case 'POR_COMPRAR':
         return {
           texto: porComprar.length > 1 ? 'Ya compré todo' : 'Ya lo compré',
-          accion: () => marcarCompradas(v, porComprar.map((l) => l.id), true),
-          nota: 'Cuando llegue el paquete, se agrega ahí.',
+          accion: () => comprar(v, porComprar.map((l) => l.id)),
+          nota:
+            v.pagado_usd_cents < v.anticipo_esperado_usd_cents
+              ? `Todavía no pagó el anticipo de ${$(v.anticipo_esperado_usd_cents)}.`
+              : 'Cuando llegue el paquete, se agrega ahí.',
         };
       case 'EN_CAMINO':
         return null;
@@ -235,14 +347,73 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
     }
   };
 
+  /** Lo demás que se puede hacer con un encargo: el menú "Más" y el "⋮". */
+  const otrasAcciones = (v: VentaCompleta, conDetalle: boolean): (ContextMenuItem | 'separator')[] => {
+    const e = etapaEncargo(v);
+    const vivo = v.estado === 'COTIZADA' || v.estado === 'PENDIENTE';
+    const principal = siguientePaso(v);
+    const telefono = clientes.find((c) => c.id === v.cliente_id)?.telefono;
+    const items: (ContextMenuItem | 'separator')[] = [];
+    if (conDetalle) items.push({ id: 'detalle', label: 'Ver detalle', onClick: () => void abrirDetalle(v.id) });
+    if (conDetalle && principal) {
+      items.push({ id: 'principal', label: principal.texto, tone: 'success', onClick: principal.accion });
+    }
+    if (e === 'ESPERANDO') items.push({ id: 'mandar', label: 'Mandarla otra vez', onClick: () => setMandando(v) });
+    if (vivo && e !== 'POR_BUSCAR' && (v.estado === 'COTIZADA' || (v.piezas?.sin_precio ?? 0) > 0)) {
+      items.push({ id: 'precios', label: 'Cambiar precios', onClick: () => setCotizando(v) });
+    }
+    if (!sinTotal(v)) {
+      items.push({
+        id: 'proforma',
+        label: 'Proforma',
+        onClick: () => {
+          setDetalle(v);
+          setDocumentoAbierto(true);
+        },
+      });
+    }
+    if (telefono) {
+      items.push({
+        id: 'whatsapp',
+        label: 'WhatsApp',
+        onClick: () =>
+          window.open(
+            enlaceWhatsApp(telefono, v.cliente_nombre ?? '', v.estado === 'CANCELADA' ? 0 : v.saldo_usd_cents, parametros),
+            '_blank'
+          ),
+      });
+    }
+    if (v.estado !== 'CANCELADA' && v.saldo_usd_cents > 0 && principal?.texto !== 'Registrar abono') {
+      items.push({
+        id: 'abono',
+        label: 'Registrar abono',
+        onClick: () => {
+          setDetalle(v);
+          setPagoAbierto(true);
+        },
+      });
+    }
+    if (vivo) {
+      items.push('separator', { id: 'anular', label: 'Anular…', tone: 'danger', onClick: () => setAnulando(v) });
+    }
+    return items;
+  };
+
+  const abrirMenu = (e: React.MouseEvent, id: number, conDetalle: boolean) => {
+    e.stopPropagation();
+    const { clientX: x, clientY: y } = e;
+    void conCompleta(id, (v) => setMenu({ x, y, items: otrasAcciones(v, conDetalle) }));
+  };
+
   /** De dónde sale cada pieza, en palabras. */
   const dondeEsta = (l: VentaCompleta['lineas'][number]) => {
     const e = estadoPieza(l);
+    if (e === 'DESCARTADA') return 'No se consiguió';
     if (e === 'LLEGO') return `Llegó en ${l.compra_codigo ?? 'su paquete'}${l.llego_el ? ` el ${formatearFecha(l.llego_el)}` : ''}`;
     if (e === 'EN_CAMINO') return `Viene en ${l.compra_codigo ?? 'un paquete'}`;
     if (e === 'COMPRADA') return `Comprado${l.comprado_el ? ` el ${formatearFecha(l.comprado_el)}` : ''}, espera paquete`;
     if (e === 'DE_BODEGA') return 'Sale de la bodega';
-    return 'Por comprar';
+    return sinPrecio(l) ? 'Por buscar' : 'Por comprar';
   };
 
   // ---------------------------------------------------------------------------
@@ -264,12 +435,12 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
       ),
     },
     {
-      key: 'etapa',
-      header: 'Estado',
-      width: '200px',
+      key: 'fase',
+      header: 'En qué va',
+      width: '240px',
       render: (v) => (
         <Badge tone={TONO[etapaEncargo(v)]} className="font-medium whitespace-nowrap">
-          {textoEtapa(v, hoyISO())}
+          {textoEtapa(v, hoy)}
         </Badge>
       ),
     },
@@ -283,10 +454,10 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
       key: 'total',
       header: 'Total',
       align: 'right',
-      width: '120px',
+      width: '110px',
       render: (v) =>
         sinTotal(v) ? (
-          <span className="text-caption text-texto-3">Por cotizar</span>
+          <span className="text-caption text-texto-3">Sin precio</span>
         ) : (
           <span className="text-body text-texto tabular">{$(v.total_usd_cents)}</span>
         ),
@@ -295,7 +466,7 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
       key: 'debe',
       header: 'Debe',
       align: 'right',
-      width: '120px',
+      width: '110px',
       render: (v) =>
         v.estado === 'CANCELADA' || sinTotal(v) || v.saldo_usd_cents <= 0 ? (
           <span className="text-caption text-texto-3">—</span>
@@ -303,74 +474,84 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
           <span className="text-body font-semibold text-alerta tabular">{$(v.saldo_usd_cents)}</span>
         ),
     },
+    {
+      key: 'menu',
+      header: '',
+      align: 'right',
+      width: '52px',
+      render: (v) => (
+        <button
+          type="button"
+          onClick={(e) => abrirMenu(e, v.id, true)}
+          aria-label={`Opciones de ${v.codigo}`}
+          className="p-1 rounded-lg text-texto-3 hover:text-texto h-7 w-7 inline-flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento"
+        >
+          <MoreVertical className="w-3.5 h-3.5" />
+        </button>
+      ),
+    },
   ];
 
   const paso = detalle ? siguientePaso(detalle) : null;
-  const telefono = detalle ? clientes.find((c) => c.id === detalle.cliente_id)?.telefono : undefined;
-  const hayPiezasPorComprar = (detalle?.lineas ?? []).filter((l) => estadoPieza(l) === 'POR_COMPRAR').length;
+  const etapaDetalle = detalle ? etapaEncargo(detalle) : null;
+  const vivoDetalle = detalle ? detalle.estado === 'COTIZADA' || detalle.estado === 'PENDIENTE' : false;
+  // La pieza que el botón principal ya cubre no repite su acción al lado.
+  const porComprarDetalle = (detalle?.lineas ?? []).filter((l) => estadoPieza(l) === 'POR_COMPRAR' && !sinPrecio(l));
+  const indiceFase = etapaDetalle ? FASES_EN_CURSO.indexOf(etapaDetalle) : -1;
+
+  const elegirFase = (f: EtapaEncargo) => {
+    setVista('EN_CURSO');
+    setFase(vista === 'EN_CURSO' && fase === f ? null : f);
+  };
 
   return (
     <div className="flex-1 flex overflow-hidden">
       <div className="flex-1 overflow-y-auto p-4 md:px-6 md:py-4 animate-fade-in">
         <div className="max-w-[1500px] w-full mx-auto space-y-4">
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            <span className="text-label text-texto-3 tabular">
-              {activos.length} en curso
-            </span>
+            <span className="text-label text-texto-3 tabular">{activos.length} en curso</span>
             <Button variant="primary" size="sm" className="rounded-xl shadow-xs" onClick={() => setNuevoAbierto(true)}>
               <Plus className="w-4 h-4" />
               <span>Nuevo encargo</span>
             </Button>
           </div>
 
-          {/* Lo que hay que hacer, por etapa. Tocar una tarjeta filtra. */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            {ETAPAS.map((x) => (
-              <StatTile
-                key={x.etapa}
-                label={x.titulo}
-                value={cuenta.get(x.etapa) ?? 0}
-                hint={x.hint}
-                onClick={() => {
-                  setVista('EN_CURSO');
-                  setEtapa(etapa === x.etapa ? null : x.etapa);
-                }}
-                className={cn(etapa === x.etapa && vista === 'EN_CURSO' && 'ring-2 ring-acento/60')}
-              />
-            ))}
-          </div>
-
+          {/* Las fases, en el orden en que pasan. Tocar una filtra; tocarla
+              otra vez vuelve a mostrar todo, agrupado. */}
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div
-              className="inline-flex items-center p-1 bg-superficie-2/80 rounded-xl border border-borde/70 w-fit"
+              className="inline-flex items-center gap-0.5 p-1 bg-superficie-2/80 rounded-xl border border-borde/70 flex-wrap"
               role="group"
-              aria-label="Qué encargos ver"
+              aria-label="Fases"
             >
-              {(
-                [
-                  { id: 'EN_CURSO', texto: 'En curso' },
-                  { id: 'ENTREGADOS', texto: 'Entregados' },
-                  { id: 'ANULADOS', texto: 'Anulados' },
-                ] as { id: Vista; texto: string }[]
-              ).map((f) => (
-                <button
-                  key={f.id}
-                  onClick={() => {
-                    setVista(f.id);
-                    setEtapa(null);
-                    setCerrados(null);
-                  }}
-                  aria-pressed={vista === f.id}
-                  className={cn(
-                    'px-3.5 py-1.5 rounded-lg text-label transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento',
-                    vista === f.id
-                      ? 'bg-superficie text-texto font-semibold shadow-xs border border-borde/50'
-                      : 'text-texto-3 hover:text-texto'
-                  )}
-                >
-                  {f.texto}
-                </button>
-              ))}
+              {FASES_EN_CURSO.map((f) => {
+                const n = cuenta.get(f) ?? 0;
+                return (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => elegirFase(f)}
+                    aria-pressed={vista === 'EN_CURSO' && fase === f}
+                    className={pildora(vista === 'EN_CURSO' && fase === f, n === 0)}
+                  >
+                    <span>{FASE[f].barra}</span>
+                    <span className="tabular text-caption text-texto-3">{n}</span>
+                  </button>
+                );
+              })}
+              <span className="w-px h-5 bg-borde mx-1" aria-hidden="true" />
+              <button
+                type="button"
+                onClick={() => {
+                  setVista(vista === 'CERRADOS' ? 'EN_CURSO' : 'CERRADOS');
+                  setFase(null);
+                  setCerrados(null);
+                }}
+                aria-pressed={vista === 'CERRADOS'}
+                className={pildora(vista === 'CERRADOS')}
+              >
+                Cerrados
+              </button>
             </div>
 
             <div className="relative flex-1 min-w-[220px] max-w-sm">
@@ -396,27 +577,55 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
             </div>
           </div>
 
+          {vista === 'CERRADOS' && (
+            <div className="inline-flex rounded-lg bg-superficie-2 p-0.5" role="radiogroup" aria-label="Qué cerrados ver">
+              {(
+                [
+                  { id: 'ENTREGADA', texto: 'Entregados' },
+                  { id: 'CANCELADA', texto: 'No se concretaron' },
+                ] as { id: Cerrados; texto: string }[]
+              ).map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={cerradosDe === c.id}
+                  onClick={() => {
+                    setCerradosDe(c.id);
+                    setCerrados(null);
+                  }}
+                  className={cn(
+                    'rounded-md px-3 py-1 text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento',
+                    cerradosDe === c.id ? 'bg-superficie text-texto font-medium shadow-2xs' : 'text-texto-3 hover:text-texto'
+                  )}
+                >
+                  {c.texto}
+                </button>
+              ))}
+            </div>
+          )}
+
           {cargando && filas.length === 0 ? (
             <div className="p-12 text-center text-body text-texto-3">Cargando encargos…</div>
           ) : filas.length === 0 ? (
             <EmptyState
               icon={ClipboardList}
               title={
-                busqueda || etapa
+                busqueda || fase
                   ? 'Nada con ese filtro'
                   : vista === 'EN_CURSO'
                     ? 'No hay encargos en curso'
-                    : vista === 'ENTREGADOS'
+                    : cerradosDe === 'ENTREGADA'
                       ? 'Todavía no se entregó ninguno'
-                      : 'No hay encargos anulados'
+                      : 'Ninguno quedó sin concretarse'
               }
               description={
-                vista === 'EN_CURSO' && !busqueda && !etapa
+                vista === 'EN_CURSO' && !busqueda && !fase
                   ? 'Anotá lo que te pide una clienta, aunque todavía no sepas cuánto vale.'
                   : 'Probá con otra búsqueda.'
               }
               action={
-                vista === 'EN_CURSO' && !busqueda && !etapa ? (
+                vista === 'EN_CURSO' && !busqueda && !fase ? (
                   <Button variant="primary" size="sm" onClick={() => setNuevoAbierto(true)}>
                     <Plus className="w-4 h-4" />
                     <span>Nuevo encargo</span>
@@ -430,16 +639,25 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
               rows={filas}
               rowKey={(v) => v.id}
               selectedKey={detalle?.id}
+              grupoDe={
+                agrupada
+                  ? (v) => {
+                      const f = etapaEncargo(v);
+                      return `${FASE[f].titulo} · ${cuenta.get(f) ?? 0}`;
+                    }
+                  : undefined
+              }
               onRowClick={(v) => (detalle?.id === v.id ? setDetalle(null) : abrirDetalle(v.id))}
+              onRowContextMenu={(v, e) => abrirMenu(e, v.id, true)}
             />
           )}
-          {vista !== 'EN_CURSO' && (cerrados?.length ?? 0) >= CERRADOS && (
+          {vista === 'CERRADOS' && (cerrados?.length ?? 0) >= CERRADOS && (
             <p className="text-caption text-texto-3 text-center">Se muestran los más recientes. Buscá por clienta para ver uno anterior en su ficha.</p>
           )}
         </div>
       </div>
 
-      {detalle && (
+      {detalle && etapaDetalle && (
         <aside
           ref={lateralRef}
           className="w-[400px] border-l border-borde bg-superficie flex flex-col shrink-0 animate-drawer shadow-xl z-10"
@@ -447,14 +665,7 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
         >
           <div className="p-5 border-b border-borde flex items-start justify-between gap-3 shrink-0">
             <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-title font-bold text-texto tracking-tight truncate">
-                  {detalle.cliente_nombre ?? 'Sin clienta'}
-                </h3>
-                <Badge tone={TONO[etapaEncargo(detalle)]} className="text-[11px] whitespace-nowrap">
-                  {textoEtapa(detalle, hoyISO())}
-                </Badge>
-              </div>
+              <h3 className="text-title font-bold text-texto tracking-tight truncate">{detalle.cliente_nombre ?? 'Sin clienta'}</h3>
               <p className="text-caption text-texto-3 tabular mt-0.5">
                 {detalle.codigo} · pedido el {formatearFecha(detalle.fecha)}
               </p>
@@ -465,27 +676,62 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
           </div>
 
           <div className="flex-1 overflow-y-auto p-5 space-y-5">
-            {/* Qué pidió, y dónde está cada pieza */}
+            {/* En qué va: seis puntos, los hechos llenos. */}
+            <div className="space-y-2">
+              {indiceFase >= 0 || etapaDetalle === 'ENTREGADO' ? (
+                <ol className="flex items-center gap-1.5" aria-label="En qué va">
+                  {FASES_EN_CURSO.map((f, i) => {
+                    const hecha = etapaDetalle === 'ENTREGADO' || i < indiceFase;
+                    const actual = i === indiceFase;
+                    return (
+                      <li
+                        key={f}
+                        aria-current={actual ? 'step' : undefined}
+                        aria-label={`${FASE[f].titulo}${hecha ? ': hecho' : actual ? ': ahora' : ''}`}
+                        className={cn(
+                          'h-1.5 flex-1 rounded-full',
+                          hecha ? 'bg-acento' : actual ? 'bg-acento/50' : 'bg-superficie-2'
+                        )}
+                      />
+                    );
+                  })}
+                </ol>
+              ) : null}
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge tone={TONO[etapaDetalle]} className="text-[11px] whitespace-nowrap">
+                  {textoEtapa(detalle, hoy)}
+                </Badge>
+                {indiceFase >= 0 && (
+                  <span className="text-caption text-texto-3 tabular">
+                    Fase {indiceFase + 1} de {FASES_EN_CURSO.length}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Qué pidió, y dónde está cada pieza, con su acción. */}
             <ul className="space-y-3">
               {detalle.lineas.map((l) => {
                 const e = estadoPieza(l);
-                const vivo = detalle.estado === 'COTIZADA' || detalle.estado === 'PENDIENTE';
+                const precioAparte = porComprarDetalle.length > 1 || etapaDetalle !== 'POR_COMPRAR';
                 return (
                   <li key={l.id} className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-body text-texto">{l.descripcion}</p>
-                      <p className="text-caption text-texto-3 tabular">
-                        {sinPrecio(l) ? `${l.cantidad} · sin precio` : `${l.cantidad} × ${$(l.precio_unitario_usd_cents)}`}
+                      <p className={cn('text-body', e === 'DESCARTADA' ? 'text-texto-3 line-through' : 'text-texto')}>
+                        {l.descripcion}
                       </p>
-                      {vivo && (
-                        <p className="text-caption text-texto-2 flex items-center gap-2 flex-wrap">
+                      {e !== 'DESCARTADA' && (
+                        <p className="text-caption text-texto-3 tabular">
+                          {sinPrecio(l) ? `${l.cantidad} · sin precio` : `${l.cantidad} × ${$(l.precio_unitario_usd_cents)}`}
+                        </p>
+                      )}
+                      {vivoDetalle && (
+                        <p className="text-caption text-texto-2 flex items-center gap-x-2 gap-y-0.5 flex-wrap">
                           <span>{dondeEsta(l)}</span>
-                          {/* Con varias piezas se compran por separado; con una,
-                              lo hace el botón principal. */}
-                          {e === 'POR_COMPRAR' && hayPiezasPorComprar > 1 && (
+                          {e === 'POR_COMPRAR' && !sinPrecio(l) && precioAparte && (
                             <button
                               type="button"
-                              onClick={() => marcarCompradas(detalle, [l.id], true)}
+                              onClick={() => comprar(detalle, [l.id])}
                               className="text-acento font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento rounded"
                             >
                               Ya lo compré
@@ -500,11 +746,29 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
                               Desmarcar
                             </button>
                           )}
+                          {descartable(l) && (
+                            <button
+                              type="button"
+                              onClick={() => descartar(detalle, l.id, true)}
+                              className="text-texto-3 hover:text-texto hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento rounded"
+                            >
+                              No se consiguió
+                            </button>
+                          )}
+                          {e === 'DESCARTADA' && (
+                            <button
+                              type="button"
+                              onClick={() => descartar(detalle, l.id, false)}
+                              className="text-texto-3 hover:text-texto hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento rounded"
+                            >
+                              Volver a buscar
+                            </button>
+                          )}
                         </p>
                       )}
                     </div>
-                    <span className="text-body text-texto tabular shrink-0">
-                      {sinPrecio(l) ? '—' : $(l.subtotal_usd_cents)}
+                    <span className={cn('text-body tabular shrink-0', e === 'DESCARTADA' ? 'text-texto-3' : 'text-texto')}>
+                      {e === 'DESCARTADA' || sinPrecio(l) ? '—' : $(l.subtotal_usd_cents)}
                     </span>
                   </li>
                 );
@@ -531,78 +795,63 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
 
             {detalle.notas && <p className="text-label text-texto-2 whitespace-pre-line">{detalle.notas}</p>}
 
-            {/* El siguiente paso */}
+            {/* Lo que toca ahora */}
             <div className="space-y-2">
               {paso ? (
-                <Button variant="primary" className="w-full" onClick={paso.accion}>
-                  {paso.texto}
-                </Button>
-              ) : etapaEncargo(detalle) === 'EN_CAMINO' ? (
-                <p className="text-label text-texto-2 text-center rounded-lg bg-superficie-2 p-3">
-                  Se entrega cuando llegue todo.
-                </p>
+                <div className="flex gap-2">
+                  <Button variant="primary" className="flex-1" onClick={paso.accion}>
+                    {paso.texto}
+                  </Button>
+                  {paso.otro && (
+                    <Button variant="secondary" onClick={paso.otro.accion}>
+                      {paso.otro.texto}
+                    </Button>
+                  )}
+                </div>
+              ) : etapaDetalle === 'EN_CAMINO' ? (
+                <p className="text-label text-texto-2 text-center rounded-lg bg-superficie-2 p-3">Se entrega cuando llegue todo.</p>
               ) : null}
               {paso?.nota && <p className="text-caption text-texto-3 text-center">{paso.nota}</p>}
             </div>
 
-            {/* Lo demás, chico */}
-            <div className="flex items-center justify-center gap-x-4 gap-y-2 flex-wrap text-label">
-              {!sinTotal(detalle) && (
-                <button type="button" onClick={() => setDocumentoAbierto(true)} className="text-texto-2 hover:text-texto hover:underline">
-                  Proforma
-                </button>
-              )}
-              {telefono && (
+            {/* Lo demás */}
+            <div className="flex items-center justify-between gap-3">
+              {(detalle.pagos ?? []).length > 0 ? (
                 <button
                   type="button"
-                  onClick={() =>
-                    window.open(
-                      enlaceWhatsApp(telefono, detalle.cliente_nombre ?? '', detalle.estado === 'CANCELADA' ? 0 : detalle.saldo_usd_cents, parametros),
-                      '_blank'
-                    )
-                  }
-                  className="text-texto-2 hover:text-texto hover:underline"
+                  onClick={() => setVerPagos((x) => !x)}
+                  aria-expanded={verPagos}
+                  className="text-label text-texto-2 hover:text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento rounded"
                 >
-                  WhatsApp
+                  Pagos ({detalle.pagos.length})
                 </button>
+              ) : (
+                <span />
               )}
-              {detalle.estado === 'COTIZADA' && etapaEncargo(detalle) !== 'POR_BUSCAR' && (
-                <button type="button" onClick={() => setCotizando(detalle)} className="text-texto-2 hover:text-texto hover:underline">
-                  Cambiar precios
-                </button>
-              )}
-              {detalle.estado !== 'CANCELADA' && detalle.saldo_usd_cents > 0 && paso?.texto !== 'Registrar anticipo' && paso?.texto !== 'Registrar abono' && (
-                <button type="button" onClick={() => setPagoAbierto(true)} className="text-texto-2 hover:text-texto hover:underline">
-                  Registrar abono
-                </button>
-              )}
-              {detalle.estado !== 'CANCELADA' && (
-                <button type="button" onClick={() => setAnulando(detalle)} className="text-texto-3 hover:text-danger-600 hover:underline">
-                  Anular
-                </button>
-              )}
+              <Button variant="ghost" size="sm" onClick={(e) => setMenu({ x: e.clientX, y: e.clientY, items: otrasAcciones(detalle, false) })}>
+                <MoreVertical className="w-4 h-4" />
+                <span>Más</span>
+              </Button>
             </div>
 
-            {/* Lo que pagó */}
-            {(detalle.pagos ?? []).length > 0 && (
-              <div className="space-y-1.5">
-                <p className="text-label font-medium text-texto">Pagos</p>
-                <ul className="space-y-1">
-                  {(detalle.pagos ?? []).map((p) => (
-                    <li key={p.id} className="flex items-center justify-between text-label tabular">
-                      <span className={cn('text-texto-2', !p.activo && 'line-through')}>
-                        {formatearFecha(p.fecha)}
-                        {p.es_anticipo ? ' · anticipo' : ''}
-                      </span>
-                      <span className={cn('text-texto', !p.activo && 'line-through text-texto-3')}>{$(p.monto_usd_cents)}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+            {verPagos && (
+              <ul className="space-y-1 animate-fila-nueva">
+                {detalle.pagos.map((p) => (
+                  <li key={p.id} className="flex items-center justify-between text-label tabular">
+                    <span className={cn('text-texto-2', !p.activo && 'line-through')}>
+                      {formatearFecha(p.fecha)}
+                      {p.es_anticipo ? ' · anticipo' : ''}
+                    </span>
+                    <span className={cn('text-texto', !p.activo && 'line-through text-texto-3')}>{$(p.monto_usd_cents)}</span>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
         </aside>
       )}
+
+      {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
 
       <NuevoEncargoModal
         abierto={nuevoAbierto}
@@ -622,10 +871,52 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
         onCerrar={() => setCotizando(null)}
       />
 
+      <MandarCotizacionModal
+        venta={mandando}
+        parametros={parametros}
+        telefono={mandando ? clientes.find((c) => c.id === mandando.cliente_id)?.telefono : undefined}
+        onMandada={(grupo) => {
+          const v = mandando;
+          showUndoToast(`${v?.codigo ?? ''}: cotización mandada`, () => refrescar(v?.id), grupo);
+          void refrescar(v?.id);
+        }}
+        onCerrar={() => setMandando(null)}
+      />
+
+      <AceptarEncargoModal
+        venta={aceptando}
+        parametros={parametros}
+        onAceptado={(grupo) => {
+          const v = aceptando;
+          showUndoToast(`${v?.codigo ?? ''}: aceptó`, () => refrescar(v?.id), grupo);
+          void refrescar(v?.id);
+        }}
+        onCerrar={() => setAceptando(null)}
+      />
+
       <AnularEncargoModal
         venta={anulando}
         onConfirmar={(opciones) => anulando && cambiarEstado(anulando, 'CANCELADA', opciones)}
         onCerrar={() => setAnulando(null)}
+      />
+
+      <Confirmar
+        abierto={comprando !== null}
+        titulo="¿Lo compraste igual?"
+        consecuencias={
+          comprando
+            ? [
+                comprando.venta.pagado_usd_cents > 0
+                  ? `${comprando.venta.cliente_nombre ?? 'La clienta'} pagó ${$(comprando.venta.pagado_usd_cents)} de un anticipo de ${$(comprando.venta.anticipo_esperado_usd_cents)}.`
+                  : `${comprando.venta.cliente_nombre ?? 'La clienta'} todavía no pagó el anticipo de ${$(comprando.venta.anticipo_esperado_usd_cents)}.`,
+                'Si después no lo quiere, la pieza queda para tu bodega.',
+              ]
+            : []
+        }
+        textoCancelar="Todavía no"
+        textoConfirmar="Sí, ya lo compré"
+        onConfirmar={() => comprando && void marcarCompradas(comprando.venta, comprando.ids, true)}
+        onCerrar={() => setComprando(null)}
       />
 
       <PagoModal

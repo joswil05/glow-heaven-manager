@@ -78,6 +78,29 @@ def se_ve_de_verdad(loc) -> bool:
     )
 
 
+def fila_de(page: Page, texto: str):
+    return page.locator("tr", has_text=texto).first
+
+
+def abrir_detalle(page: Page, texto: str) -> None:
+    """
+    Abre el detalle del encargo, si no está abierto ya.
+
+    Guardar un encargo nuevo deja abierto su detalle (lo que sigue es
+    cotizarlo), y tocar la fila de un detalle abierto lo cierra.
+    """
+    detalle = page.locator('aside[aria-label^="Encargo"]')
+    if detalle.count() > 0 and texto in detalle.first.inner_text():
+        return
+    fila_de(page, texto).click()
+    page.wait_for_timeout(700)
+
+
+def fase_de(page: Page, texto: str) -> str:
+    """El texto de la fila del encargo, para ver en qué fase va."""
+    return fila_de(page, texto).inner_text()
+
+
 def ir_a_ventas(page: Page) -> None:
     page.get_by_role("button", name="Ventas", exact=True).click()
     page.wait_for_timeout(1200)
@@ -477,7 +500,9 @@ def caso_encargo_en_camino(page: Page) -> list[str]:
     if page.get_by_role("button", name="Entregar", exact=True).count() > 0:
         fallas.append("se ofrece entregar un encargo con una pieza en camino")
 
-    page.get_by_role("button", name="Anular", exact=True).click()
+    # "Anular" está en "Más": no es lo que toca ahora, es una salida.
+    page.get_by_role("button", name="Más").click()
+    page.get_by_role("menuitem", name="Anular…").click()
     modal = page.get_by_role("alertdialog")
     try:
         modal.wait_for(timeout=5000)
@@ -584,8 +609,7 @@ def caso_pedido_sin_precio(page: Page) -> list[str]:
     fila = page.locator("tr", has_text="María López").filter(has_text="Por buscar")
     if fila.count() == 0:
         return fallas + ["el pedido no aparece 'Por buscar' en la lista"]
-    fila.first.click()
-    page.wait_for_timeout(800)
+    abrir_detalle(page, "Pedido sin precio")
     try:
         page.get_by_role("button", name="Cotizar", exact=True).click(timeout=4000)
     except Exception:
@@ -605,6 +629,107 @@ def caso_pedido_sin_precio(page: Page) -> list[str]:
     badge = page.locator("tr", has_text="María López").filter(has_text="Por mandar")
     if badge.count() == 0:
         fallas.append("cotizado, el encargo no pasa a 'Por mandar'")
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(300)
+    return fallas
+
+
+@caso("un encargo recorre sus fases: buscar, mandar, esperar, comprar, recibir, entregar")
+def caso_encargo_por_fases(page: Page) -> list[str]:
+    fallas: list[str] = []
+    page.get_by_role("button", name="Inicio", exact=False).first.click()
+    page.wait_for_timeout(400)
+    page.get_by_role("button", name="Encargos", exact=False).first.click()
+    page.wait_for_timeout(800)
+
+    # 1. Anotar: dos piezas, sin precio.
+    page.get_by_role("button", name="Nuevo encargo").first.click()
+    nuevo = page.get_by_role("dialog")
+    nuevo.get_by_label("Clienta").fill("Mar")
+    page.wait_for_timeout(400)
+    nuevo.get_by_role("button", name=re.compile("^María López")).first.click()
+    nuevo.get_by_label("Qué quiere 1").fill("Bolso fases")
+    nuevo.get_by_role("button", name="Otra pieza").click()
+    nuevo.get_by_label("Qué quiere 2").fill("Perfume fases")
+    nuevo.get_by_role("button", name="Guardar", exact=True).click()
+    page.wait_for_timeout(1000)
+    if "Por buscar" not in fase_de(page, "Bolso fases"):
+        return [f"anotado sin precio no queda 'Por buscar': {fase_de(page, 'Bolso fases')[:100]!r}"]
+
+    # 2. Cotizar una pieza; la otra no se consiguió.
+    abrir_detalle(page, "Bolso fases")
+    page.get_by_role("button", name="Cotizar", exact=True).click()
+    cotizar = page.get_by_role("dialog")
+    cotizar.get_by_role("button", name="No se consiguió").nth(1).click()
+    cotizar.get_by_label("En la tienda ($)").fill("30")
+    cotizar.get_by_label("Peso aprox. (lb)").fill("1")
+    page.wait_for_timeout(200)
+    cotizar.get_by_role("button", name="Usar").first.click()
+    cotizar.get_by_role("button", name="Guardar precios").click()
+    page.wait_for_timeout(1000)
+    if "Por mandar" not in fase_de(page, "Bolso fases"):
+        fallas.append(f"cotizado no queda 'Por mandar': {fase_de(page, 'Bolso fases')[:100]!r}")
+
+    # 3. Mandar: el mensaje nombra lo que no se consiguió.
+    page.get_by_role("button", name="Mandar cotización").click()
+    mandar = page.get_by_role("dialog")
+    mensaje = mandar.get_by_label("Mensaje para la clienta").input_value()
+    if "No logramos conseguir: Perfume fases" not in mensaje:
+        fallas.append("el mensaje no dice que el perfume no se consiguió")
+    mandar.get_by_role("button", name="Ya la mandé por otro lado").click()
+    page.wait_for_timeout(1000)
+    if "Esperando respuesta" not in fase_de(page, "Bolso fases"):
+        fallas.append(f"mandada no queda 'Esperando respuesta': {fase_de(page, 'Bolso fases')[:100]!r}")
+
+    # 4. Aceptó, sin pagar nada todavía.
+    page.get_by_role("button", name="Aceptó", exact=True).click()
+    aceptar = page.get_by_role("dialog")
+    aceptar.get_by_role("button", name="Aceptó", exact=True).click()
+    page.wait_for_timeout(1000)
+    if "Por comprar · sin anticipo" not in fase_de(page, "Bolso fases"):
+        fallas.append(f"aceptado sin anticipo no lo dice: {fase_de(page, 'Bolso fases')[:100]!r}")
+
+    # 5. Comprarlo sin anticipo pregunta antes.
+    page.get_by_role("button", name="Ya lo compré", exact=True).first.click()
+    aviso = page.get_by_role("alertdialog")
+    try:
+        aviso.get_by_text("¿Lo compraste igual?").wait_for(timeout=4000)
+    except Exception:
+        return fallas + ["comprar sin anticipo no avisa"]
+    aviso.get_by_role("button", name="Sí, ya lo compré").click()
+    page.wait_for_timeout(1000)
+    if "En camino" not in fase_de(page, "Bolso fases"):
+        fallas.append(f"comprado no queda 'En camino': {fase_de(page, 'Bolso fases')[:100]!r}")
+
+    # 6. Llega en un paquete y se entrega.
+    e = page.evaluate("""async () => {
+      const lista = (await window.api.ventas.list({ tipo: 'ENCARGO', estado: 'PENDIENTE' })).data;
+      const v = lista.find((x) => (x.que_pidio || (x.lineas || []).map((l) => l.descripcion).join(', ')).includes('Bolso fases'));
+      const c = (await window.api.ventas.get(v.id)).data;
+      const pieza = c.lineas.find((l) => l.descripcion === 'Bolso fases');
+      const d = new Date();
+      const hoy = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+      const pq = await window.api.compras.guardar({ fecha: hoy, envio_total_usd_cents: 0, lineas: [
+        { descripcion: 'Bolso fases', cantidad: 1, precio_linea_usd_cents: 3000, destino: 'ENCARGO', venta_id: v.id, venta_linea_id: pieza.id },
+      ] });
+      await window.api.compras.recibir(pq.data.id);
+      return { id: v.id, codigo: v.codigo };
+    }""")
+    page.keyboard.press("Escape")
+    page.get_by_role("button", name="Inicio", exact=False).first.click()
+    page.wait_for_timeout(400)
+    page.get_by_role("button", name="Encargos", exact=False).first.click()
+    page.wait_for_timeout(800)
+    if "Por entregar" not in fase_de(page, e["codigo"]):
+        fallas.append(f"llegado no queda 'Por entregar': {fase_de(page, e['codigo'])[:100]!r}")
+    abrir_detalle(page, e["codigo"])
+    page.get_by_role("button", name="Entregar", exact=True).click()
+    page.wait_for_timeout(1000)
+    v = page.evaluate("async (id) => (await window.api.ventas.get(id)).data", e["id"])
+    if v["estado"] != "ENTREGADA":
+        fallas.append(f"no se entregó: quedó {v['estado']}")
+    if v["total_usd_cents"] <= 0 or any(l.get("descartada_el") is None for l in v["lineas"] if l["descripcion"] == "Perfume fases"):
+        fallas.append("el perfume no quedó como no conseguido, o el total quedó en cero")
     page.keyboard.press("Escape")
     page.wait_for_timeout(300)
     return fallas
