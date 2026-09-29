@@ -41,6 +41,7 @@ export const IPC = {
   VENTAS_LIST: 'ventas:list',
   VENTAS_GET: 'ventas:get',
   VENTAS_CREAR: 'ventas:crear',
+  VENTAS_CORREGIR: 'ventas:corregir',
   VENTAS_CAMBIAR_ESTADO: 'ventas:cambiarEstado',
   VENTAS_MARCAR_COMPRADAS: 'ventas:marcarCompradas',
   VENTAS_COTIZAR: 'ventas:cotizar',
@@ -54,6 +55,7 @@ export const IPC = {
   PAGOS_LISTAR_POR_CLIENTE: 'pagos:listarPorCliente',
   PAGOS_LISTAR_POR_VENTA: 'pagos:listarPorVenta',
   PAGOS_ANULAR: 'pagos:anular',
+  PAGOS_CORREGIR: 'pagos:corregir',
   PAGOS_RECIENTES: 'pagos:recientes',
   PAGOS_EN_RANGO: 'pagos:en-rango',
 

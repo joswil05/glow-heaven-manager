@@ -5,7 +5,7 @@ import { AccesosRepoFirestore as AccesosRepo } from '../firebase/repositories/ac
 import fs from 'node:fs/promises';
 import { getMainWindow } from '../windows/main.window';
 import { IPC } from '../../shared/ipc-channels';
-import type { Resultado, PagoAlAceptar } from '../../shared/ipc-contracts';
+import type { Resultado, PagoAlAceptar, CorregirVentaInput, CorregirPagoInput } from '../../shared/ipc-contracts';
 import { aceptarEncargo } from '../firebase/services/encargos.service';
 import { ParametrosRepoFirestore as ParametrosRepo } from '../firebase/repositories/parametros.repo';
 import { ProductosRepoFirestore as ProductosRepo } from '../firebase/repositories/productos.repo';
@@ -237,6 +237,12 @@ export function registrarHandlers(): void {
     return { evento_grupo_id, id };
   });
 
+  manejar(IPC.VENTAS_CORREGIR, async (id: number, input: CorregirVentaInput) => {
+    const evento_grupo_id = nuevoGrupo();
+    await VentasRepo.corregir(id, input, evento_grupo_id);
+    return { evento_grupo_id };
+  });
+
   manejar(
     IPC.VENTAS_CAMBIAR_ESTADO,
     async (
@@ -301,6 +307,12 @@ export function registrarHandlers(): void {
   manejar(IPC.PAGOS_ANULAR, async (pago_id: number) => {
     const evento_grupo_id = nuevoGrupo();
     await PagosRepo.anular(pago_id, evento_grupo_id);
+    return { evento_grupo_id };
+  });
+
+  manejar(IPC.PAGOS_CORREGIR, async (pago_id: number, input: CorregirPagoInput) => {
+    const evento_grupo_id = nuevoGrupo();
+    await PagosRepo.corregir(pago_id, input, evento_grupo_id);
     return { evento_grupo_id };
   });
 

@@ -55,7 +55,7 @@ export interface LineaVentaInput {
   peso_mlb?: number;
 }
 
-import type { PagoInicialInput, LineaCotizacion } from '../../../shared/ipc-contracts';
+import type { PagoInicialInput, LineaCotizacion, CorregirVentaInput } from '../../../shared/ipc-contracts';
 import { hoyISO, sumarDiasAFecha } from '../../../core/fechas';
 import { esDeuda, estadoInicialEncargo } from '../../../core/cobranza';
 import {
@@ -68,8 +68,17 @@ import {
 } from '../../../core/encargos';
 import { formatearMoneda } from '../../../core/moneda';
 import { repartirMayorResiduo } from '../../../core/prorrateo';
-import { lotesDe } from './productos.repo';
-import { unidadesDeLotes, type Consumo } from '../../../core/lotes';
+import { lotesDe, escrituraDeLotes } from './productos.repo';
+import {
+  unidadesDeLotes,
+  sacarFIFO,
+  devolverConsumos,
+  crearLote,
+  ordenFIFO,
+  type Consumo,
+  type Lote,
+} from '../../../core/lotes';
+import { reescalarCuotas, repartirEnCuotas } from '../../../core/cuotas';
 
 export interface CrearVentaInput {
   cliente_id?: number;
@@ -725,6 +734,326 @@ export class VentasRepoFirestore {
     }
 
     return cuotas;
+  }
+
+  /**
+   * Corrige lo que se cargó en una venta de inventario: la clienta, la fecha,
+   * las líneas, el descuento y las notas. Conserva su número: es la misma
+   * venta, bien cargada. `input` es la venta entera como tiene que quedar.
+   *
+   * Todo en una transacción. Las unidades de la versión vieja vuelven a sus
+   * lotes y las de la nueva salen del lote más viejo, con el mismo reparto del
+   * descuento que al crearla: o se corrige entera, o no cambia nada. Una línea
+   * que no se tocó vuelve y sale del mismo lote, así que el resultado es el de
+   * haberla cargado bien desde el principio, costo incluido.
+   *
+   * Antes no había forma: para arreglar V-0007 se borró desde la consola de
+   * Firebase, y sus productos quedaron vendidos sin venta que lo explicara.
+   *
+   * Los abonos no se tocan (cada uno se corrige con `PagosRepo.corregir`); si
+   * lo pagado queda por encima del total nuevo, se rechaza. No se deshace: movió
+   * mercadería. Se vuelve a corregir.
+   */
+  static async corregir(venta_id: number, input: CorregirVentaInput, evento_grupo_id: string): Promise<void> {
+    if (input.lineas.length === 0) throw new Error('Una venta necesita al menos un producto.');
+    if (input.lineas.some((l) => !l.producto_id && !l.descripcion?.trim())) {
+      throw new Error('Cada línea de la venta necesita un producto o una descripción.');
+    }
+
+    const db = getFirestoreDb();
+    const ventaRef = doc(db, 'ventas', String(venta_id));
+    const ahora = new Date().toISOString();
+
+    // Los abonos guardan la clienta; si cambia, cambia en ellos también. La
+    // consulta va antes porque una transacción sólo lee documentos sueltos.
+    const pagosSnap = await getDocs(query(collection(db, 'pagos'), where('venta_id', '==', venta_id)));
+    const pagoIds = pagosSnap.docs.map((d) => Number((d.data() as Pago).id));
+
+    type Tocado = {
+      p: ProductoDoc;
+      variantes: ProductoDoc['variantes'];
+      lotes: Lote[];
+      variante?: number;
+      devueltas: number;
+      costoDevuelto: number;
+      sacadas: number;
+      costoSacado: number;
+    };
+
+    const { antes, tocados } = await runTransaction(db, async (tx) => {
+      const snap = await tx.get(ventaRef);
+      if (!snap.exists()) throw new Error(`La venta #${venta_id} no existe.`);
+      const venta = snap.data() as VentaDoc;
+      if (!venta.activo) throw new Error(`La venta #${venta_id} no existe.`);
+      if (venta.tipo === 'ENCARGO') {
+        throw new Error(`${venta.codigo} es un encargo: se corrige desde Encargos (cotizar, "No se consiguió" o anular).`);
+      }
+      if (venta.estado === 'CANCELADA') throw new Error(`${venta.codigo} está anulada: no se corrige.`);
+
+      const viejas = venta.lineas || [];
+      const ids = [
+        ...new Set([...viejas, ...input.lineas].map((l) => l.producto_id).filter(Boolean)),
+      ] as number[];
+      const cambiaClienta = (venta.cliente_id ?? null) !== (input.cliente_id ?? null);
+      const pagoRefs = cambiaClienta ? pagoIds.map((id) => doc(db, 'pagos', String(id))) : [];
+      const [snapsProductos, snapsPagos] = await Promise.all([
+        Promise.all(ids.map((id) => tx.get(doc(db, 'productos', String(id))))),
+        Promise.all(pagoRefs.map((ref) => tx.get(ref))),
+      ]);
+
+      const tocados = new Map<number, Tocado>();
+      snapsProductos.forEach((s, i) => {
+        if (!s.exists()) return;
+        const p = s.data() as ProductoDoc;
+        tocados.set(ids[i], {
+          p,
+          variantes: [...(p.variantes || [])],
+          lotes: lotesDe(p),
+          devueltas: 0,
+          costoDevuelto: 0,
+          sacadas: 0,
+          costoSacado: 0,
+        });
+      });
+
+      // 1. Lo de antes vuelve a sus lotes, como al anularla.
+      for (const l of viejas) {
+        if (!l.producto_id) continue;
+        const t = tocados.get(l.producto_id);
+        if (!t) throw new Error(`El producto de '${l.descripcion}' ya no existe: esta venta no se puede corregir.`);
+        const consumos = l.lotes_consumidos ?? [];
+        const variante =
+          consumos[0]?.variante_id ?? l.variante_id ?? t.variantes.find((v) => v.activo !== false)?.id ?? 1;
+        const idx = t.variantes.findIndex((v) => v.id === variante);
+        if (idx === -1) {
+          t.variantes.push({ id: variante, producto_id: l.producto_id, existencias: 0, activo: true });
+        } else if (t.variantes[idx].activo === false) {
+          t.variantes[idx] = { ...t.variantes[idx], activo: true, existencias: 0 };
+        }
+        if (consumos.length > 0) {
+          t.lotes = devolverConsumos(t.lotes, consumos, 'VENTA');
+          t.devueltas += consumos.reduce((s, c) => s + c.cantidad, 0);
+          t.costoDevuelto += consumos.reduce((s, c) => s + c.costo_usd_cents, 0);
+        } else {
+          // Una venta de antes de los lotes no sabe de cuál salió: vuelve como
+          // devolución, con el costo que congeló.
+          t.lotes = [
+            ...t.lotes,
+            crearLote({
+              id: `dev-v${venta_id}-l${l.id}`,
+              variante_id: variante,
+              cantidad: l.cantidad,
+              valor_usd_cents: l.costo_total_usd_cents,
+              fecha: venta.fecha,
+              orden: Date.now(),
+              origen: 'DEVOLUCION',
+              costo_unitario_usd_cents: l.costo_unitario_usd_cents,
+            }),
+          ].sort(ordenFIFO);
+          t.devueltas += l.cantidad;
+          t.costoDevuelto += l.costo_total_usd_cents;
+        }
+        t.variante ??= variante;
+      }
+
+      // 2. Lo nuevo: precios y descuento con la misma cuenta que al crearla.
+      const precios = input.lineas.map((linea) => {
+        const cantidad = Math.max(1, Math.round(linea.cantidad));
+        const t = linea.producto_id ? tocados.get(linea.producto_id) : undefined;
+        if (linea.producto_id && !t) throw new Error(`El producto #${linea.producto_id} no existe.`);
+        const precioUnitario = Math.max(
+          0,
+          Math.round(linea.precio_unitario_usd_cents ?? t?.p.precio_venta_usd_cents ?? 0)
+        );
+        const variante = t
+          ? (linea.variante_id ?? t.variantes.find((v) => v.activo !== false)?.id ?? 1)
+          : undefined;
+        return { cantidad, t, variante, precioUnitario, subtotal: precioUnitario * cantidad };
+      });
+      const subtotalVenta = precios.reduce((s, p) => s + p.subtotal, 0);
+      let descuento = 0;
+      if (input.descuento_tipo === 'PORCENTAJE' && input.descuento_valor && input.descuento_valor > 0) {
+        descuento = Math.round((subtotalVenta * input.descuento_valor) / 100);
+      } else if (input.descuento_tipo === 'MONTO_FIJO' && input.descuento_valor && input.descuento_valor > 0) {
+        descuento = Math.round(input.descuento_valor * 100);
+      }
+      descuento = Math.min(subtotalVenta, Math.max(0, descuento));
+      const descuentoPorLinea = repartirMayorResiduo(
+        descuento,
+        precios.map((p, i) => ({ id: i, base_valor: p.subtotal }))
+      );
+      const total = Math.max(0, subtotalVenta - descuento);
+
+      const pagado = venta.pagado_usd_cents || 0;
+      if (pagado > total) {
+        throw new Error(
+          `Pagó ${formatearMoneda(pagado, 'USD')} y el nuevo total es ${formatearMoneda(total, 'USD')}. Corregí el abono primero.`
+        );
+      }
+
+      // 3. El stock se revisa entero antes de sacar, contando lo que volvió.
+      const porProducto = new Map<number, number>();
+      const porTalla = new Map<string, { t: Tocado; variante: number; pedidas: number }>();
+      for (const { cantidad, t, variante } of precios) {
+        if (!t || variante === undefined) continue;
+        porProducto.set(t.p.id, (porProducto.get(t.p.id) ?? 0) + cantidad);
+        const clave = `${t.p.id}:${variante}`;
+        const antes = porTalla.get(clave);
+        porTalla.set(clave, { t, variante, pedidas: (antes?.pedidas ?? 0) + cantidad });
+      }
+      for (const [id, pedidas] of porProducto) {
+        const t = tocados.get(id)!;
+        const disponibles = t.variantes
+          .filter((v) => v.activo !== false)
+          .reduce((s, v) => s + unidadesDeLotes(t.lotes, v.id), 0);
+        if (pedidas > disponibles) {
+          throw new Error(
+            `No hay suficientes unidades de '${t.p.nombre}'. Disponibles: ${disponibles}${
+              t.devueltas > 0 ? ' (contando las de esta venta)' : ''
+            }, pedidas: ${pedidas}.`
+          );
+        }
+      }
+      for (const { t, variante, pedidas } of porTalla.values()) {
+        if (!t.variantes.some((v) => v.id === variante && v.activo !== false)) {
+          throw new Error(`La talla elegida de '${t.p.nombre}' ya no existe.`);
+        }
+        const disponibles = unidadesDeLotes(t.lotes, variante);
+        if (pedidas > disponibles) {
+          throw new Error(
+            `No hay suficientes de la talla elegida en '${t.p.nombre}'. Disponibles: ${disponibles}, pedidas: ${pedidas}.`
+          );
+        }
+      }
+
+      // 4. Sale del lote más viejo, con lo cobrado ya descontado.
+      const lineas: VentaLinea[] = input.lineas.map((linea, i) => {
+        const { cantidad, t, variante, precioUnitario, subtotal } = precios[i];
+        let costoUnitario = Math.max(0, Math.round(linea.costo_estimado_unitario_usd_cents ?? 0));
+        let costoLinea = costoUnitario * cantidad;
+        let consumos: Consumo[] | undefined;
+        if (t && variante !== undefined) {
+          const s = sacarFIFO(t.lotes, variante, cantidad, 'VENTA', subtotal - (descuentoPorLinea.get(i) ?? 0));
+          t.lotes = s.lotes;
+          t.sacadas += s.retiradas;
+          t.costoSacado += s.costo_usd_cents;
+          t.variante ??= variante;
+          costoLinea = s.costo_usd_cents;
+          costoUnitario = Math.round(costoLinea / cantidad);
+          consumos = s.consumos;
+        }
+        return {
+          id: i + 1,
+          venta_id,
+          producto_id: linea.producto_id,
+          variante_id: linea.variante_id,
+          descripcion: linea.descripcion?.trim() || t?.p.nombre || '',
+          cantidad,
+          precio_unitario_usd_cents: precioUnitario,
+          costo_unitario_usd_cents: costoUnitario,
+          subtotal_usd_cents: subtotal,
+          costo_total_usd_cents: costoLinea,
+          es_paquete: Boolean(linea.es_paquete),
+          orden: i,
+          lotes_consumidos: consumos,
+        };
+      });
+      const costoTotal = lineas.reduce((s, l) => s + l.costo_total_usd_cents, 0);
+
+      // Las cuotas conservan sus fechas. Lo financiado cambia lo mismo que el
+      // total: lo que pagó al contado sigue siendo lo mismo.
+      const cuotasViejas = venta.cuotas || [];
+      const financiado =
+        cuotasViejas.reduce((s, c) => s + c.monto_usd_cents, 0) + (total - (venta.total_usd_cents || 0));
+      const cuotas = cuotasViejas.length > 0 ? repartirEnCuotas(reescalarCuotas(cuotasViejas, financiado), pagado) : [];
+
+      const { cliente_id: _clienta, ...resto } = venta;
+      const corregida: VentaDoc & { actualizado_en: string } = {
+        ...resto,
+        ...(input.cliente_id ? { cliente_id: input.cliente_id } : {}),
+        fecha: input.fecha,
+        subtotal_usd_cents: subtotalVenta,
+        descuento_usd_cents: descuento,
+        descuento_tipo: input.descuento_tipo,
+        descuento_valor: input.descuento_valor,
+        descuento_motivo: input.descuento_motivo?.trim() || undefined,
+        total_usd_cents: total,
+        costo_total_usd_cents: costoTotal,
+        ganancia_usd_cents: total - costoTotal,
+        pagado_usd_cents: pagado,
+        saldo_usd_cents: total - pagado,
+        notas: input.notas?.trim() || undefined,
+        lineas,
+        cuotas,
+        actualizado_en: ahora,
+      };
+      // Sin merge: la venta queda exactamente como se corrigió, sin la clienta
+      // o el descuento que se sacaron.
+      tx.set(ventaRef, sinUndefined(corregida as unknown as Record<string, unknown>));
+
+      for (const [id, t] of tocados) {
+        tx.set(
+          doc(db, 'productos', String(id)),
+          sinUndefined({ ...escrituraDeLotes({ ...t.p, variantes: t.variantes }, t.lotes), actualizado_en: ahora }),
+          { merge: true }
+        );
+      }
+
+      snapsPagos.forEach((s, i) => {
+        if (!s.exists()) return;
+        const { cliente_id: _c, ...pago } = s.data() as Pago;
+        tx.set(
+          pagoRefs[i],
+          sinUndefined({
+            ...pago,
+            ...(input.cliente_id ? { cliente_id: input.cliente_id } : {}),
+            actualizado_en: ahora,
+          } as unknown as Record<string, unknown>)
+        );
+      });
+
+      return { antes: venta, tocados };
+    });
+
+    // El rastro de la bodega: un movimiento por producto, sólo si cambió
+    // cuántas unidades tiene. Cambiar sólo el precio no mueve nada.
+    const movimientos: OperacionLote[] = [];
+    for (const [id, t] of tocados) {
+      const neto = t.devueltas - t.sacadas;
+      if (neto === 0) continue;
+      const n = Math.abs(neto);
+      movimientos.push(
+        await ProductosRepoFirestore.operacionMovimiento({
+          producto_id: id,
+          variante_id: t.variante,
+          tipo: neto > 0 ? 'ENTRADA' : 'SALIDA',
+          cantidad: n,
+          costo_total_usd_cents: Math.abs(t.costoDevuelto - t.costoSacado),
+          existencias_despues: unidadesDeLotes(t.lotes),
+          referencia_tipo: 'VENTA',
+          referencia_id: venta_id,
+          detalle: `Corrección de ${antes.codigo}: ${neto > 0 ? 'vuelve' : 'sale'}${n > 1 ? 'n' : ''} ${n}`,
+        })
+      );
+    }
+    if (movimientos.length > 0) await aplicarLote(movimientos);
+
+    const clientas = new Set([antes.cliente_id, input.cliente_id].filter(Boolean) as number[]);
+    for (const c of clientas) await ClientesRepoFirestore.refrescarTotales(c);
+    // La ganancia cambió, quizás en otro mes: los dos resúmenes dejan de ser ciertos.
+    for (const f of new Set([antes.fecha, input.fecha])) await ResumenesRepoFirestore.invalidarPorFecha(f);
+
+    await EventosRepoFirestore.registrarEvento({
+      evento_grupo_id,
+      // Movió mercadería: restaurar la instantánea dejaría las unidades de la
+      // versión corregida fuera de la bodega. Se vuelve a corregir.
+      reversible: false,
+      entidad_tipo: 'ventas',
+      entidad_id: venta_id,
+      tipo_evento: 'ACTUALIZACION',
+      valor_anterior: antes as unknown as Record<string, unknown>,
+      detalle: `${antes.codigo} corregida`,
+    });
   }
 
   /**
@@ -1468,6 +1797,9 @@ export class VentasRepoFirestore {
         datos: {
           pagado_usd_cents: pagado,
           saldo_usd_cents: saldo,
+          // Las cuotas también: deshacer un abono corregido las dejaba con la
+          // plata del monto equivocado.
+          ...((venta.cuotas || []).length > 0 ? { cuotas: repartirEnCuotas(venta.cuotas!, pagado) } : {}),
           actualizado_en: new Date().toISOString(),
         },
       },

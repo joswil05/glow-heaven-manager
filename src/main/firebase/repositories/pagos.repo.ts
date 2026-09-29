@@ -17,6 +17,7 @@ import type { Pago, PagoCompleto, MetodoPago, MonedaPago } from '../../../shared
 import { formatearMoneda } from '../../../core/moneda';
 import { pagoAcepta } from '../../../core/cobranza';
 import { repartirEnCuotas } from '../../../core/cuotas';
+import type { CorregirPagoInput } from '../../../shared/ipc-contracts';
 
 export interface RegistrarPagoInput {
   venta_id: number;
@@ -232,16 +233,9 @@ export class PagosRepoFirestore {
         cambiosVenta.cuotas = repartirEnCuotas(venta.cuotas!, pagado);
       }
 
-      // Si el anticipo deja de estar cubierto, el encargo vuelve a COTIZADA.
-      const anticipoEsperado = venta.anticipo_esperado_usd_cents || 0;
-      if (
-        venta.tipo === 'ENCARGO' &&
-        venta.estado === 'PENDIENTE' &&
-        anticipoEsperado > 0 &&
-        pagado < anticipoEsperado
-      ) {
-        cambiosVenta.estado = 'COTIZADA';
-      }
+      // Un encargo aceptado sigue aceptado: "Aceptó" es un paso propio, que
+      // no depende de un pago. Antes volvía a cotizado si el anticipo dejaba
+      // de estar cubierto, y se perdía una aceptación que la clienta sí dio.
 
       tx.set(pagoRef, { activo: false, actualizado_en: now }, { merge: true });
       tx.set(ventaRef, cambiosVenta, { merge: true });
@@ -258,6 +252,102 @@ export class PagosRepoFirestore {
       tipo_evento: 'ACTUALIZACION',
       valor_anterior: anterior,
       detalle: 'Abono anulado',
+    });
+  }
+
+  /**
+   * Corrige un abono: monto, moneda, fecha, método, referencia o notas.
+   *
+   * Con la tasa del abono: corregir el monto no lo pasa a la tasa de hoy. El
+   * pagado y el saldo de la venta, y sus cuotas, cambian en la misma
+   * transacción. Un encargo que con el abono corregido cubre el anticipo queda
+   * aceptado, con la misma regla que al registrarlo; uno aceptado sigue
+   * aceptado aunque el abono baje.
+   *
+   * Se puede deshacer: guarda el abono de antes, y la venta si la aceptó.
+   */
+  static async corregir(pago_id: number, input: CorregirPagoInput, evento_grupo_id: string): Promise<void> {
+    const monto = Math.max(0, Math.round(input.monto_cents));
+    if (monto === 0) throw new Error('El monto del pago tiene que ser mayor que cero.');
+
+    const db = getFirestoreDb();
+    const pagoRef = doc(db, 'pagos', String(pago_id));
+    const now = new Date().toISOString();
+
+    const r = await runTransaction(db, async (tx) => {
+      const pagoSnap = await tx.get(pagoRef);
+      if (!pagoSnap.exists()) throw new Error(`El abono #${pago_id} no existe.`);
+      const pago = pagoSnap.data() as Pago;
+      if (pago.activo === false) throw new Error('Ese abono está anulado: no se corrige.');
+
+      const ventaRef = doc(db, 'ventas', String(pago.venta_id));
+      const ventaSnap = await tx.get(ventaRef);
+      if (!ventaSnap.exists()) throw new Error(`La venta #${pago.venta_id} no existe.`);
+      const venta = ventaSnap.data() as VentaDoc;
+      if (venta.estado === 'CANCELADA') throw new Error(`${venta.codigo} está anulada: sus abonos no se corrigen.`);
+
+      const tasa = pago.tasa_cambio_cents || venta.tasa_cambio_cents || 3662;
+      const montoUsd = input.moneda === 'COR' ? Math.round((monto * 100) / tasa) : monto;
+      const montoCor = input.moneda === 'COR' ? monto : Math.round((monto * tasa) / 100);
+
+      const pagado = Math.max(0, (venta.pagado_usd_cents || 0) - (pago.monto_usd_cents || 0) + montoUsd);
+      const cambiosVenta: Record<string, unknown> = {
+        pagado_usd_cents: pagado,
+        saldo_usd_cents: (venta.total_usd_cents || 0) - pagado,
+        actualizado_en: now,
+      };
+      if ((venta.cuotas || []).length > 0) {
+        cambiosVenta.cuotas = repartirEnCuotas(venta.cuotas!, pagado);
+      }
+      const acepta =
+        venta.tipo === 'ENCARGO' &&
+        venta.estado === 'COTIZADA' &&
+        (venta.piezas?.sin_precio ?? 0) === 0 &&
+        pagoAcepta({ pagado_usd_cents: pagado, anticipo_esperado_usd_cents: venta.anticipo_esperado_usd_cents || 0 });
+      if (acepta) {
+        cambiosVenta.estado = 'PENDIENTE';
+        cambiosVenta.aceptado_el = input.fecha;
+      }
+
+      // Sin merge: una referencia o una nota que se borró, queda borrada.
+      tx.set(
+        pagoRef,
+        sinUndefined({
+          ...pago,
+          fecha: input.fecha,
+          monto_usd_cents: montoUsd,
+          monto_cor_cents: montoCor,
+          moneda: input.moneda,
+          metodo: input.metodo,
+          referencia: input.referencia?.trim() || undefined,
+          notas: input.notas?.trim() || undefined,
+          actualizado_en: now,
+        } as unknown as Record<string, unknown>)
+      );
+      tx.set(ventaRef, cambiosVenta, { merge: true });
+
+      return { pago, venta, acepta };
+    });
+
+    await ClientesRepoFirestore.refrescarTotales(r.venta.cliente_id);
+
+    if (r.acepta) {
+      await EventosRepoFirestore.registrarEvento({
+        evento_grupo_id,
+        entidad_tipo: 'ventas',
+        entidad_id: r.venta.id,
+        tipo_evento: 'ACTUALIZACION',
+        valor_anterior: r.venta as unknown as Record<string, unknown>,
+        detalle: `${r.venta.codigo}: aceptó, con el abono corregido`,
+      });
+    }
+    await EventosRepoFirestore.registrarEvento({
+      evento_grupo_id,
+      entidad_tipo: 'pagos',
+      entidad_id: pago_id,
+      tipo_evento: 'ACTUALIZACION',
+      valor_anterior: r.pago as unknown as Record<string, unknown>,
+      detalle: `Abono de ${r.venta.codigo} corregido a ${formatearMoneda(monto, input.moneda === 'COR' ? 'COR' : 'USD')}`,
     });
   }
 

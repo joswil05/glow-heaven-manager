@@ -244,6 +244,15 @@ export interface CrearVentaInput {
   descuento_motivo?: string;
 }
 
+/**
+ * Lo que se corrige de una venta ya registrada: lo que se cargó. Los abonos
+ * se corrigen aparte, cada uno. Ver `VentasRepoFirestore.corregir`.
+ */
+export type CorregirVentaInput = Pick<
+  CrearVentaInput,
+  'cliente_id' | 'fecha' | 'lineas' | 'notas' | 'descuento_tipo' | 'descuento_valor' | 'descuento_motivo'
+>;
+
 export interface FiltrosVenta {
   tipo?: TipoVenta;
   estado?: EstadoVenta;
@@ -275,6 +284,9 @@ export interface RegistrarPagoInput {
 
 /** El pago que la clienta hace al aceptar la cotización, si hace alguno. */
 export type PagoAlAceptar = Omit<RegistrarPagoInput, 'venta_id' | 'es_anticipo' | 'cuota_id'>;
+
+/** Lo que se corrige de un abono. La tasa no: queda la del abono. */
+export type CorregirPagoInput = Omit<RegistrarPagoInput, 'venta_id' | 'es_anticipo' | 'cuota_id'>;
 
 export interface AbonoClienteInput {
   cliente_id: number;
@@ -399,6 +411,8 @@ export interface ApiPuente {
     list(filtros?: FiltrosVenta): Promise<Resultado<Venta[]>>;
     get(id: number): Promise<Resultado<VentaCompleta | null>>;
     crear(input: CrearVentaInput): Promise<Resultado<ConGrupo & { id: number }>>;
+    /** Corrige lo que se cargó, con el mismo número. Ver `VentasRepoFirestore.corregir`. */
+    corregir(id: number, input: CorregirVentaInput): Promise<Resultado<ConGrupo>>;
     /**
      * Al anular un encargo: qué pasa con el anticipo y con cada pieza que ya
      * llegó (por id de línea). Ver `VentasRepoFirestore.cambiarEstado`.
@@ -428,6 +442,8 @@ export interface ApiPuente {
     listarPorCliente(cliente_id: number): Promise<Resultado<PagoCompleto[]>>;
     listarPorVenta(venta_id: number): Promise<Resultado<PagoCompleto[]>>;
     anular(pago_id: number): Promise<Resultado<ConGrupo>>;
+    /** Corrige monto, moneda, fecha, método o notas. Ver `PagosRepoFirestore.corregir`. */
+    corregir(pago_id: number, input: CorregirPagoInput): Promise<Resultado<ConGrupo>>;
     recientes(limite?: number): Promise<Resultado<PagoCompleto[]>>;
     /** Los abonos de un período, para exportarlos. */
     enRango(desde: string, hasta: string): Promise<Resultado<PagoCompleto[]>>;

@@ -1359,6 +1359,95 @@ const api: ApiPuente = {
       }
       return ok(grupo());
     },
+    corregir: (id, input) => {
+      // Las mismas reglas del repositorio, sin lotes: el simulador cuenta
+      // existencias por talla, que es lo que la pantalla muestra.
+      const venta = db.ventas.find((v) => v.id === id);
+      if (!venta) return falla(`La venta #${id} no existe.`);
+      if (venta.tipo === 'ENCARGO') return falla(`${venta.codigo} es un encargo: se corrige desde Encargos.`);
+      if (venta.estado === 'CANCELADA') return falla(`${venta.codigo} está anulada: no se corrige.`);
+      if (input.lineas.length === 0) return falla('Una venta necesita al menos un producto.');
+
+      const tallaDe = (p: ProductoConStock, variante_id?: number) => variante_id ?? p.variantes[0]?.id;
+      const disponibles = new Map<string, number>();
+      const clave = (pid: number, v?: number) => `${pid}:${v ?? ''}`;
+      for (const p of db.productos) for (const v of p.variantes) disponibles.set(clave(p.id, v.id), v.existencias);
+      const devueltas = new Map<number, number>();
+      for (const l of venta.lineas) {
+        const p = l.producto_id ? db.productos.find((x) => x.id === l.producto_id) : undefined;
+        if (!p) continue;
+        const k = clave(p.id, tallaDe(p, l.variante_id));
+        disponibles.set(k, (disponibles.get(k) ?? 0) + l.cantidad);
+        devueltas.set(p.id, (devueltas.get(p.id) ?? 0) + l.cantidad);
+      }
+      const lineas: VentaLinea[] = [];
+      for (const [i, l] of input.lineas.entries()) {
+        const p = l.producto_id ? db.productos.find((x) => x.id === l.producto_id) : undefined;
+        if (p) {
+          const k = clave(p.id, tallaDe(p, l.variante_id));
+          const hay = disponibles.get(k) ?? 0;
+          if (l.cantidad > hay) {
+            return falla(
+              `No hay suficientes unidades de '${p.nombre}'. Disponibles: ${hay}${devueltas.has(p.id) ? ' (contando las de esta venta)' : ''}, pedidas: ${l.cantidad}.`
+            );
+          }
+          disponibles.set(k, hay - l.cantidad);
+        }
+        const precio = l.precio_unitario_usd_cents ?? p?.precio_venta_usd_cents ?? 0;
+        const costo = p?.costo_unitario_usd_cents ?? 0;
+        lineas.push({
+          id: i + 1,
+          venta_id: id,
+          producto_id: l.producto_id,
+          variante_id: l.variante_id,
+          descripcion: l.descripcion?.trim() || p?.nombre || '',
+          cantidad: l.cantidad,
+          precio_unitario_usd_cents: precio,
+          costo_unitario_usd_cents: costo,
+          subtotal_usd_cents: precio * l.cantidad,
+          costo_total_usd_cents: costo * l.cantidad,
+          es_paquete: false,
+          orden: i,
+        });
+      }
+      const subtotal = lineas.reduce((s, l) => s + l.subtotal_usd_cents, 0);
+      const descuento = Math.min(
+        subtotal,
+        input.descuento_tipo === 'PORCENTAJE'
+          ? Math.round((subtotal * (input.descuento_valor ?? 0)) / 100)
+          : input.descuento_tipo === 'MONTO_FIJO'
+            ? Math.round((input.descuento_valor ?? 0) * 100)
+            : 0
+      );
+      const total = subtotal - descuento;
+      if (venta.pagado_usd_cents > total) {
+        return falla(
+          `Pagó ${formatearMoneda(venta.pagado_usd_cents, 'USD')} y el nuevo total es ${formatearMoneda(total, 'USD')}. Corregí el abono primero.`
+        );
+      }
+      db.productos = db.productos.map((p) => ({
+        ...p,
+        variantes: p.variantes.map((v) => ({ ...v, existencias: disponibles.get(clave(p.id, v.id)) ?? v.existencias })),
+        existencias: p.variantes.reduce((s, v) => s + (disponibles.get(clave(p.id, v.id)) ?? v.existencias), 0),
+      }));
+      const costo = lineas.reduce((s, l) => s + l.costo_total_usd_cents, 0);
+      Object.assign(venta, {
+        cliente_id: input.cliente_id,
+        cliente_nombre: db.clientes.find((c) => c.id === input.cliente_id)?.nombre,
+        fecha: input.fecha,
+        notas: input.notas,
+        descuento_tipo: input.descuento_tipo,
+        descuento_valor: input.descuento_valor,
+        descuento_usd_cents: descuento,
+        subtotal_usd_cents: subtotal,
+        total_usd_cents: total,
+        costo_total_usd_cents: costo,
+        ganancia_usd_cents: total - costo,
+        saldo_usd_cents: total - venta.pagado_usd_cents,
+        lineas,
+      });
+      return ok(grupo());
+    },
     cambiarEstado: (id, estado, opciones = {}) => {
       const venta = db.ventas.find((v) => v.id === id);
       // Las mismas reglas del repositorio para las piezas de un encargo.
@@ -1519,6 +1608,38 @@ const api: ApiPuente = {
         v.pagos = v.pagos.filter((p) => p.id !== pago_id);
         v.pagado_usd_cents -= pago.monto_usd_cents;
         v.saldo_usd_cents = v.total_usd_cents - v.pagado_usd_cents;
+      }
+      return ok(grupo());
+    },
+    corregir: (pago_id, input) => {
+      if (Math.round(input.monto_cents) <= 0) return falla('El monto del pago tiene que ser mayor que cero.');
+      const venta = db.ventas.find((v) => v.pagos.some((p) => p.id === pago_id));
+      const pago = venta?.pagos.find((p) => p.id === pago_id);
+      if (!venta || !pago || pago.activo === false) return falla('Ese abono está anulado: no se corrige.');
+      if (venta.estado === 'CANCELADA') return falla(`${venta.codigo} está anulada: sus abonos no se corrigen.`);
+      // Con la tasa del abono, no la de hoy.
+      const montoUsd =
+        input.moneda === 'COR' ? Math.round((input.monto_cents * 100) / pago.tasa_cambio_cents) : input.monto_cents;
+      venta.pagado_usd_cents += montoUsd - pago.monto_usd_cents;
+      venta.saldo_usd_cents = venta.total_usd_cents - venta.pagado_usd_cents;
+      Object.assign(pago, {
+        fecha: input.fecha,
+        monto_usd_cents: montoUsd,
+        monto_cor_cents:
+          input.moneda === 'COR' ? input.monto_cents : Math.round((montoUsd * pago.tasa_cambio_cents) / 100),
+        moneda: input.moneda,
+        metodo: input.metodo,
+        referencia: input.referencia?.trim() || undefined,
+        notas: input.notas?.trim() || undefined,
+      });
+      if (
+        venta.tipo === 'ENCARGO' &&
+        venta.estado === 'COTIZADA' &&
+        (venta.piezas?.sin_precio ?? 0) === 0 &&
+        pagoAcepta({ pagado_usd_cents: venta.pagado_usd_cents, anticipo_esperado_usd_cents: venta.anticipo_esperado_usd_cents })
+      ) {
+        venta.estado = 'PENDIENTE';
+        venta.aceptado_el = input.fecha;
       }
       return ok(grupo());
     },
