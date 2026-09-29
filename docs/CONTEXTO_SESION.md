@@ -4,9 +4,9 @@
 > haber estado en la sesión anterior.
 > **Estado del árbol**: `v2.16.0` publicada en el celular y en Windows el 29
 > de septiembre: los encargos por fases y corregir una venta y un abono en las
-> dos apps (sección 2 y sección 3). Joswill la está probando él mismo. En
-> `main`, sin publicar, la 2.16.1: el historial a la vista, quién registró
-> cada cosa y los abonos en su moneda (sección 3). Los datos de producción se
+> dos apps (sección 2 y sección 3), y la `v2.16.1` el mismo día: el
+> historial a la vista, quién registró cada cosa y los abonos en su moneda
+> (sección 3). Joswill las está probando él mismo. Los datos de producción se
 > migraron a lotes con `scripts/migrar-a-lotes.ts` (sección 3).
 > **Última actualización**: 29 de septiembre de 2026.
 
@@ -223,7 +223,7 @@ Joswill. Queda:
    en su detalle, "Corregir" junto a cada abono; en el celular, desde la
    pestaña Historial), nunca borrándolo en Firebase.
 
-### La 2.16.1, hecha en local el 29 de septiembre, sin publicar
+### La 2.16.1, publicada el 29 de septiembre
 
 Lo primero que encontró Joswill al probar la 2.16.0 (sección 2c del plan):
 el historial del celular escondido, corregir poco visible en Cobros, no se
@@ -247,8 +247,10 @@ Tareas H1 a H6, commits `d165df1` a `95e8359`:
 
 Verificado: `tsc` de las dos apps, 483 pruebas, 93 contra el emulador, 18
 casos de interfaz de escritorio, 10 de la PWA, las tres auditorías y el build
-del celular. Falta, con el visto bueno de Joswill: versión 2.16.1 y publicar
-las dos apps, igual que la 2.16.0.
+del celular. **Publicada** a pedido de Joswill: commit `29c971c`, release
+`v2.16.1` con `latest.yml` verificado (sha512, tamaño y versión iguales al
+exe; es la "Latest"), y la PWA en los dos sitios sirviendo el build nuevo. La
+app instalada en esta máquina se actualizó sola a la 2.16.1.
 
 Después viene la 2.17 (encargos en el celular). Ojo: la quinta pestaña del
 celular ya es Historial; "Encargos" necesita otro lugar (sección 2c del plan).

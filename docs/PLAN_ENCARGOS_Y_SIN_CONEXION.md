@@ -846,8 +846,8 @@ Cambios respecto de lo escrito arriba, al implementarlo:
 **Publicada como `v2.16.0` el mismo 29** (Windows por GitHub, con
 `latest.yml`, y la PWA), a pedido de Joswill, que la prueba él mismo.
 
-**2.16.1, hecha en local el mismo 29** (sección 2c, tareas H1 a H6), sin
-publicar. Cambios respecto de lo escrito en 2c, al hacerlo:
+**2.16.1, hecha y publicada el mismo 29** (sección 2c, tareas H1 a H6),
+a pedido de Joswill. Cambios respecto de lo escrito en 2c, al hacerlo:
 
 - **En Windows, tocar un abono abre la corrección** en vez de un panel al
   costado: la ventana de corregir ya muestra el abono, quién lo registró y
