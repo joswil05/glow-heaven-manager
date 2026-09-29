@@ -252,7 +252,7 @@ del celular. **Publicada** a pedido de Joswill: commit `29c971c`, release
 exe; es la "Latest"), y la PWA en los dos sitios sirviendo el build nuevo. La
 app instalada en esta máquina se actualizó sola a la 2.16.1.
 
-### Fase de pruebas del 29 de septiembre: editar y eliminar (sin publicar)
+### Fase de pruebas del 29 de septiembre: editar y eliminar (2.16.2)
 
 Pedido de Joswill: verificar que editar o eliminar cualquier cosa (cobros,
 ventas, clientas) haga reaccionar al resto con lógica. Se hizo así:
@@ -286,7 +286,11 @@ Encontrado y arreglado (commit `6ff2904`):
    el stock de antes. La prueba de interfaz lo comprueba (sin el arreglo
    falla: 17 contra 20).
 
-Falta publicarlo, con el visto bueno de Joswill (sería la 2.16.2).
+**Publicado como `v2.16.2`** el mismo día, a pedido de Joswill: commit
+`6fe24a1`, release con `latest.yml` verificado (sha512, tamaño y versión;
+es la "Latest") y la PWA en los dos sitios sirviendo el build nuevo. La app
+de esta máquina estaba abierta desde antes de publicar: la toma al volver a
+abrirla.
 
 Después viene la 2.17 (encargos en el celular). Ojo: la quinta pestaña del
 celular ya es Historial; "Encargos" necesita otro lugar (sección 2c del plan).
