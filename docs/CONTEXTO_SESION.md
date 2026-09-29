@@ -2,11 +2,11 @@
 
 > **Para quién es esto**: el modelo o la persona que abre este proyecto sin
 > haber estado en la sesión anterior.
-> **Estado del árbol**: `v2.15.1` publicada en el celular y en Windows. En
-> `main`, **sin publicar**, la `v2.16`: los encargos por fases y corregir una
-> venta y un abono en las dos apps (sección 2 y sección 3). Verificada en
-> local; falta la prueba sobre la base real y publicar. Los datos de
-> producción se migraron a lotes con `scripts/migrar-a-lotes.ts` (sección 3).
+> **Estado del árbol**: `v2.16.0` publicada en el celular y en Windows el 29
+> de septiembre: los encargos por fases y corregir una venta y un abono en las
+> dos apps (sección 2 y sección 3). Joswill la está probando él mismo. Los
+> datos de producción se migraron a lotes con `scripts/migrar-a-lotes.ts`
+> (sección 3).
 > **Última actualización**: 29 de septiembre de 2026.
 
 Leé este archivo primero. Después:
@@ -195,26 +195,26 @@ un error.
 
 ## 3. Lo que está pendiente, en orden
 
-### P0: publicar la 2.16 (encargos por fases, corregir ventas y abonos)
+### P0: la 2.16 publicada; lo que queda (encargos por fases, corregir ventas y abonos)
 
-Hecho en local, commit por commit: los encargos por fases el 28 de
-septiembre (tareas E0 a E7 de
+Hecho commit por commit: los encargos por fases el 28 de septiembre (tareas
+E0 a E7 de
 [superpowers/plans/2026-09-28-encargos-por-fases-2.16.md](superpowers/plans/2026-09-28-encargos-por-fases-2.16.md))
 y corregir una venta y un abono el 29 (tareas C1 a C7, sección 2b del plan).
 `tsc` de las dos apps en cero, 457 pruebas, 93 contra el emulador, 17 casos
 de interfaz de escritorio, 10 de la PWA, las tres auditorías y el build del
-celular. Falta, con el visto bueno de Joswill:
+celular.
 
-1. Una lectura de producción: si hay encargos creados con la 2.15.1 desde el
-   26/9. No hace falta migrar nada (un cotizado viejo queda "Por mandar" y un
-   confirmado sin `aceptado_el` cuenta como aceptado), pero conviene saberlo
-   antes de avisarle a Ross.
-2. La prueba en la app instalada contra la base real, con datos "Prueba"
-   (sección 6). Sumar: corregir una venta "Prueba" (un producto por otro, y
-   ver que el equivocado vuelve a su lote) y corregir su abono.
-3. Versión 2.16.0, `build:exe`, `latest.yml` verificado, `gh release` y la
-   PWA.
-4. Contarle a Ross lo que cambia en los números: "Te deben" cuenta un
+**Publicada el 29 de septiembre**, por pedido de Joswill, que la prueba él
+mismo: commit `3e0184e`, release `v2.16.0` con `latest.yml` verificado
+(sha512 y tamaño iguales al exe publicado, y es la "Latest"), y la PWA en los
+dos sitios de Hosting sirviendo el build nuevo. La app instalada en esta
+máquina ya se actualizó sola a la 2.16.0. No se hizo la lectura de
+producción ni la prueba con datos "Prueba" (sección 6): la prueba es la de
+Joswill. Queda:
+
+1. Lo que Joswill encuentre al probarla.
+2. Contarle a Ross lo que cambia en los números: "Te deben" cuenta un
    encargo desde que acepta, aunque no haya pagado anticipo; con 0% de
    anticipo, tener precio ya no confirma; una pieza que no se consiguió sale
    del total; anular el anticipo ya no desacepta un encargo (vuelve a deber).

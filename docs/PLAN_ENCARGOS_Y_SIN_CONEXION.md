@@ -773,3 +773,6 @@ Cambios respecto de lo escrito arriba, al implementarlo:
   se anula), y en el celular el botón no aparece para un encargo.
 - Encontrado de paso y corregido: la lista de abonos recientes (Actividad y
   el historial de Cobros) decía "Cliente" en todos.
+
+**Publicada como `v2.16.0` el mismo 29** (Windows por GitHub, con
+`latest.yml`, y la PWA), a pedido de Joswill, que la prueba él mismo.
