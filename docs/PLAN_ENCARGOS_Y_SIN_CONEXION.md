@@ -645,3 +645,37 @@ curva de hoja, pero no se revisó si mide la velocidad.
   cola (2.19), y las fases del encargo (2.16).
 - Este documento: al final de cada versión, un "Estado al …" como el de
   `PLAN_LOTES_Y_ENCARGOS.md`, con lo que cambió al verlo en pantalla.
+
+---
+
+## Estado al 28 de septiembre
+
+**2.16: hecha en local, sin publicar.** Tareas E0 a E7, un commit cada una
+(más dos de ajustes). Verificado: `tsc` de las dos apps, 433 pruebas, 92
+contra el emulador, 16 casos de interfaz de escritorio, 9 de la PWA, las tres
+auditorías y el build del celular. Faltan los pasos de E8 que tocan
+producción, con el visto bueno de Joswill (ver `CONTEXTO_SESION.md`, P0).
+
+Cambios respecto de lo escrito arriba, al implementarlo o verlo en pantalla:
+
+- **La cotización lleva versión** (`cotizacion_version`,
+  `cotizacion_enviada_version`), no sólo fecha: cotizar y mandar pueden caer
+  en el mismo instante. Las fechas quedan en `AAAA-MM-DD`.
+- **"Aceptó" con pago: primero el pago, después aceptar**
+  (`aceptarEncargo`); al revés, deshacer el grupo quedaba bloqueado. Un pago
+  que acepta guarda ahora la instantánea de la venta: antes, deshacerlo
+  dejaba el encargo confirmado. `aceptado_el` es la fecha del pago, no la de
+  hoy.
+- **El "50%" también estaba en la proforma impresa**, no sólo en el mensaje,
+  y la plantilla vieja está guardada tal cual en producción. Se reconoce y se
+  reemplaza; una propia se respeta.
+- **"Debe" en la lista sólo muestra deuda** (`esDeuda`): mostraba el total de
+  cotizaciones que la clienta todavía no aceptó.
+- **El modo encargo de `VentasView` se borró; el de `VentaEditor` queda** hasta
+  la 2.20, cuando se revise ese formulario (hoy nadie lo abre así). La
+  búsqueda de Ventas ya no trae encargos.
+- **La pantalla estaba sin commit** desde la 2.15.1 (sección 1, punto 7): se
+  adoptó como punto de partida (E0).
+- Encontrado de paso y corregido: cambiar de encargo pedía dos clics;
+  `PagoModal` ignoraba la moneda y el método de Configuración; un foco con
+  `setTimeout` robaba el cursor; los avisos de encargos llevaban a Ventas.

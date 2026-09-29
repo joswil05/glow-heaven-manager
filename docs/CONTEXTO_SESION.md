@@ -2,10 +2,12 @@
 
 > **Para quién es esto**: el modelo o la persona que abre este proyecto sin
 > haber estado en la sesión anterior.
-> **Estado del árbol**: `v2.15.1`, publicada en el celular y en Windows
-> (pedidos sin precio, sección 2; antes, la 2.14 con lotes y encargos). Los datos de producción se
-> migraron al flujo nuevo con `scripts/migrar-a-lotes.ts` (sección 3).
-> **Última actualización**: 26 de septiembre de 2026.
+> **Estado del árbol**: `v2.15.1` publicada en el celular y en Windows. En
+> `main`, **sin publicar**, los encargos por fases de la `v2.16` (sección 2 y
+> sección 3): verificados en local, falta la prueba sobre la base real y
+> publicar. Los datos de producción se migraron a lotes con
+> `scripts/migrar-a-lotes.ts` (sección 3).
+> **Última actualización**: 28 de septiembre de 2026.
 
 Leé este archivo primero. Después:
 
@@ -88,6 +90,19 @@ paquete que la trae. La etapa se deriva de las piezas
 ([`src/core/encargos.ts`](../src/core/encargos.ts)): por comprar, en camino
 ("1 de 2 llegó"), por entregar. Reglas:
 
+- **Por fases, desde la `v2.16`** (lista para publicar, ver la sección 3): por
+  buscar, por mandar, esperando respuesta, por comprar, en camino, por
+  entregar. Tiene su propia pantalla (`EncargosView`), ya no es la de ventas
+  con un interruptor. "Mandar cotización" marca la versión que se mandó;
+  "Aceptó" es un paso propio y el anticipo puede venir después; una pieza
+  puede quedar "No se consiguió" y la cotización sale con lo demás. El
+  mensaje y la proforma dicen el porcentaje real del anticipo (antes, "50%"
+  fijo; la plantilla vieja está guardada en producción y se reconoce). El
+  diseño completo está en
+  [PLAN_ENCARGOS_Y_SIN_CONEXION.md](PLAN_ENCARGOS_Y_SIN_CONEXION.md). Lo que
+  sigue de esta lista es de la `v2.15` y sigue valiendo, salvo los nombres:
+  "Por cotizar" pasó a "Por buscar", y un cotizado es "Por mandar" o
+  "Esperando respuesta".
 - **Un encargo puede empezar sin precio** (`v2.15`): una clienta pide algo que
   ella nunca compró y no sabe cuánto vale ni si lo va a conseguir. Se anota
   con la descripción y la clienta ("Guardar pedido"), queda "Por cotizar" y
@@ -179,6 +194,30 @@ un error.
 ---
 
 ## 3. Lo que está pendiente, en orden
+
+### P0: publicar la 2.16 (encargos por fases)
+
+Hecho en local el 28 de septiembre, commit por commit (tareas E0 a E7 de
+[superpowers/plans/2026-09-28-encargos-por-fases-2.16.md](superpowers/plans/2026-09-28-encargos-por-fases-2.16.md)):
+`tsc` de las dos apps en cero, 433 pruebas, 92 contra el emulador, 16 casos
+de interfaz de escritorio, 9 de la PWA, las tres auditorías y el build del
+celular. Falta, con el visto bueno de Joswill:
+
+1. Una lectura de producción: si hay encargos creados con la 2.15.1 desde el
+   26/9. No hace falta migrar nada (un cotizado viejo queda "Por mandar" y un
+   confirmado sin `aceptado_el` cuenta como aceptado), pero conviene saberlo
+   antes de avisarle a Ross.
+2. La prueba en la app instalada contra la base real, con datos "Prueba"
+   (sección 6).
+3. Versión 2.16.0, `build:exe`, `latest.yml` verificado, `gh release` y la
+   PWA.
+4. Contarle a Ross lo que cambia en los números: "Te deben" cuenta un
+   encargo desde que acepta, aunque no haya pagado anticipo; con 0% de
+   anticipo, tener precio ya no confirma; una pieza que no se consiguió sale
+   del total.
+
+Después viene la 2.17 (encargos en el celular). El orden completo está en la
+sección 0 del plan.
 
 ### Hecho el 26 de septiembre, sobre producción
 
@@ -298,6 +337,32 @@ manejarla con Playwright: `--remote-debugging-port=9223` y
 **El PIN lo escribe una persona.** La sesión de Google queda guardada entre
 arranques, pero el PIN se pide cada vez que abre la app. No se busca ni se
 saca de ningún lado: se le pide a Joswill que lo escriba en la ventana.
+
+**El Firestore falso es demasiado rápido para probar el deshacer.** Deshacer
+rechaza un grupo si el documento cambió DESPUÉS del evento que lo restaura, y
+lo decide comparando instantes. En el falso todo cae en el mismo milisegundo
+y ese control nunca salta: aceptar antes de pagar pasaba las pruebas y
+rompía el deshacer en la app. `tests/encargos-fases.test.ts` deja pasar 3 ms
+después de cada evento; una prueba de deshacer nueva que mezcle dos
+escrituras sobre el mismo documento tiene que hacer lo mismo.
+
+**Para mirar el paquete construido, `python -m http.server --directory dist`
+desde la raíz.** Con `cd dist`, el proceso queda con `dist` como directorio de
+trabajo y el siguiente build falla con `EPERM` (la trampa de más abajo). Y al
+terminar, cerrarlo: en Windows, detener la tarea que lo lanzó no cierra a sus
+hijos (pasó también con el emulador: hubo que cerrar el `java` y el `node` a
+mano).
+
+**Un foco con `setTimeout` en un formulario le roba el cursor a lo que ya se
+está escribiendo.** Pasó en "Nuevo encargo" (50 ms): Escape mostraba "¿Descartar
+lo que escribiste?" y el foco saltaba de vuelta al campo de la clienta. El
+foco inicial va con `autoFocus`, que actúa cuando el campo aparece.
+
+**Cerrar el panel lateral en el mousedown mueve la tabla bajo el cursor.** Con
+el detalle abierto, tocar otra fila lo cerraba en el mousedown; la tabla se
+ensanchaba, las filas subían, y el click caía en otra parte: dos clics para
+cambiar de encargo. La tabla de encargos tiene `data-ignorar-afuera`. La de
+ventas todavía no (se revisa con sus formularios, en la 2.20).
 
 **Una prueba en verde a la primera no demuestra nada.** Las de
 `tests/paquete-como-entrada.test.ts` se validaron sembrando diez errores de

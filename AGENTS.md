@@ -81,10 +81,23 @@ La ficha del producto es catálogo: no tiene costo, existencias ni paquete.
   viene lo que compra (lo más probable es que en el próximo): "Ya lo compré"
   deja la pieza comprada, esperando paquete (`comprado_el`), y el paquete
   nuevo se la ofrece primero.
-- **Un encargo puede anotarse sin precio: es un pedido "por cotizar".** No
-  cuenta en nada hasta que se cotiza (`VentasRepoFirestore.cotizar`). Un
-  total de $0 no confirma el encargo: `estadoInicialEncargo` recibe
-  `sin_precio`, y un pago no lo pasa a pendiente mientras falte un precio.
+- **Un encargo va por fases, y la fase se deriva** (`etapaEncargo`, desde
+  `v2.16`): por buscar, por mandar, esperando respuesta, por comprar, en
+  camino, por entregar. No hay estado nuevo: `COTIZADA` es "todavía no
+  aceptó" y `PENDIENTE`, "aceptó". Un pedido sin precio no cuenta en nada
+  hasta que se cotiza. Si la cotización cambió después de mandarla, vuelve a
+  "por mandar": se compara `cotizacion_version` con
+  `cotizacion_enviada_version`, **no fechas** (cotizar y mandar pueden caer
+  en el mismo instante). "Aceptó" es un paso propio (`aceptar`); el anticipo
+  puede llegar después, y quien paga, acepta (`pagoAcepta`). Con anticipo de
+  0%, tener precio ya no confirma nada. Ver
+  `docs/PLAN_ENCARGOS_Y_SIN_CONEXION.md`, sección 2.
+- **Una pieza que no se consiguió** (`descartada_el`) queda en la lista con
+  su precio para mostrarlo, pero con subtotal y costo en cero, y `piezasDe`
+  sólo la cuenta en `total` y `descartadas`. Sólo se descarta lo que no se
+  compró (`descartable`). La cuenta de total, anticipo y estado vive en
+  `recalcularEncargo`; si lo pagado queda por encima del total nuevo, se
+  rechaza.
 - **El costo se congela en la venta.** `venta_lineas.costo_unitario_usd_cents`
   guarda con qué costo salió la unidad. Recalcularlo después reescribiría la
   ganancia histórica cada vez que llega un paquete nuevo.
