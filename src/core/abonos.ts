@@ -8,6 +8,7 @@
  */
 import type { Autor, Pago } from '../shared/types';
 import { formatearMoneda } from './moneda';
+import { ZONA_NEGOCIO } from './fechas';
 
 export type Moneda = 'USD' | 'COR';
 
@@ -72,6 +73,49 @@ export function nombreCorto(autor: Partial<Autor> | null | undefined): string | 
   return base.charAt(0).toUpperCase() + base.slice(1);
 }
 
+/** La hora de un instante ISO, en Managua: "10:42". Vacío si no hay instante. */
+export function horaDe(iso: string | undefined | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return new Intl.DateTimeFormat('es-NI', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: ZONA_NEGOCIO,
+  }).format(d);
+}
+
+type Registrable = { registrado_por?: Autor; corregido_por?: Autor; creado_en?: string };
+
+/**
+ * Quién lo cargó, en una línea: "Ross · 10:42", "Ross · 10:42 · corrigió
+ * Joswill". Lo de antes de la 2.16.1 no guardaba quién: "Sin dato de quién".
+ */
+export function textoQuien(d: Registrable): string {
+  const quien = nombreCorto(d.registrado_por);
+  const hora = horaDe(d.creado_en);
+  const base = quien ? [quien, hora].filter(Boolean).join(' · ') : 'Sin dato de quién';
+  const corrigio = nombreCorto(d.corregido_por);
+  return corrigio ? `${base} · corrigió ${corrigio}` : base;
+}
+
+/**
+ * El orden del historial: el día más nuevo primero y, dentro del día, lo
+ * último que se registró. La fecha sola no alcanza: todo lo de un día empataba
+ * y quedaba en cualquier orden.
+ */
+export function ordenHistorial(
+  a: { fecha: string; creado_en?: string; id: number },
+  b: { fecha: string; creado_en?: string; id: number }
+): number {
+  return (
+    (b.fecha || '').localeCompare(a.fecha || '') ||
+    (b.creado_en || '').localeCompare(a.creado_en || '') ||
+    b.id - a.id
+  );
+}
+
 const DIAS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
@@ -85,6 +129,20 @@ export function diaDeHistorial(fecha: string, hoy: string): string {
   if (dias === 1) return 'Ayer';
   const semana = DIAS[new Date(Date.UTC(a, m - 1, d)).getUTCDay()];
   return `${semana} ${d} ${MESES[m - 1]}${a === ah ? '' : ` ${a}`}`;
+}
+
+/**
+ * El abono con que se pagó entera una venta, si fue uno solo: una venta al
+ * contado. `null` a crédito o con varios abonos.
+ */
+export function abonoUnicoQuePagoTodo<P extends Pick<Pago, 'activo'>>(
+  venta: { total_usd_cents: number; pagado_usd_cents: number },
+  pagos: readonly P[]
+): P | null {
+  const activos = pagos.filter((p) => p.activo !== false);
+  if (activos.length !== 1) return null;
+  if (venta.total_usd_cents <= 0 || venta.pagado_usd_cents < venta.total_usd_cents - 1) return null;
+  return activos[0];
 }
 
 /**
@@ -104,11 +162,8 @@ export function abonoQueSigueAlTotal<P extends MontosDeAbono & Pick<Pago, 'activ
   pagos: readonly P[],
   nuevoTotal: number
 ): { pago: P; monto_usd_cents: number; monto_cor_cents: number } | null {
-  const activos = pagos.filter((p) => p.activo !== false);
-  if (activos.length !== 1) return null;
-  if (venta.pagado_usd_cents < venta.total_usd_cents - 1) return null;
-  if (nuevoTotal <= 0 || nuevoTotal === venta.total_usd_cents) return null;
-  const pago = activos[0];
+  const pago = abonoUnicoQuePagoTodo(venta, pagos);
+  if (!pago || nuevoTotal <= 0 || nuevoTotal === venta.total_usd_cents) return null;
   return {
     pago,
     monto_usd_cents: nuevoTotal,

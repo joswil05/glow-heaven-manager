@@ -21,6 +21,7 @@ import {
   relativoAHoy,
 } from '@core/moneda';
 import { useToast } from '../context/ToastContext';
+import { textoPagado, textoEquivalente, textoQuien } from '@core/abonos';
 import { cn } from '../lib/cn';
 import { hoyISO } from '@core/fechas';
 import { monedaPorDefecto, metodoPorDefecto } from '@core/preferencias';
@@ -368,19 +369,15 @@ export const PagoModal: React.FC<PagoModalProps> = ({
                 {venta.pagos.map((p) => (
                   <li key={p.id} className="px-4 py-2 flex items-center justify-between gap-2">
                     <div className="min-w-0">
+                      {/* En la moneda en que pagó, y entre paréntesis la otra. */}
                       <div className="text-label text-texto tabular">
-                        {formatearMoneda(p.monto_usd_cents, 'USD')}
-                        {p.moneda === 'COR' && (
-                          <span className="text-texto-3">
-                            {' '}
-                            ({formatearMoneda(p.monto_cor_cents, 'COR')})
-                          </span>
-                        )}
+                        {textoPagado(p)} <span className="text-texto-3">({textoEquivalente(p)})</span>
                       </div>
                       <div className="text-caption text-texto-3">
                         {formatearFecha(p.fecha)} · {p.metodo.toLowerCase()}
                         {p.es_anticipo ? ' · anticipo' : ''}
                         {p.referencia ? ` · ${p.referencia}` : ''}
+                        {` · ${textoQuien(p)}`}
                       </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">

@@ -50,6 +50,8 @@ import { cn } from '../lib/cn';
 import { formatearMoneda, formatearFecha } from '@core/moneda';
 import { mesISO } from '@core/fechas';
 import { algunoContiene } from '@core/texto';
+import { textoQuien } from '@core/abonos';
+import { MontoAbono } from '../components/MontoAbono';
 
 /**
  * Las ventas de inventario. Los encargos tienen su propia pantalla
@@ -894,27 +896,21 @@ export const VentasView: React.FC<VentasViewProps> = ({
                         <div className="text-caption text-texto-3 truncate">
                           {p.metodo === 'EFECTIVO' ? 'Efectivo' : p.metodo === 'TRANSFERENCIA' ? 'Transferencia' : 'Otro'}
                           {p.referencia && ` · ${p.referencia}`}
+                          {` · ${textoQuien(p)}`}
                         </div>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
-                        <div className="text-right">
-                          <Money usd_cents={p.monto_usd_cents} size="sm" soloUsd />
-                          {p.moneda === 'COR' && (
-                            <div className="text-caption text-texto-3 tabular">
-                              {formatearMoneda(p.monto_cor_cents, 'COR')}
-                            </div>
-                          )}
-                        </div>
+                        <MontoAbono pago={p} />
                         {ventaDetalle.estado !== 'CANCELADA' && (
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => setPagoCorrigiendo(p)}
                             aria-label={`Corregir el abono del ${formatearFecha(p.fecha)}`}
-                            title="Corregir este abono"
-                            className="text-texto-3 hover:text-texto"
+                            className="text-texto-2 hover:text-texto"
                           >
                             <Pencil className="w-3.5 h-3.5" />
+                            <span>Corregir</span>
                           </Button>
                         )}
                       </div>

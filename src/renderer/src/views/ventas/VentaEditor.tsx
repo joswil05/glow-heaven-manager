@@ -37,6 +37,14 @@ import { monedaPorDefecto, metodoPorDefecto } from '@core/preferencias';
 import { sacarFIFO, devolverConsumos, type Lote } from '@core/lotes';
 import { calcularPrecio } from '@core/precios';
 import { costoEstimadoDePieza } from '@core/encargos';
+import {
+  abonoQueSigueAlTotal,
+  abonoUnicoQuePagoTodo,
+  monedaDeLosAbonos,
+  textoLoPagado,
+  textoPagado,
+  textoTotalEn,
+} from '@core/abonos';
 
 interface LineaBorrador {
   clave: string;
@@ -102,6 +110,9 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
   const { showToast } = useToast();
   const esEncargo = tipo === 'ENCARGO';
   const corrigiendoId = corrigiendo?.id;
+  /** Al contado, pagada con un solo abono: ese abono puede seguir al total. */
+  const abonoContado = corrigiendo ? abonoUnicoQuePagoTodo(corrigiendo, corrigiendo.pagos) : null;
+  const [ajustarAbono, setAjustarAbono] = useState(true);
 
   /**
    * Al corregir, las unidades de esta venta cuentan como disponibles: vuelven
@@ -190,6 +201,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
     setDescuentoTipo('PORCENTAJE');
     setDescuentoValorTexto('');
     setDescuentoMotivo('');
+    setAjustarAbono(true);
 
     // Corregir: la venta tal como se cargó.
     const v = corrigiendo;
@@ -641,6 +653,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
         const r = await window.api.ventas.corregir(corrigiendo.id, {
           cliente_id: clienteId,
           fecha,
+          ajustar_abono: abonoContado ? ajustarAbono : undefined,
           notas: notas.trim() || undefined,
           ...descuento,
           lineas: lineas.map((l) => ({
@@ -1335,11 +1348,30 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
 
               {/* Sección Cobro. Al corregir no se toca: los abonos se corrigen cada uno. */}
               {corrigiendo ? (
-                <p className="text-label text-texto-2 rounded-xl bg-superficie-2 p-4">
-                  {corrigiendo.pagado_usd_cents > 0
-                    ? `Pagó ${formatearMoneda(corrigiendo.pagado_usd_cents, 'USD')}. Los abonos no cambian acá: si un monto está mal, corregilo en el abono.`
-                    : 'No tiene abonos. La forma de cobro no cambia.'}
-                </p>
+                abonoContado ? (
+                  // Al contado: el abono puede seguir al total, en su moneda.
+                  <label className="flex items-start gap-3 rounded-xl bg-superficie-2 p-4 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={ajustarAbono}
+                      onChange={(e) => setAjustarAbono(e.target.checked)}
+                      className="w-4 h-4 mt-0.5 rounded border-borde-fuerte text-acento focus-visible:ring-2 focus-visible:ring-acento"
+                    />
+                    <span className="text-label text-texto-2">
+                      <span className="block font-medium text-texto">
+                        La pagó al contado: {textoPagado(abonoContado)}
+                        {abonoContado.moneda === 'COR' ? ' en córdobas' : ' en dólares'}.
+                      </span>
+                      Si el total cambia, el abono cambia con él, en la misma moneda y a la tasa de ese día.
+                    </span>
+                  </label>
+                ) : (
+                  <p className="text-label text-texto-2 rounded-xl bg-superficie-2 p-4">
+                    {corrigiendo.pagado_usd_cents > 0
+                      ? `Pagó ${textoLoPagado(corrigiendo.pagos)}. Los abonos no cambian acá: si un monto está mal, corregilo en el abono.`
+                      : 'No tiene abonos. La forma de cobro no cambia.'}
+                  </p>
+                )
               ) : (
               <div className="rounded-xl border border-borde p-5 bg-superficie space-y-4">
                 <h4 className="text-label font-semibold text-texto">Cobro</h4>
@@ -1716,7 +1748,9 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
 
                 {/* Qué cambia: se lee antes de guardar, no después. */}
                 {corrigiendo && (() => {
-                  const pagado = corrigiendo.pagado_usd_cents;
+                  const ajuste = ajustarAbono ? abonoQueSigueAlTotal(corrigiendo, corrigiendo.pagos, totales.total) : null;
+                  const pagado = ajuste ? totales.total : corrigiendo.pagado_usd_cents;
+                  const moneda = monedaDeLosAbonos(corrigiendo.pagos);
                   const clientaAntes = corrigiendo.cliente_nombre ?? 'Mostrador';
                   const clientaDespues = clienteSeleccionado?.nombre ?? 'Mostrador';
                   const filas = [
@@ -1761,19 +1795,24 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                           )}
                         </ul>
                       )}
-                      {pagado > totales.total ? (
+                      {ajuste ? (
+                        <p className="text-label text-texto-2 tabular" data-testid="abono-sigue">
+                          El abono de {textoPagado(ajuste.pago)} queda en {textoPagado({ ...ajuste.pago, ...ajuste })}. Queda
+                          pagada.
+                        </p>
+                      ) : pagado > totales.total ? (
                         <p className="flex items-start gap-2 text-label text-danger-800">
                           <AlertTriangle className="w-4 h-4 text-danger-600 shrink-0 mt-0.5" />
                           <span>
-                            Pagó {formatearMoneda(pagado, 'USD')} y el nuevo total es{' '}
-                            {formatearMoneda(totales.total, 'USD')}. Corregí el abono primero.
+                            Pagó {textoLoPagado(corrigiendo.pagos)} y el nuevo total es{' '}
+                            {textoTotalEn(moneda, totales.total, corrigiendo.tasa_cambio_cents)}. Corregí el abono primero.
                           </span>
                         </p>
                       ) : (
                         <p className="text-caption text-texto-3 tabular">
-                          {pagado > 0 ? `Pagó ${formatearMoneda(pagado, 'USD')}. ` : ''}
+                          {pagado > 0 ? `Pagó ${textoLoPagado(corrigiendo.pagos)}. ` : ''}
                           {totales.total - pagado > 0
-                            ? `Queda debiendo ${formatearMoneda(totales.total - pagado, 'USD')}.`
+                            ? `Queda debiendo ${textoTotalEn(moneda, totales.total - pagado, corrigiendo.tasa_cambio_cents)}.`
                             : 'Queda pagada.'}
                         </p>
                       )}

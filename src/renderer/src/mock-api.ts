@@ -42,6 +42,8 @@ import { algunoContiene, normalizar } from '@core/texto';
 import { esDeuda, esCotizacion, estadoInicialEncargo, pagoAcepta } from '@core/cobranza';
 import { hoyISO, sumarDiasAFecha } from '@core/fechas';
 import { formatearMoneda } from '@core/moneda';
+import { abonoQueSigueAlTotal, monedaDeLosAbonos, textoLoPagado, textoTotalEn } from '@core/abonos';
+import type { Autor } from '../../shared/types';
 
 const ok = <T>(data: T): Promise<Resultado<T>> => Promise.resolve({ success: true, data });
 const falla = (error: string) => Promise.resolve({ success: false as const, error });
@@ -54,6 +56,9 @@ function faltaCotizar(lineas: VentaLinea[]): string | null {
   return null;
 }
 const grupo = () => ({ evento_grupo_id: `g_${Math.random().toString(36).slice(2)}` });
+/** La cuenta con la que "entró" el simulador: lo que registra queda a su nombre. */
+const AUTOR: Autor = { uid: 'simulador', nombre: 'Ross Prueba' };
+const ahora = () => new Date().toISOString();
 const hoy = () => hoyISO();
 
 interface Almacen {
@@ -1166,6 +1171,8 @@ const api: ApiPuente = {
             referencia: input.pago_inicial.referencia,
             es_anticipo: esEncargo,
             activo: true,
+            creado_en: ahora(),
+            registrado_por: AUTOR,
           });
         }
       }
@@ -1204,6 +1211,8 @@ const api: ApiPuente = {
         anticipo_bp: esEncargo ? (input.anticipo_bp ?? db.parametros.anticipo_defecto_bp) : undefined,
         notas: input.notas,
         activo: true,
+        creado_en: ahora(),
+        registrado_por: AUTOR,
         lineas,
         piezas: esEncargo ? piezasDe(lineas) : undefined,
         pagos: pagosIniciales,
@@ -1420,10 +1429,21 @@ const api: ApiPuente = {
             : 0
       );
       const total = subtotal - descuento;
-      if (venta.pagado_usd_cents > total) {
+      const activos = venta.pagos.filter((p) => p.activo !== false);
+      const ajuste = input.ajustar_abono ? abonoQueSigueAlTotal(venta, activos, total) : null;
+      const pagado = venta.pagado_usd_cents + (ajuste ? ajuste.monto_usd_cents - ajuste.pago.monto_usd_cents : 0);
+      if (pagado > total) {
         return falla(
-          `Pagó ${formatearMoneda(venta.pagado_usd_cents, 'USD')} y el nuevo total es ${formatearMoneda(total, 'USD')}. Corregí el abono primero.`
+          `Pagó ${textoLoPagado(activos)} y el nuevo total es ${textoTotalEn(monedaDeLosAbonos(activos), total, venta.tasa_cambio_cents)}. Corregí el abono primero.`
         );
+      }
+      if (ajuste) {
+        Object.assign(ajuste.pago, {
+          monto_usd_cents: ajuste.monto_usd_cents,
+          monto_cor_cents: ajuste.monto_cor_cents,
+          corregido_por: AUTOR,
+          corregido_en: ahora(),
+        });
       }
       db.productos = db.productos.map((p) => ({
         ...p,
@@ -1443,7 +1463,10 @@ const api: ApiPuente = {
         total_usd_cents: total,
         costo_total_usd_cents: costo,
         ganancia_usd_cents: total - costo,
-        saldo_usd_cents: total - venta.pagado_usd_cents,
+        pagado_usd_cents: pagado,
+        saldo_usd_cents: total - pagado,
+        corregido_por: AUTOR,
+        corregido_en: ahora(),
         lineas,
       });
       return ok(grupo());
@@ -1528,6 +1551,8 @@ const api: ApiPuente = {
         referencia: input.referencia,
         es_anticipo: venta.tipo === 'ENCARGO' && venta.pagos.length === 0,
         activo: true,
+        creado_en: ahora(),
+        registrado_por: AUTOR,
       };
 
       venta.pagos.push(pago);
@@ -1582,6 +1607,8 @@ const api: ApiPuente = {
         referencia: input.referencia,
         es_anticipo: false,
         activo: true,
+        creado_en: ahora(),
+        registrado_por: AUTOR,
       };
       venta.pagos.push(pago);
       venta.pagado_usd_cents += montoUsd;
@@ -1631,6 +1658,8 @@ const api: ApiPuente = {
         metodo: input.metodo,
         referencia: input.referencia?.trim() || undefined,
         notas: input.notas?.trim() || undefined,
+        corregido_por: AUTOR,
+        corregido_en: ahora(),
       });
       if (
         venta.tipo === 'ENCARGO' &&

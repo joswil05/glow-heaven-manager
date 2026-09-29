@@ -5,7 +5,6 @@ import {
   DollarSign,
   MessageCircle,
   CheckCircle2,
-  Trash2,
   X,
   CreditCard,
   Users,
@@ -35,13 +34,15 @@ import {
   Confirmar,
   Portal,
 } from '../components/ui';
-import { formatearMoneda, formatearFecha } from '@core/moneda';
+import { formatearMoneda } from '@core/moneda';
 import { parsearACentavos } from '@core/numeros';
 import { enlaceWhatsApp } from '../lib/whatsapp';
 import { useToast } from '../context/ToastContext';
 import { cn } from '../lib/cn';
 import { hoyISO } from '@core/fechas';
 import { algunoContiene } from '@core/texto';
+import { diaDeHistorial, ordenHistorial, textoQuien } from '@core/abonos';
+import { MontoAbono } from '../components/MontoAbono';
 
 interface CobranzaViewProps {
   clientes: ClienteDetalle[];
@@ -143,9 +144,14 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
     return cuentasPorCobrar.reduce((sum, c) => sum + (c.saldo_usd_cents || 0), 0);
   }, [cuentasPorCobrar]);
 
-  // Pagos filtrados
+  const abonosDeHoy = useMemo(() => {
+    const hoy = hoyISO();
+    return pagos.filter((p) => p.fecha === hoy).length;
+  }, [pagos]);
+
+  // Pagos filtrados, por día y, dentro del día, lo último registrado primero.
   const pagosFiltrados = useMemo(() => {
-    let list = pagos;
+    let list = [...pagos].sort(ordenHistorial);
     if (filtroMetodo !== 'TODOS') {
       list = list.filter((p) => p.metodo === filtroMetodo);
     }
@@ -241,12 +247,13 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
   // Columnas para tabla de historial de abonos
   const columnasHistorial: Column<PagoCompleto>[] = [
     {
-      key: 'fecha',
-      header: 'Fecha',
-      width: '130px',
+      key: 'quien',
+      header: 'Registró',
+      width: '170px',
+      // El día va en el encabezado del grupo; acá, quién y a qué hora.
       render: (p) => (
-        <span className="tabular text-label text-texto font-medium">
-          {formatearFecha(p.fecha)}
+        <span className={cn('text-caption tabular', p.registrado_por ? 'text-texto-2' : 'text-texto-3')}>
+          {textoQuien(p)}
         </span>
       ),
     },
@@ -336,50 +343,41 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
     },
     {
       key: 'monto',
-      header: 'Monto Abonado',
+      header: 'Abonó',
       align: 'right',
-      render: (p) => (
-        <div className="flex flex-col items-end">
-          <span className="font-extrabold text-body text-acento tabular">
-            {formatearMoneda(p.monto_usd_cents, 'USD')}
-          </span>
-          <span className="text-caption text-texto-3 tabular">
-            ≈ {formatearMoneda(p.monto_cor_cents, 'COR')}
-          </span>
-        </div>
-      ),
+      // En la moneda en que pagó: "C$600.00", y abajo su equivalente.
+      render: (p) => <MontoAbono pago={p} />,
     },
     {
       key: 'acciones',
       header: '',
       align: 'right',
-      width: '96px',
+      width: '176px',
       render: (p) => (
-        <div className="flex items-center justify-end gap-0.5">
+        <div className="flex items-center justify-end gap-1">
           <Button
             size="sm"
-            variant="ghost"
-            title="Corregir este abono"
+            variant="secondary"
             aria-label={`Corregir el abono de ${p.cliente_nombre || 'la clienta'}`}
-            className="text-texto-3 hover:text-texto rounded-lg p-1.5"
             onClick={(e) => {
               e.stopPropagation();
               setPagoCorrigiendo(p);
             }}
           >
-            <Pencil className="w-4 h-4" />
+            <Pencil className="w-3.5 h-3.5" />
+            <span>Corregir</span>
           </Button>
           <Button
             size="sm"
             variant="ghost"
-            title="Anular este abono (restaura el saldo)"
-            className="text-texto-3 hover:text-danger-600 rounded-lg p-1.5"
+            aria-label={`Anular el abono de ${p.cliente_nombre || 'la clienta'}`}
+            className="text-texto-3 hover:text-danger-600"
             onClick={(e) => {
               e.stopPropagation();
               setPagoAnulando(p);
             }}
           >
-            <Trash2 className="w-4 h-4" />
+            Anular
           </Button>
         </div>
       ),
@@ -425,7 +423,9 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
                   )}
                 >
                   <span>Abonos recibidos</span>
-                  <span className="text-texto-3 font-medium tabular">{pagos.length}</span>
+                  <span className="text-texto-3 font-medium tabular">
+                    {abonosDeHoy > 0 ? `${abonosDeHoy} hoy` : pagos.length}
+                  </span>
                 </button>
               </div>
             </div>
@@ -555,6 +555,8 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
                     rows={pagosFiltrados}
                     columns={columnasHistorial}
                     rowKey={(p) => p.id}
+                    grupoDe={(p) => diaDeHistorial(p.fecha, hoyISO())}
+                    onRowClick={(p) => setPagoCorrigiendo(p)}
                     emptyMessage={
                       busqueda
                         ? 'Ningún abono coincide'

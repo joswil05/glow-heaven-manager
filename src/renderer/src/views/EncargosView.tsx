@@ -42,6 +42,7 @@ import {
 import { formatearMoneda, formatearFecha } from '@core/moneda';
 import { hoyISO } from '@core/fechas';
 import { esDeuda } from '@core/cobranza';
+import { textoPagado, textoQuien } from '@core/abonos';
 import { algunoContiene } from '@core/texto';
 import { enlaceWhatsApp } from '../lib/whatsapp';
 import { useToast } from '../context/ToastContext';
@@ -867,12 +868,14 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
               <ul className="space-y-1 animate-fila-nueva">
                 {detalle.pagos.map((p) => (
                   <li key={p.id} className="flex items-center justify-between gap-2 text-label tabular">
-                    <span className={cn('text-texto-2', !p.activo && 'line-through')}>
+                    <span className={cn('text-texto-2 min-w-0 truncate', !p.activo && 'line-through')}>
                       {formatearFecha(p.fecha)}
                       {p.es_anticipo ? ' · anticipo' : ''}
+                      <span className="text-texto-3">{` · ${textoQuien(p)}`}</span>
                     </span>
-                    <span className="flex items-center gap-1">
-                      <span className={cn('text-texto', !p.activo && 'line-through text-texto-3')}>{$(p.monto_usd_cents)}</span>
+                    <span className="flex items-center gap-1 shrink-0">
+                      {/* En la moneda en que pagó. */}
+                      <span className={cn('text-texto', !p.activo && 'line-through text-texto-3')}>{textoPagado(p)}</span>
                       {p.activo && detalle.estado !== 'CANCELADA' && (
                         <button
                           type="button"

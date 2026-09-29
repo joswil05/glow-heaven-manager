@@ -27,6 +27,9 @@ import { hoyISO } from '@core/fechas';
 // Una copia de esta función vivía acá abajo. Duplicada, se le podía
 // corregir a una y no a la otra: ahora las dos pantallas usan la misma.
 import { enlaceWhatsApp } from '../lib/whatsapp';
+import { textoQuien } from '@core/abonos';
+import { MontoAbono } from '../components/MontoAbono';
+import { CorregirPagoModal } from '../components/CorregirPagoModal';
 
 interface ClientesViewProps {
   parametros?: ParametrosSistema | null;
@@ -53,6 +56,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
   const [editando, setEditando] = useState<ClienteDetalle | null>(null);
   const [archivando, setArchivando] = useState<ClienteDetalle | null>(null);
   const [pagoAnulando, setPagoAnulando] = useState<PagoCompleto | null>(null);
+  const [pagoCorrigiendo, setPagoCorrigiendo] = useState<PagoCompleto | null>(null);
   const [menuContextual, setMenuContextual] = useState<{
     x: number;
     y: number;
@@ -107,24 +111,29 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
     }
   }, [clienteInicialId, clientes]);
 
+  /** Después de anular o corregir un abono: su saldo y sus listas cambiaron. */
+  const refrescarDetalle = async () => {
+    await cargar();
+    if (detalle) {
+      const [vr, pr, cr] = await Promise.all([
+        window.api.ventas.list({ cliente_id: detalle.id }),
+        window.api.pagos.listarPorCliente(detalle.id),
+        window.api.clientes.get(detalle.id),
+      ]);
+      if (vr.success) setVentasCliente(vr.data);
+      if (pr.success) setPagosCliente(pr.data);
+      if (cr.success && cr.data) setDetalle(cr.data);
+    }
+    onCambio();
+  };
+
   const confirmarAnularPago = async () => {
     if (!pagoAnulando) return;
     const r = await window.api.pagos.anular(pagoAnulando.id);
     if (r.success) {
       showToast({ message: 'Abono anulado con éxito', type: 'success' });
       setPagoAnulando(null);
-      await cargar();
-      if (detalle) {
-        const [vr, pr, cr] = await Promise.all([
-          window.api.ventas.list({ cliente_id: detalle.id }),
-          window.api.pagos.listarPorCliente(detalle.id),
-          window.api.clientes.get(detalle.id),
-        ]);
-        if (vr.success) setVentasCliente(vr.data);
-        if (pr.success) setPagosCliente(pr.data);
-        if (cr.success && cr.data) setDetalle(cr.data);
-      }
-      onCambio();
+      await refrescarDetalle();
     } else {
       showToast({ message: r.error, type: 'error' });
     }
@@ -656,20 +665,24 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
                           {p.metodo === 'EFECTIVO' ? 'Efectivo' : p.metodo === 'TRANSFERENCIA' ? 'Transferencia' : 'Otro'}
                           {p.venta_codigo && ` · ${p.venta_codigo}`}
                           {p.referencia && ` · ${p.referencia}`}
+                          {` · ${textoQuien(p)}`}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <div className="text-right">
-                          <Money usd_cents={p.monto_usd_cents} size="sm" soloUsd />
-                          {p.moneda === 'COR' && (
-                            <div className="text-caption text-texto-3 tabular">
-                              {formatearMoneda(p.monto_cor_cents, 'COR')}
-                            </div>
-                          )}
-                        </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <MontoAbono pago={p} />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setPagoCorrigiendo(p)}
+                          aria-label={`Corregir el abono del ${formatearFecha(p.fecha)}`}
+                          className="text-texto-2 hover:text-texto"
+                        >
+                          Corregir
+                        </Button>
                         <button
                           type="button"
                           onClick={() => setPagoAnulando(p)}
+                          aria-label={`Anular el abono del ${formatearFecha(p.fecha)}`}
                           title="Anular este abono"
                           className="text-texto-3 hover:text-danger-600 p-1 rounded transition-colors"
                         >
@@ -719,6 +732,14 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
         textoCancelar="Cancelar"
         onConfirmar={confirmarAnularPago}
         onCerrar={() => setPagoAnulando(null)}
+      />
+
+      <CorregirPagoModal
+        abierto={pagoCorrigiendo !== null}
+        pago={pagoCorrigiendo}
+        codigo={pagoCorrigiendo?.venta_codigo}
+        onCerrar={() => setPagoCorrigiendo(null)}
+        onCorregido={refrescarDetalle}
       />
 
       <Confirmar

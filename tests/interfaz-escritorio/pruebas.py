@@ -861,6 +861,92 @@ def caso_corregir_venta_y_abono(page: Page) -> list[str]:
     return fallas
 
 
+@caso("un abono en córdobas se ve y se corrige en córdobas, y la venta al contado lo arrastra")
+def caso_abono_en_cordobas(page: Page) -> list[str]:
+    """
+    Pedido de Joswill: si pagó en córdobas y al corregir se cambia a dólares
+    por error, se confunde. El abono se muestra como se pagó, la moneda
+    original queda marcada, y cambiarla avisa qué significa.
+    """
+    fallas: list[str] = []
+    datos = page.evaluate("""async () => {
+      const ps = (await window.api.productos.list()).data
+        .filter((p) => p.activo !== false && p.existencias >= 2 && p.variantes.length <= 1);
+      const [a, b] = ps.slice(-2);
+      const r = await window.api.ventas.crear({
+        fecha: new Date().toISOString().slice(0, 10),
+        tipo: 'INVENTARIO',
+        lineas: [{ producto_id: a.id, variante_id: a.variantes[0]?.id, cantidad: 1, precio_unitario_usd_cents: 2000 }],
+        pago_inicial: { moneda: 'COR', metodo: 'EFECTIVO' },
+      });
+      const v = (await window.api.ventas.get(r.data.id)).data;
+      return { id: v.id, codigo: v.codigo, tasa: v.pagos[0].tasa_cambio_cents,
+               cor: v.pagos[0].monto_cor_cents, b: { nombre: b.nombre } };
+    }""")
+    cor_antes = f"C${datos['cor'] / 100:,.2f}"
+
+    # En Cobros, el abono dice C$ y quién lo registró.
+    page.get_by_role("button", name="Inicio", exact=False).first.click()
+    page.wait_for_timeout(300)
+    page.get_by_role("button", name="Cobros", exact=True).click()
+    page.wait_for_timeout(900)
+    page.get_by_role("button", name=re.compile("Abonos recibidos")).click()
+    page.wait_for_timeout(500)
+    fila = fila_de(page, datos["codigo"])
+    texto = fila.inner_text()
+    if cor_antes not in texto:
+        fallas.append(f"en Cobros el abono no se ve en córdobas ({cor_antes}): {texto!r}")
+    if "Ross" not in texto:
+        fallas.append(f"en Cobros no dice quién registró el abono: {texto!r}")
+    if fila.get_by_role("button", name=re.compile("^Corregir")).count() == 0:
+        fallas.append("en Cobros el abono no tiene 'Corregir' escrito")
+
+    # Corregir la venta: el producto por uno de $15; el abono la sigue en C$.
+    ir_a_ventas(page)
+    fila_de(page, datos["codigo"]).click()
+    page.wait_for_timeout(700)
+    page.get_by_role("button", name="Corregir venta").click()
+    editor = page.get_by_role("dialog", name=f"Corregir {datos['codigo']}")
+    editor.wait_for(timeout=3000)
+    editor.get_by_role("button", name="Cambiar").first.click()
+    editor.get_by_role("button", name="Buscar en inventario").click()
+    editor.get_by_placeholder("Buscar por nombre o código").fill(datos["b"]["nombre"])
+    page.wait_for_timeout(300)
+    editor.locator("ul button", has_text=datos["b"]["nombre"]).first.click()
+    editor.get_by_label("Precio ($)").fill("15.00")
+    editor.get_by_role("button", name="Siguiente").click()
+    if editor.get_by_text(re.compile("La pagó al contado: " + re.escape(cor_antes))).count() == 0:
+        fallas.append("al corregir no ofrece que el abono al contado siga al total, en córdobas")
+    editor.get_by_role("button", name="Siguiente").click()
+    cor_despues = round(1500 * datos["tasa"] / 100)
+    sigue = editor.locator('[data-testid="abono-sigue"]')
+    esperado = f"C${cor_despues / 100:,.2f}"
+    if sigue.count() == 0 or esperado not in sigue.inner_text():
+        fallas.append(f"el último paso no dice que el abono queda en {esperado}")
+    editor.get_by_role("button", name="Guardar corrección").click()
+    page.wait_for_timeout(900)
+    v = page.evaluate("async (id) => (await window.api.ventas.get(id)).data", datos["id"])
+    p = v["pagos"][0]
+    if [p["moneda"], p["monto_usd_cents"], p["monto_cor_cents"], v["saldo_usd_cents"]] != ["COR", 1500, cor_despues, 0]:
+        fallas.append(f"el abono no siguió a la venta en córdobas: {p['moneda']} {p['monto_usd_cents']} {p['monto_cor_cents']}, saldo {v['saldo_usd_cents']}")
+
+    # Corregir el abono: arranca en córdobas; pasar a dólares avisa.
+    page.get_by_role("button", name=re.compile("^Corregir el abono")).first.click()
+    abono = page.get_by_role("dialog", name=re.compile("Corregir abono"))
+    abono.wait_for(timeout=3000)
+    if abono.get_by_role("radio", name=re.compile("Córdobas")).get_attribute("aria-checked") != "true":
+        fallas.append("la corrección del abono no arranca en córdobas")
+    abono.get_by_role("radio", name=re.compile("Dólares")).click()
+    if abono.get_by_text(re.compile("Lo registraste en córdobas")).count() == 0:
+        fallas.append("pasar el abono a dólares no avisa que se registró en córdobas")
+    page.keyboard.press("Escape")
+    descartar = page.get_by_role("alertdialog").get_by_role("button", name="Descartar")
+    if descartar.count() > 0:
+        descartar.click()
+    page.wait_for_timeout(300)
+    return fallas
+
+
 @caso("no quedan errores de consola")
 def caso_consola(page: Page) -> list[str]:
     return []  # lo evalúa el corredor al final

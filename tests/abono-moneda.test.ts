@@ -8,7 +8,39 @@ import {
   nombreCorto,
   diaDeHistorial,
   abonoQueSigueAlTotal,
+  horaDe,
+  textoQuien,
+  ordenHistorial,
 } from '@core/abonos';
+
+describe('quién y a qué hora', () => {
+  it('la hora es la de Managua, no la de la máquina', () => {
+    expect(horaDe('2026-09-29T16:42:00.000Z')).toBe('10:42');
+  });
+
+  it('quién lo registró y quién lo corrigió, en una línea', () => {
+    expect(
+      textoQuien({
+        registrado_por: { uid: 'a', nombre: 'Ross Pérez' },
+        creado_en: '2026-09-29T16:42:00.000Z',
+        corregido_por: { uid: 'b', nombre: 'Joswill Espinoza' },
+      })
+    ).toBe('Ross · 10:42 · corrigió Joswill');
+  });
+
+  it('lo de antes no sabe quién', () => {
+    expect(textoQuien({ creado_en: '2026-09-29T16:42:00.000Z' })).toBe('Sin dato de quién');
+  });
+
+  it('el día más nuevo primero y, dentro del día, lo último que se registró', () => {
+    const filas = [
+      { id: 1, fecha: '2026-09-28', creado_en: '2026-09-28T20:00:00Z' },
+      { id: 2, fecha: '2026-09-29', creado_en: '2026-09-29T15:00:00Z' },
+      { id: 3, fecha: '2026-09-29', creado_en: '2026-09-29T18:00:00Z' },
+    ];
+    expect([...filas].sort(ordenHistorial).map((f) => f.id)).toEqual([3, 2, 1]);
+  });
+});
 
 const abono = (moneda: 'USD' | 'COR', usd: number, cor: number, extra: Record<string, unknown> = {}) => ({
   id: 1,
