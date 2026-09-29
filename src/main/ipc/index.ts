@@ -1,10 +1,12 @@
-import { ipcMain, BrowserWindow, dialog } from 'electron';
+import { ipcMain, BrowserWindow, dialog, app, shell } from 'electron';
+import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { AccesosRepoFirestore as AccesosRepo } from '../firebase/repositories/accesos.repo';
 import fs from 'node:fs/promises';
 import { getMainWindow } from '../windows/main.window';
 import { IPC } from '../../shared/ipc-channels';
-import type { Resultado } from '../../shared/ipc-contracts';
+import type { Resultado, PagoAlAceptar } from '../../shared/ipc-contracts';
+import { aceptarEncargo } from '../firebase/services/encargos.service';
 import { ParametrosRepoFirestore as ParametrosRepo } from '../firebase/repositories/parametros.repo';
 import { ProductosRepoFirestore as ProductosRepo } from '../firebase/repositories/productos.repo';
 import { ComprasRepoFirestore as ComprasRepo } from '../firebase/repositories/compras.repo';
@@ -260,6 +262,24 @@ export function registrarHandlers(): void {
     return { evento_grupo_id };
   });
 
+  manejar(IPC.VENTAS_DESCARTAR_PIEZAS, async (id: number, linea_ids: number[], descartar: boolean) => {
+    const evento_grupo_id = nuevoGrupo();
+    await VentasRepo.descartarPiezas(id, linea_ids, descartar, evento_grupo_id);
+    return { evento_grupo_id };
+  });
+
+  manejar(IPC.VENTAS_MARCAR_ENVIADA, async (id: number) => {
+    const evento_grupo_id = nuevoGrupo();
+    await VentasRepo.marcarEnviada(id, evento_grupo_id);
+    return { evento_grupo_id };
+  });
+
+  manejar(IPC.VENTAS_ACEPTAR, async (id: number, pago?: PagoAlAceptar) => {
+    const evento_grupo_id = nuevoGrupo();
+    await aceptarEncargo(id, pago, evento_grupo_id);
+    return { evento_grupo_id };
+  });
+
   // -------------------------------------------------------------------------
   // Pagos
   // -------------------------------------------------------------------------
@@ -458,33 +478,45 @@ export function registrarHandlers(): void {
         return { guardado: false };
       }
 
-      const win = new BrowserWindow({
-        show: false,
-        webPreferences: {
-          nodeIntegration: false,
-          contextIsolation: true,
-        },
-      });
-
-      try {
-        await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(input.html)}`);
-        const pdfBuffer = await win.webContents.printToPDF({
-          printBackground: true,
-          landscape: false,
-          pageSize: 'A4',
-          margins: {
-            top: 0.4,
-            bottom: 0.4,
-            left: 0.4,
-            right: 0.4,
-          },
-        });
-
-        await fs.writeFile(saveDialogResult.filePath, pdfBuffer);
-        return { guardado: true, ruta: saveDialogResult.filePath };
-      } finally {
-        if (!win.isDestroyed()) win.close();
-      }
+      await fs.writeFile(saveDialogResult.filePath, await htmlAPdf(input.html));
+      return { guardado: true, ruta: saveDialogResult.filePath };
     }
   );
+
+  // Mandar una cotización: el PDF queda en una carpeta fija, sin preguntar
+  // dónde, y la carpeta se abre con el archivo seleccionado para arrastrarlo
+  // al chat de WhatsApp. El mensaje lo abre la pantalla.
+  manejar(IPC.DOCUMENTOS_PREPARAR_COTIZACION, async (input: { codigo: string; html: string }) => {
+    const carpeta = path.join(app.getPath('documents'), 'Glow Heaven', 'Cotizaciones');
+    await fs.mkdir(carpeta, { recursive: true });
+    // El código viene de la base, pero es un nombre de archivo: sólo lo que no
+    // puede salir de la carpeta.
+    const nombre = `${input.codigo.replace(/[^A-Za-z0-9-]/g, '') || 'Cotizacion'}.pdf`;
+    const ruta = path.join(carpeta, nombre);
+    await fs.writeFile(ruta, await htmlAPdf(input.html));
+    shell.showItemInFolder(ruta);
+    return { ruta };
+  });
+}
+
+/** El mismo documento A4 que se imprime, como PDF. */
+async function htmlAPdf(html: string): Promise<Buffer> {
+  const win = new BrowserWindow({
+    show: false,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  });
+  try {
+    await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+    return await win.webContents.printToPDF({
+      printBackground: true,
+      landscape: false,
+      pageSize: 'A4',
+      margins: { top: 0.4, bottom: 0.4, left: 0.4, right: 0.4 },
+    });
+  } finally {
+    if (!win.isDestroyed()) win.close();
+  }
 }

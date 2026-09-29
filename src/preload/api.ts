@@ -64,6 +64,10 @@ export const api: ApiPuente = {
     marcarCompradas: (id, linea_ids, comprado) =>
       ipcRenderer.invoke(IPC.VENTAS_MARCAR_COMPRADAS, id, linea_ids, comprado),
     cotizar: (id, lineas) => ipcRenderer.invoke(IPC.VENTAS_COTIZAR, id, lineas),
+    descartarPiezas: (id, linea_ids, descartar) =>
+      ipcRenderer.invoke(IPC.VENTAS_DESCARTAR_PIEZAS, id, linea_ids, descartar),
+    marcarEnviada: (id) => ipcRenderer.invoke(IPC.VENTAS_MARCAR_ENVIADA, id),
+    aceptar: (id, pago) => ipcRenderer.invoke(IPC.VENTAS_ACEPTAR, id, pago),
   },
   accesos: {
     list: () => ipcRenderer.invoke(IPC.ACCESOS_LIST),
@@ -107,6 +111,8 @@ export const api: ApiPuente = {
     imprimir: (html: string) => ipcRenderer.invoke(IPC.DOCUMENTOS_IMPRIMIR, html),
     guardarPdf: (input: { html: string; nombreSugerido: string }) =>
       ipcRenderer.invoke(IPC.DOCUMENTOS_GUARDAR_PDF, input),
+    prepararCotizacion: (input: { codigo: string; html: string }) =>
+      ipcRenderer.invoke(IPC.DOCUMENTOS_PREPARAR_COTIZACION, input),
   },
   actualizador: {
     onUpdateChecking: (cb) => {

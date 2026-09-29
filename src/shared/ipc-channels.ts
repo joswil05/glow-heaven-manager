@@ -44,6 +44,9 @@ export const IPC = {
   VENTAS_CAMBIAR_ESTADO: 'ventas:cambiarEstado',
   VENTAS_MARCAR_COMPRADAS: 'ventas:marcarCompradas',
   VENTAS_COTIZAR: 'ventas:cotizar',
+  VENTAS_DESCARTAR_PIEZAS: 'ventas:descartarPiezas',
+  VENTAS_MARCAR_ENVIADA: 'ventas:marcarEnviada',
+  VENTAS_ACEPTAR: 'ventas:aceptar',
 
   // Pagos
   PAGOS_REGISTRAR: 'pagos:registrar',
@@ -70,6 +73,7 @@ export const IPC = {
   // Documentos e Impresión
   DOCUMENTOS_IMPRIMIR: 'documentos:imprimir',
   DOCUMENTOS_GUARDAR_PDF: 'documentos:guardarPdf',
+  DOCUMENTOS_PREPARAR_COTIZACION: 'documentos:prepararCotizacion',
 
   // Sistema
   SISTEMA_DESHACER: 'sistema:deshacer',

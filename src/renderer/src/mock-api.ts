@@ -17,6 +17,7 @@ import type {
   CompraCompleta,
   Venta,
   VentaCompleta,
+  VentaLinea,
   Pago,
   PanelData,
   Acceso,
@@ -36,12 +37,22 @@ import {
   type ProductoAntesDelPaquete,
 } from '@core/paquete';
 import { normalizarLotes, sacarFIFO, costoBase, valorDeLotes, type Lote } from '@core/lotes';
-import { piezasDe, estadoPieza, sinPrecio } from '@core/encargos';
+import { piezasDe, estadoPieza, sinPrecio, descartable, recalcularEncargo } from '@core/encargos';
 import { algunoContiene, normalizar } from '@core/texto';
-import { esDeuda, esCotizacion, estadoInicialEncargo } from '@core/cobranza';
+import { esDeuda, esCotizacion, estadoInicialEncargo, pagoAcepta } from '@core/cobranza';
 import { hoyISO, sumarDiasAFecha } from '@core/fechas';
+import { formatearMoneda } from '@core/moneda';
 
 const ok = <T>(data: T): Promise<Resultado<T>> => Promise.resolve({ success: true, data });
+const falla = (error: string) => Promise.resolve({ success: false as const, error });
+
+/** Lo que impide mandar o aceptar una cotización, como en el repositorio. */
+function faltaCotizar(lineas: VentaLinea[]): string | null {
+  const falta = lineas.find((l) => sinPrecio(l));
+  if (falta) return `Falta cotizar '${falta.descripcion}': ponele precio o marcala "No se consiguió".`;
+  if (lineas.every((l) => l.descartada_el)) return 'No se consiguió nada: no hay cotización que mandar.';
+  return null;
+}
 const grupo = () => ({ evento_grupo_id: `g_${Math.random().toString(36).slice(2)}` });
 const hoy = () => hoyISO();
 
@@ -197,6 +208,40 @@ function almacenInicial(): Almacen {
 }
 
 let db = almacenInicial();
+
+/**
+ * Lo que escribe el repositorio cuando cambian las piezas de un encargo:
+ * la cuenta de `recalcularEncargo`, la versión de la cotización si cambió un
+ * precio, y la fecha en que aceptó si un pago ya cubría el anticipo.
+ */
+function cambiarEncargo(venta: VentaCompleta, lineas: VentaLinea[], cambioPrecio: boolean, hoy: string): void {
+  const r = recalcularEncargo(venta, lineas, db.parametros.anticipo_defecto_bp);
+  if (venta.pagado_usd_cents > r.total_usd_cents) {
+    throw new Error(
+      `Pagó ${formatearMoneda(venta.pagado_usd_cents, 'USD')} y el nuevo total es ${formatearMoneda(r.total_usd_cents, 'USD')}. Corregí el pago antes de cambiarlo.`
+    );
+  }
+  db.ventas = db.ventas.map((v) =>
+    v.id === venta.id
+      ? {
+          ...v,
+          lineas,
+          piezas: r.piezas,
+          subtotal_usd_cents: r.subtotal_usd_cents,
+          descuento_usd_cents: r.descuento_usd_cents,
+          total_usd_cents: r.total_usd_cents,
+          costo_total_usd_cents: r.costo_total_usd_cents,
+          ganancia_usd_cents: r.ganancia_usd_cents,
+          anticipo_bp: r.anticipo_bp,
+          anticipo_esperado_usd_cents: r.anticipo_esperado_usd_cents,
+          saldo_usd_cents: r.saldo_usd_cents,
+          estado: r.estado,
+          ...(cambioPrecio ? { cotizado_el: hoy, cotizacion_version: (v.cotizacion_version ?? 0) + 1 } : {}),
+          ...(v.estado === 'COTIZADA' && r.estado === 'PENDIENTE' ? { aceptado_el: hoy } : {}),
+        }
+      : v
+  );
+}
 
 function armarPanel(): PanelData {
   const inversion = db.productos.reduce(
@@ -1129,6 +1174,15 @@ const api: ApiPuente = {
       const anticipoEsperado = esEncargo
         ? Math.round((total * (input.anticipo_bp ?? db.parametros.anticipo_defecto_bp)) / 10000)
         : 0;
+      const sinPrecioAlCrear = piezasDe(lineas).sin_precio;
+      const estadoEncargo = esEncargo
+        ? estadoInicialEncargo({
+            total_usd_cents: total,
+            pagado_usd_cents: pagadoUsdCents,
+            anticipo_esperado_usd_cents: anticipoEsperado,
+            sin_precio: sinPrecioAlCrear,
+          })
+        : undefined;
 
       db.ventas.unshift({
         id,
@@ -1137,16 +1191,9 @@ const api: ApiPuente = {
         cliente_nombre: db.clientes.find((c) => c.id === input.cliente_id)?.nombre,
         fecha: input.fecha,
         tipo: input.tipo,
-        estado: esEncargo
-          ? estadoInicialEncargo({
-              total_usd_cents: total,
-              pagado_usd_cents: pagadoUsdCents,
-              anticipo_esperado_usd_cents: anticipoEsperado,
-              sin_precio: piezasDe(lineas).sin_precio,
-            })
-          : input.entregar_ahora === false
-            ? 'PENDIENTE'
-            : 'ENTREGADA',
+        estado: estadoEncargo ?? (input.entregar_ahora === false ? 'PENDIENTE' : 'ENTREGADA'),
+        cotizado_el: esEncargo && sinPrecioAlCrear === 0 ? input.fecha : undefined,
+        aceptado_el: estadoEncargo === 'PENDIENTE' ? input.fecha : undefined,
         tasa_cambio_cents: db.parametros.tasa_cambio_cents,
         total_usd_cents: total,
         costo_total_usd_cents: costo,
@@ -1188,50 +1235,99 @@ const api: ApiPuente = {
     },
     cotizar: (id, cambios) => {
       const venta = db.ventas.find((v) => v.id === id);
-      if (!venta) return Promise.resolve({ success: false as const, error: 'El encargo no existe.' });
+      if (!venta) return falla('El encargo no existe.');
       const porId = new Map(cambios.map((c) => [c.id, c]));
-      const lineas = venta.lineas.map((l) => {
-        const c = porId.get(l.id);
-        if (!c) return l;
-        const costoReal = estadoPieza(l) === 'LLEGO';
-        const costo = costoReal ? l.costo_unitario_usd_cents : (c.costo_estimado_unitario_usd_cents ?? l.costo_unitario_usd_cents);
-        return {
-          ...l,
-          descripcion: c.descripcion?.trim() || l.descripcion,
-          precio_unitario_usd_cents: c.precio_unitario_usd_cents,
-          subtotal_usd_cents: c.precio_unitario_usd_cents * l.cantidad,
-          costo_unitario_usd_cents: costo,
-          costo_total_usd_cents: costoReal ? l.costo_total_usd_cents : costo * l.cantidad,
-          precio_tienda_usd_cents: c.precio_tienda_usd_cents ?? l.precio_tienda_usd_cents,
-          peso_mlb: c.peso_mlb ?? l.peso_mlb,
-        };
-      });
-      const total = lineas.reduce((s, l) => s + l.subtotal_usd_cents, 0);
-      const costo = lineas.reduce((s, l) => s + l.costo_total_usd_cents, 0);
-      const anticipo = Math.round((total * (venta.anticipo_bp ?? db.parametros.anticipo_defecto_bp)) / 10000);
-      const piezas = piezasDe(lineas);
+      const hoy = hoyISO();
+      let cambioPrecio = false;
+      try {
+        const lineas = venta.lineas.map((l) => {
+          const c = porId.get(l.id);
+          if (!c) return l;
+          if (venta.estado === 'PENDIENTE' && !sinPrecio(l) && c.precio_unitario_usd_cents !== l.precio_unitario_usd_cents) {
+            throw new Error(`${venta.codigo} ya está confirmado: el precio de '${l.descripcion}' ya lo aceptó la clienta.`);
+          }
+          const ya = Boolean(l.descartada_el);
+          const descartada = c.descartada ?? ya;
+          if (descartada && !ya && !descartable(l)) {
+            throw new Error(`'${l.descripcion}' ya se compró: no se puede marcar como no conseguida.`);
+          }
+          if (c.precio_unitario_usd_cents !== l.precio_unitario_usd_cents || descartada !== ya) cambioPrecio = true;
+          const costoReal = estadoPieza(l) === 'LLEGO';
+          const costo = costoReal ? l.costo_unitario_usd_cents : (c.costo_estimado_unitario_usd_cents ?? l.costo_unitario_usd_cents);
+          return {
+            ...l,
+            descartada_el: descartada ? (l.descartada_el ?? hoy) : undefined,
+            descripcion: c.descripcion?.trim() || l.descripcion,
+            precio_unitario_usd_cents: c.precio_unitario_usd_cents,
+            subtotal_usd_cents: descartada ? 0 : c.precio_unitario_usd_cents * l.cantidad,
+            costo_unitario_usd_cents: costo,
+            costo_total_usd_cents: descartada ? 0 : costoReal ? l.costo_total_usd_cents : costo * l.cantidad,
+            precio_tienda_usd_cents: c.precio_tienda_usd_cents ?? l.precio_tienda_usd_cents,
+            peso_mlb: c.peso_mlb ?? l.peso_mlb,
+          };
+        });
+        cambiarEncargo(venta, lineas, cambioPrecio, hoy);
+      } catch (err) {
+        return falla((err as Error).message);
+      }
+      return ok(grupo());
+    },
+    descartarPiezas: (id, linea_ids, descartar) => {
+      const venta = db.ventas.find((v) => v.id === id);
+      if (!venta) return falla('El encargo no existe.');
+      const hoy = hoyISO();
+      let tocadas = 0;
+      try {
+        const lineas = venta.lineas.map((l) => {
+          if (!linea_ids.includes(l.id)) return l;
+          const ya = Boolean(l.descartada_el);
+          if (descartar && !ya) {
+            if (!descartable(l)) {
+              throw new Error(`'${l.descripcion}' ya se compró: no se puede marcar como no conseguida. Si no la va a llevar, anulá el encargo.`);
+            }
+            tocadas++;
+            return { ...l, descartada_el: hoy, subtotal_usd_cents: 0, costo_total_usd_cents: 0 };
+          }
+          if (!descartar && ya) {
+            tocadas++;
+            return {
+              ...l,
+              descartada_el: undefined,
+              subtotal_usd_cents: l.precio_unitario_usd_cents * l.cantidad,
+              costo_total_usd_cents: l.costo_unitario_usd_cents * l.cantidad,
+            };
+          }
+          return l;
+        });
+        if (tocadas === 0) throw new Error('No hay piezas para cambiar.');
+        cambiarEncargo(venta, lineas, true, hoy);
+      } catch (err) {
+        return falla((err as Error).message);
+      }
+      return ok(grupo());
+    },
+    marcarEnviada: (id) => {
+      const venta = db.ventas.find((v) => v.id === id);
+      if (!venta) return falla('El encargo no existe.');
+      if (venta.estado === 'PENDIENTE') return ok(grupo());
+      const falta = faltaCotizar(venta.lineas);
+      if (falta) return falla(falta);
       db.ventas = db.ventas.map((v) =>
         v.id === id
-          ? {
-              ...v,
-              lineas,
-              piezas,
-              total_usd_cents: total,
-              costo_total_usd_cents: costo,
-              ganancia_usd_cents: total - costo,
-              anticipo_esperado_usd_cents: anticipo,
-              saldo_usd_cents: total - v.pagado_usd_cents,
-              estado:
-                v.estado === 'PENDIENTE'
-                  ? 'PENDIENTE'
-                  : estadoInicialEncargo({
-                      total_usd_cents: total,
-                      pagado_usd_cents: v.pagado_usd_cents,
-                      anticipo_esperado_usd_cents: anticipo,
-                      sin_precio: piezas.sin_precio,
-                    }),
-            }
+          ? { ...v, cotizacion_enviada_el: hoyISO(), cotizacion_enviada_version: v.cotizacion_version ?? 0 }
           : v
+      );
+      return ok(grupo());
+    },
+    aceptar: async (id, pago) => {
+      const venta = db.ventas.find((v) => v.id === id);
+      if (!venta) return falla('El encargo no existe.');
+      const falta = venta.estado === 'COTIZADA' ? faltaCotizar(venta.lineas) : null;
+      if (falta) return falla(falta);
+      // Como el servicio de verdad: primero el pago, después aceptar.
+      if (pago && pago.monto_cents > 0) await api.pagos.registrar({ ...pago, venta_id: id, es_anticipo: true });
+      db.ventas = db.ventas.map((v) =>
+        v.id === id && v.estado === 'COTIZADA' ? { ...v, estado: 'PENDIENTE', aceptado_el: hoyISO() } : v
       );
       return ok(grupo());
     },
@@ -1352,8 +1448,14 @@ const api: ApiPuente = {
       const cubierto =
         venta.anticipo_esperado_usd_cents > 0 &&
         venta.pagado_usd_cents >= venta.anticipo_esperado_usd_cents;
-      if (venta.tipo === 'ENCARGO' && venta.estado === 'COTIZADA' && cubierto) {
+      const acepta =
+        venta.tipo === 'ENCARGO' &&
+        venta.estado === 'COTIZADA' &&
+        (venta.piezas?.sin_precio ?? 0) === 0 &&
+        pagoAcepta({ pagado_usd_cents: venta.pagado_usd_cents, anticipo_esperado_usd_cents: venta.anticipo_esperado_usd_cents });
+      if (acepta) {
         venta.estado = 'PENDIENTE';
+        venta.aceptado_el = hoyISO();
       }
 
       return ok({
@@ -1532,6 +1634,8 @@ const api: ApiPuente = {
       window.print();
       return ok({ guardado: true });
     },
+    prepararCotizacion: async ({ codigo }) =>
+      ok({ ruta: `C:\\Users\\Ross\\Documents\\Glow Heaven\\Cotizaciones\\${codigo}.pdf` }),
   },
 };
 

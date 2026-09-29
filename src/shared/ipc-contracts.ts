@@ -415,6 +415,12 @@ export interface ApiPuente {
     marcarCompradas(id: number, linea_ids: number[], comprado: boolean): Promise<Resultado<ConGrupo>>;
     /** Le pone precio a las piezas de un encargo. Ver `VentasRepoFirestore.cotizar`. */
     cotizar(id: number, lineas: LineaCotizacion[]): Promise<Resultado<ConGrupo>>;
+    /** "No se consiguió", o volver a buscarla. Ver `VentasRepoFirestore.descartarPiezas`. */
+    descartarPiezas(id: number, linea_ids: number[], descartar: boolean): Promise<Resultado<ConGrupo>>;
+    /** La cotización se le mandó a la clienta. Ver `VentasRepoFirestore.marcarEnviada`. */
+    marcarEnviada(id: number): Promise<Resultado<ConGrupo>>;
+    /** La clienta aceptó, quizás pagando algo. Ver `aceptarEncargo`. */
+    aceptar(id: number, pago?: PagoAlAceptar): Promise<Resultado<ConGrupo>>;
   };
   pagos: {
     registrar(input: RegistrarPagoInput): Promise<Resultado<ResultadoPago>>;
@@ -462,6 +468,11 @@ export interface ApiPuente {
       html: string;
       nombreSugerido: string;
     }): Promise<Resultado<{ guardado: boolean; ruta?: string }>>;
+    /**
+     * Guarda la proforma en PDF en `Documentos/Glow Heaven/Cotizaciones` y abre
+     * esa carpeta con el archivo seleccionado, para arrastrarlo al chat.
+     */
+    prepararCotizacion(input: { codigo: string; html: string }): Promise<Resultado<{ ruta: string }>>;
   };
   actualizador?: {
     onUpdateChecking(cb: () => void): () => void;
