@@ -32,17 +32,47 @@ interface Foto {
   clientes: Awaited<ReturnType<Awaited<ReturnType<typeof repos>>['Clientes']['listar']>>;
   /** Los documentos de productos tal como están guardados. */
   guardados: (ProductoParaLotes & { nombre: string })[];
+  /** Las ventas tal como están guardadas: con sus líneas y sus cuotas. */
+  ventasCrudas: VentaCruda[];
+  /** Todas las clientas, también las eliminadas (archivadas). */
+  todasLasClientas: { id: number; nombre: string; activo: boolean }[];
+}
+
+interface VentaCruda {
+  id: number;
+  codigo: string;
+  tipo: string;
+  estado: string;
+  cliente_id?: number;
+  subtotal_usd_cents?: number;
+  descuento_usd_cents?: number;
+  total_usd_cents: number;
+  costo_total_usd_cents: number;
+  ganancia_usd_cents: number;
+  pagado_usd_cents: number;
+  registrado_por?: { uid: string; nombre: string };
+  lineas?: {
+    producto_id?: number;
+    subtotal_usd_cents: number;
+    costo_total_usd_cents: number;
+    descartada_el?: string;
+    lotes_consumidos?: { lote_id: string; cantidad: number; costo_usd_cents: number; ingreso_usd_cents?: number }[];
+  }[];
+  cuotas?: { monto_usd_cents: number; pagado_usd_cents: number }[];
 }
 
 async function tomarFoto(): Promise<Foto> {
   const { Ventas, Pagos, Productos, Clientes } = await repos();
   const { getFirestoreDb } = await import('../../src/main/firebase/client');
   const { collection, getDocs } = await import('firebase/firestore');
-  const [ventas, productos, clientes, crudos] = await Promise.all([
+  const db = getFirestoreDb();
+  const [ventas, productos, clientes, crudos, ventasCrudas, clientasCrudas] = await Promise.all([
     Ventas.listar({}),
     Productos.listar({ incluirInactivos: true }),
     Clientes.listar(),
-    getDocs(collection(getFirestoreDb(), 'productos')),
+    getDocs(collection(db, 'productos')),
+    getDocs(collection(db, 'ventas')),
+    getDocs(collection(db, 'clientes')),
   ]);
   const guardados = crudos.docs.map((d) => d.data() as ProductoParaLotes & { nombre: string });
 
@@ -53,7 +83,15 @@ async function tomarFoto(): Promise<Foto> {
     pagos.push(...(await Pagos.listarPorVenta(v.id)));
   }
 
-  return { ventas, pagos, productos, clientes, guardados };
+  return {
+    ventas,
+    pagos,
+    productos,
+    clientes,
+    guardados,
+    ventasCrudas: ventasCrudas.docs.map((d) => d.data() as VentaCruda).filter((v) => (v as { activo?: boolean }).activo !== false),
+    todasLasClientas: clientasCrudas.docs.map((d) => d.data() as { id: number; nombre: string; activo: boolean }),
+  };
 }
 
 const dinero = (c: number) => `$${(c / 100).toFixed(2)}`;
@@ -62,10 +100,18 @@ const dinero = (c: number) => `$${(c / 100).toFixed(2)}`;
  * Comprueba todas las invariantes y devuelve las que fallaron.
  * Lista vacía = el negocio cuadra consigo mismo.
  */
-export async function revisarInvariantes(): Promise<Falla[]> {
+export async function revisarInvariantes(opciones: { exigirAutor?: boolean } = {}): Promise<Falla[]> {
   const foto = await tomarFoto();
   const fallas: Falla[] = [];
   const agregar = (invariante: string, detalle: string) => fallas.push({ invariante, detalle });
+  /** Con una cuenta registrada (2.16.1), todo lo que se carga dice quién. */
+  const exigirAutor = opciones.exigirAutor ?? false;
+
+  // Qué es deuda, escrito acá a propósito y no importado del código: si la
+  // regla del código se torciera, la invariante tiene que notarlo. Un encargo
+  // cotizado no es deuda hasta que la clienta confirma cubriendo el anticipo.
+  const esDeuda = (v: Venta) =>
+    v.estado !== 'CANCELADA' && !(v.tipo === 'ENCARGO' && v.estado === 'COTIZADA');
 
   // -------------------------------------------------------------------------
   // Inventario
@@ -164,8 +210,9 @@ export async function revisarInvariantes(): Promise<Falla[]> {
     }
 
     // Una venta cancelada no puede seguir teniendo plata cobrada encima: esa
-    // plata se le devolvió a la clienta o nunca existió.
-    if (v.estado === 'CANCELADA' && suyos.length > 0) {
+    // plata se le devolvió a la clienta o nunca existió. Un encargo anulado
+    // sí puede: Ross puede quedarse con el anticipo (`anticipo: 'RETENER'`).
+    if (v.estado === 'CANCELADA' && v.tipo !== 'ENCARGO' && suyos.length > 0) {
       agregar(
         'una venta cancelada no conserva abonos activos',
         `${v.codigo} está cancelada y tiene ${suyos.length} abono(s) vivos`
@@ -185,8 +232,9 @@ export async function revisarInvariantes(): Promise<Falla[]> {
       }
     }
 
-    // Una venta no puede apuntar a una clienta que ya no existe.
-    if (v.cliente_id && !foto.clientes.some((c) => c.id === v.cliente_id)) {
+    // Una venta no puede apuntar a una clienta que no existe. Eliminada
+    // (archivada) sí: sus ventas viejas siguen siendo suyas.
+    if (v.cliente_id && !foto.todasLasClientas.some((c) => c.id === v.cliente_id)) {
       agregar(
         'una venta no apunta a una clienta inexistente',
         `${v.codigo} referencia al cliente #${v.cliente_id}`
@@ -195,14 +243,151 @@ export async function revisarInvariantes(): Promise<Falla[]> {
   }
 
   // -------------------------------------------------------------------------
-  // Clientas
+  // Lo que se corrige, se edita o se elimina (2.16 y 2.16.1)
   // -------------------------------------------------------------------------
 
-  // Qué es deuda, escrito acá a propósito y no importado del código: si la
-  // regla del código se torciera, la invariante tiene que notarlo. Un encargo
-  // cotizado no es deuda hasta que la clienta confirma cubriendo el anticipo.
-  const esDeuda = (v: Venta) =>
-    v.estado !== 'CANCELADA' && !(v.tipo === 'ENCARGO' && v.estado === 'COTIZADA');
+  for (const v of foto.ventasCrudas) {
+    const lineas = v.lineas ?? [];
+
+    // Una venta corregida cuadra con sus líneas: lo que se ve en la factura es
+    // lo que suma la venta, y la ganancia sale de ahí.
+    const subtotal = lineas.reduce((s, l) => s + (l.subtotal_usd_cents || 0), 0);
+    const total = subtotal - (v.descuento_usd_cents || 0);
+    if (v.total_usd_cents !== total) {
+      agregar(
+        'el total de una venta es la suma de sus líneas menos el descuento',
+        `${v.codigo}: dice ${dinero(v.total_usd_cents)} y sus líneas dan ${dinero(total)}`
+      );
+    }
+    const costo = lineas.reduce((s, l) => s + (l.costo_total_usd_cents || 0), 0);
+    if (v.costo_total_usd_cents !== costo) {
+      agregar(
+        'el costo de una venta es la suma del de sus líneas',
+        `${v.codigo}: dice ${dinero(v.costo_total_usd_cents)} y sus líneas dan ${dinero(costo)}`
+      );
+    }
+    if (v.ganancia_usd_cents !== v.total_usd_cents - v.costo_total_usd_cents) {
+      agregar(
+        'la ganancia de una venta es su total menos su costo',
+        `${v.codigo}: ${dinero(v.ganancia_usd_cents)} contra ${dinero(v.total_usd_cents - v.costo_total_usd_cents)}`
+      );
+    }
+
+    // Lo pagado se reparte en las cuotas, en orden, sin pasarse de ninguna.
+    const cuotas = v.cuotas ?? [];
+    if (cuotas.length > 0) {
+      const aplicado = cuotas.reduce((s, c) => s + (c.pagado_usd_cents || 0), 0);
+      const debeAplicarse = Math.min(v.pagado_usd_cents || 0, v.total_usd_cents || 0);
+      if (aplicado !== debeAplicarse || cuotas.some((c) => (c.pagado_usd_cents || 0) > c.monto_usd_cents)) {
+        agregar(
+          'lo pagado se reparte en las cuotas, sin pasarse de ninguna',
+          `${v.codigo}: las cuotas tienen ${dinero(aplicado)} aplicados y lo pagado es ${dinero(debeAplicarse)}`
+        );
+      }
+    }
+
+    // Lo que se registró desde la 2.16.1 dice quién.
+    if (exigirAutor && !v.registrado_por) {
+      agregar('una venta dice quién la registró', `${v.codigo} no tiene registrado_por`);
+    }
+  }
+
+  // Cada unidad vendida de un lote la explica una venta viva. Es lo que se
+  // rompió con V-0007: borrada la venta, sus unidades seguían "vendidas" y el
+  // producto quedaba agotado sin que nada lo explicara. Anular, corregir y
+  // deshacer tienen que devolver exactamente lo que sacaron.
+  const porLote = new Map<string, { cantidad: number; costo: number; ingreso: number }>();
+  for (const v of foto.ventasCrudas) {
+    if (v.estado === 'CANCELADA') continue;
+    for (const l of v.lineas ?? []) {
+      if (!l.producto_id) continue;
+      for (const c of l.lotes_consumidos ?? []) {
+        const clave = `${l.producto_id}:${c.lote_id}`;
+        const a = porLote.get(clave) ?? { cantidad: 0, costo: 0, ingreso: 0 };
+        a.cantidad += c.cantidad;
+        a.costo += c.costo_usd_cents;
+        a.ingreso += c.ingreso_usd_cents ?? 0;
+        porLote.set(clave, a);
+      }
+    }
+  }
+  for (const p of foto.guardados as (ProductoParaLotes & { nombre: string; id: number })[]) {
+    for (const l of p.lotes ?? []) {
+      const esperado = porLote.get(`${p.id}:${l.id}`) ?? { cantidad: 0, costo: 0, ingreso: 0 };
+      if ((l.vendidas ?? 0) !== esperado.cantidad) {
+        agregar(
+          'cada unidad vendida de un lote la explica una venta viva',
+          `'${p.nombre}' lote ${l.id}: dice ${l.vendidas ?? 0} vendidas y las ventas vivas sacaron ${esperado.cantidad}`
+        );
+      }
+      if ((l.costo_vendido_usd_cents ?? 0) !== esperado.costo) {
+        agregar(
+          'el costo vendido de un lote es el de sus ventas vivas',
+          `'${p.nombre}' lote ${l.id}: ${dinero(l.costo_vendido_usd_cents ?? 0)} contra ${dinero(esperado.costo)}`
+        );
+      }
+      if ((l.ingreso_usd_cents ?? 0) !== esperado.ingreso) {
+        agregar(
+          'lo que dejó un lote es lo que cobraron sus ventas vivas',
+          `'${p.nombre}' lote ${l.id}: ${dinero(l.ingreso_usd_cents ?? 0)} contra ${dinero(esperado.ingreso)}`
+        );
+      }
+    }
+  }
+
+  for (const p of foto.pagos) {
+    const v = foto.ventasCrudas.find((x) => x.id === p.venta_id);
+
+    // El abono es de la misma clienta que su venta: si la venta cambió de
+    // clienta al corregirla, sus abonos la siguen.
+    if (v && (p.cliente_id ?? null) !== (v.cliente_id ?? null)) {
+      agregar(
+        'un abono es de la misma clienta que su venta',
+        `abono #${p.id} dice clienta #${p.cliente_id ?? '—'} y ${v.codigo} es de #${v.cliente_id ?? '—'}`
+      );
+    }
+
+    // Sus dos montos dicen lo mismo con su tasa. El que manda es el de la
+    // moneda en que se pagó; el otro puede diferir en un centavo de redondeo.
+    const tasa = p.tasa_cambio_cents;
+    const diferencia =
+      p.moneda === 'COR'
+        ? Math.abs(p.monto_usd_cents - Math.round((p.monto_cor_cents * 100) / tasa))
+        : Math.abs(p.monto_cor_cents - Math.round((p.monto_usd_cents * tasa) / 100));
+    if (diferencia > 1) {
+      agregar(
+        'un abono dice lo mismo en sus dos monedas, con su tasa',
+        `abono #${p.id} (${p.moneda}): ${dinero(p.monto_usd_cents)} y C$${(p.monto_cor_cents / 100).toFixed(2)} a ${tasa}`
+      );
+    }
+
+    if (exigirAutor && !p.registrado_por) {
+      agregar('un abono dice quién lo registró', `abono #${p.id} no tiene registrado_por`);
+    }
+  }
+
+  // Eliminar a una clienta no esconde plata: no puede quedar debiendo.
+  for (const c of foto.todasLasClientas.filter((x) => x.activo === false)) {
+    const debe = foto.ventas
+      .filter((v) => v.cliente_id === c.id && esDeuda(v))
+      .reduce((s, v) => s + Math.max(0, v.saldo_usd_cents || 0), 0);
+    if (debe > 0) {
+      agregar('una clienta eliminada no debe nada', `'${c.nombre}' está eliminada y debe ${dinero(debe)}`);
+    }
+    const abiertos = foto.ventas.filter(
+      (v) => v.cliente_id === c.id && v.tipo === 'ENCARGO' && (v.estado === 'COTIZADA' || v.estado === 'PENDIENTE')
+    );
+    if (abiertos.length > 0) {
+      agregar(
+        'una clienta eliminada no tiene encargos en curso',
+        `'${c.nombre}' está eliminada y tiene ${abiertos.map((v) => v.codigo).join(', ')} en curso`
+      );
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Clientas
+  // -------------------------------------------------------------------------
 
   for (const c of foto.clientes) {
     const suyas = foto.ventas.filter((v) => v.cliente_id === c.id && v.estado !== 'CANCELADA');
@@ -282,6 +467,26 @@ export async function revisarInvariantes(): Promise<Falla[]> {
       `el panel dice ${dinero(panel.resumen.por_cobrar_usd_cents)} y las ventas suman ` +
         `${dinero(porCobrarReal)}`
     );
+  }
+
+  // La lista de Cobros (las dos apps la arman con `por_cobrar`) trae todas
+  // las ventas que se deben, y suma lo mismo que la tarjeta de Inicio.
+  const enLista = panel.por_cobrar.reduce((s, f) => s + Math.max(0, f.saldo_usd_cents || 0), 0);
+  if (panel.por_cobrar.length !== panel.total_por_cobrar || enLista !== porCobrarReal) {
+    agregar(
+      'la lista de Cobros trae todas las ventas que se deben',
+      `la lista tiene ${panel.por_cobrar.length} de ${panel.total_por_cobrar} ventas con saldo y suma ` +
+        `${dinero(enLista)} de ${dinero(porCobrarReal)}`
+    );
+  }
+  for (const f of panel.por_cobrar) {
+    const v = foto.ventas.find((x) => x.id === f.venta_id);
+    if (!v || v.saldo_usd_cents !== f.saldo_usd_cents || (v.cliente_id ?? null) !== (f.cliente_id ?? null)) {
+      agregar(
+        'cada fila de Cobros dice lo mismo que su venta',
+        `${f.codigo}: la fila dice ${dinero(f.saldo_usd_cents)} de la clienta #${f.cliente_id ?? '—'}`
+      );
+    }
   }
 
   const unidadesReales = foto.productos

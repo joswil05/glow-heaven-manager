@@ -17,8 +17,11 @@
  * Un generador con semilla elige la próxima operación entre las que una
  * persona podría hacer: vender, cobrar, cobrar de más, anular un abono,
  * anular una venta, recibir un paquete, corregir un conteo, entregar un
- * encargo, deshacer lo último. Después de CADA una se revisan todas las
- * invariantes de `invariantes.ts`.
+ * encargo, deshacer lo último. Desde la 2.16.1 también lo que se edita o se
+ * elimina: corregir una venta o un abono, abonar a una clienta sin elegir la
+ * venta, vender en cuotas, editar o eliminar una clienta, y cada fase de un
+ * encargo. Después de CADA una se revisan todas las invariantes de
+ * `invariantes.ts`.
  *
  * La semilla es fija a propósito: si un día falla, se vuelve a ver corriendo
  * la misma semilla, y el informe dice exactamente qué operaciones llevaron
@@ -301,6 +304,273 @@ const OPERACIONES: Operacion[] = [
       return `ajustó el producto #${productoId} a ${nuevas} unidades`;
     },
   },
+  // ---------------------------------------------------------------------
+  // Editar y eliminar (2.16 y 2.16.1): lo que se carga mal se corrige.
+  // ---------------------------------------------------------------------
+  {
+    nombre: 'corregir una venta mal cargada',
+    async ejecutar(m, rnd) {
+      const { Ventas, Productos } = await repos();
+      const vivas = (await Ventas.listar({})).filter((v) => v.tipo === 'INVENTARIO' && v.estado !== 'CANCELADA');
+      const elegida = rnd.de(vivas);
+      if (!elegida) return null;
+      const v = (await Ventas.getById(elegida.id))!;
+      const productos = (await Productos.listar()).filter((p) => p.existencias > 0);
+      let lineas = v.lineas.map((l) => ({
+        producto_id: l.producto_id,
+        variante_id: l.variante_id,
+        descripcion: l.producto_id ? undefined : l.descripcion,
+        cantidad: l.cantidad,
+        precio_unitario_usd_cents: l.precio_unitario_usd_cents,
+      }));
+      const que = rnd.entre(0, 4);
+      let dicho = '';
+      if (que === 0) {
+        // Un producto por otro: el caso de V-0007.
+        const otro = rnd.de(productos);
+        if (!otro) return null;
+        lineas[0] = { producto_id: otro.id, variante_id: undefined, descripcion: undefined, cantidad: 1, precio_unitario_usd_cents: otro.precio_venta_usd_cents };
+        dicho = `cambió el producto por '${otro.nombre}'`;
+      } else if (que === 1) {
+        lineas[0] = { ...lineas[0], cantidad: Math.max(1, lineas[0].cantidad + (rnd.siguiente() > 0.5 ? 1 : -1)) };
+        dicho = `dejó ${lineas[0].cantidad} en la primera línea`;
+      } else if (que === 2) {
+        lineas[0] = { ...lineas[0], precio_unitario_usd_cents: rnd.entre(500, 6000) };
+        dicho = 'corrigió un precio';
+      } else if (que === 3) {
+        const otro = rnd.de(productos);
+        if (!otro) return null;
+        lineas = [...lineas, { producto_id: otro.id, variante_id: undefined, descripcion: undefined, cantidad: 1, precio_unitario_usd_cents: otro.precio_venta_usd_cents }];
+        dicho = `agregó '${otro.nombre}'`;
+      } else {
+        dicho = 'cambió la clienta';
+      }
+      const clienta = que === 4 || rnd.siguiente() > 0.8 ? rnd.de(m.clientes) : v.cliente_id ?? undefined;
+      const ajustar = rnd.siguiente() > 0.3;
+      const grupo = g();
+      await Ventas.corregir(
+        v.id,
+        {
+          cliente_id: clienta,
+          fecha: v.fecha,
+          notas: v.notas,
+          descuento_tipo: v.descuento_tipo,
+          descuento_valor: v.descuento_valor,
+          lineas,
+          ajustar_abono: ajustar,
+        },
+        grupo
+      );
+      m.ultimoGrupo = grupo;
+      return `corrigió ${v.codigo}: ${dicho}${ajustar ? ' (el abono al contado la sigue)' : ''}`;
+    },
+  },
+  {
+    nombre: 'corregir un abono mal cargado',
+    async ejecutar(m, rnd) {
+      const { Pagos, Ventas } = await repos();
+      const pagoId = rnd.de(m.pagos);
+      if (!pagoId) return null;
+      const vivas = await Ventas.listar({});
+      let pago: Awaited<ReturnType<typeof Pagos.listarPorVenta>>[number] | undefined;
+      for (const v of vivas) {
+        pago = (await Pagos.listarPorVenta(v.id)).find((p) => p.id === pagoId);
+        if (pago) break;
+      }
+      if (!pago) return null;
+      // A veces el monto, a veces la moneda (el error de Ross: C$ por $).
+      const cambiaMoneda = rnd.siguiente() > 0.6;
+      const moneda = cambiaMoneda ? (pago.moneda === 'COR' ? 'USD' : 'COR') : pago.moneda;
+      const base = pago.moneda === 'COR' ? pago.monto_cor_cents : pago.monto_usd_cents;
+      const monto = Math.max(1, Math.round(base * (0.5 + rnd.siguiente())));
+      const grupo = g();
+      await Pagos.corregir(pagoId, { fecha: pago.fecha, monto_cents: monto, moneda, metodo: pago.metodo }, grupo);
+      m.ultimoGrupo = grupo;
+      return `corrigió el abono #${pagoId} a ${(monto / 100).toFixed(2)} ${moneda}`;
+    },
+  },
+  {
+    nombre: 'abonar a una clienta sin elegir la venta',
+    async ejecutar(m, rnd) {
+      const { Pagos } = await repos();
+      const clienta = rnd.de(m.clientes);
+      if (!clienta) return null;
+      const grupo = g();
+      const r = await Pagos.registrarAbonoCliente(
+        { cliente_id: clienta, fecha: fechaCercana(rnd), monto_cents: rnd.entre(500, 8000), moneda: 'USD', metodo: 'EFECTIVO' },
+        grupo
+      );
+      m.pagos.push(r.pago_id);
+      m.ultimoGrupo = grupo;
+      return `abonó a la clienta #${clienta} (FIFO)`;
+    },
+  },
+  {
+    nombre: 'vender en cuotas',
+    async ejecutar(m, rnd) {
+      const { Ventas, Productos } = await repos();
+      const p = rnd.de((await Productos.listar()).filter((x) => x.existencias > 0));
+      const clienta = rnd.de(m.clientes);
+      if (!p || !clienta) return null;
+      const grupo = g();
+      const id = await Ventas.crear(
+        {
+          cliente_id: clienta,
+          fecha: fechaCercana(rnd),
+          tipo: 'INVENTARIO',
+          lineas: [{ producto_id: p.id, cantidad: 1 }],
+          plan_cuotas: { cantidad: rnd.entre(2, 4), cada_dias: 15 },
+        },
+        grupo
+      );
+      m.ventas.push(id);
+      m.ultimoGrupo = grupo;
+      return `vendió en cuotas '${p.nombre}' (venta #${id})`;
+    },
+  },
+  {
+    nombre: 'editar los datos de una clienta',
+    async ejecutar(m, rnd) {
+      const { Clientes } = await repos();
+      const id = rnd.de(m.clientes);
+      if (!id) return null;
+      const c = await Clientes.getById(id);
+      if (!c) return null;
+      const grupo = g();
+      await Clientes.guardar({ id, nombre: c.nombre, telefono: `8${rnd.entre(1000000, 9999999)}` }, grupo);
+      m.ultimoGrupo = grupo;
+      return `editó el teléfono de '${c.nombre}'`;
+    },
+  },
+  {
+    nombre: 'eliminar una clienta',
+    async ejecutar(m, rnd) {
+      const { Clientes } = await repos();
+      const id = rnd.de(m.clientes);
+      if (!id) return null;
+      const grupo = g();
+      await Clientes.archivar(id, grupo);
+      m.clientes = m.clientes.filter((c) => c !== id);
+      m.ultimoGrupo = grupo;
+      return `eliminó a la clienta #${id}`;
+    },
+  },
+  {
+    nombre: 'anotar un pedido sin precio',
+    async ejecutar(m, rnd) {
+      const { Ventas } = await repos();
+      const clienta = rnd.de(m.clientes);
+      if (!clienta) return null;
+      const grupo = g();
+      const id = await Ventas.crear(
+        {
+          cliente_id: clienta,
+          fecha: fechaCercana(rnd),
+          tipo: 'ENCARGO',
+          lineas: [
+            { descripcion: 'Bolso pedido', cantidad: 1, precio_unitario_usd_cents: 0 },
+            { descripcion: 'Perfume pedido', cantidad: 1, precio_unitario_usd_cents: 0 },
+          ],
+        },
+        grupo
+      );
+      m.ventas.push(id);
+      m.ultimoGrupo = grupo;
+      return `anotó un pedido sin precio (venta #${id})`;
+    },
+  },
+  {
+    nombre: 'cotizar un encargo, a veces sin una pieza',
+    async ejecutar(m, rnd) {
+      const { Ventas } = await repos();
+      const e = rnd.de((await Ventas.listar({})).filter((v) => v.tipo === 'ENCARGO' && v.estado === 'COTIZADA'));
+      if (!e) return null;
+      const v = (await Ventas.getById(e.id))!;
+      const grupo = g();
+      await Ventas.cotizar(
+        v.id,
+        v.lineas.map((l, i) => ({
+          id: l.id,
+          precio_unitario_usd_cents: rnd.entre(2000, 12000),
+          costo_estimado_unitario_usd_cents: rnd.entre(1000, 6000),
+          descartada: i > 0 && rnd.siguiente() > 0.7 ? true : undefined,
+        })),
+        grupo
+      );
+      m.ultimoGrupo = grupo;
+      return `cotizó ${v.codigo}`;
+    },
+  },
+  {
+    nombre: 'mandar la cotización',
+    async ejecutar(m, rnd) {
+      const { Ventas } = await repos();
+      const e = rnd.de((await Ventas.listar({})).filter((v) => v.tipo === 'ENCARGO' && v.estado === 'COTIZADA'));
+      if (!e) return null;
+      const grupo = g();
+      await Ventas.marcarEnviada(e.id, grupo);
+      m.ultimoGrupo = grupo;
+      return `mandó la cotización de ${e.codigo}`;
+    },
+  },
+  {
+    nombre: 'la clienta acepta, a veces con un pago',
+    async ejecutar(m, rnd) {
+      const { Ventas } = await repos();
+      const { aceptarEncargo } = await import('../../src/main/firebase/services/encargos.service');
+      const e = rnd.de((await Ventas.listar({})).filter((v) => v.tipo === 'ENCARGO' && v.estado === 'COTIZADA'));
+      if (!e) return null;
+      const grupo = g();
+      const conPago = rnd.siguiente() > 0.4 && e.total_usd_cents > 0;
+      await aceptarEncargo(
+        e.id,
+        conPago
+          ? { fecha: fechaCercana(rnd), monto_cents: Math.max(100, Math.round(e.total_usd_cents / 2)), moneda: 'USD', metodo: 'EFECTIVO' }
+          : undefined,
+        grupo
+      );
+      if (conPago) {
+        const { Pagos } = await repos();
+        const pagos = await Pagos.listarPorVenta(e.id);
+        m.pagos.push(...pagos.map((p) => p.id).filter((id) => !m.pagos.includes(id)));
+      }
+      m.ultimoGrupo = grupo;
+      return `${e.codigo}: aceptó${conPago ? ' con un pago' : ''}`;
+    },
+  },
+  {
+    nombre: 'marcar comprada una pieza',
+    async ejecutar(m, rnd) {
+      const { Ventas } = await repos();
+      const e = rnd.de((await Ventas.listar({})).filter((v) => v.tipo === 'ENCARGO' && v.estado === 'PENDIENTE'));
+      if (!e) return null;
+      const v = (await Ventas.getById(e.id))!;
+      const pieza = rnd.de(v.lineas.filter((l) => !l.descartada_el));
+      if (!pieza) return null;
+      const grupo = g();
+      await Ventas.marcarCompradas(v.id, [pieza.id], true, grupo);
+      m.ultimoGrupo = grupo;
+      return `marcó comprada '${pieza.descripcion}' de ${v.codigo}`;
+    },
+  },
+  {
+    nombre: 'anular un encargo, a veces quedándose el anticipo',
+    async ejecutar(m, rnd) {
+      const { Ventas } = await repos();
+      const e = rnd.de(
+        (await Ventas.listar({})).filter((v) => v.tipo === 'ENCARGO' && (v.estado === 'COTIZADA' || v.estado === 'PENDIENTE'))
+      );
+      if (!e) return null;
+      const retener = rnd.siguiente() > 0.5;
+      const grupo = g();
+      await Ventas.cambiarEstado(e.id, 'CANCELADA', grupo, {
+        anticipo: retener ? 'RETENER' : 'DEVOLVER',
+        motivo: rnd.siguiente() > 0.5 ? 'NO_ACEPTO' : 'NO_SE_CONSIGUIO',
+      });
+      m.ultimoGrupo = grupo;
+      return `anuló el encargo ${e.codigo}${retener ? ', quedándose el anticipo' : ''}`;
+    },
+  },
   {
     nombre: 'deshacer lo último',
     async ejecutar(m) {
@@ -344,9 +614,18 @@ async function montarNegocio(): Promise<Mundo> {
 /** Corre una historia completa y devuelve el informe de lo que falló. */
 async function simular(semilla: number, pasos: number): Promise<string[]> {
   await baseLimpia();
+  // Como en la app: todo lo que se registra queda a nombre de una cuenta, y
+  // las invariantes exigen que lo diga.
+  const { registrarAutor } = await import('../../src/main/firebase/client');
+  registrarAutor(() => ({ uid: 'simulacion', nombre: 'Ross Simulación' }));
   const mundo = await montarNegocio();
   const rnd = aleatorio(semilla);
   const historia: string[] = [];
+  /**
+   * Lo que la app se negó a hacer, con su motivo. No es un error, pero hay
+   * que poder leerlo: una negativa sin motivo razonable también lo es.
+   */
+  const rechazos = new Map<string, number>();
 
   for (let paso = 1; paso <= pasos; paso++) {
     const op = OPERACIONES[Math.floor(rnd.siguiente() * OPERACIONES.length)];
@@ -363,8 +642,9 @@ async function simular(semilla: number, pasos: number): Promise<string[]> {
 
     if (hecho === null) continue;
     historia.push(`${String(paso).padStart(3)}. ${hecho}`);
+    if (hecho.startsWith('[rechazada]')) rechazos.set(hecho, (rechazos.get(hecho) ?? 0) + 1);
 
-    const fallas = await revisarInvariantes();
+    const fallas = await revisarInvariantes({ exigirAutor: true });
     if (fallas.length > 0) {
       return [
         `La simulación (semilla ${semilla}) rompió el negocio en el paso ${paso}.`,
@@ -378,6 +658,11 @@ async function simular(semilla: number, pasos: number): Promise<string[]> {
     }
   }
 
+  if (process.env.SIMULACION_RECHAZOS) {
+    const lineas = [...rechazos.entries()].map(([r, n]) => `    ${n}× ${r.replace(/#\d+|[EV]-\d{4}/g, '…')}`);
+    // eslint-disable-next-line no-console
+    console.log(`  semilla ${semilla}: ${historia.length} operaciones, ${lineas.length} rechazos distintos\n${lineas.join('\n')}`);
+  }
   return [];
 }
 
