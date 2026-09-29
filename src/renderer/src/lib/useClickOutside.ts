@@ -27,9 +27,12 @@ export function useClickOutside<T extends HTMLElement = HTMLElement>(
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onCerrar();
-      }
+      if (e.key !== 'Escape') return;
+      // Con un diálogo abierto encima, Escape es del diálogo: si no, cerrar un
+      // formulario (o su "¿Descartar lo que escribiste?") cerraba además el
+      // panel de atrás.
+      if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
+      onCerrar();
     };
 
     // Retardo breve para evitar que el mismo click de apertura dispare el cierre

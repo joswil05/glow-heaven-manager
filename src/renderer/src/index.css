@@ -363,6 +363,72 @@
   animation: modalPopIn 0.22s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)) forwards;
 }
 
+/* La salida de un diálogo (`Dialogo`): más corta que la entrada, porque
+   cerrar es una respuesta y no tiene que hacer esperar. 120 ms: el mismo
+   número que SALIDA_MS en Dialogo.tsx. */
+@keyframes modalSalida {
+  from {
+    transform: scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: scale(0.98);
+    opacity: 0;
+  }
+}
+.animate-modal-salida {
+  animation: modalSalida 0.12s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)) forwards;
+}
+@keyframes veloSalida {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+.animate-velo-salida {
+  animation: veloSalida 0.12s ease-out forwards;
+}
+
+/* Una fila que se agrega a mano ("Otra pieza"): entra corta y desde muy
+   cerca. Las filas que ya estaban al abrir no se animan. */
+@keyframes filaNueva {
+  from {
+    transform: translateY(4px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.animate-fila-nueva {
+  animation: filaNueva 0.15s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)) both;
+}
+
+/* Un desplegable nace de su campo, no del centro. */
+@keyframes desplegable {
+  from {
+    transform: scale(0.98);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.animate-desplegable {
+  transform-origin: top;
+  animation: desplegable 0.15s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)) both;
+}
+
+/* Un valor que cambió porque se tocó otro botón ("Usar" el precio
+   sugerido): el campo se ilumina un instante para decir qué cambió. */
+@keyframes resaltar {
+  from { background-color: rgb(var(--acento) / 0.16); }
+  to { background-color: rgb(var(--superficie)); }
+}
+.resaltar {
+  animation: resaltar 0.4s ease-out;
+}
+
 /* Elevación física sutil y micro-interacción en tarjetas interactivas */
 .card-hover {
   transition: transform 0.2s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)),

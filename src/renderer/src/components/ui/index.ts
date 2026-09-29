@@ -30,6 +30,8 @@ export type {
 } from './Graficas';
 export { Confirmar } from './Confirmar';
 export type { ConfirmarProps } from './Confirmar';
+export { Dialogo } from './Dialogo';
+export type { DialogoProps } from './Dialogo';
 export { ContextMenu } from './ContextMenu';
 export type { ContextMenuProps, ContextMenuItem } from './ContextMenu';
 export { Portal } from './Portal';
