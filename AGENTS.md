@@ -105,6 +105,17 @@ La ficha del producto es catálogo: no tiene costo, existencias ni paquete.
   `textoPagado`, desde `v2.16.1`): "C$600.00", y su equivalente con la tasa
   del abono, nunca con la de hoy. Mostrarlo primero en dólares hacía creer
   que se había cargado en la moneda equivocada.
+- **Eliminar una clienta no deja nada colgado**: se rechaza si debe, si
+  tiene un encargo en curso (aunque cotizado no sea deuda) o una venta por
+  entregar. Sus ventas viejas siguen siendo suyas.
+- **Cobros lista todas las ventas que se deben** (`PanelData.por_cobrar`
+  entera, desde `v2.16.2`); la pantalla que quiera mostrar menos, corta ella.
+- **Lo que mueve stock recarga los productos** también en el celular
+  (`recargarProductos`): `marcarCambio` sólo refresca totales, y los
+  productos tienen su propia caché.
+- Después de tocar algo que edita, corrige o elimina, correr la simulación
+  del negocio (`npm run test:emulador`) y, para una cacería larga,
+  `SIMULACION_SEMILLAS=20 SIMULACION_PASOS=100`.
 - **Ventas y abonos dicen quién los registró** (`registrado_por`,
   `corregido_por`, desde `v2.16.1`), con `autorActual()` de `client.ts`. Cada
   app registra al arrancar cómo saber la cuenta (`registrarAutor`); un

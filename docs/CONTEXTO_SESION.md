@@ -252,6 +252,42 @@ del celular. **Publicada** a pedido de Joswill: commit `29c971c`, release
 exe; es la "Latest"), y la PWA en los dos sitios sirviendo el build nuevo. La
 app instalada en esta máquina se actualizó sola a la 2.16.1.
 
+### Fase de pruebas del 29 de septiembre: editar y eliminar (sin publicar)
+
+Pedido de Joswill: verificar que editar o eliminar cualquier cosa (cobros,
+ventas, clientas) haga reaccionar al resto con lógica. Se hizo así:
+
+- `tests/motor-real/simulacion-negocio.test.ts` ahora también corrige
+  ventas y abonos, abona a la clienta sin elegir venta, vende en cuotas,
+  edita y elimina clientas y recorre las fases de un encargo, con deshacer
+  en el medio. `invariantes.ts` suma revisiones: cada unidad vendida de un
+  lote la explica una venta viva (lo que rompió V-0007), el abono es de la
+  clienta de su venta y cuadra en sus dos monedas, las cuotas reparten lo
+  pagado, la venta cuadra con sus líneas, Cobros trae todo, una clienta
+  eliminada no debe ni tiene nada en curso. Se comprobó que las revisiones
+  detectan una venta borrada a mano.
+- Corrida larga: 20 historias de 100 pasos (1.629 operaciones), todas
+  cuadrando; cada rechazo tuvo un motivo razonable. Se repite con
+  `SIMULACION_SEMILLAS=20 SIMULACION_PASOS=100 SIMULACION_RECHAZOS=1` (el
+  último imprime qué se negó a hacer la app y por qué).
+- `tests/editar-y-eliminar.test.ts`: 19 escenarios a mano, pantalla por
+  pantalla, que terminan pasando por las mismas revisiones.
+
+Encontrado y arreglado (commit `6ff2904`):
+
+1. **Se podía eliminar una clienta con un encargo en curso** (cotizado, que
+   no es deuda) o una venta por entregar: el encargo quedaba sin dueña.
+2. **Cobros listaba sólo diez ventas con saldo**, en las dos apps: sale del
+   panel de Inicio, que cortaba en diez. Con once deudas, la undécima no se
+   veía y el total de Cobros salía corto. No se revisó cuántas ventas con
+   saldo hay hoy en producción.
+3. **Cancelar una venta desde el Historial del celular no refrescaba el
+   Catálogo**: las unidades volvían a la bodega pero la pantalla mostraba
+   el stock de antes. La prueba de interfaz lo comprueba (sin el arreglo
+   falla: 17 contra 20).
+
+Falta publicarlo, con el visto bueno de Joswill (sería la 2.16.2).
+
 Después viene la 2.17 (encargos en el celular). Ojo: la quinta pestaña del
 celular ya es Historial; "Encargos" necesita otro lugar (sección 2c del plan).
 El orden completo está en la sección 0 del plan.
