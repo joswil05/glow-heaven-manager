@@ -9,6 +9,8 @@ import {
   doc,
   runTransaction,
   type QueryConstraint,
+  type Transaction,
+  type DocumentReference,
 } from 'firebase/firestore';
 import {
   getFirestoreDb,
@@ -56,7 +58,15 @@ export interface LineaVentaInput {
 import type { PagoInicialInput, LineaCotizacion } from '../../../shared/ipc-contracts';
 import { hoyISO, sumarDiasAFecha } from '../../../core/fechas';
 import { esDeuda, estadoInicialEncargo } from '../../../core/cobranza';
-import { piezasDe, estadoPieza, sinPrecio, quePidio } from '../../../core/encargos';
+import {
+  piezasDe,
+  estadoPieza,
+  sinPrecio,
+  quePidio,
+  descartable,
+  recalcularEncargo,
+} from '../../../core/encargos';
+import { formatearMoneda } from '../../../core/moneda';
 import { repartirMayorResiduo } from '../../../core/prorrateo';
 import { lotesDe } from './productos.repo';
 import { unidadesDeLotes, type Consumo } from '../../../core/lotes';
@@ -110,6 +120,18 @@ export interface FiltrosVenta {
 export interface VentaDoc extends Venta {
   lineas: VentaLinea[];
   cuotas?: Cuota[];
+}
+
+/**
+ * Lo que impide mandar o aceptar una cotización: una pieza sin precio, o que
+ * no se haya conseguido nada. `null` si está lista.
+ */
+function faltaCotizar(venta: VentaDoc): string | null {
+  const lineas = venta.lineas || [];
+  const falta = lineas.find((l) => sinPrecio(l));
+  if (falta) return `Falta cotizar '${falta.descripcion}': ponele precio o marcala "No se consiguió".`;
+  if (lineas.every((l) => l.descartada_el)) return 'No se consiguió nada: no hay cotización que mandar.';
+  return null;
 }
 
 export class VentasRepoFirestore {
@@ -548,26 +570,30 @@ export class VentasRepoFirestore {
       const saldoUsdCents = Math.max(0, total - pagadoUsdCents);
       const anticipoEsperado = Math.round((total * anticipoBp) / 10000);
 
+      // Un encargo nace confirmado si el anticipo quedó cubierto, con la
+      // misma regla que usan los abonos: quien paga, aceptó. Antes se miraba
+      // "saldo en cero": uno creado con el anticipo completo quedaba cotizado
+      // y no aparecía en "Encargos por comprar".
+      const estadoEncargo = esEncargo
+        ? estadoInicialEncargo({
+            total_usd_cents: total,
+            pagado_usd_cents: pagadoUsdCents,
+            anticipo_esperado_usd_cents: anticipoEsperado,
+            sin_precio: piezasSinPrecio,
+          })
+        : undefined;
+
       const nuevaVenta: VentaDoc = {
         id: ventaId,
         codigo,
         cliente_id: input.cliente_id,
         fecha: input.fecha,
         tipo: input.tipo,
-        // Un encargo nace confirmado si el anticipo quedó cubierto, con la
-        // misma regla que usan los abonos. Antes se miraba "saldo en cero": uno
-        // creado con el anticipo completo quedaba cotizado y no aparecía en
-        // "Encargos por comprar".
-        estado: esEncargo
-          ? estadoInicialEncargo({
-              total_usd_cents: total,
-              pagado_usd_cents: pagadoUsdCents,
-              anticipo_esperado_usd_cents: anticipoEsperado,
-              sin_precio: piezasSinPrecio,
-            })
-          : input.entregar_ahora === false
-            ? 'PENDIENTE'
-            : 'ENTREGADA',
+        estado: estadoEncargo ?? (input.entregar_ahora === false ? 'PENDIENTE' : 'ENTREGADA'),
+        // Con todo el precio, el encargo nace cotizado; pagado, nace aceptado.
+        // Las dos fechas son la del encargo: desde ahí cuentan los avisos.
+        cotizado_el: esEncargo && piezasSinPrecio === 0 ? input.fecha : undefined,
+        aceptado_el: estadoEncargo === 'PENDIENTE' ? input.fecha : undefined,
         tasa_cambio_cents: tasa,
         subtotal_usd_cents: subtotalVenta,
         descuento_usd_cents: descuentoUsdCents,
@@ -710,18 +736,25 @@ export class VentasRepoFirestore {
    */
   /**
    * Le pone precio a las piezas de un encargo: cotizar un pedido anotado sin
-   * precio, o corregir el de uno cotizado. Recalcula total, costo estimado,
-   * anticipo y saldo con la misma cuenta que al crearlo.
+   * precio, o corregir el de uno cotizado. Una pieza puede quedar "No se
+   * consiguió" (`descartada`) o volver a buscarse. Recalcula total, costo
+   * estimado, anticipo y saldo con la misma cuenta que al crearlo
+   * (`recalcularEncargo`).
    *
-   * En uno confirmado (anticipo pagado) sólo se cotizan las piezas que no
-   * tenían precio: el que la clienta aceptó no cambia. El costo de una pieza
-   * que ya llegó es el real y no se toca.
+   * En uno aceptado sólo se cotizan las piezas que no tenían precio: el que la
+   * clienta aceptó no cambia. El costo de una pieza que ya llegó es el real y
+   * no se toca.
+   *
+   * Si cambió algún precio (o una pieza se descartó), la cotización sube de
+   * versión: la que tiene la clienta quedó vieja y el encargo vuelve a estar
+   * "por mandar".
    */
   static async cotizar(venta_id: number, cambios: readonly LineaCotizacion[], evento_grupo_id: string): Promise<void> {
     const db = getFirestoreDb();
     const ventaRef = doc(db, 'ventas', String(venta_id));
     const params = await ParametrosRepoFirestore.getParametros();
     const porId = new Map(cambios.map((c) => [c.id, c]));
+    const hoy = hoyISO();
 
     const anterior = await runTransaction(db, async (tx) => {
       const snap = await tx.get(ventaRef);
@@ -732,6 +765,7 @@ export class VentasRepoFirestore {
         throw new Error(`${venta.codigo} ya está ${venta.estado === 'ENTREGADA' ? 'entregado' : 'anulado'}.`);
       }
 
+      let cambioPrecio = false;
       const lineas = (venta.lineas || []).map((l) => {
         const c = porId.get(l.id);
         if (!c) return l;
@@ -741,70 +775,37 @@ export class VentasRepoFirestore {
             `${venta.codigo} ya está confirmado: el precio de '${l.descripcion}' ya lo aceptó la clienta.`
           );
         }
+        const yaDescartada = Boolean(l.descartada_el);
+        const descartada = c.descartada ?? yaDescartada;
+        if (descartada && !yaDescartada && !descartable(l)) {
+          throw new Error(`'${l.descripcion}' ya se compró: no se puede marcar como no conseguida.`);
+        }
+        if (precio !== l.precio_unitario_usd_cents || descartada !== yaDescartada) cambioPrecio = true;
+
         // Llegó, o salió de la bodega: su costo ya es el real.
         const costoReal = estadoPieza(l) === 'LLEGO' || (l.lotes_consumidos?.length ?? 0) > 0;
         const costoUnitario = costoReal
           ? l.costo_unitario_usd_cents
           : Math.max(0, Math.round(c.costo_estimado_unitario_usd_cents ?? l.costo_unitario_usd_cents ?? 0));
+        const { descartada_el: _d, ...resto } = l;
         return {
-          ...l,
+          ...resto,
+          // Una pieza que no se consiguió conserva su precio para mostrarlo,
+          // pero no cuenta: subtotal y costo en cero.
+          ...(descartada ? { descartada_el: l.descartada_el ?? hoy } : {}),
           descripcion: c.descripcion?.trim() || l.descripcion,
           precio_unitario_usd_cents: precio,
-          subtotal_usd_cents: precio * l.cantidad,
+          subtotal_usd_cents: descartada ? 0 : precio * l.cantidad,
           costo_unitario_usd_cents: costoUnitario,
-          costo_total_usd_cents: costoReal ? l.costo_total_usd_cents : costoUnitario * l.cantidad,
+          costo_total_usd_cents: descartada ? 0 : costoReal ? l.costo_total_usd_cents : costoUnitario * l.cantidad,
           precio_tienda_usd_cents: c.precio_tienda_usd_cents ?? l.precio_tienda_usd_cents,
           peso_mlb: c.peso_mlb ?? l.peso_mlb,
         };
       });
 
-      // La misma cuenta que al crearlo: descuento, total, anticipo.
-      const subtotal = lineas.reduce((s, l) => s + (l.subtotal_usd_cents || 0), 0);
-      let descuento = 0;
-      if (venta.descuento_tipo === 'PORCENTAJE' && (venta.descuento_valor ?? 0) > 0) {
-        descuento = Math.round((subtotal * venta.descuento_valor!) / 100);
-      } else if (venta.descuento_tipo === 'MONTO_FIJO' && (venta.descuento_valor ?? 0) > 0) {
-        descuento = Math.round(venta.descuento_valor! * 100);
-      }
-      descuento = Math.min(subtotal, Math.max(0, descuento));
-      const total = Math.max(0, subtotal - descuento);
-      const costo = lineas.reduce((s, l) => s + (l.costo_total_usd_cents || 0), 0);
-      const anticipoBp =
-        venta.anticipo_bp ??
-        ((venta.total_usd_cents || 0) > 0
-          ? Math.round(((venta.anticipo_esperado_usd_cents || 0) * 10000) / venta.total_usd_cents)
-          : (params.anticipo_defecto_bp ?? 5000));
-      const anticipo = Math.round((total * anticipoBp) / 10000);
-      const pagado = venta.pagado_usd_cents || 0;
-      const piezas = piezasDe(lineas);
-      const estado =
-        venta.estado === 'PENDIENTE'
-          ? 'PENDIENTE'
-          : estadoInicialEncargo({
-              total_usd_cents: total,
-              pagado_usd_cents: pagado,
-              anticipo_esperado_usd_cents: anticipo,
-              sin_precio: piezas.sin_precio,
-            });
-
-      tx.set(
-        ventaRef,
-        {
-          lineas: lineas.map((x) => sinUndefined(x as unknown as Record<string, unknown>)),
-          subtotal_usd_cents: subtotal,
-          descuento_usd_cents: descuento,
-          total_usd_cents: total,
-          costo_total_usd_cents: costo,
-          ganancia_usd_cents: total - costo,
-          anticipo_esperado_usd_cents: anticipo,
-          anticipo_bp: anticipoBp,
-          saldo_usd_cents: total - pagado,
-          piezas,
-          estado,
-          actualizado_en: new Date().toISOString(),
-        },
-        { merge: true }
-      );
+      tx.set(ventaRef, this.cambiosDeEncargo(venta, lineas, params.anticipo_defecto_bp ?? 5000, cambioPrecio, hoy), {
+        merge: true,
+      });
       return venta;
     });
 
@@ -891,6 +892,212 @@ export class VentasRepoFirestore {
           ? `${anterior.codigo}: una pieza ${comprado ? 'ya se compró, espera paquete' : 'vuelve a estar por comprar'}`
           : `${anterior.codigo}: ${tocadas} piezas ${comprado ? 'ya se compraron, esperan paquete' : 'vuelven a estar por comprar'}`,
     });
+  }
+
+  /**
+   * Lo que se escribe en un encargo cuando cambian sus piezas: la cuenta de
+   * `recalcularEncargo`, la versión de la cotización si cambió un precio, y
+   * la fecha en que aceptó si un pago que ya tenía ahora cubre el anticipo.
+   *
+   * Lo pagado no puede quedar por encima del total: esa plata se le debería a
+   * la clienta, y eso se resuelve corrigiendo el pago, no escondiéndolo.
+   */
+  private static cambiosDeEncargo(
+    venta: VentaDoc,
+    lineas: VentaLinea[],
+    anticipoDefectoBp: number,
+    cambioPrecio: boolean,
+    hoy: string
+  ): Record<string, unknown> {
+    const r = recalcularEncargo(venta, lineas, anticipoDefectoBp);
+    const pagado = venta.pagado_usd_cents || 0;
+    if (pagado > r.total_usd_cents) {
+      throw new Error(
+        `Pagó ${formatearMoneda(pagado, 'USD')} y el nuevo total es ${formatearMoneda(r.total_usd_cents, 'USD')}. ` +
+          'Corregí el pago antes de cambiarlo.'
+      );
+    }
+    return {
+      lineas: lineas.map((x) => sinUndefined(x as unknown as Record<string, unknown>)),
+      subtotal_usd_cents: r.subtotal_usd_cents,
+      descuento_usd_cents: r.descuento_usd_cents,
+      total_usd_cents: r.total_usd_cents,
+      costo_total_usd_cents: r.costo_total_usd_cents,
+      ganancia_usd_cents: r.ganancia_usd_cents,
+      anticipo_esperado_usd_cents: r.anticipo_esperado_usd_cents,
+      anticipo_bp: r.anticipo_bp,
+      saldo_usd_cents: r.saldo_usd_cents,
+      piezas: r.piezas,
+      estado: r.estado,
+      ...(cambioPrecio ? { cotizado_el: hoy, cotizacion_version: (venta.cotizacion_version ?? 0) + 1 } : {}),
+      ...(venta.estado === 'COTIZADA' && r.estado === 'PENDIENTE' ? { aceptado_el: hoy } : {}),
+      actualizado_en: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * "No se consiguió", o volver a buscarla. La pieza queda en la lista,
+   * tachada, con su precio para mostrarlo; deja de contar en el total, el
+   * costo, el anticipo y la fase. Sólo se descarta lo que no se compró: lo
+   * comprado ya costó plata y se resuelve anulando.
+   */
+  static async descartarPiezas(
+    venta_id: number,
+    linea_ids: readonly number[],
+    descartar: boolean,
+    evento_grupo_id: string
+  ): Promise<void> {
+    const db = getFirestoreDb();
+    const ventaRef = doc(db, 'ventas', String(venta_id));
+    const params = await ParametrosRepoFirestore.getParametros();
+    const ids = new Set(linea_ids);
+    const hoy = hoyISO();
+
+    const { anterior, tocadas } = await runTransaction(db, async (tx) => {
+      const venta = await this.leerEncargoVivo(tx, ventaRef, venta_id);
+      const tocadas: string[] = [];
+      const lineas = (venta.lineas || []).map((l) => {
+        if (!ids.has(l.id)) return l;
+        const ya = Boolean(l.descartada_el);
+        if (descartar && !ya) {
+          if (!descartable(l)) {
+            throw new Error(
+              `'${l.descripcion}' ya se compró: no se puede marcar como no conseguida. Si no la va a llevar, anulá el encargo.`
+            );
+          }
+          tocadas.push(l.descripcion);
+          return { ...l, descartada_el: hoy, subtotal_usd_cents: 0, costo_total_usd_cents: 0 };
+        }
+        if (!descartar && ya) {
+          tocadas.push(l.descripcion);
+          const { descartada_el: _d, ...resto } = l;
+          return {
+            ...resto,
+            subtotal_usd_cents: (resto.precio_unitario_usd_cents || 0) * resto.cantidad,
+            costo_total_usd_cents: (resto.costo_unitario_usd_cents || 0) * resto.cantidad,
+          };
+        }
+        return l;
+      });
+      if (tocadas.length === 0) {
+        throw new Error(
+          descartar ? 'No hay piezas para marcar como no conseguidas.' : 'No hay piezas no conseguidas para volver a buscar.'
+        );
+      }
+
+      tx.set(ventaRef, this.cambiosDeEncargo(venta, lineas, params.anticipo_defecto_bp ?? 5000, true, hoy), {
+        merge: true,
+      });
+      return { anterior: venta, tocadas };
+    });
+
+    await EventosRepoFirestore.registrarEvento({
+      evento_grupo_id,
+      entidad_tipo: 'ventas',
+      entidad_id: venta_id,
+      tipo_evento: 'ACTUALIZACION',
+      valor_anterior: anterior as unknown as Record<string, unknown>,
+      detalle:
+        tocadas.length === 1
+          ? `${anterior.codigo}: '${tocadas[0]}' ${descartar ? 'no se consiguió' : 'se vuelve a buscar'}`
+          : `${anterior.codigo}: ${tocadas.length} piezas ${descartar ? 'no se consiguieron' : 'se vuelven a buscar'}`,
+    });
+    await ClientesRepoFirestore.refrescarTotales(anterior.cliente_id);
+    await ResumenesRepoFirestore.invalidarPorFecha(anterior.fecha);
+  }
+
+  /**
+   * La cotización se le mandó a la clienta. Guarda qué versión se mandó: si
+   * después cambia un precio, el encargo vuelve a estar "por mandar". Uno ya
+   * aceptado no cambia: la fase ya no depende de esto.
+   */
+  static async marcarEnviada(venta_id: number, evento_grupo_id: string): Promise<void> {
+    const db = getFirestoreDb();
+    const ventaRef = doc(db, 'ventas', String(venta_id));
+    const hoy = hoyISO();
+
+    const anterior = await runTransaction(db, async (tx) => {
+      const venta = await this.leerEncargoVivo(tx, ventaRef, venta_id);
+      if (venta.estado === 'PENDIENTE') return null;
+      const falta = faltaCotizar(venta);
+      if (falta) throw new Error(falta);
+      tx.set(
+        ventaRef,
+        {
+          cotizacion_enviada_el: hoy,
+          cotizacion_enviada_version: venta.cotizacion_version ?? 0,
+          actualizado_en: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+      return venta;
+    });
+    if (!anterior) return;
+
+    await EventosRepoFirestore.registrarEvento({
+      evento_grupo_id,
+      entidad_tipo: 'ventas',
+      entidad_id: venta_id,
+      tipo_evento: 'ACTUALIZACION',
+      valor_anterior: anterior as unknown as Record<string, unknown>,
+      detalle: `${anterior.codigo}: cotización mandada`,
+    });
+  }
+
+  /**
+   * La clienta aceptó la cotización: el encargo pasa a "por comprar", haya
+   * pagado el anticipo o no. Desde ahí cuenta como deuda. Si ya estaba
+   * aceptado (un pago lo aceptó antes), no hace nada.
+   *
+   * Si en el mismo gesto registra un pago, el pago va PRIMERO
+   * (`aceptarEncargo`): así esto es lo último que toca la venta y deshacer el
+   * grupo restaura una instantánea que ya incluye el pago.
+   */
+  static async aceptar(venta_id: number, evento_grupo_id: string): Promise<void> {
+    const db = getFirestoreDb();
+    const ventaRef = doc(db, 'ventas', String(venta_id));
+    const hoy = hoyISO();
+
+    const anterior = await runTransaction(db, async (tx) => {
+      const venta = await this.leerEncargoVivo(tx, ventaRef, venta_id);
+      if (venta.estado === 'PENDIENTE') return null;
+      const falta = faltaCotizar(venta);
+      if (falta) throw new Error(falta);
+      tx.set(
+        ventaRef,
+        { estado: 'PENDIENTE', aceptado_el: hoy, actualizado_en: new Date().toISOString() },
+        { merge: true }
+      );
+      return venta;
+    });
+    if (!anterior) return;
+
+    await EventosRepoFirestore.registrarEvento({
+      evento_grupo_id,
+      entidad_tipo: 'ventas',
+      entidad_id: venta_id,
+      tipo_evento: 'ACTUALIZACION',
+      valor_anterior: anterior as unknown as Record<string, unknown>,
+      detalle: `${anterior.codigo}: aceptó`,
+    });
+    await ClientesRepoFirestore.refrescarTotales(anterior.cliente_id);
+    await ResumenesRepoFirestore.invalidarPorFecha(anterior.fecha);
+  }
+
+  /** Lee un encargo dentro de una transacción; tiene que existir y seguir vivo. */
+  private static async leerEncargoVivo(
+    tx: Transaction,
+    ventaRef: DocumentReference,
+    venta_id: number
+  ): Promise<VentaDoc> {
+    const snap = await tx.get(ventaRef);
+    if (!snap.exists()) throw new Error(`El encargo #${venta_id} no existe.`);
+    const venta = snap.data() as VentaDoc;
+    if (venta.tipo !== 'ENCARGO') throw new Error(`${venta.codigo} no es un encargo.`);
+    if (venta.estado !== 'COTIZADA' && venta.estado !== 'PENDIENTE') {
+      throw new Error(`${venta.codigo} ya está ${venta.estado === 'ENTREGADA' ? 'entregado' : 'anulado'}.`);
+    }
+    return venta;
   }
 
   private static async validarCambio(

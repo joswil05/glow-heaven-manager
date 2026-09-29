@@ -204,6 +204,8 @@ export interface LineaCotizacion {
   precio_tienda_usd_cents?: number;
   peso_mlb?: number;
   descripcion?: string;
+  /** `true`: "No se consiguió". `false`: volver a buscarla. Sin el campo, queda como estaba. */
+  descartada?: boolean;
 }
 
 export interface LineaVentaInput {
@@ -270,6 +272,9 @@ export interface RegistrarPagoInput {
   es_anticipo?: boolean;
   cuota_id?: number;
 }
+
+/** El pago que la clienta hace al aceptar la cotización, si hace alguno. */
+export type PagoAlAceptar = Omit<RegistrarPagoInput, 'venta_id' | 'es_anticipo' | 'cuota_id'>;
 
 export interface AbonoClienteInput {
   cliente_id: number;

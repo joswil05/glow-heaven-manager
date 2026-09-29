@@ -15,6 +15,8 @@ import { ClientesRepoFirestore } from './clientes.repo';
 import { EventosRepoFirestore } from './eventos.repo';
 import type { Pago, PagoCompleto, Cuota, MetodoPago, MonedaPago } from '../../../shared/types';
 import { formatearMoneda } from '../../../core/moneda';
+import { pagoAcepta } from '../../../core/cobranza';
+import { hoyISO } from '../../../core/fechas';
 
 export interface RegistrarPagoInput {
   venta_id: number;
@@ -141,11 +143,18 @@ export class PagosRepoFirestore {
         cambiosVenta.cuotas = repartirEnCuotas(venta.cuotas!, pagado);
       }
 
-      // Un encargo con el anticipo cubierto pasa a PENDIENTE: ya se puede comprar.
-      // Un pedido con piezas sin precio no se confirma: primero se cotiza.
-      const porCotizar = ((venta as { piezas?: { sin_precio?: number } }).piezas?.sin_precio ?? 0) > 0;
-      if (venta.tipo === 'ENCARGO' && venta.estado === 'COTIZADA' && anticipoCubierto && !porCotizar) {
+      // Quien paga, aceptó: un encargo con el anticipo cubierto (o, sin
+      // anticipo pedido, con cualquier pago) pasa a PENDIENTE. Un pedido con
+      // piezas sin precio no se confirma: primero se cotiza.
+      const porCotizar = (venta.piezas?.sin_precio ?? 0) > 0;
+      const acepta =
+        venta.tipo === 'ENCARGO' &&
+        venta.estado === 'COTIZADA' &&
+        !porCotizar &&
+        pagoAcepta({ pagado_usd_cents: pagado, anticipo_esperado_usd_cents: anticipoEsperado });
+      if (acepta) {
         cambiosVenta.estado = 'PENDIENTE';
+        cambiosVenta.aceptado_el = hoyISO();
       }
 
       tx.set(
@@ -154,12 +163,32 @@ export class PagosRepoFirestore {
       );
       tx.set(ventaRef, cambiosVenta, { merge: true });
 
-      return { pagado, saldo, anticipoCubierto, cliente_id: venta.cliente_id, codigo: venta.codigo };
+      return {
+        pagado,
+        saldo,
+        anticipoCubierto,
+        cliente_id: venta.cliente_id,
+        codigo: venta.codigo,
+        // Si el pago aceptó el encargo, deshacerlo tiene que volverlo a
+        // cotizado: sin la instantánea, se borraba el pago y el encargo
+        // quedaba confirmado.
+        ventaAntes: acepta ? venta : null,
+      };
     });
 
     const { pagado, saldo, anticipoCubierto } = resultado;
     await ClientesRepoFirestore.refrescarTotales(resultado.cliente_id);
 
+    if (resultado.ventaAntes) {
+      await EventosRepoFirestore.registrarEvento({
+        evento_grupo_id,
+        entidad_tipo: 'ventas',
+        entidad_id: input.venta_id,
+        tipo_evento: 'ACTUALIZACION',
+        valor_anterior: resultado.ventaAntes as unknown as Record<string, unknown>,
+        detalle: `${resultado.codigo}: aceptó, con el pago`,
+      });
+    }
     await EventosRepoFirestore.registrarEvento({
       evento_grupo_id,
       entidad_tipo: 'pagos',

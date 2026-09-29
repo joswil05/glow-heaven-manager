@@ -563,6 +563,64 @@ describe('ajuste de existencias', () => {
  * Ni el typecheck ni las 140 pruebas del motor falso podían verlo: el motor
  * falso no evalúa reglas. Sólo el emulador las aplica de verdad.
  */
+describe('encargos por fases', () => {
+  beforeEach(async () => {
+    if (!disponible) return;
+    await limpiar();
+    await autorizarUid(uidPrueba);
+    const { Parametros } = await repos();
+    Parametros.invalidarCache();
+    await Parametros.getParametros();
+  });
+
+  it.skipIf(!disponible)(
+    'cotizar sin una pieza, mandar, aceptar con un pago y deshacer: el motor de verdad lo acepta',
+    async () => {
+      const { Ventas, Clientes, Eventos } = await repos();
+      const { aceptarEncargo } = await import('../src/main/firebase/services/encargos.service');
+      const { etapaEncargo } = await import('../src/core/encargos');
+
+      const ana = await Clientes.guardar({ nombre: 'Ana' }, g());
+      const e = await Ventas.crear(
+        {
+          cliente_id: ana,
+          fecha: HOY,
+          tipo: 'ENCARGO',
+          anticipo_bp: 5000,
+          lineas: [
+            { descripcion: 'Bolso', cantidad: 1, precio_unitario_usd_cents: 0 },
+            { descripcion: 'Perfume raro', cantidad: 1, precio_unitario_usd_cents: 0 },
+          ],
+        },
+        g()
+      );
+      const [a, b] = (await Ventas.getById(e))!.lineas;
+      await Ventas.cotizar(
+        e,
+        [
+          { id: a.id, precio_unitario_usd_cents: 6000, costo_estimado_unitario_usd_cents: 3800 },
+          { id: b.id, precio_unitario_usd_cents: 0, descartada: true },
+        ],
+        g()
+      );
+      await Ventas.marcarEnviada(e, g());
+      expect(etapaEncargo((await Ventas.getById(e))!)).toBe('ESPERANDO');
+
+      const grupo = g();
+      await aceptarEncargo(e, { fecha: HOY, monto_cents: 1000, moneda: 'USD', metodo: 'EFECTIVO' }, grupo);
+      let v = (await Ventas.getById(e))!;
+      expect([v.estado, v.total_usd_cents, v.pagado_usd_cents, v.saldo_usd_cents]).toEqual(['PENDIENTE', 6000, 1000, 5000]);
+
+      const r = await Eventos.deshacerGrupo(grupo);
+      expect(r.revertido).toBe(true);
+      v = (await Ventas.getById(e))!;
+      expect([v.estado, v.pagado_usd_cents, v.saldo_usd_cents]).toEqual(['COTIZADA', 0, 6000]);
+      expect(etapaEncargo(v)).toBe('ESPERANDO');
+    },
+    120000
+  );
+});
+
 describe('reglas de seguridad de Firestore', () => {
   /**
    * Comprueba que Firestore rechazó por permisos.
