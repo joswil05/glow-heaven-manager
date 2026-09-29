@@ -136,3 +136,40 @@ describe('texto de la clienta dentro del documento', () => {
     expect(html).toContain('&lt;talla M&gt;');
   });
 });
+
+describe('la proforma de un encargo por fases', () => {
+  const encargo = (extra: Partial<VentaCompleta> = {}) =>
+    ventaBase({
+      codigo: 'E-0012',
+      tipo: 'ENCARGO',
+      estado: 'COTIZADA',
+      total_usd_cents: 12000,
+      pagado_usd_cents: 0,
+      saldo_usd_cents: 12000,
+      anticipo_bp: 3000,
+      anticipo_esperado_usd_cents: 3600,
+      ...extra,
+    } as Partial<VentaCompleta>);
+
+  it('el anticipo dice su porcentaje real', () => {
+    const html = generarHtmlProforma(encargo(), PARAMETROS);
+    expect(html).toContain('(30%)');
+    expect(html).not.toContain('(50%)');
+  });
+
+  it('lo que no se consiguió no va en la tabla, pero se nombra', () => {
+    const base = encargo();
+    const html = generarHtmlProforma(
+      {
+        ...base,
+        lineas: [
+          ...base.lineas,
+          { ...base.lineas[0], id: 2, descripcion: 'Perfume raro', subtotal_usd_cents: 0, costo_total_usd_cents: 0, descartada_el: '2026-09-27' },
+        ],
+      },
+      PARAMETROS
+    );
+    expect(html).not.toContain('<div class="item-desc">Perfume raro</div>');
+    expect(html).toContain('No se consiguió: Perfume raro');
+  });
+});

@@ -1,5 +1,6 @@
 import type { VentaCompleta, ParametrosSistema, CuentaBancaria } from '../../shared/types';
-import { formatearMoneda } from '../moneda';
+import { formatearMoneda, formatearPorcentaje } from '../moneda';
+import { anticipoBpDe, noConseguidas } from '../encargos';
 
 /**
  * Escapa caracteres especiales para evitar inyección de HTML en documentos generados.
@@ -453,6 +454,9 @@ export function generarHtmlProforma(venta: VentaCompleta, parametros: Parametros
   const totalCs = Math.round((venta.total_usd_cents * tasa) / 100);
   const anticipoEsperadoCs = Math.round((venta.anticipo_esperado_usd_cents * tasa) / 100);
   const anticipoCubierto = venta.pagado_usd_cents >= venta.anticipo_esperado_usd_cents;
+  // Lo que no se consiguió no se cotiza: fuera de la tabla, y nombrado abajo.
+  const cotizadas = venta.lineas.filter((l) => !l.descartada_el);
+  const faltan = noConseguidas(venta.lineas);
 
   const cuentas = parametros.cuentas_bancarias ?? [];
 
@@ -803,7 +807,7 @@ export function generarHtmlProforma(venta: VentaCompleta, parametros: Parametros
       </tr>
     </thead>
     <tbody>
-      ${venta.lineas.map((l) => {
+      ${cotizadas.map((l) => {
         const variantes = [l.talla, l.color].filter(Boolean).map(escaparHtml).join(' · ');
         return `
         <tr>
@@ -819,12 +823,14 @@ export function generarHtmlProforma(venta: VentaCompleta, parametros: Parametros
     </tbody>
   </table>
 
+  ${faltan ? `<p style="margin: 8px 0 0; font-size: 12px; color: #555;">No se consiguió: ${escaparHtml(faltan)}</p>` : ''}
+
   <!-- Condiciones Financieras de Encargo -->
   <div class="conditions-card">
     <div class="cond-block">
       <span class="cond-title">Anticipo requerido para ordenar</span>
       <span class="cond-amount">${formatearMoneda(venta.anticipo_esperado_usd_cents, 'USD')}</span>
-      <span class="cond-sub">≈ ${formatearMoneda(anticipoEsperadoCs, 'COR')} (50%)</span>
+      <span class="cond-sub">≈ ${formatearMoneda(anticipoEsperadoCs, 'COR')} (${formatearPorcentaje(anticipoBpDe(venta))})</span>
       <span style="font-size: 11px; margin-top: 4px; font-weight: 700; color: ${anticipoCubierto ? '#059669' : '#1a1a1a'}">
         ${anticipoCubierto ? 'Anticipo cubierto. Pedido en proceso.' : 'Pendiente de depósito'}
       </span>

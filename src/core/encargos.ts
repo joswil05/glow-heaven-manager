@@ -244,9 +244,32 @@ export function quePidio(
     .join(', ');
 }
 
+/** Lo que no se consiguió, en una línea: "Perfume raro, Bolso". Vacío si no hay nada. */
+export function noConseguidas(lineas: readonly { descripcion?: string; descartada_el?: string }[]): string {
+  return lineas
+    .filter((l) => l.descartada_el && l.descripcion)
+    .map((l) => l.descripcion)
+    .join(', ');
+}
+
 // ---------------------------------------------------------------------------
 // La plata del encargo
 // ---------------------------------------------------------------------------
+
+/**
+ * El anticipo pedido, en puntos básicos. Uno anterior a `anticipo_bp` lo
+ * deduce del anticipo y el total que tiene. Es lo que dicen el mensaje y la
+ * proforma: antes los dos decían "50%" fijo, aunque el encargo pidiera otro.
+ */
+export function anticipoBpDe(v: {
+  anticipo_bp?: number;
+  anticipo_esperado_usd_cents?: number;
+  total_usd_cents?: number;
+}): number {
+  if (typeof v.anticipo_bp === 'number') return v.anticipo_bp;
+  const total = v.total_usd_cents || 0;
+  return total > 0 ? Math.round(((v.anticipo_esperado_usd_cents || 0) * 10000) / total) : 0;
+}
 
 export interface LineaParaRecalcular extends PiezaParaEtapa {
   subtotal_usd_cents?: number;

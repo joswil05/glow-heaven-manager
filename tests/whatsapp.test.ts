@@ -120,3 +120,63 @@ describe('el texto del mensaje', () => {
     expect(texto).toContain('C$3,662.00');
   });
 });
+
+describe('la cotización de un encargo', () => {
+  /** Un encargo de $100 con anticipo del 30%: una pieza cotizada y, si se pide, otra que no se consiguió. */
+  function encargo(conDescartada = false): VentaCompleta {
+    const linea = (id: number, descripcion: string, precio: number, extra = {}) => ({
+      id, venta_id: 12, descripcion, cantidad: 1, precio_unitario_usd_cents: precio,
+      subtotal_usd_cents: precio, costo_unitario_usd_cents: 0, costo_total_usd_cents: 0, es_paquete: false, orden: id,
+      ...extra,
+    });
+    return {
+      ...ventaDe('88887777', 10000),
+      codigo: 'E-0012',
+      tipo: 'ENCARGO',
+      estado: 'COTIZADA',
+      pagado_usd_cents: 0,
+      anticipo_bp: 3000,
+      anticipo_esperado_usd_cents: 3000,
+      lineas: [
+        linea(1, 'Bolso Coach', 10000),
+        ...(conDescartada ? [linea(2, 'Perfume raro', 4000, { subtotal_usd_cents: 0, descartada_el: '2026-09-27' })] : []),
+      ],
+    } as unknown as VentaCompleta;
+  }
+
+  // La que Configuración guardaba tal cual al tocar cualquier ajuste, con el
+  // 50% escrito a mano. Está así en la base de producción (respaldo del 26/9).
+  const PLANTILLA_VIEJA =
+    '¡Hola {cliente}! ✨ Te compartimos la cotización de tu encargo en Glow Heaven 📦✈️\n\n📋 Cotización: {codigo}\n💰 Total estimado: {total_usd} (≈ {total_cs})\n🔒 Anticipo requerido (50%): {anticipo}\n🤝 Saldo contra entrega: {saldo}\n\n{cuentas_bancarias}\n¡Quedamos atentas a tu comprobante! 💕';
+
+  it('dice el porcentaje del anticipo de ese encargo, no un 50% fijo', () => {
+    const texto = mensajeWhatsappDocumento(encargo(), PARAMETROS);
+    expect(texto).toContain('Anticipo requerido (30%): $30.00');
+    expect(texto).not.toContain('50%');
+  });
+
+  it('la plantilla vieja guardada en la base se reconoce y se reemplaza por la nueva', () => {
+    const conVieja = { ...PARAMETROS, plantilla_proforma_whatsapp: PLANTILLA_VIEJA } as unknown as ParametrosSistema;
+    expect(mensajeWhatsappDocumento(encargo(), conVieja)).toContain('Anticipo requerido (30%)');
+  });
+
+  it('nombra lo que no se consiguió, y no deja marcadores a la vista', () => {
+    const texto = mensajeWhatsappDocumento(encargo(true), PARAMETROS);
+    expect(texto).toContain('No logramos conseguir: Perfume raro');
+    expect(texto, texto).not.toMatch(/\{[a-z_]+\}/);
+    // Sin descartadas, la línea no aparece.
+    expect(mensajeWhatsappDocumento(encargo(), PARAMETROS)).not.toContain('No logramos conseguir');
+  });
+
+  it('una plantilla propia sin el marcador igual avisa lo que no se consiguió', () => {
+    // Que la clienta no crea que se cotizó todo lo que pidió.
+    const propia = {
+      ...PARAMETROS,
+      plantilla_proforma_whatsapp: 'Hola {cliente}, tu cotización {codigo} es de {total_usd}.',
+    } as unknown as ParametrosSistema;
+    expect(mensajeWhatsappDocumento(encargo(true), propia)).toBe(
+      'Hola Ana Pérez, tu cotización E-0012 es de $100.00.\n\nNo logramos conseguir: Perfume raro'
+    );
+    expect(mensajeWhatsappDocumento(encargo(), propia)).toBe('Hola Ana Pérez, tu cotización E-0012 es de $100.00.');
+  });
+});

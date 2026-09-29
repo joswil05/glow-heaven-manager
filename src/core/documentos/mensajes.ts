@@ -1,6 +1,40 @@
-import { formatearMoneda } from '../moneda';
+import { formatearMoneda, formatearPorcentaje } from '../moneda';
 import { enlaceWhatsapp } from '../telefono';
+import { anticipoBpDe, noConseguidas } from '../encargos';
 import type { VentaCompleta, ParametrosSistema, CuentaBancaria } from '../../shared/types';
+
+/**
+ * El mensaje con que se manda una cotización, si ella no escribió uno propio.
+ * `{anticipo_pct}` es el porcentaje de ESE encargo, y `{no_conseguido}` nombra
+ * lo que no se consiguió (vacío si se consiguió todo).
+ */
+export const PLANTILLA_PROFORMA_DEFECTO =
+  '¡Hola {cliente}! ✨ Te compartimos la cotización de tu encargo en Glow Heaven 📦✈️\n\n' +
+  '📋 Cotización: {codigo}\n' +
+  '💰 Total estimado: {total_usd} (≈ {total_cs})\n' +
+  '🔒 Anticipo requerido ({anticipo_pct}): {anticipo}\n' +
+  '🤝 Saldo contra entrega: {saldo}{no_conseguido}\n\n' +
+  '{cuentas_bancarias}\n' +
+  '¡Quedamos atentas a tu comprobante! 💕';
+
+/**
+ * Las plantillas por defecto de antes de la 2.16, con el "50%" escrito a mano.
+ * Configuración guardaba la suya tal cual en cuanto se tocaba cualquier
+ * ajuste, así que producción la tiene como si fuera propia (respaldo del
+ * 26/9). Si la guardada es EXACTAMENTE una de estas, nadie la escribió: se usa
+ * la nueva. Una plantilla que ella cambió aunque sea en una letra se respeta.
+ */
+const PROFORMA_DEFECTO_VIEJAS = [
+  '¡Hola {cliente}! ✨ Te compartimos la cotización de tu encargo en Glow Heaven 📦✈️\n\n📋 Cotización: {codigo}\n💰 Total estimado: {total_usd} (≈ {total_cs})\n🔒 Anticipo requerido (50%): {anticipo}\n🤝 Saldo contra entrega: {saldo}\n\n{cuentas_bancarias}\n¡Quedamos atentas a tu comprobante! 💕',
+  '¡Hola {cliente}! ✨ Te compartimos la cotización de tu encargo en Glow Heaven 📦✈️\n\n📋 Cotización: {codigo}\n💰 Total estimado: {total_usd} (≈ {total_cs})\n🔒 Anticipo requerido (50%): {anticipo}\n🤝 Saldo contra entrega: {saldo}\n\n{cuentas_bancarias}\n\n¡Quedamos atentas a tu comprobante de transferencia para procesar tu orden! 💕',
+];
+
+/** La plantilla de la cotización que vale hoy: la propia de ella, o la de siempre. */
+export function plantillaProforma(parametros: ParametrosSistema | null | undefined): string {
+  const guardada = parametros?.plantilla_proforma_whatsapp?.replace(/\r\n/g, '\n');
+  if (!guardada || PROFORMA_DEFECTO_VIEJAS.includes(guardada)) return PLANTILLA_PROFORMA_DEFECTO;
+  return guardada;
+}
 
 /**
  * Mensaje de WhatsApp que acompaña a una factura o proforma.
@@ -38,20 +72,22 @@ export function mensajeWhatsappDocumento(
       .replace(/\{total_cs\}/g, formatearMoneda(totalCs, 'COR'));
 
   if (esEncargo) {
-    const plantilla =
-      parametros?.plantilla_proforma_whatsapp ||
-      '¡Hola {cliente}! ✨ Te compartimos la cotización de tu encargo en Glow Heaven 📦✈️\n\n' +
-        '📋 Cotización: {codigo}\n' +
-        '💰 Total estimado: {total_usd} (≈ {total_cs})\n' +
-        '🔒 Anticipo requerido (50%): {anticipo}\n' +
-        '🤝 Saldo contra entrega: {saldo}\n\n' +
-        '{cuentas_bancarias}\n\n' +
-        '¡Quedamos atentas a tu comprobante de transferencia para procesar tu orden! 💕';
+    const plantilla = plantillaProforma(parametros);
+    const faltan = noConseguidas(venta.lineas ?? []);
 
-    return comunes(plantilla)
+    let texto = comunes(plantilla)
+      .replace(/\{anticipo_pct\}/g, formatearPorcentaje(anticipoBpDe(venta)))
       .replace(/\{anticipo\}/g, formatearMoneda(venta.anticipo_esperado_usd_cents, 'USD'))
       .replace(/\{saldo\}/g, formatearMoneda(venta.saldo_usd_cents, 'USD'))
+      .replace(/\{no_conseguido\}/g, faltan ? `\n🔎 No logramos conseguir: ${faltan}` : '')
       .replace(/\{cuentas_bancarias\}/g, cuentasTxt ? `Cuentas para depósito:\n${cuentasTxt}` : '');
+
+    // Una plantilla propia sin el marcador igual lo dice: que la clienta no
+    // crea que se cotizó todo lo que pidió.
+    if (faltan && !plantilla.includes('{no_conseguido}')) {
+      texto += `\n\nNo logramos conseguir: ${faltan}`;
+    }
+    return texto;
   }
 
   const plantilla =

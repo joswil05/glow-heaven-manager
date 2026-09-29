@@ -43,6 +43,7 @@ import { Confirmar } from '../components/ui/Confirmar';
 import { formatearMoneda } from '@core/moneda';
 import { hoyISO, mesISO } from '@core/fechas';
 import { generarCSV, dinero, nombreArchivo, type Columna } from '@core/exportar';
+import { plantillaProforma as plantillaProformaVigente } from '@core/documentos/mensajes';
 
 interface ConfigViewProps {
   parametros: ParametrosSistema | null;
@@ -138,10 +139,9 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
       parametros.plantilla_factura_whatsapp ??
         '¡Hola {cliente}! ✨ Muchas gracias por tu compra en Glow Heaven 🛍️\n\n📄 Factura: {codigo}\n💵 Total: {total_usd} (≈ {total_cs})\n{estado_pago}\n\n{cuentas_bancarias}\n¡Esperamos que disfrutes tus prendas! 💖'
     );
-    setPlantillaProforma(
-      parametros.plantilla_proforma_whatsapp ??
-        '¡Hola {cliente}! ✨ Te compartimos la cotización de tu encargo en Glow Heaven 📦✈️\n\n📋 Cotización: {codigo}\n💰 Total estimado: {total_usd} (≈ {total_cs})\n🔒 Anticipo requerido (50%): {anticipo}\n🤝 Saldo contra entrega: {saldo}\n\n{cuentas_bancarias}\n¡Quedamos atentas a tu comprobante! 💕'
-    );
+    // La vigente, no la guardada a ciegas: la de antes de la 2.16 decía "50%"
+    // escrito a mano y está guardada en la base como si fuera propia.
+    setPlantillaProforma(plantillaProformaVigente(parametros));
     setCuentasBancarias(parametros.cuentas_bancarias ?? []);
     setDiasMora(parametros.dias_alerta_mora ?? 15);
     setDiasEncargos(parametros.dias_alerta_encargos ?? 10);
@@ -908,6 +908,20 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
                   >
                     + &#123;saldo&#125;
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => insertarEtiquetaWhatsApp('{anticipo_pct}')}
+                    className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie hover:border-acento/40 hover:text-acento border border-borde text-texto-2 pill-interactive active:scale-95 cursor-pointer transition-[background-color,border-color,color,box-shadow,transform,opacity]"
+                  >
+                    + &#123;anticipo_pct&#125;
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertarEtiquetaWhatsApp('{no_conseguido}')}
+                    className="px-2.5 py-1 rounded-lg text-caption font-mono font-medium bg-superficie-2 hover:bg-superficie hover:border-acento/40 hover:text-acento border border-borde text-texto-2 pill-interactive active:scale-95 cursor-pointer transition-[background-color,border-color,color,box-shadow,transform,opacity]"
+                  >
+                    + &#123;no_conseguido&#125;
+                  </button>
                 </>
               )}
 
@@ -940,8 +954,10 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
                   .replace(/\{total_usd\}/g, '$90.00')
                   .replace(/\{total_cs\}/g, 'C$3,295.80')
                   .replace(/\{estado_pago\}/g, '✓ Pagado en su totalidad')
+                  .replace(/\{anticipo_pct\}/g, '50%')
                   .replace(/\{anticipo\}/g, '$45.00')
                   .replace(/\{saldo\}/g, '$45.00')
+                  .replace(/\{no_conseguido\}/g, '\n🔎 No logramos conseguir: Perfume Chanel')
                   .replace(
                     /\{cuentas_bancarias\}/g,
                     cuentasBancarias.length > 0
