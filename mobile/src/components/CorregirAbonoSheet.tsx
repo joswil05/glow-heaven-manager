@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { CheckCircle2, Loader2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
 import type { Pago, MetodoPago, MonedaPago } from '@shared/types';
 import { PagosRepoFirestore } from '@repos/pagos.repo';
-import { formatearMoneda } from '@core/moneda';
+import { formatearMoneda, formatearFecha } from '@core/moneda';
+import { textoPagado, textoQuien } from '@core/abonos';
 import { parsearACentavos } from '@core/numeros';
 import { useDatosNegocio } from '../context/DataContext';
 import { useSnackbar } from './Snackbar';
@@ -45,8 +46,14 @@ export function CorregirAbonoSheet({
   }, [pago]);
 
   const montoCents = parsearACentavos(montoTexto, { min: 0.01 });
-  const enDolares =
-    pago && montoCents !== null && moneda === 'COR' ? Math.round((montoCents * 100) / pago.tasa_cambio_cents) : null;
+  /** Lo escrito en la otra moneda, a la tasa del abono. */
+  const equivalente =
+    pago && montoCents !== null
+      ? moneda === 'COR'
+        ? formatearMoneda(Math.round((montoCents * 100) / pago.tasa_cambio_cents), 'USD')
+        : formatearMoneda(Math.round((montoCents * pago.tasa_cambio_cents) / 100), 'COR')
+      : null;
+  const cambioDeMoneda = pago !== null && moneda !== pago.moneda;
 
   async function guardar() {
     if (!pago || guardando) return;
@@ -79,7 +86,7 @@ export function CorregirAbonoSheet({
       titulo={codigo ? `Corregir abono · ${codigo}` : 'Corregir abono'}
       subtitulo={
         pago
-          ? `Se cargó ${formatearMoneda(pago.moneda === 'COR' ? pago.monto_cor_cents : pago.monto_usd_cents, pago.moneda === 'COR' ? 'COR' : 'USD')} el ${pago.fecha}`
+          ? `Se cargó ${textoPagado(pago)} el ${formatearFecha(pago.fecha)} · ${textoQuien(pago)}`
           : undefined
       }
       footer={
@@ -95,6 +102,34 @@ export function CorregirAbonoSheet({
       }
     >
       <div className="flex flex-col gap-3 pb-2">
+        {/* La moneda primero: el monto se lee en ella. La original queda
+            marcada, para que cambiarla sea una decisión y no un descuido. */}
+        <div className="flex flex-col gap-1">
+          <span id="abono-moneda" className="text-xs font-bold text-texto-2">
+            Moneda en que pagó
+          </span>
+          <div role="radiogroup" aria-labelledby="abono-moneda" className="grid grid-cols-2 gap-2">
+            {(['COR', 'USD'] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                role="radio"
+                aria-checked={moneda === m}
+                onClick={() => {
+                  haptics.selection();
+                  setMoneda(m);
+                }}
+                className={`m3-press rounded-xl border-2 px-3 py-2 text-left cursor-pointer ${
+                  moneda === m ? 'border-acento bg-acento-suave text-texto' : 'border-borde bg-superficie text-texto-2'
+                }`}
+              >
+                <span className="block text-xs font-bold">{m === 'COR' ? 'Córdobas (C$)' : 'Dólares (US$)'}</span>
+                {pago?.moneda === m && <span className="block text-[11px] text-texto-3">como se registró</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="flex flex-col gap-1">
           <label htmlFor="abono-monto" className="text-xs font-bold text-texto-2">
             Cuánto pagó ({moneda === 'COR' ? 'C$' : 'US$'})
@@ -116,23 +151,19 @@ export function CorregirAbonoSheet({
             className="rounded-xl border border-borde bg-superficie px-3.5 py-2.5 text-base font-bold tabular-nums text-texto outline-none focus:ring-2 focus:ring-acento"
           />
           {error && <p className="text-[11px] font-semibold text-peligro">{error}</p>}
-          {enDolares !== null && (
-            <p className="text-[11px] text-texto-3 tabular-nums">
-              A la tasa del abono son {formatearMoneda(enDolares, 'USD')}.
-            </p>
-          )}
+          {equivalente !== null &&
+            (cambioDeMoneda ? (
+              <p className="flex items-start gap-1.5 rounded-xl border border-alerta-suave bg-alerta-suave p-2.5 text-[11px] font-semibold leading-snug text-alerta-fuerte">
+                <AlertTriangle size={14} className="mt-px shrink-0" />
+                Lo registraste en {pago?.moneda === 'COR' ? 'córdobas' : 'dólares'}. Si de verdad fue en{' '}
+                {moneda === 'COR' ? 'córdobas' : 'dólares'}, son {equivalente} a la tasa del abono.
+              </p>
+            ) : (
+              <p className="text-[11px] text-texto-3 tabular-nums">A la tasa del abono son {equivalente}.</p>
+            ))}
         </div>
 
         <div className="grid grid-cols-2 gap-2">
-          <select
-            value={moneda}
-            onChange={(e) => setMoneda(e.target.value as MonedaPago)}
-            aria-label="Moneda"
-            className="h-10 rounded-xl border border-borde bg-superficie px-3 text-xs font-semibold text-texto outline-none"
-          >
-            <option value="COR">C$ Córdobas</option>
-            <option value="USD">US$ Dólares</option>
-          </select>
           <select
             value={metodo}
             onChange={(e) => setMetodo(e.target.value as MetodoPago)}
@@ -143,17 +174,11 @@ export function CorregirAbonoSheet({
             <option value="TRANSFERENCIA">Transferencia</option>
             <option value="OTRO">Otro método</option>
           </select>
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label htmlFor="abono-fecha" className="text-xs font-bold text-texto-2">
-            Fecha
-          </label>
           <input
-            id="abono-fecha"
             type="date"
             value={fecha}
             onChange={(e) => setFecha(e.target.value)}
+            aria-label="Fecha"
             className="h-10 rounded-xl border border-borde bg-superficie px-3 text-xs font-semibold text-texto outline-none"
           />
         </div>

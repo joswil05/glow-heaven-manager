@@ -9,13 +9,13 @@ import { QuickSaleView } from './views/QuickSaleView';
 import { CobranzaView } from './views/CobranzaView';
 import { InventoryQuickView } from './views/InventoryQuickView';
 import { AjustesView } from './views/AjustesView';
-import { ActividadView } from './views/ActividadView';
+import { HistorialView } from './views/HistorialView';
 import { BottomNav } from './components/BottomNav';
 import { SnackbarProvider } from './components/Snackbar';
 
 // `ajustes` no esta en el dock: se toca cada varias semanas y el dock es
 // para lo de cada minuto. Se entra por el engranaje del Inicio.
-export type Vista = 'panel' | 'vender' | 'cobranza' | 'inventario' | 'ajustes' | 'actividad';
+export type Vista = 'panel' | 'vender' | 'cobranza' | 'historial' | 'inventario' | 'ajustes';
 
 import { ShieldAlert, WifiOff } from 'lucide-react';
 import { usandoEmuladorLocal } from './lib/firebase-mobile';
@@ -197,7 +197,7 @@ function Navegacion() {
             <div className={`h-full w-full overflow-hidden ${vista === 'panel' ? 'block animate-vista' : 'hidden'}`}>
               <DashboardView
                 onIrAAjustes={() => setVista('ajustes')}
-                onIrAActividad={() => setVista('actividad')}
+                onIrAActividad={() => setVista('historial')}
                 onIrAVenta={() => setVista('vender')}
                 onIrACobranza={() => setVista('cobranza')}
                 onIrAInventario={() => setVista('inventario')}
@@ -215,11 +215,11 @@ function Navegacion() {
             <div className={`h-full w-full overflow-hidden ${vista === 'ajustes' ? 'block animate-vista' : 'hidden'}`}>
               <AjustesView onVolver={() => setVista('panel')} />
             </div>
-            <div className={`h-full w-full overflow-hidden ${vista === 'actividad' ? 'block animate-vista' : 'hidden'}`}>
-              <ActividadView onVolver={() => setVista('panel')} />
+            <div className={`h-full w-full overflow-hidden ${vista === 'historial' ? 'block animate-vista' : 'hidden'}`}>
+              <HistorialView />
             </div>
           </div>
-          {vista !== 'ajustes' && vista !== 'actividad' && <BottomNav actual={vista} onCambiar={setVista} />}
+          {vista !== 'ajustes' && <BottomNav actual={vista} onCambiar={setVista} />}
         </div>
   );
 }

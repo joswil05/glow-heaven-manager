@@ -12,11 +12,13 @@ import {
 } from 'lucide-react';
 import { BottomSheet } from './BottomSheet';
 import { PagosRepoFirestore } from '@repos/pagos.repo';
-import { formatearMoneda } from '@core/moneda';
+import { formatearMoneda, formatearFecha } from '@core/moneda';
+import { textoEquivalente, textoPagado, textoQuien } from '@core/abonos';
 import { linkWhatsapp, nuevoGrupoEvento } from '../lib/util';
 import { useDatosNegocio } from '../context/DataContext';
 import { haptics } from '../lib/haptics';
-import { Ban, AlertTriangle } from 'lucide-react';
+import { Ban, AlertTriangle, Pencil } from 'lucide-react';
+import { CorregirAbonoSheet } from './CorregirAbonoSheet';
 import type { PagoCompleto } from '@shared/types';
 import type { VentaCobroItem } from './AbonoModalSheet';
 
@@ -45,26 +47,22 @@ export function KardexClienteSheet({
   onAbonar,
   onCambio,
 }: KardexClienteSheetProps) {
-  const { parametros } = useDatosNegocio();
+  const { parametros, version } = useDatosNegocio();
   const [pagos, setPagos] = useState<PagoCompleto[]>([]);
   /**
-   * Un abono mal cargado (el caso tipico: elegir C$ cuando eran dolares) no
-   * tenia arreglo desde el celular.
+   * Un abono mal cargado (el caso típico: elegir C$ cuando eran dólares) se
+   * CORRIGE desde la 2.16.1: mismo abono, con su monto, su moneda o su fecha
+   * bien puestos. Antes sólo se podía anular y cargar otro, dos asientos para
+   * un solo error.
    *
-   * La accion se llama ANULAR, no "corregir" ni "editar". Un pago registrado
-   * es un HECHO: ocurrio un dia, por un monto. No se edita, se anula, y si
-   * hace falta se carga uno nuevo.
-   *
-   * El nombre importa tanto como el mecanismo: si la persona cree que
-   * "corrigio" algo, no va a entender que en realidad hubo dos operaciones.
-   *
-   * Que hace anular, verificado en pagos.repo: marca el pago como inactivo y
-   * devuelve el saldo. La consulta del historial filtra por `activo`, asi que
-   * el abono DEJA de verse aca; la anulacion queda en la auditoria. El texto
-   * de la confirmacion dice exactamente eso: prometer que "queda en el
-   * historial" habria sido falso.
+   * Anular queda para lo que no pasó. Marca el pago como inactivo y devuelve
+   * el saldo; la consulta del historial filtra por `activo`, así que el abono
+   * deja de verse acá y la anulación queda en la auditoría. El texto de la
+   * confirmación dice exactamente eso.
    */
   const [pagoAAnular, setPagoAAnular] = useState<PagoCompleto | null>(null);
+  /** Mientras se corrige, esta hoja se esconde y vuelve al terminar. */
+  const [pagoCorrigiendo, setPagoCorrigiendo] = useState<PagoCompleto | null>(null);
   const [anulando, setAnulando] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -106,7 +104,8 @@ export function KardexClienteSheet({
     return () => {
       cancelado = true;
     };
-  }, [abierto, cliente]);
+    // `version` sube después de corregir o anular: la lista se vuelve a leer.
+  }, [abierto, cliente, version]);
 
   if (!cliente) return null;
 
@@ -139,8 +138,14 @@ export function KardexClienteSheet({
   const totalAbonadoUsd = pagos.reduce((acc, p) => acc + (p.monto_usd_cents || 0), 0);
 
   return (
+    <>
+    <CorregirAbonoSheet
+      pago={pagoCorrigiendo}
+      codigo={pagoCorrigiendo?.venta_codigo}
+      onCerrar={() => setPagoCorrigiendo(null)}
+    />
     <BottomSheet
-      abierto={abierto}
+      abierto={abierto && pagoCorrigiendo === null}
       onCerrar={() => {
         haptics.impact('light');
         onCerrar();
@@ -284,13 +289,12 @@ export function KardexClienteSheet({
                     <AlertTriangle size={18} className="mt-0.5 shrink-0 text-alerta-fuerte" />
                     <div className="min-w-0 flex-1">
                       <h4 className="text-xs font-bold text-alerta-fuerte">
-                        ¿Anular este abono de {formatearMoneda(pagoAAnular.monto_usd_cents, 'USD')}?
+                        ¿Anular este abono de {textoPagado(pagoAAnular)}?
                       </h4>
                       <p className="mt-1 text-[11px] leading-relaxed text-alerta-fuerte/90">
-                        El saldo vuelve a subir {formatearMoneda(pagoAAnular.monto_usd_cents, 'USD')} y
-                        después vas a poder registrar el abono correcto. Este abono deja de
-                        aparecer en el historial de la clienta; la anulación sí queda asentada en
-                        la auditoría del sistema.
+                        El saldo vuelve a subir {textoPagado(pagoAAnular)} y este abono deja de aparecer en
+                        el historial de la clienta; la anulación queda asentada en la auditoría. Si sólo el
+                        monto, la moneda o la fecha están mal, mejor corregilo.
                       </p>
                       <div className="mt-2.5 grid grid-cols-2 gap-2">
                         <button
@@ -344,41 +348,47 @@ export function KardexClienteSheet({
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2 text-right">
-                        <div>
-                        <span className="text-xs font-black text-texto tabular-nums">
-                          {formatearMoneda(p.monto_usd_cents, 'USD')}
-                        </span>
-                        {p.moneda === 'COR' && (
-                          <p className="text-[10px] text-texto-3 font-medium">
-                            {formatearMoneda(p.monto_cor_cents, 'COR')}
-                          </p>
-                        )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            haptics.selection();
-                            setPagoAAnular(p);
-                          }}
-                          aria-label={`Anular el abono de ${formatearMoneda(p.monto_usd_cents, 'USD')}`}
-                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-texto-3 hover:bg-superficie-2 hover:text-texto-2 active:scale-95 transition-[background-color,color,transform] duration-150 ease-out cursor-pointer"
-                        >
-                          <Ban size={13} />
-                        </button>
+                      {/* En la moneda en que pagó, y abajo su equivalente. */}
+                      <div className="text-right">
+                        <span className="text-xs font-black text-texto tabular-nums">{textoPagado(p)}</span>
+                        <p className="text-[10px] text-texto-3 font-medium tabular-nums">{textoEquivalente(p)}</p>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between text-[11px] text-texto-3 pt-0.5">
-                      <span className="flex items-center gap-1">
-                        <Calendar size={11} />
-                        {p.fecha}
+                    <div className="flex items-center justify-between gap-2 text-[11px] text-texto-3 pt-0.5">
+                      <span className="flex min-w-0 items-center gap-1 truncate">
+                        <Calendar size={11} className="shrink-0" />
+                        {formatearFecha(p.fecha)} · {textoQuien(p)}
+                        {p.referencia && ` · Ref: ${p.referencia}`}
                       </span>
-                      {p.referencia && (
-                        <span className="truncate max-w-[160px] font-medium text-texto-3">
-                          Ref: {p.referencia}
-                        </span>
-                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          haptics.selection();
+                          setPagoAAnular(null);
+                          setPagoCorrigiendo(p);
+                        }}
+                        aria-label={`Corregir el abono de ${textoPagado(p)}`}
+                        className="m3-press flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-acento-suave px-3 py-2 text-xs font-bold text-acento-fuerte active:scale-[0.98] cursor-pointer"
+                      >
+                        <Pencil size={13} />
+                        Corregir
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          haptics.selection();
+                          setPagoAAnular(p);
+                        }}
+                        aria-label={`Anular el abono de ${textoPagado(p)}`}
+                        className="m3-press flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold text-texto-3 active:scale-[0.98] cursor-pointer"
+                      >
+                        <Ban size={13} />
+                        Anular
+                      </button>
                     </div>
                   </div>
                 );
@@ -388,5 +398,6 @@ export function KardexClienteSheet({
         </div>
       </div>
     </BottomSheet>
+    </>
   );
 }

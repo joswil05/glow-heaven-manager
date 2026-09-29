@@ -158,10 +158,10 @@ def _valor(v: dict):
 # Casos
 # ---------------------------------------------------------------------------
 
-@caso("la app abre y muestra las cuatro pestañas")
+@caso("la app abre y muestra las cinco pestañas")
 def caso_arranque(page: Page) -> list[str]:
     fallas = []
-    for etiqueta in ["Inicio", "Vender", "Cobros", "Catálogo"]:
+    for etiqueta in ["Inicio", "Vender", "Cobros", "Historial", "Catálogo"]:
         if page.locator("nav button", has_text=etiqueta).count() == 0:
             fallas.append(f"falta la pestaña {etiqueta!r}")
     return fallas
@@ -349,47 +349,34 @@ def caso_fecha(page: Page) -> list[str]:
     return fallas
 
 
-def abrir_actividad(page: Page, filtro: str) -> str | None:
+def abrir_historial(page: Page, filtro: str) -> str | None:
     """
-    Inicio → el contador de ventas de hoy → Actividad, con un filtro.
-
-    Actividad es una pantalla entera, sin la barra de abajo: si ya se está
-    ahí, el filtro está a la vista y no hay Inicio que tocar.
+    La pestaña Historial de la barra de abajo, con un filtro. Hasta la 2.16.1
+    esto era "Actividad" y se llegaba tocando el contador de ventas de Inicio:
+    nadie lo encontraba.
     """
-    cerrar_hojas(page)
+    ir_a(page, "Historial")
     chip = visible(page, f"button:text-is('{filtro}')")
     if chip is None:
-        inicio = visible(page, "nav button", "Inicio")
-        if inicio is None:
-            return "no encontré la pestaña Inicio"
-        inicio.click()
-        page.wait_for_timeout(1500)
-        contador = visible(page, "button", " venta")
-        if contador is None:
-            return "no encontré el acceso a Actividad en Inicio"
-        contador.click()
-        page.wait_for_timeout(1500)
-        chip = visible(page, f"button:text-is('{filtro}')")
-    if chip is None:
-        return f"Actividad no tiene el filtro {filtro!r}"
+        return f"Historial no tiene el filtro {filtro!r}"
     chip.click()
     page.wait_for_timeout(500)
     return None
 
 
-@caso("una venta y un abono se corrigen desde Actividad")
+@caso("una venta y un abono se corrigen desde el Historial")
 def caso_corregir(page: Page) -> list[str]:
     """
     Sin esto no había cómo arreglar una venta mal cargada desde ninguna de
     las dos apps: la salida fue borrarla desde la consola de Firebase.
     """
     fallas = []
-    problema = abrir_actividad(page, "Ventas")
+    problema = abrir_historial(page, "Ventas")
     if problema:
         return [problema]
     fila = visible(page, "main button", "Ana Prueba")
     if fila is None:
-        return ["la venta de Ana Prueba no aparece en Actividad"]
+        return ["la venta de Ana Prueba no aparece en el Historial"]
     fila.click()
     page.wait_for_timeout(800)
     corregir = en_hoja(page, "button", "Corregir venta")
@@ -419,14 +406,17 @@ def caso_corregir(page: Page) -> list[str]:
             f"${venta['total_usd_cents'] / 100:.2f}; eran 3 y $150.00"
         )
 
-    # El abono: cualquiera de Ana, corregido a 12.
+    # El abono de C$1,500 (el de la prueba de miles): se ve en córdobas, dice
+    # quién lo registró, y al corregirlo la moneda original está marcada.
     cerrar_hojas(page)
-    problema = abrir_actividad(page, "Abonos")
+    problema = abrir_historial(page, "Abonos")
     if problema:
         return fallas + [problema]
-    fila = visible(page, "main button", "Ana Prueba")
+    fila = visible(page, "main button", "C$1,500.00")
     if fila is None:
-        return fallas + ["los abonos de Ana Prueba no aparecen en Actividad"]
+        return fallas + ["el abono de C$1,500 no se ve en córdobas en el Historial"]
+    if "Sin dato de quién" in fila.inner_text():
+        fallas.append("un abono registrado hoy no dice quién lo registró")
     fila.click()
     page.wait_for_timeout(800)
     corregir = en_hoja(page, "button", "Corregir abono")
@@ -434,19 +424,30 @@ def caso_corregir(page: Page) -> list[str]:
         return fallas + ["el detalle del abono no ofrece 'Corregir abono'"]
     corregir.click()
     page.wait_for_timeout(1000)
+    cordobas = en_hoja(page, "[role='radio']", "Córdobas")
+    if cordobas is None or cordobas.get_attribute("aria-checked") != "true":
+        fallas.append("la corrección no arranca en córdobas, la moneda en que se registró")
+    dolares = en_hoja(page, "[role='radio']", "Dólares")
+    if dolares is not None:
+        dolares.click()
+        page.wait_for_timeout(200)
+        if en_hoja(page, "p", "Lo registraste en córdobas") is None:
+            fallas.append("pasarlo a dólares no avisa que se registró en córdobas")
+        cordobas.click()
     campo = en_hoja(page, "input#abono-monto")
     if campo is None:
         return fallas + ["la hoja de corregir el abono no tiene el monto"]
-    campo.fill("12")
+    campo.fill("1,200")
     en_hoja(page, "button", "Guardar corrección").click()
     page.wait_for_timeout(2500)
     corregido = [
         p for p in listar_coleccion("pagos")
-        if (p.get("moneda") == "COR" and p.get("monto_cor_cents") == 1200)
-        or (p.get("moneda") == "USD" and p.get("monto_usd_cents") == 1200)
+        if p.get("moneda") == "COR" and p.get("monto_cor_cents") == 120000
     ]
     if not corregido:
-        fallas.append("ningún abono quedó en 12 después de corregirlo")
+        fallas.append("el abono no quedó en C$1,200 después de corregirlo")
+    elif not corregido[0].get("corregido_por"):
+        fallas.append("el abono corregido no dice quién lo corrigió")
     cerrar_hojas(page)
     return fallas
 

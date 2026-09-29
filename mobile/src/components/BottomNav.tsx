@@ -1,4 +1,4 @@
-import { LayoutDashboard, ShoppingBag, Search, HandCoins } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, Search, HandCoins, History } from 'lucide-react';
 import type { Vista } from '../App';
 import { haptics } from '../lib/haptics';
 import { useTheme } from '../context/ThemeContext';
@@ -14,6 +14,9 @@ const ITEMS: { vista: Vista; etiqueta: string; Icono: typeof LayoutDashboard }[]
   { vista: 'panel', etiqueta: 'Inicio', Icono: LayoutDashboard },
   { vista: 'vender', etiqueta: 'Vender', Icono: ShoppingBag },
   { vista: 'cobranza', etiqueta: 'Cobros', Icono: HandCoins },
+  // Desde la 2.16.1: lo que pasó, y donde se corrige. Antes era "Actividad",
+  // escondida detrás del chip "N ventas" de Inicio.
+  { vista: 'historial', etiqueta: 'Historial', Icono: History },
   { vista: 'inventario', etiqueta: 'Catálogo', Icono: Search },
 ];
 
@@ -47,7 +50,7 @@ export function BottomNav({ actual, onCambiar, badgeCarrito = 0, badgeCobranza =
             >
               {/* Contenedor del icono con pill suave al estar activo */}
               <div
-                className="relative flex items-center justify-center px-4 py-1 rounded-full transition-all duration-250 ease-out"
+                className="relative flex items-center justify-center px-3.5 py-1 rounded-full transition-all duration-250 ease-out"
                 style={{
                   backgroundColor: activo ? 'rgb(var(--acento) / 0.18)' : 'transparent',
                 }}

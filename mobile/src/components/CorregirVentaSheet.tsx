@@ -5,6 +5,14 @@ import { VentasRepoFirestore } from '@repos/ventas.repo';
 import { ClientesRepoFirestore } from '@repos/clientes.repo';
 import { formatearMoneda } from '@core/moneda';
 import { algunoContiene } from '@core/texto';
+import {
+  abonoQueSigueAlTotal,
+  abonoUnicoQuePagoTodo,
+  monedaDeLosAbonos,
+  textoLoPagado,
+  textoPagado,
+  textoTotalEn,
+} from '@core/abonos';
 import { useDatosNegocio } from '../context/DataContext';
 import { useSnackbar } from './Snackbar';
 import { BottomSheet } from './BottomSheet';
@@ -54,11 +62,13 @@ export function CorregirVentaSheet({
   const [consultaProducto, setConsultaProducto] = useState('');
   const [tonosDe, setTonosDe] = useState<ProductoConStock | null>(null);
   const [guardando, setGuardando] = useState(false);
+  const [ajustarAbono, setAjustarAbono] = useState(true);
 
   useEffect(() => {
     if (ventaId === null) return;
     let vivo = true;
     setVenta(null);
+    setAjustarAbono(true);
     setBuscandoClienta(false);
     setAgregando(false);
     setTonosDe(null);
@@ -165,8 +175,12 @@ export function CorregirVentaSheet({
     setConsultaProducto('');
   }
 
-  const pagado = venta?.pagado_usd_cents ?? 0;
+  /** Al contado, pagada con un solo abono: el abono sigue al total, en su moneda. */
+  const abonoContado = venta ? abonoUnicoQuePagoTodo(venta, venta.pagos) : null;
+  const ajuste = venta && ajustarAbono ? abonoQueSigueAlTotal(venta, venta.pagos, totales.total) : null;
+  const pagado = ajuste ? totales.total : (venta?.pagado_usd_cents ?? 0);
   const pasaDelTotal = pagado > totales.total;
+  const moneda = venta ? monedaDeLosAbonos(venta.pagos) : 'USD';
 
   async function guardar() {
     if (!venta || lineas.length === 0 || guardando) return;
@@ -181,6 +195,7 @@ export function CorregirVentaSheet({
           descuento_tipo: venta.descuento_tipo,
           descuento_valor: venta.descuento_valor,
           descuento_motivo: venta.descuento_motivo,
+          ajustar_abono: abonoContado ? ajustarAbono : undefined,
           lineas: lineas.map((l) => ({
             producto_id: l.producto_id,
             variante_id: l.variante_id,
@@ -223,11 +238,16 @@ export function CorregirVentaSheet({
               <span className="text-xl font-extrabold text-texto">{formatearMoneda(totales.total, 'USD')}</span>
             </div>
           </div>
-          {pasaDelTotal && (
+          {ajuste && (
+            <p className="text-[11px] font-semibold leading-snug tabular-nums text-texto-2">
+              El abono de {textoPagado(ajuste.pago)} queda en {textoPagado({ ...ajuste.pago, ...ajuste })}.
+            </p>
+          )}
+          {pasaDelTotal && venta && (
             <p className="flex items-start gap-1.5 text-[11px] font-semibold leading-snug text-peligro">
               <AlertTriangle size={14} className="mt-px shrink-0" />
-              Pagó {formatearMoneda(pagado, 'USD')} y el nuevo total es {formatearMoneda(totales.total, 'USD')}.
-              Corregí el abono primero.
+              Pagó {textoLoPagado(venta.pagos)} y el nuevo total es{' '}
+              {textoTotalEn(moneda, totales.total, venta.tasa_cambio_cents)}. Corregí el abono primero.
             </p>
           )}
           <button
@@ -420,10 +440,28 @@ export function CorregirVentaSheet({
             )}
           </div>
 
-          {pagado > 0 && (
-            <p className="text-[11px] leading-relaxed text-texto-3">
-              Pagó {formatearMoneda(pagado, 'USD')}. Los abonos no cambian acá: si un monto está mal, corregí el abono.
-            </p>
+          {abonoContado ? (
+            <label className="flex items-start gap-2.5 rounded-2xl border border-borde bg-superficie-2 p-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={ajustarAbono}
+                onChange={(e) => setAjustarAbono(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-[rgb(var(--acento))]"
+              />
+              <span className="text-[11px] leading-relaxed text-texto-2">
+                <span className="block text-xs font-bold text-texto">
+                  La pagó al contado: {textoPagado(abonoContado)}
+                </span>
+                Si el total cambia, el abono cambia con él, en la misma moneda y a la tasa de ese día.
+              </span>
+            </label>
+          ) : (
+            (venta?.pagado_usd_cents ?? 0) > 0 &&
+            venta && (
+              <p className="text-[11px] leading-relaxed text-texto-3">
+                Pagó {textoLoPagado(venta.pagos)}. Los abonos no cambian acá: si un monto está mal, corregí el abono.
+              </p>
+            )
           )}
         </div>
       )}
