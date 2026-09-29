@@ -3,11 +3,11 @@
 > **Para quién es esto**: el modelo o la persona que abre este proyecto sin
 > haber estado en la sesión anterior.
 > **Estado del árbol**: `v2.15.1` publicada en el celular y en Windows. En
-> `main`, **sin publicar**, los encargos por fases de la `v2.16` (sección 2 y
-> sección 3): verificados en local, falta la prueba sobre la base real y
-> publicar. Los datos de producción se migraron a lotes con
-> `scripts/migrar-a-lotes.ts` (sección 3).
-> **Última actualización**: 28 de septiembre de 2026.
+> `main`, **sin publicar**, la `v2.16`: los encargos por fases y corregir una
+> venta y un abono en las dos apps (sección 2 y sección 3). Verificada en
+> local; falta la prueba sobre la base real y publicar. Los datos de
+> producción se migraron a lotes con `scripts/migrar-a-lotes.ts` (sección 3).
+> **Última actualización**: 29 de septiembre de 2026.
 
 Leé este archivo primero. Después:
 
@@ -195,12 +195,14 @@ un error.
 
 ## 3. Lo que está pendiente, en orden
 
-### P0: publicar la 2.16 (encargos por fases)
+### P0: publicar la 2.16 (encargos por fases, corregir ventas y abonos)
 
-Hecho en local el 28 de septiembre, commit por commit (tareas E0 a E7 de
-[superpowers/plans/2026-09-28-encargos-por-fases-2.16.md](superpowers/plans/2026-09-28-encargos-por-fases-2.16.md)):
-`tsc` de las dos apps en cero, 433 pruebas, 92 contra el emulador, 16 casos
-de interfaz de escritorio, 9 de la PWA, las tres auditorías y el build del
+Hecho en local, commit por commit: los encargos por fases el 28 de
+septiembre (tareas E0 a E7 de
+[superpowers/plans/2026-09-28-encargos-por-fases-2.16.md](superpowers/plans/2026-09-28-encargos-por-fases-2.16.md))
+y corregir una venta y un abono el 29 (tareas C1 a C7, sección 2b del plan).
+`tsc` de las dos apps en cero, 457 pruebas, 93 contra el emulador, 17 casos
+de interfaz de escritorio, 10 de la PWA, las tres auditorías y el build del
 celular. Falta, con el visto bueno de Joswill:
 
 1. Una lectura de producción: si hay encargos creados con la 2.15.1 desde el
@@ -208,13 +210,17 @@ celular. Falta, con el visto bueno de Joswill:
    confirmado sin `aceptado_el` cuenta como aceptado), pero conviene saberlo
    antes de avisarle a Ross.
 2. La prueba en la app instalada contra la base real, con datos "Prueba"
-   (sección 6).
+   (sección 6). Sumar: corregir una venta "Prueba" (un producto por otro, y
+   ver que el equivocado vuelve a su lote) y corregir su abono.
 3. Versión 2.16.0, `build:exe`, `latest.yml` verificado, `gh release` y la
    PWA.
 4. Contarle a Ross lo que cambia en los números: "Te deben" cuenta un
    encargo desde que acepta, aunque no haya pagado anticipo; con 0% de
    anticipo, tener precio ya no confirma; una pieza que no se consiguió sale
-   del total.
+   del total; anular el anticipo ya no desacepta un encargo (vuelve a deber).
+   Y lo nuevo: una venta o un abono mal cargado se corrige ("Corregir venta"
+   en su detalle, el lápiz junto a cada abono; en el celular, desde
+   Actividad), nunca borrándolo en Firebase.
 
 Después viene la 2.17 (encargos en el celular). El orden completo está en la
 sección 0 del plan.
@@ -233,7 +239,10 @@ que también se había borrado, se deja así por decisión de Joswill: ya estaba
 compensada.
 
 La salida de fondo es poder **corregir** una venta y un abono desde las dos
-apps (en curso, 2.16).
+apps: hecho en local para la 2.16 (`VentasRepo.corregir`,
+`PagosRepo.corregir`; P0 de arriba). De paso apareció un error de antes: la
+lista de abonos recientes decía "Cliente" en todos, porque buscaba el nombre
+en la venta, que no lo guarda.
 
 ### Hecho el 26 de septiembre, sobre producción
 
@@ -366,6 +375,15 @@ y ese control nunca salta: aceptar antes de pagar pasaba las pruebas y
 rompía el deshacer en la app. `tests/encargos-fases.test.ts` deja pasar 3 ms
 después de cada evento; una prueba de deshacer nueva que mezcle dos
 escrituras sobre el mismo documento tiene que hacer lo mismo.
+
+**Actividad, en el celular, es una pantalla entera: no tiene la barra de
+abajo.** Una prueba de interfaz que ya está ahí no encuentra "Inicio"; si el
+filtro ("Ventas", "Abonos") está a la vista, se usa directo
+(`abrir_actividad` en `tests/interfaz/pruebas.py`).
+
+**`npm run test:emulador`, no `vitest` a secas.** El script arma el entorno
+(las direcciones del emulador de Auth y de Firestore); sin él, todo falla
+con "Missing or insufficient permissions" y parece un problema de reglas.
 
 **Para mirar el paquete construido, `python -m http.server --directory dist`
 desde la raíz.** Con `cd dist`, el proceso queda con `dist` como directorio de

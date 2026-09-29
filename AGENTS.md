@@ -89,9 +89,18 @@ La ficha del producto es catálogo: no tiene costo, existencias ni paquete.
   "por mandar": se compara `cotizacion_version` con
   `cotizacion_enviada_version`, **no fechas** (cotizar y mandar pueden caer
   en el mismo instante). "Aceptó" es un paso propio (`aceptar`); el anticipo
-  puede llegar después, y quien paga, acepta (`pagoAcepta`). Con anticipo de
-  0%, tener precio ya no confirma nada. Ver
+  puede llegar después, y quien paga, acepta (`pagoAcepta`). Aceptar queda
+  firme: anular o corregir un abono nunca vuelve un encargo a `COTIZADA`.
+  Con anticipo de 0%, tener precio ya no confirma nada. Ver
   `docs/PLAN_ENCARGOS_Y_SIN_CONEXION.md`, sección 2.
+- **Una venta o un abono mal cargado se corrige, no se borra** (desde
+  `v2.16`). `VentasRepo.corregir` (sólo inventario, no anulada) conserva el
+  número y, en una transacción, devuelve las unidades de antes a sus lotes y
+  saca las nuevas del más viejo; si lo pagado queda por encima del total
+  nuevo, se rechaza (primero se corrige el abono). No se deshace: movió
+  mercadería. `PagosRepo.corregir` usa la tasa del abono y sí se deshace.
+  Borrar un documento desde la consola de Firebase deja la mercadería
+  vendida sin venta: ver `scripts/reparar-venta-borrada.ts`.
 - **Una pieza que no se consiguió** (`descartada_el`) queda en la lista con
   su precio para mostrarlo, pero con subtotal y costo en cero, y `piezasDe`
   sólo la cuenta en `total` y `descartadas`. Sólo se descarta lo que no se

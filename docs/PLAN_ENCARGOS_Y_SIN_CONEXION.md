@@ -748,3 +748,28 @@ Cambios respecto de lo escrito arriba, al implementarlo o verlo en pantalla:
 - Encontrado de paso y corregido: cambiar de encargo pedía dos clics;
   `PagoModal` ignoraba la moneda y el método de Configuración; un foco con
   `setTimeout` robaba el cursor; los avisos de encargos llevaban a Ventas.
+
+## Estado al 29 de septiembre
+
+**2b, corregir una venta y un abono: hecha en local, sin publicar**, dentro
+de la 2.16. Tareas C1 a C7 en seis commits. Verificado: `tsc` de las dos
+apps, 457 pruebas (20 nuevas en `tests/correcciones.test.ts`), 93 contra el
+emulador (una nueva: la transacción de corregir pasa las reglas), 17 casos de
+interfaz de escritorio y 10 de la PWA (uno nuevo en cada una), las tres
+auditorías y el build del celular.
+
+Cambios respecto de lo escrito arriba, al implementarlo:
+
+- **Cambiar la clienta de una venta cambia también la de sus abonos**: cada
+  abono guarda `cliente_id`, y sin esto seguían en la ficha de la clienta
+  anterior.
+- **Las cuotas cambian lo mismo que el total**: lo financiado es lo de antes
+  más la diferencia, porque lo que pagó al contado no cambia. Deshacer un
+  abono corregido ahora también reparte las cuotas
+  (`operacionRecalcularSaldo`).
+- **En el celular el precio de una línea y el descuento no se tocan**: se
+  corrigen en la computadora. Lo que se agrega va al precio del catálogo.
+- **Un encargo no se corrige así** (se cotiza, se marca "No se consiguió" o
+  se anula), y en el celular el botón no aparece para un encargo.
+- Encontrado de paso y corregido: la lista de abonos recientes (Actividad y
+  el historial de Cobros) decía "Cliente" en todos.
