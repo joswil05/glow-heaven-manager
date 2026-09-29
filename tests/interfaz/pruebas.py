@@ -349,6 +349,108 @@ def caso_fecha(page: Page) -> list[str]:
     return fallas
 
 
+def abrir_actividad(page: Page, filtro: str) -> str | None:
+    """
+    Inicio → el contador de ventas de hoy → Actividad, con un filtro.
+
+    Actividad es una pantalla entera, sin la barra de abajo: si ya se está
+    ahí, el filtro está a la vista y no hay Inicio que tocar.
+    """
+    cerrar_hojas(page)
+    chip = visible(page, f"button:text-is('{filtro}')")
+    if chip is None:
+        inicio = visible(page, "nav button", "Inicio")
+        if inicio is None:
+            return "no encontré la pestaña Inicio"
+        inicio.click()
+        page.wait_for_timeout(1500)
+        contador = visible(page, "button", " venta")
+        if contador is None:
+            return "no encontré el acceso a Actividad en Inicio"
+        contador.click()
+        page.wait_for_timeout(1500)
+        chip = visible(page, f"button:text-is('{filtro}')")
+    if chip is None:
+        return f"Actividad no tiene el filtro {filtro!r}"
+    chip.click()
+    page.wait_for_timeout(500)
+    return None
+
+
+@caso("una venta y un abono se corrigen desde Actividad")
+def caso_corregir(page: Page) -> list[str]:
+    """
+    Sin esto no había cómo arreglar una venta mal cargada desde ninguna de
+    las dos apps: la salida fue borrarla desde la consola de Firebase.
+    """
+    fallas = []
+    problema = abrir_actividad(page, "Ventas")
+    if problema:
+        return [problema]
+    fila = visible(page, "main button", "Ana Prueba")
+    if fila is None:
+        return ["la venta de Ana Prueba no aparece en Actividad"]
+    fila.click()
+    page.wait_for_timeout(800)
+    corregir = en_hoja(page, "button", "Corregir venta")
+    if corregir is None:
+        return ["el detalle de la venta no ofrece 'Corregir venta'"]
+    corregir.click()
+    page.wait_for_timeout(2000)
+
+    # Eran dos labiales y fueron tres.
+    mas = en_hoja(page, "button[aria-label='Una más de Labial Mate Rojo']")
+    if mas is None:
+        return ["la hoja de corregir no muestra el labial con su cantidad"]
+    mas.click()
+    page.wait_for_timeout(300)
+    guardar = en_hoja(page, "button", "Guardar corrección")
+    if guardar is None or not guardar.is_enabled():
+        return ["no se puede guardar la corrección"]
+    guardar.click()
+    page.wait_for_timeout(2500)
+
+    venta = next((v for v in listar_coleccion("ventas") if v.get("codigo") == "V-0001"), None)
+    if venta is None:
+        return ["la venta sembrada ya no está: corregir no puede cambiar el número"]
+    if venta["lineas"][0]["cantidad"] != 3 or venta["total_usd_cents"] != 15000:
+        fallas.append(
+            f"la venta quedó con {venta['lineas'][0]['cantidad']} labiales y "
+            f"${venta['total_usd_cents'] / 100:.2f}; eran 3 y $150.00"
+        )
+
+    # El abono: cualquiera de Ana, corregido a 12.
+    cerrar_hojas(page)
+    problema = abrir_actividad(page, "Abonos")
+    if problema:
+        return fallas + [problema]
+    fila = visible(page, "main button", "Ana Prueba")
+    if fila is None:
+        return fallas + ["los abonos de Ana Prueba no aparecen en Actividad"]
+    fila.click()
+    page.wait_for_timeout(800)
+    corregir = en_hoja(page, "button", "Corregir abono")
+    if corregir is None:
+        return fallas + ["el detalle del abono no ofrece 'Corregir abono'"]
+    corregir.click()
+    page.wait_for_timeout(1000)
+    campo = en_hoja(page, "input#abono-monto")
+    if campo is None:
+        return fallas + ["la hoja de corregir el abono no tiene el monto"]
+    campo.fill("12")
+    en_hoja(page, "button", "Guardar corrección").click()
+    page.wait_for_timeout(2500)
+    corregido = [
+        p for p in listar_coleccion("pagos")
+        if (p.get("moneda") == "COR" and p.get("monto_cor_cents") == 1200)
+        or (p.get("moneda") == "USD" and p.get("monto_usd_cents") == 1200)
+    ]
+    if not corregido:
+        fallas.append("ningún abono quedó en 12 después de corregirlo")
+    cerrar_hojas(page)
+    return fallas
+
+
 @caso("no quedan errores de consola al recorrer la app")
 def caso_consola(page: Page) -> list[str]:
     # Lo llena el registrador; se evalúa al final de la corrida.

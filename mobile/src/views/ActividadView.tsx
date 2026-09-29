@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ShoppingBag, HandCoins, Loader2, Ban, AlertTriangle, FileText } from 'lucide-react';
+import { ArrowLeft, ShoppingBag, HandCoins, Loader2, Ban, AlertTriangle, FileText, Pencil } from 'lucide-react';
 import type { Venta, PagoCompleto } from '@shared/types';
 import { VentasRepoFirestore } from '@repos/ventas.repo';
 import { PagosRepoFirestore } from '@repos/pagos.repo';
@@ -10,6 +10,8 @@ import { BottomSheet } from '../components/BottomSheet';
 import { PullToRefresh } from '../components/PullToRefresh';
 import { nuevoGrupoEvento } from '../lib/util';
 import { DocumentoSheet } from '../components/DocumentoSheet';
+import { CorregirVentaSheet } from '../components/CorregirVentaSheet';
+import { CorregirAbonoSheet } from '../components/CorregirAbonoSheet';
 import { haptics } from '../lib/haptics';
 import { hoyISO } from '@core/fechas';
 
@@ -58,6 +60,9 @@ export function ActividadView({ onVolver }: { onVolver: () => void }) {
   const [seleccionado, setSeleccionado] = useState<ItemActividad | null>(null);
   const [anulando, setAnulando] = useState(false);
   const [documentoDeVenta, setDocumentoDeVenta] = useState<number | null>(null);
+  /** Corregir en vez de anular: lo que se cargó mal, no lo que no pasó. */
+  const [ventaCorrigiendo, setVentaCorrigiendo] = useState<number | null>(null);
+  const [abonoCorrigiendo, setAbonoCorrigiendo] = useState<PagoCompleto | null>(null);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -289,6 +294,24 @@ export function ActividadView({ onVolver }: { onVolver: () => void }) {
               </div>
             </div>
 
+            {!seleccionado.cancelada &&
+              (seleccionado.tipo === 'abono' || seleccionado.venta?.tipo === 'INVENTARIO') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    haptics.selection();
+                    // Una hoja a la vez: la de corregir reemplaza a esta.
+                    if (seleccionado.tipo === 'venta') setVentaCorrigiendo(seleccionado.venta?.id ?? null);
+                    else setAbonoCorrigiendo(seleccionado.pago ?? null);
+                    setSeleccionado(null);
+                  }}
+                  className="m3-press tocable flex w-full items-center justify-center gap-2 rounded-2xl bg-acento px-4 py-3 text-sm font-bold text-acento-texto active:scale-[0.98] transition-transform cursor-pointer"
+                >
+                  <Pencil size={17} />
+                  {seleccionado.tipo === 'venta' ? 'Corregir venta' : 'Corregir abono'}
+                </button>
+              )}
+
             {seleccionado.tipo === 'venta' && (
               <button
                 type="button"
@@ -334,6 +357,13 @@ export function ActividadView({ onVolver }: { onVolver: () => void }) {
       <DocumentoSheet
         ventaId={documentoDeVenta}
         onCerrar={() => setDocumentoDeVenta(null)}
+      />
+
+      <CorregirVentaSheet ventaId={ventaCorrigiendo} onCerrar={() => setVentaCorrigiendo(null)} />
+      <CorregirAbonoSheet
+        pago={abonoCorrigiendo}
+        codigo={abonoCorrigiendo?.venta_codigo}
+        onCerrar={() => setAbonoCorrigiendo(null)}
       />
     </div>
   );
