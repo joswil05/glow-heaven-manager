@@ -786,6 +786,81 @@ def caso_no_pierde_lo_escrito(page: Page) -> list[str]:
     return fallas
 
 
+@caso("una venta mal cargada se corrige con su número, y su abono también")
+def caso_corregir_venta_y_abono(page: Page) -> list[str]:
+    """
+    El caso de V-0007: un producto por otro. Antes la única salida era borrar
+    la venta desde la consola de Firebase, y los productos quedaban vendidos.
+    """
+    fallas: list[str] = []
+    datos = page.evaluate("""async () => {
+      const ps = (await window.api.productos.list()).data
+        .filter((p) => p.activo !== false && p.existencias >= 2 && p.variantes.length <= 1);
+      const [a, b] = ps;
+      const r = await window.api.ventas.crear({
+        fecha: new Date().toISOString().slice(0, 10),
+        tipo: 'INVENTARIO',
+        lineas: [{ producto_id: a.id, variante_id: a.variantes[0]?.id, cantidad: 1, precio_unitario_usd_cents: 1500 }],
+        pago_inicial: { moneda: 'USD', metodo: 'EFECTIVO', monto_cents: 500 },
+      });
+      const v = (await window.api.ventas.get(r.data.id)).data;
+      return { id: v.id, codigo: v.codigo, a: { id: a.id, nombre: a.nombre, stock: a.existencias - 1 },
+               b: { id: b.id, nombre: b.nombre, stock: b.existencias } };
+    }""")
+    page.get_by_role("button", name="Inicio", exact=False).first.click()
+    page.wait_for_timeout(400)
+    ir_a_ventas(page)
+    fila_de(page, datos["codigo"]).click()
+    page.wait_for_timeout(700)
+    page.get_by_role("button", name="Corregir venta").click()
+
+    editor = page.get_by_role("dialog", name=f"Corregir {datos['codigo']}")
+    try:
+        editor.wait_for(timeout=3000)
+    except Exception:
+        return ["'Corregir venta' no abrió el editor con la venta"]
+    editor.get_by_role("button", name="Cambiar").first.click()
+    editor.get_by_role("button", name="Buscar en inventario").click()
+    editor.get_by_placeholder("Buscar por nombre o código").fill(datos["b"]["nombre"])
+    page.wait_for_timeout(300)
+    editor.locator("ul button", has_text=datos["b"]["nombre"]).first.click()
+    editor.get_by_role("button", name="Siguiente").click()
+    if editor.get_by_text("Contado").count() > 0:
+        fallas.append("al corregir se sigue ofreciendo la forma de cobro")
+    editor.get_by_role("button", name="Siguiente").click()
+    cambios = editor.locator('[data-testid="cambios-correccion"]').inner_text()
+    if datos["a"]["nombre"] not in cambios or datos["b"]["nombre"] not in cambios:
+        fallas.append(f"el último paso no dice qué cambia: {cambios!r}")
+    editor.get_by_role("button", name="Guardar corrección").click()
+    page.wait_for_timeout(900)
+
+    despues = page.evaluate("""async (d) => {
+      const v = (await window.api.ventas.get(d.id)).data;
+      const ps = (await window.api.productos.list()).data;
+      const stock = (id) => ps.find((p) => p.id === id).existencias;
+      return { codigo: v.codigo, producto: v.lineas[0].producto_id, a: stock(d.a.id), b: stock(d.b.id) };
+    }""", datos)
+    if despues["codigo"] != datos["codigo"] or despues["producto"] != datos["b"]["id"]:
+        fallas.append(f"la venta no quedó corregida con su número: {despues}")
+    if despues["a"] != datos["a"]["stock"] + 1 or despues["b"] != datos["b"]["stock"] - 1:
+        fallas.append(f"el equivocado no volvió a la bodega o el correcto no salió: {despues}")
+
+    # El abono: se cargó $5 y eran $3.
+    page.get_by_role("button", name=re.compile("^Corregir el abono")).first.click()
+    abono = page.get_by_role("dialog", name=re.compile("Corregir abono"))
+    try:
+        abono.wait_for(timeout=3000)
+    except Exception:
+        return fallas + ["el lápiz del abono no abrió la corrección"]
+    abono.get_by_label("Cuánto pagó").fill("3.00")
+    abono.get_by_role("button", name="Guardar corrección").click()
+    page.wait_for_timeout(700)
+    pagado = page.evaluate("async (id) => (await window.api.ventas.get(id)).data.pagado_usd_cents", datos["id"])
+    if pagado != 300:
+        fallas.append(f"el abono corregido no cambió lo pagado: {pagado}")
+    return fallas
+
+
 @caso("no quedan errores de consola")
 def caso_consola(page: Page) -> list[str]:
     return []  # lo evalúa el corredor al final

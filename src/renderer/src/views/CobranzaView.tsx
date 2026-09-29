@@ -12,7 +12,9 @@ import {
   Wallet,
   ArrowUpRight,
   Receipt,
+  Pencil,
 } from 'lucide-react';
+import { CorregirPagoModal } from '../components/CorregirPagoModal';
 import type {
   PagoCompleto,
   ClienteDetalle,
@@ -86,8 +88,9 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
   const [abonoNotas, setAbonoNotas] = useState('');
   const [abonoGuardando, setAbonoGuardando] = useState(false);
 
-  // Anular abono
+  // Anular o corregir un abono
   const [pagoAnulando, setPagoAnulando] = useState<PagoCompleto | null>(null);
+  const [pagoCorrigiendo, setPagoCorrigiendo] = useState<PagoCompleto | null>(null);
 
   const tasa = parametros?.tasa_cambio_cents ?? 3662;
 
@@ -350,20 +353,35 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
       key: 'acciones',
       header: '',
       align: 'right',
-      width: '60px',
+      width: '96px',
       render: (p) => (
-        <Button
-          size="sm"
-          variant="ghost"
-          title="Anular este abono (restaura el saldo)"
-          className="text-texto-3 hover:text-danger-600 rounded-lg p-1.5"
-          onClick={(e) => {
-            e.stopPropagation();
-            setPagoAnulando(p);
-          }}
-        >
-          <Trash2 className="w-4 h-4" />
-        </Button>
+        <div className="flex items-center justify-end gap-0.5">
+          <Button
+            size="sm"
+            variant="ghost"
+            title="Corregir este abono"
+            aria-label={`Corregir el abono de ${p.cliente_nombre || 'la clienta'}`}
+            className="text-texto-3 hover:text-texto rounded-lg p-1.5"
+            onClick={(e) => {
+              e.stopPropagation();
+              setPagoCorrigiendo(p);
+            }}
+          >
+            <Pencil className="w-4 h-4" />
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            title="Anular este abono (restaura el saldo)"
+            className="text-texto-3 hover:text-danger-600 rounded-lg p-1.5"
+            onClick={(e) => {
+              e.stopPropagation();
+              setPagoAnulando(p);
+            }}
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
       ),
     },
   ];
@@ -788,6 +806,17 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
         textoCancelar="Cancelar"
         onConfirmar={confirmarAnularPago}
         onCerrar={() => setPagoAnulando(null)}
+      />
+
+      <CorregirPagoModal
+        abierto={pagoCorrigiendo !== null}
+        pago={pagoCorrigiendo}
+        codigo={pagoCorrigiendo?.venta_codigo}
+        onCerrar={() => setPagoCorrigiendo(null)}
+        onCorregido={async () => {
+          await cargar();
+          onCambio();
+        }}
       />
     </div>
   );

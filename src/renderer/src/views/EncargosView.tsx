@@ -1,6 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ClipboardList, MoreVertical, Plus, Search, X } from 'lucide-react';
-import type { ClienteDetalle, ParametrosSistema, Venta, VentaCompleta, EstadoVenta, OpcionesAnulacion } from '../../../shared/types';
+import type {
+  ClienteDetalle,
+  ParametrosSistema,
+  Venta,
+  VentaCompleta,
+  EstadoVenta,
+  OpcionesAnulacion,
+  Pago,
+} from '../../../shared/types';
 import {
   Badge,
   Button,
@@ -13,6 +21,7 @@ import {
 } from '../components/ui';
 import { EmptyState } from '../components/shared/EmptyState';
 import { PagoModal } from '../components/PagoModal';
+import { CorregirPagoModal } from '../components/CorregirPagoModal';
 import { DocumentoModal } from '../components/DocumentoModal';
 import { CotizarEncargoModal } from './ventas/CotizarEncargoModal';
 import { AnularEncargoModal } from './ventas/AnularEncargoModal';
@@ -141,6 +150,7 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
   const [anulando, setAnulando] = useState<VentaCompleta | null>(null);
   const [comprando, setComprando] = useState<{ venta: VentaCompleta; ids: number[] } | null>(null);
   const [pagoAbierto, setPagoAbierto] = useState(false);
+  const [pagoCorrigiendo, setPagoCorrigiendo] = useState<Pago | null>(null);
   const [documentoAbierto, setDocumentoAbierto] = useState(false);
   const [verPagos, setVerPagos] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; items: (ContextMenuItem | 'separator')[] } | null>(null);
@@ -856,12 +866,23 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
             {verPagos && (
               <ul className="space-y-1 animate-fila-nueva">
                 {detalle.pagos.map((p) => (
-                  <li key={p.id} className="flex items-center justify-between text-label tabular">
+                  <li key={p.id} className="flex items-center justify-between gap-2 text-label tabular">
                     <span className={cn('text-texto-2', !p.activo && 'line-through')}>
                       {formatearFecha(p.fecha)}
                       {p.es_anticipo ? ' · anticipo' : ''}
                     </span>
-                    <span className={cn('text-texto', !p.activo && 'line-through text-texto-3')}>{$(p.monto_usd_cents)}</span>
+                    <span className="flex items-center gap-1">
+                      <span className={cn('text-texto', !p.activo && 'line-through text-texto-3')}>{$(p.monto_usd_cents)}</span>
+                      {p.activo && detalle.estado !== 'CANCELADA' && (
+                        <button
+                          type="button"
+                          onClick={() => setPagoCorrigiendo(p)}
+                          className="text-caption text-texto-3 hover:text-texto px-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento"
+                        >
+                          Corregir
+                        </button>
+                      )}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -942,9 +963,21 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
         abierto={pagoAbierto}
         venta={detalle}
         parametros={parametros}
+        onCorregir={setPagoCorrigiendo}
         onCerrar={() => setPagoAbierto(false)}
         onRegistrado={async () => {
           setPagoAbierto(false);
+          if (detalle) await refrescar(detalle.id);
+        }}
+      />
+
+      <CorregirPagoModal
+        abierto={pagoCorrigiendo !== null}
+        pago={pagoCorrigiendo}
+        venta={detalle}
+        encima={pagoAbierto}
+        onCerrar={() => setPagoCorrigiendo(null)}
+        onCorregido={async () => {
           if (detalle) await refrescar(detalle.id);
         }}
       />

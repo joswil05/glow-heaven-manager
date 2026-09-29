@@ -16,10 +16,12 @@ import {
   MoreVertical,
   Clock,
   Search,
+  Pencil,
 } from 'lucide-react';
 import type {
   Venta,
   VentaCompleta,
+  Pago,
   ProductoConStock,
   ClienteDetalle,
   ParametrosSistema,
@@ -40,6 +42,7 @@ import {
 import { EmptyState } from '../components/shared/EmptyState';
 import { VentaEditor } from './ventas/VentaEditor';
 import { PagoModal } from '../components/PagoModal';
+import { CorregirPagoModal } from '../components/CorregirPagoModal';
 import { DocumentoModal } from '../components/DocumentoModal';
 import { useClickOutside } from '../lib/useClickOutside';
 import { useToast } from '../context/ToastContext';
@@ -117,6 +120,9 @@ export const VentasView: React.FC<VentasViewProps> = ({
   const [pagoAbierto, setPagoAbierto] = useState(false);
   const [documentoAbierto, setDocumentoAbierto] = useState(false);
   const [anulando, setAnulando] = useState<Venta | VentaCompleta | null>(null);
+  /** La venta que se corrige en el editor, y el abono que se corrige aparte. */
+  const [corrigiendo, setCorrigiendo] = useState<VentaCompleta | null>(null);
+  const [pagoCorrigiendo, setPagoCorrigiendo] = useState<Pago | null>(null);
   const [menuContextual, setMenuContextual] = useState<{
     x: number;
     y: number;
@@ -890,12 +896,26 @@ export const VentasView: React.FC<VentasViewProps> = ({
                           {p.referencia && ` · ${p.referencia}`}
                         </div>
                       </div>
-                      <div className="text-right shrink-0">
-                        <Money usd_cents={p.monto_usd_cents} size="sm" soloUsd />
-                        {p.moneda === 'COR' && (
-                          <div className="text-caption text-texto-3 tabular">
-                            {formatearMoneda(p.monto_cor_cents, 'COR')}
-                          </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <div className="text-right">
+                          <Money usd_cents={p.monto_usd_cents} size="sm" soloUsd />
+                          {p.moneda === 'COR' && (
+                            <div className="text-caption text-texto-3 tabular">
+                              {formatearMoneda(p.monto_cor_cents, 'COR')}
+                            </div>
+                          )}
+                        </div>
+                        {ventaDetalle.estado !== 'CANCELADA' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setPagoCorrigiendo(p)}
+                            aria-label={`Corregir el abono del ${formatearFecha(p.fecha)}`}
+                            title="Corregir este abono"
+                            className="text-texto-3 hover:text-texto"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </Button>
                         )}
                       </div>
                     </li>
@@ -948,6 +968,13 @@ export const VentasView: React.FC<VentasViewProps> = ({
                   <span>Marcar como entregada</span>
                 </Button>
               )}
+
+              {ventaDetalle.estado !== 'CANCELADA' && (
+                <Button variant="secondary" className="w-full" onClick={() => setCorrigiendo(ventaDetalle)}>
+                  <Pencil className="w-4 h-4" />
+                  <span>Corregir venta</span>
+                </Button>
+              )}
             </div>
 
             {ventaDetalle.estado !== 'CANCELADA' && (
@@ -967,14 +994,32 @@ export const VentasView: React.FC<VentasViewProps> = ({
       )}
 
       <VentaEditor
-        abierto={editorAbierto}
+        abierto={editorAbierto || corrigiendo !== null}
         tipo="INVENTARIO"
         productos={productos}
         clientes={clientes}
         parametros={parametros}
-        onCerrar={() => setEditorAbierto(false)}
+        corrigiendo={corrigiendo}
+        onCerrar={() => {
+          setEditorAbierto(false);
+          setCorrigiendo(null);
+        }}
         onGuardado={async () => {
           await cargar();
+          if (corrigiendo) await abrirDetalle(corrigiendo.id);
+          onCambio();
+        }}
+      />
+
+      <CorregirPagoModal
+        abierto={pagoCorrigiendo !== null}
+        pago={pagoCorrigiendo}
+        venta={ventaDetalle}
+        encima={pagoAbierto}
+        onCerrar={() => setPagoCorrigiendo(null)}
+        onCorregido={async () => {
+          await cargar();
+          if (ventaDetalle) await abrirDetalle(ventaDetalle.id);
           onCambio();
         }}
       />
@@ -1004,6 +1049,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
         abierto={pagoAbierto}
         venta={ventaDetalle}
         parametros={parametros}
+        onCorregir={setPagoCorrigiendo}
         onCerrar={() => setPagoAbierto(false)}
         onRegistrado={async () => {
           await cargar();
@@ -1097,6 +1143,15 @@ export const VentasView: React.FC<VentasViewProps> = ({
               : []),
             ...(menuContextual.venta.estado !== 'CANCELADA'
               ? [
+                  {
+                    id: 'corregir',
+                    label: 'Corregir venta...',
+                    icon: <Pencil className="w-4 h-4" />,
+                    onClick: async () => {
+                      const r = await window.api.ventas.get(menuContextual.venta.id);
+                      if (r.success && r.data) setCorrigiendo(r.data);
+                    },
+                  },
                   {
                     id: 'cancelar',
                     label: 'Anular venta...',

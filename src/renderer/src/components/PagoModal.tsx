@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
-import type { VentaCompleta, MetodoPago, MonedaPago, ParametrosSistema } from '../../../shared/types';
+import type { VentaCompleta, MetodoPago, MonedaPago, ParametrosSistema, Pago } from '../../../shared/types';
 import {
   Button,
   Field,
@@ -32,6 +32,8 @@ interface PagoModalProps {
   onRegistrado: () => Promise<void>;
   /** Para arrancar con la moneda y el método que ella eligió. */
   parametros?: ParametrosSistema | null;
+  /** Abre la corrección de un abono ya registrado, encima de este diálogo. */
+  onCorregir?: (pago: Pago) => void;
 }
 
 const METODOS: { valor: MetodoPago; etiqueta: string }[] = [
@@ -46,6 +48,7 @@ export const PagoModal: React.FC<PagoModalProps> = ({
   onCerrar,
   onRegistrado,
   parametros,
+  onCorregir,
 }) => {
   const { showToast, showUndoToast } = useToast();
 
@@ -380,14 +383,21 @@ export const PagoModal: React.FC<PagoModalProps> = ({
                         {p.referencia ? ` · ${p.referencia}` : ''}
                       </div>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-texto-3 hover:text-danger-700"
-                      onClick={() => setAnulandoId(p.id)}
-                    >
-                      Anular
-                    </Button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {onCorregir && (
+                        <Button size="sm" variant="ghost" className="text-texto-3 hover:text-texto" onClick={() => onCorregir(p)}>
+                          Corregir
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-texto-3 hover:text-danger-700"
+                        onClick={() => setAnulandoId(p.id)}
+                      >
+                        Anular
+                      </Button>
+                    </div>
                   </li>
                 ))}
               </ul>

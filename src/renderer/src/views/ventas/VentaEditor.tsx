@@ -23,6 +23,7 @@ import type {
   MetodoPago,
   MonedaPago,
   TipoDescuento,
+  VentaCompleta,
 } from '../../../../shared/types';
 import { Button, Field, Input, Select, Textarea, Badge, Money, Portal } from '../../components/ui';
 import { parsearDecimal, parsearACentavos } from '@core/numeros';
@@ -33,7 +34,7 @@ import { formatearNombreEntidad } from '@shared/formatoTexto';
 import { hoyISO } from '@core/fechas';
 import { algunoContiene } from '@core/texto';
 import { monedaPorDefecto, metodoPorDefecto } from '@core/preferencias';
-import { sacarFIFO, type Lote } from '@core/lotes';
+import { sacarFIFO, devolverConsumos, type Lote } from '@core/lotes';
 import { calcularPrecio } from '@core/precios';
 import { costoEstimadoDePieza } from '@core/encargos';
 
@@ -57,9 +58,18 @@ interface VentaEditorProps {
   productos: ProductoConStock[];
   clientes: ClienteDetalle[];
   parametros: ParametrosSistema | null;
+  /**
+   * La venta que se corrige. El editor se abre con ella cargada, sin la parte
+   * del cobro (los abonos se corrigen aparte), y guarda con el mismo número.
+   */
+  corrigiendo?: VentaCompleta | null;
   onCerrar: () => void;
   onGuardado: () => Promise<void>;
 }
+
+/** Cómo se muestra una línea al comparar antes y después. */
+const textoLinea = (descripcion: string, cantidad: number, precio: number) =>
+  `${cantidad} × ${descripcion} a ${formatearMoneda(precio, 'USD')}`;
 
 const PASOS = [
   { id: 1, titulo: 'Productos', icono: Package },
@@ -85,11 +95,34 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
   productos,
   clientes,
   parametros,
+  corrigiendo,
   onCerrar,
   onGuardado,
 }) => {
   const { showToast } = useToast();
   const esEncargo = tipo === 'ENCARGO';
+  const corrigiendoId = corrigiendo?.id;
+
+  /**
+   * Al corregir, las unidades de esta venta cuentan como disponibles: vuelven
+   * a la bodega antes de que salgan las de la versión corregida.
+   */
+  const devueltas = useMemo(() => {
+    const porProducto = new Map<number, number>();
+    const porTalla = new Map<string, number>();
+    for (const l of corrigiendo?.lineas ?? []) {
+      if (!l.producto_id) continue;
+      porProducto.set(l.producto_id, (porProducto.get(l.producto_id) ?? 0) + l.cantidad);
+      const clave = `${l.producto_id}:${l.variante_id ?? ''}`;
+      porTalla.set(clave, (porTalla.get(clave) ?? 0) + l.cantidad);
+    }
+    return { porProducto, porTalla };
+  }, [corrigiendo]);
+  const enBodega = (p: ProductoConStock) => p.existencias + (devueltas.porProducto.get(p.id) ?? 0);
+  const enTalla = (p: ProductoConStock, v: { id: number; existencias: number }) =>
+    v.existencias +
+    (devueltas.porTalla.get(`${p.id}:${v.id}`) ?? 0) +
+    (p.variantes.length === 1 ? (devueltas.porTalla.get(`${p.id}:`) ?? 0) : 0);
 
   const [paso, setPaso] = useState<1 | 2 | 3>(1);
   const [listaClientes, setListaClientes] = useState<ClienteDetalle[]>(clientes);
@@ -157,7 +190,35 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
     setDescuentoTipo('PORCENTAJE');
     setDescuentoValorTexto('');
     setDescuentoMotivo('');
-  }, [abierto, parametros, esEncargo]);
+
+    // Corregir: la venta tal como se cargó.
+    const v = corrigiendo;
+    if (v) {
+      setClienteId(v.cliente_id ?? undefined);
+      setFecha(v.fecha);
+      setLineas(
+        v.lineas.map((l) => ({
+          ...nuevaLinea(),
+          producto_id: l.producto_id,
+          variante_id: l.variante_id,
+          descripcion: l.descripcion,
+          cantidad: String(l.cantidad),
+          precio: (l.precio_unitario_usd_cents / 100).toFixed(2),
+          es_paquete: Boolean(l.es_paquete),
+        }))
+      );
+      setLineaBuscando(null);
+      setNotas(v.notas ?? '');
+      if ((v.descuento_usd_cents ?? 0) > 0 && v.descuento_tipo) {
+        setDescuentoAbierto(true);
+        setDescuentoTipo(v.descuento_tipo);
+        setDescuentoValorTexto(String(v.descuento_valor ?? ''));
+        setDescuentoMotivo(v.descuento_motivo ?? '');
+      }
+    }
+    // `corrigiendo` entra por su id: la misma venta recargada no borra lo escrito.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [abierto, parametros, esEncargo, corrigiendoId]);
 
   useEffect(() => {
     if (!abierto) return;
@@ -179,7 +240,13 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
     // Lo que costarían las unidades que van a salir: las del lote más viejo,
     // igual que al registrar la venta. Dos líneas del mismo producto se
     // descuentan una detrás de la otra.
+    // Al corregir, lo de esta venta vuelve primero a sus lotes.
     const lotesEnJuego = new Map<number, Lote[]>();
+    for (const l of corrigiendo?.lineas ?? []) {
+      const p = l.producto_id ? productos.find((x) => x.id === l.producto_id) : undefined;
+      if (!p?.lotes || !l.lotes_consumidos?.length) continue;
+      lotesEnJuego.set(p.id, devolverConsumos(lotesEnJuego.get(p.id) ?? p.lotes, l.lotes_consumidos, 'VENTA'));
+    }
     const costo = lineas.reduce((a, l) => {
       const cantidad = Math.max(1, Math.round(num(l.cantidad)));
       if (l.producto_id && !esEncargo) {
@@ -212,7 +279,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
     const bajoCosto = total > 0 && ganancia < 0;
 
     return { subtotal, descuentoCents, total, costo, ganancia, bajoCosto };
-  }, [lineas, productos, esEncargo, descuentoTipo, descuentoValorTexto]);
+  }, [lineas, productos, esEncargo, descuentoTipo, descuentoValorTexto, corrigiendo]);
 
   const totalPrendas = useMemo(() => {
     return lineas.reduce((acc, l) => acc + Math.max(1, Math.round(num(l.cantidad))), 0);
@@ -276,12 +343,60 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
 
   const resultadosBusqueda = useMemo(() => {
     const activos = productos.filter((p) => p.activo !== false);
-    const base = esEncargo ? activos : activos.filter((p) => p.existencias > 0);
+    const base = esEncargo
+      ? activos
+      : activos.filter((p) => p.existencias + (devueltas.porProducto.get(p.id) ?? 0) > 0);
     if (!busquedaProducto.trim()) return base.slice(0, 8);
     return base
       .filter((p) => algunoContiene([p.nombre, p.codigo], busquedaProducto))
       .slice(0, 8);
-  }, [busquedaProducto, productos, esEncargo]);
+  }, [busquedaProducto, productos, esEncargo, devueltas]);
+
+  /**
+   * Qué cambia al corregir, en palabras: lo que se saca, lo que se agrega y
+   * lo que cambia de cantidad o de precio. Se compara por producto y talla, o
+   * por descripción en una línea libre.
+   */
+  const cambios = useMemo(() => {
+    if (!corrigiendo) return [];
+    const claveDe = (x: { producto_id?: number; variante_id?: number; descripcion: string }) =>
+      x.producto_id ? `p${x.producto_id}:${x.variante_id ?? ''}` : `d${x.descripcion.trim().toLowerCase()}`;
+    const antes = new Map<string, { descripcion: string; cantidad: number; precio: number }>();
+    for (const l of corrigiendo.lineas) {
+      const k = claveDe(l);
+      const a = antes.get(k);
+      antes.set(k, {
+        descripcion: l.descripcion,
+        cantidad: (a?.cantidad ?? 0) + l.cantidad,
+        precio: l.precio_unitario_usd_cents,
+      });
+    }
+    const despues = new Map<string, { descripcion: string; cantidad: number; precio: number }>();
+    for (const l of lineas) {
+      const k = claveDe(l);
+      const d = despues.get(k);
+      despues.set(k, {
+        descripcion: l.descripcion || 'Prenda',
+        cantidad: (d?.cantidad ?? 0) + Math.max(1, Math.round(num(l.cantidad))),
+        precio: aCentavos(l.precio),
+      });
+    }
+    const salida: { tipo: 'sale' | 'entra' | 'cambia'; texto: string }[] = [];
+    for (const [k, a] of antes) {
+      const d = despues.get(k);
+      if (!d) salida.push({ tipo: 'sale', texto: textoLinea(a.descripcion, a.cantidad, a.precio) });
+      else if (d.cantidad !== a.cantidad || d.precio !== a.precio) {
+        salida.push({
+          tipo: 'cambia',
+          texto: `${a.descripcion}: ${a.cantidad} a ${formatearMoneda(a.precio, 'USD')} → ${d.cantidad} a ${formatearMoneda(d.precio, 'USD')}`,
+        });
+      }
+    }
+    for (const [k, d] of despues) {
+      if (!antes.has(k)) salida.push({ tipo: 'entra', texto: textoLinea(d.descripcion, d.cantidad, d.precio) });
+    }
+    return salida;
+  }, [corrigiendo, lineas]);
 
   if (!abierto) return null;
 
@@ -510,6 +625,46 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
     setGuardando(true);
     setError(null);
 
+    const descuento = {
+      descuento_tipo: totales.descuentoCents > 0 ? descuentoTipo : undefined,
+      descuento_valor:
+        totales.descuentoCents > 0
+          ? descuentoTipo === 'PORCENTAJE'
+            ? (parsearDecimal(descuentoValorTexto, { min: 0, max: 100 }) ?? 0)
+            : ((parsearACentavos(descuentoValorTexto, { min: 0 }) ?? 0) / 100)
+          : undefined,
+      descuento_motivo: totales.descuentoCents > 0 ? descuentoMotivo.trim() || undefined : undefined,
+    };
+
+    if (corrigiendo) {
+      try {
+        const r = await window.api.ventas.corregir(corrigiendo.id, {
+          cliente_id: clienteId,
+          fecha,
+          notas: notas.trim() || undefined,
+          ...descuento,
+          lineas: lineas.map((l) => ({
+            producto_id: l.producto_id,
+            variante_id: l.variante_id,
+            descripcion: l.descripcion.trim() || undefined,
+            cantidad: Math.max(1, Math.round(parsearDecimal(l.cantidad) ?? 1)),
+            precio_unitario_usd_cents: parsearACentavos(l.precio, { min: 0 }) ?? 0,
+            es_paquete: l.es_paquete,
+          })),
+        });
+        if (!r.success) {
+          setError(r.error);
+          return;
+        }
+        showToast({ message: `${corrigiendo.codigo} corregida`, type: 'success' });
+        await onGuardado();
+        onCerrar();
+      } finally {
+        setGuardando(false);
+      }
+      return;
+    }
+
     try {
       const r = await window.api.ventas.crear({
         cliente_id: clienteId,
@@ -533,14 +688,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                 referencia: referenciaPago.trim() || undefined,
               }
             : undefined,
-        descuento_tipo: totales.descuentoCents > 0 ? descuentoTipo : undefined,
-        descuento_valor:
-          totales.descuentoCents > 0
-            ? descuentoTipo === 'PORCENTAJE'
-              ? (parsearDecimal(descuentoValorTexto, { min: 0, max: 100 }) ?? 0)
-              : ((parsearACentavos(descuentoValorTexto, { min: 0 }) ?? 0) / 100)
-            : undefined,
-        descuento_motivo: descuentoMotivo.trim() || undefined,
+        ...descuento,
         lineas: lineas.map((l) => ({
           producto_id: l.producto_id,
           variante_id: l.variante_id,
@@ -619,7 +767,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
         {/* Cabecera */}
         <header className="flex items-center justify-between px-6 py-4 border-b border-borde shrink-0 bg-superficie">
           <h3 id="titulo-venta" className="text-title text-texto font-semibold">
-            {esEncargo ? 'Nuevo encargo' : 'Nueva venta'}
+            {corrigiendo ? `Corregir ${corrigiendo.codigo}` : esEncargo ? 'Nuevo encargo' : 'Nueva venta'}
           </h3>
           <Button variant="ghost" size="sm" onClick={onCerrar} aria-label="Cerrar">
             <X className="w-4 h-4" />
@@ -654,7 +802,9 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                     >
                       {completado ? '✓' : p.id}
                     </span>
-                    <span className="hidden sm:block text-caption font-semibold">{p.titulo}</span>
+                    <span className="hidden sm:block text-caption font-semibold">
+                      {corrigiendo && p.id === 2 ? 'Clienta' : p.titulo}
+                    </span>
                   </button>
                   {idx < PASOS.length - 1 && (
                     <div
@@ -691,7 +841,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                     : undefined;
                   const cantidad = Math.max(1, Math.round(num(l.cantidad)));
                   const excedeStock =
-                    producto && !esEncargo && cantidad > producto.existencias;
+                    producto && !esEncargo && cantidad > enBodega(producto);
 
                   return (
                     <div
@@ -707,7 +857,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                                 {producto.nombre}
                               </div>
                               <div className="text-caption text-texto-3">
-                                {producto.existencias} en bodega · costo{' '}
+                                {enBodega(producto)} en bodega · costo{' '}
                                 {formatearMoneda(producto.costo_unitario_usd_cents, 'USD')}
                               </div>
                             </div>
@@ -755,7 +905,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                                           {formatearMoneda(p.precio_venta_usd_cents, 'USD')}
                                         </div>
                                         <div className="text-caption text-texto-3">
-                                          {p.existencias} en stock
+                                          {enBodega(p)} en stock
                                         </div>
                                       </div>
                                     </button>
@@ -840,9 +990,9 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                             >
                               <option value="">Elegí</option>
                               {producto.variantes.map((v) => (
-                                <option key={v.id} value={v.id} disabled={v.existencias === 0}>
+                                <option key={v.id} value={v.id} disabled={enTalla(producto, v) === 0}>
                                   {[v.talla, v.color].filter(Boolean).join(' · ') || 'Única'} (
-                                  {v.existencias} disp.)
+                                  {enTalla(producto, v)} disp.)
                                 </option>
                               ))}
                             </Select>
@@ -1183,7 +1333,14 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                 </div>
               </div>
 
-              {/* Sección Cobro */}
+              {/* Sección Cobro. Al corregir no se toca: los abonos se corrigen cada uno. */}
+              {corrigiendo ? (
+                <p className="text-label text-texto-2 rounded-xl bg-superficie-2 p-4">
+                  {corrigiendo.pagado_usd_cents > 0
+                    ? `Pagó ${formatearMoneda(corrigiendo.pagado_usd_cents, 'USD')}. Los abonos no cambian acá: si un monto está mal, corregilo en el abono.`
+                    : 'No tiene abonos. La forma de cobro no cambia.'}
+                </p>
+              ) : (
               <div className="rounded-xl border border-borde p-5 bg-superficie space-y-4">
                 <h4 className="text-label font-semibold text-texto">Cobro</h4>
 
@@ -1335,6 +1492,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                   </div>
                 )}
               </div>
+              )}
 
               {/* Panel de Descuento (colapsable) */}
               <div className="rounded-xl border border-borde bg-superficie overflow-hidden">
@@ -1492,8 +1650,10 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                     </h4>
                     <p className="text-caption text-texto-3 tabular">{fecha}</p>
                   </div>
-                  <Badge tone={formaCobro === 'CONTADO' && !esEncargo ? 'success' : 'warning'}>
-                    {esPedido
+                  <Badge tone={corrigiendo ? 'info' : formaCobro === 'CONTADO' && !esEncargo ? 'success' : 'warning'}>
+                    {corrigiendo
+                      ? 'Corrección'
+                      : esPedido
                       ? 'Pedido'
                       : esEncargo
                       ? 'Encargo'
@@ -1554,8 +1714,75 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                   </div>
                 )}
 
+                {/* Qué cambia: se lee antes de guardar, no después. */}
+                {corrigiendo && (() => {
+                  const pagado = corrigiendo.pagado_usd_cents;
+                  const clientaAntes = corrigiendo.cliente_nombre ?? 'Mostrador';
+                  const clientaDespues = clienteSeleccionado?.nombre ?? 'Mostrador';
+                  const filas = [
+                    ...cambios,
+                    ...(clientaAntes !== clientaDespues
+                      ? [{ tipo: 'cambia' as const, texto: `Clienta: ${clientaAntes} → ${clientaDespues}` }]
+                      : []),
+                    ...(corrigiendo.fecha !== fecha
+                      ? [{ tipo: 'cambia' as const, texto: `Fecha: ${corrigiendo.fecha} → ${fecha}` }]
+                      : []),
+                  ];
+                  return (
+                    <div className="space-y-2" data-testid="cambios-correccion">
+                      <span className="text-caption font-semibold text-texto-3 block">Qué cambia</span>
+                      {filas.length === 0 && corrigiendo.total_usd_cents === totales.total ? (
+                        <p className="text-label text-texto-2">Nada todavía: la venta queda igual.</p>
+                      ) : (
+                        <ul className="space-y-1 text-label">
+                          {filas.map((f) => (
+                            <li key={f.texto} className="flex gap-2">
+                              <span
+                                className={cn(
+                                  'shrink-0 w-14 text-caption font-semibold',
+                                  f.tipo === 'sale' && 'text-danger-700',
+                                  f.tipo === 'entra' && 'text-success-700',
+                                  f.tipo === 'cambia' && 'text-texto-2'
+                                )}
+                              >
+                                {f.tipo === 'sale' ? 'Se saca' : f.tipo === 'entra' ? 'Se agrega' : 'Cambia'}
+                              </span>
+                              <span className="text-texto tabular">{f.texto}</span>
+                            </li>
+                          ))}
+                          {corrigiendo.total_usd_cents !== totales.total && (
+                            <li className="flex gap-2">
+                              <span className="shrink-0 w-14 text-caption font-semibold text-texto-2">Total</span>
+                              <span className="text-texto tabular">
+                                {formatearMoneda(corrigiendo.total_usd_cents, 'USD')} →{' '}
+                                {formatearMoneda(totales.total, 'USD')}
+                              </span>
+                            </li>
+                          )}
+                        </ul>
+                      )}
+                      {pagado > totales.total ? (
+                        <p className="flex items-start gap-2 text-label text-danger-800">
+                          <AlertTriangle className="w-4 h-4 text-danger-600 shrink-0 mt-0.5" />
+                          <span>
+                            Pagó {formatearMoneda(pagado, 'USD')} y el nuevo total es{' '}
+                            {formatearMoneda(totales.total, 'USD')}. Corregí el abono primero.
+                          </span>
+                        </p>
+                      ) : (
+                        <p className="text-caption text-texto-3 tabular">
+                          {pagado > 0 ? `Pagó ${formatearMoneda(pagado, 'USD')}. ` : ''}
+                          {totales.total - pagado > 0
+                            ? `Queda debiendo ${formatearMoneda(totales.total - pagado, 'USD')}.`
+                            : 'Queda pagada.'}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 {/* Banner de estado de cobro */}
-                {!esEncargo && formaCobro === 'CONTADO' && (
+                {!corrigiendo && !esEncargo && formaCobro === 'CONTADO' && (
                   <div className="flex items-center gap-2.5 text-caption text-texto-2">
                     <CheckCircle2 className="w-4 h-4 text-success-600 shrink-0" />
                     <span>
@@ -1564,7 +1791,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                   </div>
                 )}
 
-                {!esEncargo && formaCobro === 'CREDITO' && (
+                {!corrigiendo && !esEncargo && formaCobro === 'CREDITO' && (
                   <div className="flex items-center gap-2.5 text-caption text-texto-2">
                     <AlertTriangle className="w-4 h-4 text-warning-600 shrink-0" />
                     <span>
@@ -1575,7 +1802,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
               </div>
 
               {/* Entrega inmediata */}
-              {!esEncargo && (
+              {!esEncargo && !corrigiendo && (
                 <div className="rounded-xl border border-borde bg-superficie p-4">
                   <label className="flex items-start gap-3 cursor-pointer">
                     <input
@@ -1673,6 +1900,8 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
               >
                 {guardando
                   ? 'Guardando...'
+                  : corrigiendo
+                  ? 'Guardar corrección'
                   : esPedido
                   ? 'Guardar pedido'
                   : esEncargo
