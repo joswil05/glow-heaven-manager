@@ -205,7 +205,6 @@ input, textarea, [contenteditable="true"] {
 /* Curvas de animación física y táctil */
 :root {
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 }
 

@@ -231,17 +231,17 @@
     opacity: 0;
     transform: scale(0.5);
   }
-  70% {
-    transform: scale(1.15);
-  }
   100% {
     opacity: 1;
     transform: scale(1);
   }
 }
+/* Se ve cada vez que se abre el panel: sin rebote y corta. Antes pasaba de
+   largo hasta 1.15 con una curva elástica, y en algo que se ve varias veces
+   al día eso se nota como adorno. */
 .animate-pop-in {
   transform-origin: center;
-  animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+  animation: popIn 0.25s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)) backwards;
 }
 
 /* Relleno gradual del área de gráfica */
@@ -304,8 +304,9 @@
     opacity: 1;
   }
 }
+/* Sin rebote: se ve en cada tecla del PIN, cada vez que se abre la app. */
 .animate-pin-dot {
-  animation: pinDotIn 0.15s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  animation: pinDotIn 0.15s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)) forwards;
 }
 
 /* Glow del logo en lock screen */
@@ -509,13 +510,17 @@
 }
 
 /* Feedback de guardado exitoso */
+/* Se ve rara vez (al guardar la configuración): puede tener un gesto, pero
+   mínimo. Un 4% de más en el medio, y la curva de siempre; antes pasaba a
+   1.15 y encima rebotaba con una curva elástica. */
 @keyframes checkPop {
   0% {
     transform: scale(0.8);
     opacity: 0;
   }
-  50% {
-    transform: scale(1.15);
+  60% {
+    transform: scale(1.04);
+    opacity: 1;
   }
   100% {
     transform: scale(1);
@@ -523,7 +528,7 @@
   }
 }
 .animate-check-pop {
-  animation: checkPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  animation: checkPop 0.25s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)) forwards;
 }
 
 /* Respeto estricto a las preferencias del sistema de reducción de movimiento */

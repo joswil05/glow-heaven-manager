@@ -610,6 +610,7 @@ hoja que ya usa `BottomSheet` (`cubic-bezier(0.32, 0.72, 0, 1)`). La de hoy
 | `2.16` | Nuevo pedido, Cotizar, Mandar (nuevo), Aceptó (nuevo), Anular encargo, `PagoModal`, Entregar |
 | `2.17` | Las hojas de encargos del celular, `AbonoModalSheet`, `AbonoSelectorSheet`, Vender (`QuickSaleView`) |
 | `2.20` | `VentaEditor`, `PaqueteEditor`, `ReconstruccionModal`, `ProductoModal`, `AjustarStockModal`, `RevisarPreciosModal`, la clienta en `ClientesView`, las secciones de `ConfigView`, `LoginView` y `PinLockView` de las dos apps, `AjustesView` del celular |
+| `2.20` | La tipografía de la factura y la proforma (`plantillas.ts`): hoy Plus Jakarta Sans, la misma de la PWA, cargada desde Google Fonts. Es una decisión de marca: se le muestra a Ross una muestra con dos o tres opciones antes de cambiar nada. Sea cual sea, el archivo va dentro del build, para que el PDF salga igual sin internet (ver S7) |
 
 Cada formulario se revisa con la lista de la guía y deja su tabla antes y
 después en el commit. En los del celular, además: teclado numérico en dinero
