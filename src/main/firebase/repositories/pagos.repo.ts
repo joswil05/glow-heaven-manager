@@ -13,9 +13,10 @@ import { getFirestoreDb, siguienteId, leerDoc, sinUndefined } from '../client';
 import { type VentaDoc } from './ventas.repo';
 import { ClientesRepoFirestore } from './clientes.repo';
 import { EventosRepoFirestore } from './eventos.repo';
-import type { Pago, PagoCompleto, Cuota, MetodoPago, MonedaPago } from '../../../shared/types';
+import type { Pago, PagoCompleto, MetodoPago, MonedaPago } from '../../../shared/types';
 import { formatearMoneda } from '../../../core/moneda';
 import { pagoAcepta } from '../../../core/cobranza';
+import { repartirEnCuotas } from '../../../core/cuotas';
 
 export interface RegistrarPagoInput {
   venta_id: number;
@@ -48,19 +49,6 @@ export interface ResultadoPago {
   anticipo_cubierto: boolean;
 }
 
-/**
- * Reparte lo pagado entre las cuotas, de la más vieja a la más nueva.
- * Se recalcula completo cada vez en vez de ir sumando: así anular un abono
- * viejo no deja cuotas marcadas como pagadas con plata que ya no existe.
- */
-function repartirEnCuotas(cuotas: Cuota[], totalPagado: number): Cuota[] {
-  let restante = totalPagado;
-  return cuotas.map((c) => {
-    const aplicado = Math.min(Math.max(0, restante), c.monto_usd_cents);
-    restante -= aplicado;
-    return { ...c, pagado_usd_cents: aplicado };
-  });
-}
 
 export class PagosRepoFirestore {
   /**
