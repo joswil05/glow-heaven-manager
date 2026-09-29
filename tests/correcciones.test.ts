@@ -278,6 +278,15 @@ describe('corregir un abono', () => {
     await expect(Pagos.corregir(pago_id, { fecha: HOY, monto_cents: 500, moneda: 'USD', metodo: 'EFECTIVO' }, g())).rejects.toThrow(/anulado/);
   });
 
+  it('la lista de abonos dice de qué clienta es cada uno, para encontrar el que hay que corregir', async () => {
+    const termo = await producto('Termo', 3, 1000);
+    const ana = await Clientes.guardar({ nombre: 'Ana' }, g());
+    const v = await vender([lineaDe(termo, 1, 2500)], { cliente_id: ana });
+    await Pagos.registrar({ venta_id: v, fecha: HOY, monto_cents: 1500, moneda: 'USD', metodo: 'EFECTIVO' }, g());
+    const [abono] = await Pagos.recientes(10);
+    expect([abono.cliente_nombre, abono.venta_codigo]).toEqual(['Ana', (await leer(v)).codigo]);
+  });
+
   it('un monto en cero no se acepta', async () => {
     const termo = await producto('Termo', 3, 1000);
     const v = await vender([lineaDe(termo, 1, 2500)]);

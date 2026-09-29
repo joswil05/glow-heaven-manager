@@ -8,7 +8,7 @@ import {
   doc,
   runTransaction,
 } from 'firebase/firestore';
-import { getFirestoreDb, siguienteId, leerDoc, sinUndefined } from '../client';
+import { getFirestoreDb, siguienteId, leerDoc, leerVarios, sinUndefined } from '../client';
 
 import { type VentaDoc } from './ventas.repo';
 import { ClientesRepoFirestore } from './clientes.repo';
@@ -371,25 +371,26 @@ export class PagosRepoFirestore {
     if (pagos.length === 0) return [];
 
     const ventaIds = [...new Set(pagos.map((p) => p.venta_id).filter(Boolean))];
-    const ventasDocs = await Promise.all(
-      ventaIds.map(async (vid) => {
-        const v = await leerDoc<VentaDoc>('ventas', vid);
-        return [vid, v?.codigo, v?.cliente_nombre] as const;
-      })
-    );
-    const infoMap = new Map<number, { codigo?: string; cliente?: string }>();
-    for (const [vid, cod, cli] of ventasDocs) {
-      infoMap.set(vid, { codigo: cod, cliente: cli });
-    }
+    // El nombre sale de la clienta, no de la venta: la venta guarda sólo su
+    // id. Antes se leía `cliente_nombre` de la venta, que nunca está, y todos
+    // los abonos de la lista decían "Cliente".
+    const clienteIds = [...new Set(pagos.map((p) => p.cliente_id).filter(Boolean))] as number[];
+    const [ventasDocs, clientes] = await Promise.all([
+      Promise.all(
+        ventaIds.map(async (vid) => {
+          const v = await leerDoc<VentaDoc>('ventas', vid);
+          return [vid, v?.codigo] as const;
+        })
+      ),
+      leerVarios<{ nombre?: string }>('clientes', clienteIds),
+    ]);
+    const codigos = new Map<number, string | undefined>(ventasDocs);
 
-    return pagos.map((p) => {
-      const info = infoMap.get(p.venta_id);
-      return {
-        ...p,
-        venta_codigo: info?.codigo || `V-#${p.venta_id}`,
-        cliente_nombre: info?.cliente || 'Cliente',
-      };
-    });
+    return pagos.map((p) => ({
+      ...p,
+      venta_codigo: codigos.get(p.venta_id) || `V-#${p.venta_id}`,
+      cliente_nombre: (p.cliente_id ? clientes.get(String(p.cliente_id))?.nombre : undefined) || 'Cliente',
+    }));
   }
 
   /**
