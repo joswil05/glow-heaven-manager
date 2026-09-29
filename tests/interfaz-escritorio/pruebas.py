@@ -735,6 +735,57 @@ def caso_encargo_por_fases(page: Page) -> list[str]:
     return fallas
 
 
+@caso("un formulario con algo escrito no se pierde por un Escape")
+def caso_no_pierde_lo_escrito(page: Page) -> list[str]:
+    fallas: list[str] = []
+    page.get_by_role("button", name="Inicio", exact=False).first.click()
+    page.wait_for_timeout(400)
+    page.get_by_role("button", name="Encargos", exact=False).first.click()
+    page.wait_for_timeout(700)
+    page.get_by_role("button", name="Nuevo encargo").first.click()
+    nuevo = page.get_by_role("dialog")
+    nuevo.get_by_label("Qué quiere 1").fill("Algo que no se pierde")
+
+    # Escape pregunta, con el foco en la salida que no destruye.
+    page.keyboard.press("Escape")
+    pregunta = page.get_by_role("alertdialog")
+    try:
+        pregunta.get_by_text("¿Descartar lo que escribiste?").wait_for(timeout=3000)
+    except Exception:
+        return ["Escape cerró el formulario sin preguntar"]
+    foco = page.evaluate("document.activeElement ? document.activeElement.textContent : ''")
+    if "Seguir editando" not in (foco or ""):
+        fallas.append(f"el foco no quedó en 'Seguir editando' sino en {foco!r}")
+    page.keyboard.press("Enter")
+    page.wait_for_timeout(300)
+    if page.get_by_role("dialog").get_by_label("Qué quiere 1").input_value() != "Algo que no se pierde":
+        fallas.append("después de 'Seguir editando' se perdió lo escrito")
+
+    # "Otra pieza" deja el foco en la pieza nueva.
+    page.get_by_role("dialog").get_by_role("button", name="Otra pieza").click()
+    page.wait_for_timeout(200)
+    foco = page.evaluate("document.activeElement ? document.activeElement.getAttribute('aria-label') : ''")
+    if foco != "Qué quiere 2":
+        fallas.append(f"'Otra pieza' no dejó el foco en la pieza nueva sino en {foco!r}")
+
+    # Ctrl+Enter guarda; sin clienta, el error está en su campo y el foco ahí.
+    page.keyboard.press("Control+Enter")
+    page.wait_for_timeout(300)
+    if page.get_by_role("dialog").get_by_text("Elegí quién lo pide.").count() == 0:
+        fallas.append("sin clienta, Ctrl+Enter no dijo que falta elegirla")
+    foco = page.evaluate("document.activeElement ? document.activeElement.getAttribute('aria-label') : ''")
+    if foco != "Clienta":
+        fallas.append(f"el foco no fue al campo de la clienta sino a {foco!r}")
+
+    # Descartar sí cierra.
+    page.keyboard.press("Escape")
+    page.get_by_role("alertdialog").get_by_role("button", name="Descartar").click()
+    page.wait_for_timeout(400)
+    if page.get_by_role("dialog").count() > 0:
+        fallas.append("'Descartar' no cerró el formulario")
+    return fallas
+
+
 @caso("no quedan errores de consola")
 def caso_consola(page: Page) -> list[str]:
     return []  # lo evalúa el corredor al final

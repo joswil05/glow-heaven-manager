@@ -48,7 +48,6 @@ export const MandarCotizacionModal: React.FC<MandarCotizacionModalProps> = ({
     setMensaje(inicial);
     setVerProforma(false);
     setError(null);
-    setTimeout(() => abrirRef.current?.focus(), 0);
   }, [venta, inicial]);
 
   const html = useMemo(() => (venta && parametros ? generarHtmlProforma(venta, parametros) : ''), [venta, parametros]);
@@ -120,6 +119,7 @@ export const MandarCotizacionModal: React.FC<MandarCotizacionModalProps> = ({
                 onClick={abrirWhatsApp}
                 disabled={guardando || !telefono}
                 className="min-w-[9rem]"
+                autoFocus
               >
                 {guardando ? 'Preparando…' : 'Abrir WhatsApp'}
               </Button>

@@ -93,15 +93,9 @@ export const CotizarEncargoModal: React.FC<CotizarEncargoModalProps> = ({ venta,
     };
   }, [venta]);
 
-  // El foco va a la primera pieza que falta cotizar cuando terminan de
-  // cargar, no a cada tecla.
-  const cargadas = piezas !== null;
-  useEffect(() => {
-    if (!cargadas || !piezas) return;
-    const primera = piezas.find((p) => !p.fijo && !p.descartada && !p.precio) ?? piezas.find((p) => !p.fijo);
-    if (primera) setTimeout(() => descripcionRefs.current.get(primera.id)?.focus(), 0);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cargadas]);
+  // El foco va a la primera pieza que falta cotizar, cuando aparecen.
+  // `autoFocus` sólo actúa al aparecer el campo, no a cada tecla.
+  const primeraId = (piezas?.find((p) => !p.fijo && !p.descartada && !p.precio) ?? piezas?.find((p) => !p.fijo))?.id;
 
   const cambiar = (id: number, cambios: Partial<Borrador>) => {
     setErrores((e) => {
@@ -240,6 +234,7 @@ export const CotizarEncargoModal: React.FC<CotizarEncargoModalProps> = ({ venta,
                     disabled={apagada}
                     className={cn(p.descartada && 'line-through')}
                     aria-label={`Descripción de la pieza ${i + 1}`}
+                    autoFocus={p.id === primeraId}
                   />
                 </Field>
                 {p.puedeDescartar && !p.fijo && (

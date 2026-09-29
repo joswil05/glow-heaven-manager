@@ -115,6 +115,11 @@ export const Dialogo: React.FC<DialogoProps> = ({
     return () => window.removeEventListener('keydown', alPresionar);
   }, [abierto]);
 
+  // El contenido aparece un cuadro después de `abierto`: así un formulario que
+  // se reinicia en un efecto al abrirse no muestra, ni por un instante, lo de
+  // la vez anterior. El foco inicial va con `autoFocus`, que actúa cuando el
+  // campo aparece; un `setTimeout` para enfocar le robaba el cursor a lo que
+  // ya se estaba escribiendo.
   if (!montado) return null;
   const visto = abierto ? { titulo, pie, children } : ultimo.current;
 

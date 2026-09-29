@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { MetodoPago, MonedaPago, ParametrosSistema, VentaCompleta } from '../../../../shared/types';
 import { Button, Dialogo, Field, Input, Select } from '../../components/ui';
-import { formatearMoneda } from '@core/moneda';
+import { formatearMoneda, usdCentavosACorCentavos } from '@core/moneda';
 import { parsearACentavos } from '@core/numeros';
 import { hoyISO } from '@core/fechas';
 import { monedaPorDefecto, metodoPorDefecto } from '@core/preferencias';
@@ -40,21 +40,26 @@ export const AceptarEncargoModal: React.FC<AceptarEncargoModalProps> = ({ venta,
   const [guardando, setGuardando] = useState(false);
   const montoRef = useRef<HTMLInputElement>(null);
   const noPagoRef = useRef<HTMLButtonElement>(null);
+  const [montoInicial, setMontoInicial] = useState('');
 
   // Lo que falta del anticipo: lo más probable es que pague eso.
   const falta = venta ? Math.max(0, venta.anticipo_esperado_usd_cents - venta.pagado_usd_cents) : 0;
-  const montoInicial = falta > 0 ? (falta / 100).toFixed(2) : '';
 
   useEffect(() => {
     if (!venta) return;
     setPago(false);
-    setMonto(montoInicial);
-    setMoneda(monedaPorDefecto(parametros));
+    // El anticipo está en dólares: si arranca en córdobas, se convierte con
+    // la tasa del encargo, o "47.50" se leería como C$47.50.
+    const monedaInicial = monedaPorDefecto(parametros);
+    const enMoneda = monedaInicial === 'COR' ? usdCentavosACorCentavos(falta, venta.tasa_cambio_cents) : falta;
+    const texto = falta > 0 ? (enMoneda / 100).toFixed(2) : '';
+    setMonto(texto);
+    setMontoInicial(texto);
+    setMoneda(monedaInicial);
     setMetodo(metodoPorDefecto(parametros));
     setReferencia('');
     setFecha(hoyISO());
     setError(null);
-    setTimeout(() => noPagoRef.current?.focus(), 0);
     // Se reinicia al abrir otro encargo, no cuando cambian los parámetros.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [venta]);
@@ -62,7 +67,6 @@ export const AceptarEncargoModal: React.FC<AceptarEncargoModalProps> = ({ venta,
   const elegirPago = (si: boolean) => {
     setPago(si);
     setError(null);
-    if (si) setTimeout(() => montoRef.current?.select(), 0);
   };
 
   const centavos = parsearACentavos(monto, { min: 0.01 });
@@ -144,7 +148,7 @@ export const AceptarEncargoModal: React.FC<AceptarEncargoModalProps> = ({ venta,
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <p className="text-body text-texto">¿Pagó algo ya?</p>
             <div className="inline-flex rounded-lg bg-superficie-2 p-0.5" role="radiogroup" aria-label="Si pagó algo al aceptar">
-              <button ref={noPagoRef} type="button" role="radio" aria-checked={!pago} onClick={() => elegirPago(false)} className={opcion(!pago)}>
+              <button ref={noPagoRef} type="button" role="radio" aria-checked={!pago} onClick={() => elegirPago(false)} className={opcion(!pago)} autoFocus>
                 Todavía no
               </button>
               <button type="button" role="radio" aria-checked={pago} onClick={() => elegirPago(true)} className={opcion(pago)}>
@@ -164,6 +168,8 @@ export const AceptarEncargoModal: React.FC<AceptarEncargoModalProps> = ({ venta,
                     placeholder="0.00"
                     className="text-right tabular"
                     inputMode="decimal"
+                    autoFocus
+                    onFocus={(e) => e.currentTarget.select()}
                   />
                 </Field>
                 <Field label="Moneda">

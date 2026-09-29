@@ -71,8 +71,6 @@ export const AnularEncargoModal: React.FC<AnularEncargoModalProps> = ({ venta, o
     setDestinos({});
     setAnticipo('DEVOLVER');
     setMotivo(motivoDeLaFase(venta));
-    // El foco arranca en la salida, no en la acción que destruye.
-    setTimeout(() => salidaRef.current?.focus(), 0);
     if ('lineas' in venta && venta.lineas) {
       setCompleta(venta);
       return;
@@ -110,7 +108,8 @@ export const AnularEncargoModal: React.FC<AnularEncargoModalProps> = ({ venta, o
       onCerrar={onCerrar}
       pie={
         <div className="flex items-center justify-end gap-2 w-full">
-          <Button ref={salidaRef} variant="secondary" onClick={onCerrar}>
+          {/* El foco arranca en la salida, no en la acción que destruye. */}
+          <Button ref={salidaRef} variant="secondary" onClick={onCerrar} autoFocus>
             No, dejarlo como está
           </Button>
           <Button variant="danger" onClick={confirmar} disabled={!completa}>

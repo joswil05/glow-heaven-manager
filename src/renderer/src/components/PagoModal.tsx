@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 import type { VentaCompleta, MetodoPago, MonedaPago, ParametrosSistema } from '../../../shared/types';
 import {
   Button,
@@ -11,7 +11,7 @@ import {
   Money,
   BarraProgreso,
   Confirmar,
-  Portal,
+  Dialogo,
 } from './ui';
 import { parsearDecimal } from '@core/numeros';
 import {
@@ -58,12 +58,17 @@ export const PagoModal: React.FC<PagoModalProps> = ({
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [anulandoId, setAnulandoId] = useState<number | null>(null);
+  /** Lo que el formulario sugirió al abrirse: si sigue igual, cerrar no pregunta. */
+  const [montoInicial, setMontoInicial] = useState('');
 
   useEffect(() => {
     if (!abierto || !venta) return;
     setError(null);
-    setMoneda('USD');
-    setMetodo('EFECTIVO');
+    // La moneda y el método que ella eligió en Configuración. Hasta la 2.15
+    // se pisaban acá con dólares y efectivo, y la preferencia no servía.
+    const monedaInicial = monedaPorDefecto(parametros);
+    setMoneda(monedaInicial);
+    setMetodo(metodoPorDefecto(parametros));
     setReferencia('');
     setNotas('');
     setFecha(hoyISO());
@@ -75,17 +80,15 @@ export const PagoModal: React.FC<PagoModalProps> = ({
       ? cuotaPendiente.monto_usd_cents - cuotaPendiente.pagado_usd_cents
       : venta.saldo_usd_cents;
 
-    setMontoTexto(sugerido > 0 ? (sugerido / 100).toFixed(2) : '');
+    // El sugerido está en dólares: si arranca en córdobas, se convierte con la
+    // tasa de la venta. Sin esto, "25.00" se leería como C$25.
+    const enMoneda = monedaInicial === 'COR' ? usdCentavosACorCentavos(sugerido, venta.tasa_cambio_cents) : sugerido;
+    const texto = sugerido > 0 ? (enMoneda / 100).toFixed(2) : '';
+    setMontoTexto(texto);
+    setMontoInicial(texto);
+    // Se reinicia al abrir, no cuando cambian los parámetros.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [abierto, venta]);
-
-  useEffect(() => {
-    if (!abierto) return;
-    const alPresionar = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCerrar();
-    };
-    window.addEventListener('keydown', alPresionar);
-    return () => window.removeEventListener('keydown', alPresionar);
-  }, [abierto, onCerrar]);
 
   const montoCents = Math.round((parsearDecimal(montoTexto) ?? 0) * 100);
 
@@ -96,15 +99,17 @@ export const PagoModal: React.FC<PagoModalProps> = ({
       : montoCents;
   }, [montoCents, moneda, venta]);
 
-  if (!abierto || !venta) return null;
-
-  const saldoDespues = venta.saldo_usd_cents - montoEnUsd;
+  const saldoDespues = venta ? venta.saldo_usd_cents - montoEnUsd : 0;
   const esAnticipo =
-    venta.tipo === 'ENCARGO' && venta.pagado_usd_cents < venta.anticipo_esperado_usd_cents;
+    !!venta && venta.tipo === 'ENCARGO' && venta.pagado_usd_cents < venta.anticipo_esperado_usd_cents;
   const anticipoQuedaCubierto =
-    esAnticipo && venta.pagado_usd_cents + montoEnUsd >= venta.anticipo_esperado_usd_cents;
+    !!venta && esAnticipo && venta.pagado_usd_cents + montoEnUsd >= venta.anticipo_esperado_usd_cents;
+  const hayCambios = montoTexto !== montoInicial || referencia.trim() !== '' || notas.trim() !== '';
+  /** El error del monto va en su campo; el resto, arriba. */
+  const errorMonto = error === 'Escribí cuánto pagó la clienta.' ? error : undefined;
 
   const registrar = async () => {
+    if (!venta || guardando) return;
     if (montoCents <= 0) {
       setError('Escribí cuánto pagó la clienta.');
       return;
@@ -155,35 +160,28 @@ export const PagoModal: React.FC<PagoModalProps> = ({
   };
 
   return (
-    <Portal>
-      <div
-        className="fixed inset-0 z-[100] flex items-center justify-center bg-velo/60 backdrop-blur-xs p-4 cursor-pointer"
-        role="dialog"
-        aria-modal="true"
-      aria-labelledby="titulo-pago"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onCerrar();
-      }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="bg-superficie rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col border border-borde/80 animate-modal-pop overflow-hidden cursor-default"
-      >
-        <header className="flex items-center justify-between px-5 py-4 border-b border-borde shrink-0">
-          <div>
-            <h3 id="titulo-pago" className="text-title text-texto">
-              Registrar abono
-            </h3>
-            <p className="text-caption text-texto-3">
-              {venta.codigo} · {venta.cliente_nombre ?? 'Mostrador'}
-            </p>
-          </div>
-          <Button variant="ghost" size="sm" onClick={onCerrar} aria-label="Cerrar">
-            <X className="w-4 h-4" />
+    <Dialogo
+      abierto={abierto && Boolean(venta)}
+      titulo={venta ? `Registrar abono · ${venta.codigo}` : 'Registrar abono'}
+      ancho="xl"
+      hayCambios={hayCambios}
+      onCerrar={onCerrar}
+      onEnviar={registrar}
+      pie={
+        <div className="flex items-center justify-end gap-2 w-full">
+          <Button variant="secondary" onClick={onCerrar} disabled={guardando}>
+            Cerrar
           </Button>
-        </header>
+          <Button variant="primary" onClick={registrar} disabled={guardando || montoCents <= 0} className="min-w-[9.5rem]">
+            {guardando ? 'Registrando…' : 'Registrar abono'}
+          </Button>
+        </div>
+      }
+    >
+      {venta && (
+        <div className="space-y-4">
+          <p className="text-caption text-texto-3 -mt-2">{venta.cliente_nombre ?? 'Mostrador'}</p>
 
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
           {/* Estado de la cuenta */}
           <div className="rounded-lg border border-borde bg-superficie-2 p-4">
             <div className="flex items-center justify-between gap-3 mb-2">
@@ -218,7 +216,7 @@ export const PagoModal: React.FC<PagoModalProps> = ({
             </div>
           )}
 
-          {error && (
+          {error && !errorMonto && (
             <div className="flex items-start gap-2 rounded-md border border-danger-200 bg-danger-50 p-3">
               <AlertTriangle className="w-4 h-4 text-danger-600 shrink-0 mt-0.5" />
               <p className="text-label text-danger-800">{error}</p>
@@ -226,12 +224,15 @@ export const PagoModal: React.FC<PagoModalProps> = ({
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <Field label="Cuánto pagó">
+            <Field label="Cuánto pagó" error={errorMonto}>
               <Input
                 value={montoTexto}
-                onChange={(e) => setMontoTexto(e.target.value)}
+                onChange={(e) => {
+                  setMontoTexto(e.target.value);
+                  if (errorMonto) setError(null);
+                }}
                 placeholder="0.00"
-                className="text-right"
+                className="text-right tabular"
                 autoFocus
               />
             </Field>
@@ -393,6 +394,7 @@ export const PagoModal: React.FC<PagoModalProps> = ({
             </div>
           )}
         </div>
+      )}
 
         <Confirmar
           abierto={anulandoId !== null}
@@ -406,17 +408,6 @@ export const PagoModal: React.FC<PagoModalProps> = ({
           onConfirmar={() => anulandoId !== null && anular(anulandoId)}
           onCerrar={() => setAnulandoId(null)}
         />
-
-        <footer className="flex items-center justify-end gap-2 px-5 py-4 border-t border-borde shrink-0">
-          <Button variant="secondary" onClick={onCerrar} disabled={guardando}>
-            Cerrar
-          </Button>
-          <Button variant="primary" onClick={registrar} disabled={guardando || montoCents <= 0}>
-            {guardando ? 'Registrando...' : 'Registrar abono'}
-          </Button>
-        </footer>
-      </div>
-    </div>
-    </Portal>
+    </Dialogo>
   );
 };
