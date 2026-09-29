@@ -573,8 +573,20 @@ export interface Venta {
   notas?: string;
   activo: boolean;
   creado_en?: string;
+  /** Con qué cuenta se registró. Desde la 2.16.1; lo anterior no lo tiene. */
+  registrado_por?: Autor;
+  /** La última corrección: quién y cuándo (ISO). */
+  corregido_por?: Autor;
+  corregido_en?: string;
 
   cliente_nombre?: string;
+}
+
+/** Quién hizo algo: la cuenta con la que se entró a la app. */
+export interface Autor {
+  uid: string;
+  /** El nombre de la cuenta de Google, o su correo si no tiene. */
+  nombre: string;
 }
 
 export interface VentaCompleta extends Venta {
@@ -611,6 +623,11 @@ export interface Pago {
   notas?: string;
   activo: boolean;
   creado_en?: string;
+  /** Con qué cuenta se registró. Desde la 2.16.1; lo anterior no lo tiene. */
+  registrado_por?: Autor;
+  /** La última corrección: quién y cuándo (ISO). */
+  corregido_por?: Autor;
+  corregido_en?: string;
 }
 
 export interface PagoCompleto extends Pago {

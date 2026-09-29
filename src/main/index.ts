@@ -1,5 +1,6 @@
 import { app, BrowserWindow, dialog } from 'electron';
-import { getFirestoreDb } from './firebase/client';
+import { getFirestoreDb, registrarAutor, autorDeCuenta } from './firebase/client';
+import { getAuthInstance } from './firebase/auth-instance';
 import { AccesoFirebase } from './firebase/auth';
 import { GoogleAuthService } from './firebase/google-auth.service';
 import { AccesosRepoFirestore } from './firebase/repositories/accesos.repo';
@@ -39,6 +40,9 @@ if (!gotTheLock) {
   app.whenReady().then(async () => {
     try {
       getFirestoreDb();
+      // Lo que se registre desde Windows queda a nombre de la cuenta de Google
+      // con la que se entró.
+      registrarAutor(() => autorDeCuenta(getAuthInstance().currentUser));
 
       // Reabrir la sesión de Google guardada. En Node el SDK de Firebase no
       // persiste nada entre arranques, así que sin esto cada reinicio dejaba a

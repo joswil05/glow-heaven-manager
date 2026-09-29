@@ -427,6 +427,75 @@ C7 verificación (unidad, emulador, las dos suites de interfaz).
 
 ---
 
+## 2c. El historial a la vista, quién lo registró y la moneda del abono (`2.16.1`)
+
+**Por qué.** Joswill, al probar la 2.16.0 (29 de septiembre): en el celular el
+historial está escondido (a Actividad se llega tocando el chip "N ventas" de
+Inicio) y desordenado; en Windows, corregir desde Cobros no se ve; no se sabe
+quién cargó un abono; y un abono pagado en córdobas aparece en dólares, así que
+al corregirlo es fácil equivocarse de moneda.
+
+La moneda **sí se guardaba**: cada abono tiene `moneda`, su monto en las dos y
+la tasa de ese día, y corregirlo abre en su moneda. Lo que confundía era la
+pantalla: casi todas las listas lo muestran primero en dólares, el celular lo
+pasaba a córdobas con la tasa de hoy, y el aviso al corregir una venta salía en
+dólares.
+
+### La moneda del abono
+
+- **Un abono se muestra como se pagó**: "C$600.00" grande y "$16.38" chico, con
+  su propia tasa. En todas las listas de las dos apps (`core/abonos.ts` →
+  `montoPagado`, `montoEquivalente`).
+- **Al corregirlo**, la moneda es un par de botones con la original marcada
+  ("como se registró"). Si se cambia, aparece la cuenta de lo que eso significa:
+  "Lo registraste en córdobas. Si fue en dólares, $600.00 son C$21,972.00".
+- **Al corregir una venta**, el aviso de lo pagado sale en la moneda de sus
+  abonos.
+- **Una venta al contado sigue a su abono**: si se pagó entera con un solo
+  abono, corregirla ofrece ajustar ese abono al total nuevo, en su moneda y con
+  su tasa ("El abono de C$732.40 queda en C$549.30"). Marcado por defecto. Sin
+  esto, bajar el precio de una venta al contado exigía corregir primero el
+  abono; subirlo la dejaba debiendo la diferencia.
+
+### Quién lo registró
+
+- Cada venta y cada abono nuevos guardan `registrado_por` (`uid` y nombre de la
+  cuenta con la que se entró); corregirlos, `corregido_por` y `corregido_en`.
+- Se muestra como "Registrado por Ross · 10:42" y "Corregido por Joswill". Lo
+  anterior a la 2.16.1 no lo tiene y dice "sin dato": no hay de dónde sacarlo.
+- Los repositorios preguntan por la cuenta a `client.ts` (`autorActual`), y cada
+  app le dice cómo averiguarla al arrancar: así el código compartido no depende
+  de cómo inicia sesión cada una.
+
+### El celular
+
+- **"Historial" es la quinta pestaña** de la barra. Reemplaza a Actividad.
+- Agrupado por día ("Hoy", "Ayer", "lun 28 sep") y, dentro del día, por la hora
+  en que se registró. Buscar por clienta o código; filtros Todo, Ventas y
+  Abonos. Trae ventas y abonos juntos hasta la misma fecha, para que "Todo" no
+  muestre días a medias, y "Ver más" trae lo anterior.
+- Tocar una fila abre el detalle: "Corregir" es el botón principal, "Anular" el
+  secundario.
+- En Cobros, el historial de la clienta tiene "Corregir" en cada abono.
+
+**Choca con la 2.17**, que ponía "Encargos" como quinta pestaña. Seis no
+entran bien; se decide al empezar la 2.17.
+
+### Windows
+
+- Cobros: las dos pestañas con su número ("Por cobrar (12)", "Abonos (3
+  hoy)"); los abonos agrupados por día, en su moneda, con quién los registró y
+  "Corregir" y "Anular" escritos. Tocar la fila abre la corrección.
+- Clientes: "Corregir" junto a cada abono.
+
+### Tareas
+
+H1 núcleo y datos (`core/abonos.ts`, `autorActual`, tipos), H2 repositorios
+(registrado y corregido por, el abono que sigue a la venta), H3 simulador,
+H4 Windows, H5 celular, H6 verificación y documentación.
+
+---
+
 ## 3. Encargos en el celular (`2.17.0`)
 
 Los repositorios ya se comparten: el celular llama a los mismos métodos de la

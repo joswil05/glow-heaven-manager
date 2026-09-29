@@ -8,7 +8,7 @@ import {
   doc,
   runTransaction,
 } from 'firebase/firestore';
-import { getFirestoreDb, siguienteId, leerDoc, leerVarios, sinUndefined } from '../client';
+import { getFirestoreDb, siguienteId, leerDoc, leerVarios, sinUndefined, autorActual } from '../client';
 
 import { type VentaDoc } from './ventas.repo';
 import { ClientesRepoFirestore } from './clientes.repo';
@@ -113,6 +113,7 @@ export class PagosRepoFirestore {
         notas: input.notas?.trim() || undefined,
         activo: true,
         creado_en: now,
+        registrado_por: autorActual(),
       };
 
       const pagado = totalPrevio + montoUsd;
@@ -321,6 +322,8 @@ export class PagosRepoFirestore {
           metodo: input.metodo,
           referencia: input.referencia?.trim() || undefined,
           notas: input.notas?.trim() || undefined,
+          corregido_por: autorActual(),
+          corregido_en: now,
           actualizado_en: now,
         } as unknown as Record<string, unknown>)
       );

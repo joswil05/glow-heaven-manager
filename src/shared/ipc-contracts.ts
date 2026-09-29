@@ -251,7 +251,14 @@ export interface CrearVentaInput {
 export type CorregirVentaInput = Pick<
   CrearVentaInput,
   'cliente_id' | 'fecha' | 'lineas' | 'notas' | 'descuento_tipo' | 'descuento_valor' | 'descuento_motivo'
->;
+> & {
+  /**
+   * Venta al contado, pagada entera con un solo abono: el abono sigue al total
+   * nuevo, en su moneda y con su tasa (`core/abonos.ts` →
+   * `abonoQueSigueAlTotal`). Si no aplica, se ignora.
+   */
+  ajustar_abono?: boolean;
+};
 
 export interface FiltrosVenta {
   tipo?: TipoVenta;

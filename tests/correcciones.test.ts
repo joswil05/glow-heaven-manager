@@ -17,6 +17,7 @@ import { ClientesRepoFirestore as Clientes } from '../src/main/firebase/reposito
 import { ParametrosRepoFirestore as Parametros } from '../src/main/firebase/repositories/parametros.repo';
 import { PanelRepoFirestore as Panel } from '../src/main/firebase/repositories/panel.repo';
 import { EventosRepoFirestore as Eventos } from '../src/main/firebase/repositories/eventos.repo';
+import { registrarAutor } from '../src/main/firebase/client';
 import { valorDeLotes } from '../src/core/lotes';
 import { hoyISO } from '../src/core/fechas';
 import type { LineaVentaInput } from '../src/shared/ipc-contracts';
@@ -316,5 +317,81 @@ describe('aceptar queda firme', () => {
     expect((await leer(e)).estado).toBe('COTIZADA');
     await Pagos.corregir(pago_id, { fecha: HOY, monto_cents: 2500, moneda: 'USD', metodo: 'EFECTIVO' }, g());
     expect([(await leer(e)).estado, (await leer(e)).aceptado_el]).toEqual(['PENDIENTE', HOY]);
+  });
+});
+
+describe('la moneda en que pagó', () => {
+  it('al contado en córdobas: corregir la venta ajusta el abono en córdobas, con su tasa', async () => {
+    const termo = await producto('Termo', 3, 1000);
+    const v = await vender([lineaDe(termo, 2, 2500)], { pago_inicial: { moneda: 'COR', metodo: 'EFECTIVO' } });
+    const [pago] = (await leer(v)).pagos;
+    expect([pago.moneda, pago.monto_cor_cents]).toEqual(['COR', 183100]);
+    // La tasa del día cambia: el abono conserva la suya.
+    await Parametros.actualizar({ tasa_cambio_cents: 3700 }, g());
+
+    await Ventas.corregir(v, { fecha: HOY, lineas: [lineaDe(termo, 1, 2500)], ajustar_abono: true }, g());
+
+    const c = await leer(v);
+    expect([c.total_usd_cents, c.pagado_usd_cents, c.saldo_usd_cents]).toEqual([2500, 2500, 0]);
+    const [ajustado] = c.pagos;
+    expect([ajustado.id, ajustado.moneda, ajustado.monto_cor_cents, ajustado.monto_usd_cents, ajustado.tasa_cambio_cents]).toEqual([
+      pago.id,
+      'COR',
+      91550,
+      2500,
+      3662,
+    ]);
+  });
+
+  it('y si la venta sube, el abono sube: no queda debiendo la diferencia', async () => {
+    const termo = await producto('Termo', 3, 1000);
+    const v = await vender([lineaDe(termo, 1, 2500)], { pago_inicial: { moneda: 'USD', metodo: 'EFECTIVO' } });
+    await Ventas.corregir(v, { fecha: HOY, lineas: [lineaDe(termo, 2, 2500)], ajustar_abono: true }, g());
+    const c = await leer(v);
+    expect([c.total_usd_cents, c.saldo_usd_cents, c.pagos[0].monto_usd_cents, c.pagos[0].moneda]).toEqual([5000, 0, 5000, 'USD']);
+  });
+
+  it('sin ajustar, el aviso dice lo pagado en córdobas', async () => {
+    const termo = await producto('Termo', 3, 1000);
+    const v = await vender([lineaDe(termo, 2, 2500)], { pago_inicial: { moneda: 'COR', metodo: 'EFECTIVO' } });
+    await expect(Ventas.corregir(v, { fecha: HOY, lineas: [lineaDe(termo, 1, 2500)] }, g())).rejects.toThrow(
+      'Pagó C$1,831.00 y el nuevo total es C$915.50 ($25.00). Corregí el abono primero.'
+    );
+  });
+
+  it('a crédito con un abono parcial, el abono no se toca', async () => {
+    const termo = await producto('Termo', 3, 1000);
+    const v = await vender([lineaDe(termo, 2, 2500)], { pago_inicial: { moneda: 'COR', metodo: 'EFECTIVO', monto_cents: 36620 } });
+    await Ventas.corregir(v, { fecha: HOY, lineas: [lineaDe(termo, 1, 2500)], ajustar_abono: true }, g());
+    const c = await leer(v);
+    expect([c.pagos[0].monto_cor_cents, c.pagado_usd_cents, c.saldo_usd_cents]).toEqual([36620, 1000, 1500]);
+  });
+});
+
+describe('quién lo registró', () => {
+  afterEach(() => registrarAutor(() => null));
+
+  it('una venta y su abono guardan la cuenta que los registró; corregir guarda quién corrigió', async () => {
+    registrarAutor(() => ({ uid: 'u-ross', nombre: 'Ross Prueba' }));
+    const termo = await producto('Termo', 3, 1000);
+    const v = await vender([lineaDe(termo, 1, 2500)], { pago_inicial: { moneda: 'USD', metodo: 'EFECTIVO', monto_cents: 1000 } });
+    let c = await leer(v);
+    expect(c.registrado_por).toEqual({ uid: 'u-ross', nombre: 'Ross Prueba' });
+    expect(c.pagos[0].registrado_por).toEqual({ uid: 'u-ross', nombre: 'Ross Prueba' });
+
+    registrarAutor(() => ({ uid: 'u-jos', nombre: 'Joswill Prueba' }));
+    await Pagos.corregir(c.pagos[0].id, { fecha: HOY, monto_cents: 1200, moneda: 'USD', metodo: 'EFECTIVO' }, g());
+    await Ventas.corregir(v, { fecha: HOY, lineas: [lineaDe(termo, 2, 2500)] }, g());
+    c = await leer(v);
+    expect(c.registrado_por?.nombre).toBe('Ross Prueba');
+    expect(c.corregido_por?.nombre).toBe('Joswill Prueba');
+    expect(c.pagos[0].registrado_por?.nombre).toBe('Ross Prueba');
+    expect(c.pagos[0].corregido_por?.nombre).toBe('Joswill Prueba');
+    expect(c.pagos[0].corregido_en).toBeTruthy();
+  });
+
+  it('sin cuenta (lo de antes, o las pruebas), no se anota nada', async () => {
+    const v = await vender([{ descripcion: 'Algo', cantidad: 1, precio_unitario_usd_cents: 500 }]);
+    expect((await leer(v)).registrado_por).toBeUndefined();
   });
 });

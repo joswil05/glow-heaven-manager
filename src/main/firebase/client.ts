@@ -17,6 +17,7 @@ import {
   type DocumentData,
 } from 'firebase/firestore';
 import { FIREBASE_CONFIG } from '../../shared/firebase-config';
+import type { Autor } from '../../shared/types';
 
 let firestoreInstance: Firestore | null = null;
 
@@ -49,6 +50,38 @@ export function getFirestoreDb(): Firestore {
     }
   }
   return firestoreInstance;
+}
+
+/**
+ * Quién está usando la app, para anotarlo en lo que registra.
+ *
+ * Los repositorios son los mismos en Windows y en el celular, pero cada app
+ * inicia sesión a su manera: la de Windows en el proceso principal, el celular
+ * en el navegador. Por eso no preguntan a Firebase Auth directamente: cada app
+ * les dice al arrancar cómo averiguarlo (`registrarAutor`). Sin eso (en las
+ * pruebas, por ejemplo) no se anota nadie.
+ */
+let obtenerAutor: () => Autor | null = () => null;
+
+export function registrarAutor(fn: () => Autor | null): void {
+  obtenerAutor = fn;
+}
+
+export function autorActual(): Autor | undefined {
+  try {
+    return obtenerAutor() ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Una cuenta de Firebase, como se anota: su nombre, o su correo si no tiene. */
+export function autorDeCuenta(
+  u: { uid: string; displayName?: string | null; email?: string | null } | null | undefined
+): Autor | null {
+  if (!u) return null;
+  const nombre = u.displayName?.trim() || u.email?.trim() || '';
+  return nombre ? { uid: u.uid, nombre } : { uid: u.uid, nombre: 'Sin nombre' };
 }
 
 /**

@@ -19,6 +19,7 @@ import {
   leerVarios,
   aplicarLote,
   sinUndefined,
+  autorActual,
   type OperacionLote,
 } from '../client';
 import { ParametrosRepoFirestore } from './parametros.repo';
@@ -79,6 +80,13 @@ import {
   type Lote,
 } from '../../../core/lotes';
 import { reescalarCuotas, repartirEnCuotas } from '../../../core/cuotas';
+import {
+  abonoQueSigueAlTotal,
+  monedaDeLosAbonos,
+  textoLoPagado,
+  textoPagado,
+  textoTotalEn,
+} from '../../../core/abonos';
 
 export interface CrearVentaInput {
   cliente_id?: number;
@@ -572,6 +580,7 @@ export class VentasRepoFirestore {
             notas: input.pago_inicial.notas,
             es_anticipo: esEncargo,
             activo: true,
+            registrado_por: autorActual(),
           };
         }
       }
@@ -625,6 +634,7 @@ export class VentasRepoFirestore {
             : [],
         activo: true,
         creado_en: new Date().toISOString(),
+        registrado_por: autorActual(),
       };
 
       const operacionesLote: OperacionLote[] = [
@@ -764,10 +774,13 @@ export class VentasRepoFirestore {
     const ventaRef = doc(db, 'ventas', String(venta_id));
     const ahora = new Date().toISOString();
 
-    // Los abonos guardan la clienta; si cambia, cambia en ellos también. La
-    // consulta va antes porque una transacción sólo lee documentos sueltos.
+    // Los abonos se leen dentro de la transacción: guardan la clienta (si
+    // cambia, cambia en ellos), dicen en qué moneda pagó, y el de una venta al
+    // contado sigue al total. La consulta va antes porque una transacción sólo
+    // lee documentos sueltos.
     const pagosSnap = await getDocs(query(collection(db, 'pagos'), where('venta_id', '==', venta_id)));
     const pagoIds = pagosSnap.docs.map((d) => Number((d.data() as Pago).id));
+    const autor = autorActual();
 
     type Tocado = {
       p: ProductoDoc;
@@ -780,7 +793,7 @@ export class VentasRepoFirestore {
       costoSacado: number;
     };
 
-    const { antes, tocados } = await runTransaction(db, async (tx) => {
+    const { antes, tocados, ajuste } = await runTransaction(db, async (tx) => {
       const snap = await tx.get(ventaRef);
       if (!snap.exists()) throw new Error(`La venta #${venta_id} no existe.`);
       const venta = snap.data() as VentaDoc;
@@ -795,7 +808,7 @@ export class VentasRepoFirestore {
         ...new Set([...viejas, ...input.lineas].map((l) => l.producto_id).filter(Boolean)),
       ] as number[];
       const cambiaClienta = (venta.cliente_id ?? null) !== (input.cliente_id ?? null);
-      const pagoRefs = cambiaClienta ? pagoIds.map((id) => doc(db, 'pagos', String(id))) : [];
+      const pagoRefs = pagoIds.map((id) => doc(db, 'pagos', String(id)));
       const [snapsProductos, snapsPagos] = await Promise.all([
         Promise.all(ids.map((id) => tx.get(doc(db, 'productos', String(id))))),
         Promise.all(pagoRefs.map((ref) => tx.get(ref))),
@@ -884,10 +897,17 @@ export class VentasRepoFirestore {
       );
       const total = Math.max(0, subtotalVenta - descuento);
 
-      const pagado = venta.pagado_usd_cents || 0;
+      const pagos = snapsPagos.filter((s) => s.exists()).map((s) => s.data() as Pago);
+      const activos = pagos.filter((p) => p.activo !== false);
+      // Al contado, pagada entera con un solo abono: el abono sigue al total.
+      const ajuste = input.ajustar_abono ? abonoQueSigueAlTotal(venta, activos, total) : null;
+      const pagado =
+        (venta.pagado_usd_cents || 0) - (ajuste ? ajuste.pago.monto_usd_cents : 0) + (ajuste ? ajuste.monto_usd_cents : 0);
       if (pagado > total) {
+        // En la moneda en que pagó: si fue en córdobas, "Pagó C$732.40".
+        const moneda = monedaDeLosAbonos(activos);
         throw new Error(
-          `Pagó ${formatearMoneda(pagado, 'USD')} y el nuevo total es ${formatearMoneda(total, 'USD')}. Corregí el abono primero.`
+          `Pagó ${textoLoPagado(activos)} y el nuevo total es ${textoTotalEn(moneda, total, venta.tasa_cambio_cents || 3662)}. Corregí el abono primero.`
         );
       }
 
@@ -985,6 +1005,8 @@ export class VentasRepoFirestore {
         notas: input.notas?.trim() || undefined,
         lineas,
         cuotas,
+        corregido_por: autor,
+        corregido_en: ahora,
         actualizado_en: ahora,
       };
       // Sin merge: la venta queda exactamente como se corrigió, sin la clienta
@@ -1002,17 +1024,28 @@ export class VentasRepoFirestore {
       snapsPagos.forEach((s, i) => {
         if (!s.exists()) return;
         const { cliente_id: _c, ...pago } = s.data() as Pago;
+        const esElAjustado = ajuste !== null && pago.id === ajuste.pago.id;
+        if (!cambiaClienta && !esElAjustado) return;
         tx.set(
           pagoRefs[i],
           sinUndefined({
             ...pago,
             ...(input.cliente_id ? { cliente_id: input.cliente_id } : {}),
+            // Misma moneda y misma tasa: sólo cambia cuánto.
+            ...(esElAjustado
+              ? {
+                  monto_usd_cents: ajuste.monto_usd_cents,
+                  monto_cor_cents: ajuste.monto_cor_cents,
+                  corregido_por: autor,
+                  corregido_en: ahora,
+                }
+              : {}),
             actualizado_en: ahora,
           } as unknown as Record<string, unknown>)
         );
       });
 
-      return { antes: venta, tocados };
+      return { antes: venta, tocados, ajuste };
     });
 
     // El rastro de la bodega: un movimiento por producto, sólo si cambió
@@ -1054,6 +1087,17 @@ export class VentasRepoFirestore {
       valor_anterior: antes as unknown as Record<string, unknown>,
       detalle: `${antes.codigo} corregida`,
     });
+    if (ajuste) {
+      await EventosRepoFirestore.registrarEvento({
+        evento_grupo_id,
+        reversible: false,
+        entidad_tipo: 'pagos',
+        entidad_id: ajuste.pago.id,
+        tipo_evento: 'ACTUALIZACION',
+        valor_anterior: ajuste.pago as unknown as Record<string, unknown>,
+        detalle: `Abono de ${antes.codigo}: ${textoPagado(ajuste.pago)} pasa a ${textoPagado({ ...ajuste.pago, ...ajuste })}, con la venta`,
+      });
+    }
   }
 
   /**

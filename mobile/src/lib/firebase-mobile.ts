@@ -16,6 +16,7 @@ import {
   type User,
 } from 'firebase/auth';
 import { FIREBASE_CONFIG } from '@shared/firebase-config';
+import { registrarAutor, autorDeCuenta } from '@firebase-client';
 
 /**
  * Autenticación en el navegador móvil.
@@ -123,6 +124,9 @@ function crearAuth() {
 }
 
 export const auth = crearAuth();
+
+// Lo que se registre desde el celular queda a nombre de la cuenta que entró.
+registrarAutor(() => autorDeCuenta(auth.currentUser));
 
 /**
  * Enganche con el emulador de Auth, solo para las pruebas de interfaz.
