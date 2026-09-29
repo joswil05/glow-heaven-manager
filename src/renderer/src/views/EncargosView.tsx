@@ -32,6 +32,7 @@ import {
 } from '@core/encargos';
 import { formatearMoneda, formatearFecha } from '@core/moneda';
 import { hoyISO } from '@core/fechas';
+import { esDeuda } from '@core/cobranza';
 import { algunoContiene } from '@core/texto';
 import { enlaceWhatsApp } from '../lib/whatsapp';
 import { useToast } from '../context/ToastContext';
@@ -405,6 +406,24 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
     void conCompleta(id, (v) => setMenu({ x, y, items: otrasAcciones(v, conDetalle) }));
   };
 
+  /** Lo que se puede hacer con una pieza, además de lo que dice el botón principal. */
+  const accionesDePieza = (
+    l: VentaCompleta['lineas'][number],
+    e: ReturnType<typeof estadoPieza>,
+    precioAparte: boolean
+  ): { texto: string; accion: () => void; principal?: boolean }[] => {
+    if (!detalle) return [];
+    const acciones: { texto: string; accion: () => void; principal?: boolean }[] = [];
+    if (e === 'POR_COMPRAR' && !sinPrecio(l) && precioAparte) {
+      // Antes de que acepte se puede comprar igual, pero no se empuja a hacerlo.
+      acciones.push({ texto: 'Ya lo compré', accion: () => comprar(detalle, [l.id]), principal: detalle.estado === 'PENDIENTE' });
+    }
+    if (e === 'COMPRADA') acciones.push({ texto: 'Desmarcar', accion: () => void marcarCompradas(detalle, [l.id], false) });
+    if (descartable(l)) acciones.push({ texto: 'No se consiguió', accion: () => void descartar(detalle, l.id, true) });
+    if (e === 'DESCARTADA') acciones.push({ texto: 'Volver a buscar', accion: () => void descartar(detalle, l.id, false) });
+    return acciones;
+  };
+
   /** De dónde sale cada pieza, en palabras. */
   const dondeEsta = (l: VentaCompleta['lineas'][number]) => {
     const e = estadoPieza(l);
@@ -413,7 +432,9 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
     if (e === 'EN_CAMINO') return `Viene en ${l.compra_codigo ?? 'un paquete'}`;
     if (e === 'COMPRADA') return `Comprado${l.comprado_el ? ` el ${formatearFecha(l.comprado_el)}` : ''}, espera paquete`;
     if (e === 'DE_BODEGA') return 'Sale de la bodega';
-    return sinPrecio(l) ? 'Por buscar' : 'Por comprar';
+    if (sinPrecio(l)) return 'Por buscar';
+    // "Por comprar" es lo que toca cuando aceptó; antes, sólo no se compró.
+    return detalle?.estado === 'COTIZADA' ? 'Sin comprar' : 'Por comprar';
   };
 
   // ---------------------------------------------------------------------------
@@ -457,7 +478,7 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
       width: '110px',
       render: (v) =>
         sinTotal(v) ? (
-          <span className="text-caption text-texto-3">Sin precio</span>
+          <span className="text-caption text-texto-3 whitespace-nowrap">Sin precio</span>
         ) : (
           <span className="text-body text-texto tabular">{$(v.total_usd_cents)}</span>
         ),
@@ -467,11 +488,14 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
       header: 'Debe',
       align: 'right',
       width: '110px',
+      // Sólo lo que es deuda (`esDeuda`): un encargo que la clienta todavía no
+      // aceptó no le debe nada. Antes esta columna mostraba el total de una
+      // cotización recién mandada como si fuera plata en la calle.
       render: (v) =>
-        v.estado === 'CANCELADA' || sinTotal(v) || v.saldo_usd_cents <= 0 ? (
-          <span className="text-caption text-texto-3">—</span>
-        ) : (
+        esDeuda(v) ? (
           <span className="text-body font-semibold text-alerta tabular">{$(v.saldo_usd_cents)}</span>
+        ) : (
+          <span className="text-caption text-texto-3">—</span>
         ),
     },
     {
@@ -634,6 +658,11 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
               }
             />
           ) : (
+            // La tabla maneja su propia selección. Si el "clic afuera" del
+            // detalle la tocara, el mousedown en otra fila cerraba el panel,
+            // la tabla se ensanchaba, las filas subían, y el click caía en
+            // otra parte: hacían falta dos clics para cambiar de encargo.
+            <div data-ignorar-afuera>
             <DataTable
               columns={columnas}
               rows={filas}
@@ -650,6 +679,7 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
               onRowClick={(v) => (detalle?.id === v.id ? setDetalle(null) : abrirDetalle(v.id))}
               onRowContextMenu={(v, e) => abrirMenu(e, v.id, true)}
             />
+            </div>
           )}
           {vista === 'CERRADOS' && (cerrados?.length ?? 0) >= CERRADOS && (
             <p className="text-caption text-texto-3 text-center">Se muestran los más recientes. Buscá por clienta para ver uno anterior en su ficha.</p>
@@ -726,44 +756,27 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
                         </p>
                       )}
                       {vivoDetalle && (
-                        <p className="text-caption text-texto-2 flex items-center gap-x-2 gap-y-0.5 flex-wrap">
+                        <p className="text-caption text-texto-2 flex items-center gap-x-1.5 gap-y-0.5 flex-wrap">
                           <span>{dondeEsta(l)}</span>
-                          {e === 'POR_COMPRAR' && !sinPrecio(l) && precioAparte && (
-                            <button
-                              type="button"
-                              onClick={() => comprar(detalle, [l.id])}
-                              className="text-acento font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento rounded"
-                            >
-                              Ya lo compré
-                            </button>
-                          )}
-                          {e === 'COMPRADA' && (
-                            <button
-                              type="button"
-                              onClick={() => marcarCompradas(detalle, [l.id], false)}
-                              className="text-texto-3 hover:text-texto hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento rounded"
-                            >
-                              Desmarcar
-                            </button>
-                          )}
-                          {descartable(l) && (
-                            <button
-                              type="button"
-                              onClick={() => descartar(detalle, l.id, true)}
-                              className="text-texto-3 hover:text-texto hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento rounded"
-                            >
-                              No se consiguió
-                            </button>
-                          )}
-                          {e === 'DESCARTADA' && (
-                            <button
-                              type="button"
-                              onClick={() => descartar(detalle, l.id, false)}
-                              className="text-texto-3 hover:text-texto hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento rounded"
-                            >
-                              Volver a buscar
-                            </button>
-                          )}
+                          {accionesDePieza(l, e, precioAparte).map((a) => (
+                            <React.Fragment key={a.texto}>
+                              <span aria-hidden="true" className="text-texto-3">
+                                ·
+                              </span>
+                              <button
+                                type="button"
+                                onClick={a.accion}
+                                className={cn(
+                                  'rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento',
+                                  a.principal
+                                    ? 'text-acento font-medium hover:underline'
+                                    : 'text-texto-2 underline decoration-dotted underline-offset-2 hover:text-texto'
+                                )}
+                              >
+                                {a.texto}
+                              </button>
+                            </React.Fragment>
+                          ))}
                         </p>
                       )}
                     </div>
@@ -784,12 +797,18 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
                 <span className="text-texto-2">
                   Pagó <strong className="text-texto">{$(detalle.pagado_usd_cents)}</strong>
                 </span>
-                <span className="text-texto-2">
-                  Debe{' '}
-                  <strong className={detalle.saldo_usd_cents > 0 ? 'text-alerta' : 'text-texto'}>
-                    {$(Math.max(0, detalle.saldo_usd_cents))}
-                  </strong>
-                </span>
+                {detalle.estado === 'COTIZADA' ? (
+                  <span className="text-texto-2">
+                    Anticipo <strong className="text-texto">{$(detalle.anticipo_esperado_usd_cents)}</strong>
+                  </span>
+                ) : (
+                  <span className="text-texto-2">
+                    Debe{' '}
+                    <strong className={detalle.saldo_usd_cents > 0 ? 'text-alerta' : 'text-texto'}>
+                      {$(Math.max(0, detalle.saldo_usd_cents))}
+                    </strong>
+                  </span>
+                )}
               </div>
             )}
 
