@@ -5,7 +5,6 @@ import {
   DollarSign,
   PackageCheck,
   XCircle,
-  ClipboardList,
   TrendingUp,
   Wallet,
   X,
@@ -24,7 +23,6 @@ import type {
   ProductoConStock,
   ClienteDetalle,
   ParametrosSistema,
-  TipoVenta,
   EstadoVenta,
   OpcionesAnulacion,
 } from '../../../shared/types';
@@ -40,9 +38,6 @@ import {
   type Tone,
 } from '../components/ui';
 import { EmptyState } from '../components/shared/EmptyState';
-import { AnularEncargoModal } from './ventas/AnularEncargoModal';
-import { CotizarEncargoModal } from './ventas/CotizarEncargoModal';
-import { etapaEncargo, textoEtapa, estadoPieza, sinPrecio, type EtapaEncargo } from '@core/encargos';
 import { VentaEditor } from './ventas/VentaEditor';
 import { PagoModal } from '../components/PagoModal';
 import { DocumentoModal } from '../components/DocumentoModal';
@@ -53,8 +48,11 @@ import { formatearMoneda, formatearFecha } from '@core/moneda';
 import { mesISO } from '@core/fechas';
 import { algunoContiene } from '@core/texto';
 
+/**
+ * Las ventas de inventario. Los encargos tienen su propia pantalla
+ * (`EncargosView`) desde la 2.16: acá antes se mostraban con un interruptor.
+ */
 interface VentasViewProps {
-  tipo: TipoVenta;
   productos: ProductoConStock[];
   clientes: ClienteDetalle[];
   parametros: ParametrosSistema | null;
@@ -77,33 +75,7 @@ const ESTADO_TEXTO: Record<EstadoVenta, string> = {
   CANCELADA: 'Anulada',
 };
 
-type Filtro = 'TODAS' | 'CON_SALDO' | 'POR_COTIZAR' | 'PENDIENTES' | 'EN_CAMINO' | 'POR_ENTREGAR' | 'ENTREGADAS';
-
-/** La etapa que muestra cada filtro de encargos (todos son "pendientes" guardados). */
-const ETAPA_DEL_FILTRO: Partial<Record<Filtro, EtapaEncargo>> = {
-  POR_COTIZAR: 'POR_COTIZAR',
-  PENDIENTES: 'POR_COMPRAR',
-  EN_CAMINO: 'EN_CAMINO',
-  POR_ENTREGAR: 'POR_ENTREGAR',
-};
-
-/** Un pedido anotado sin ningún precio: no hay total, ni deuda, ni ganancia que mostrar. */
-const esPedidoVacio = (v: Venta) =>
-  v.tipo === 'ENCARGO' && etapaEncargo(v) === 'POR_COTIZAR' && (v.total_usd_cents || 0) === 0;
-
-/** Alguna pieza ya se compró y todavía no llegó: no se puede entregar. */
-const algoViene = (v: VentaCompleta) =>
-  v.lineas.some((l) => estadoPieza(l) === 'COMPRADA' || estadoPieza(l) === 'EN_CAMINO');
-
-const TONO_ETAPA: Record<EtapaEncargo, Tone> = {
-  POR_COTIZAR: 'purple',
-  COTIZADO: 'neutral',
-  POR_COMPRAR: 'warning',
-  EN_CAMINO: 'info',
-  POR_ENTREGAR: 'success',
-  ENTREGADO: 'success',
-  ANULADO: 'danger',
-};
+type Filtro = 'TODAS' | 'CON_SALDO' | 'PENDIENTES' | 'ENTREGADAS';
 
 /**
  * Cuántas ventas se traen de una.
@@ -115,7 +87,6 @@ const POR_PAGINA = 50;
 type Periodo = 'TODOS' | 'ESTE_MES' | 'MES_ANTERIOR' | 'ESTE_ANO';
 
 export const VentasView: React.FC<VentasViewProps> = ({
-  tipo,
   productos,
   clientes,
   parametros,
@@ -124,7 +95,6 @@ export const VentasView: React.FC<VentasViewProps> = ({
   onCambio,
 }) => {
   const { showToast, showUndoToast } = useToast();
-  const esEncargo = tipo === 'ENCARGO';
 
   const [ventas, setVentas] = useState<Venta[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -147,8 +117,6 @@ export const VentasView: React.FC<VentasViewProps> = ({
   const [pagoAbierto, setPagoAbierto] = useState(false);
   const [documentoAbierto, setDocumentoAbierto] = useState(false);
   const [anulando, setAnulando] = useState<Venta | VentaCompleta | null>(null);
-  const [entregandoSinCompra, setEntregandoSinCompra] = useState<Venta | VentaCompleta | null>(null);
-  const [cotizando, setCotizando] = useState<Venta | VentaCompleta | null>(null);
   const [menuContextual, setMenuContextual] = useState<{
     x: number;
     y: number;
@@ -174,7 +142,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
   }, [periodo]);
 
   const estadoDelFiltro: EstadoVenta | undefined =
-    filtro === 'PENDIENTES' || filtro === 'EN_CAMINO' || filtro === 'POR_ENTREGAR'
+    filtro === 'PENDIENTES'
       ? 'PENDIENTE'
       : filtro === 'ENTREGADAS'
         ? 'ENTREGADA'
@@ -197,12 +165,12 @@ export const VentasView: React.FC<VentasViewProps> = ({
 
   const filtrosBase = useCallback(
     () => ({
-      tipo,
+      tipo: 'INVENTARIO' as const,
       desde: desdeDelPeriodo,
       soloConSaldo: filtro === 'CON_SALDO',
       estado: estadoDelFiltro,
     }),
-    [tipo, desdeDelPeriodo, filtro, estadoDelFiltro]
+    [desdeDelPeriodo, filtro, estadoDelFiltro]
   );
 
   const cargar = useCallback(async () => {
@@ -302,8 +270,8 @@ export const VentasView: React.FC<VentasViewProps> = ({
       try {
         const encontradas: Venta[] = [];
 
-        // ¿Es un código de venta? V-0007, e12, 7...
-        const codigo = texto.toUpperCase().match(/^[VE]?-?0*(\d+)$/);
+        // ¿Es un código de venta? V-0007, v7, 7...
+        const codigo = texto.toUpperCase().match(/^V?-?0*(\d+)$/);
         if (codigo) {
           const r = await window.api.ventas.get(Number(codigo[1]));
           if (r.success && r.data) encontradas.push(r.data);
@@ -319,7 +287,9 @@ export const VentasView: React.FC<VentasViewProps> = ({
         }
 
         if (!vivo) return;
-        const porId = new Map(encontradas.map((v) => [v.id, v]));
+        // Sólo ventas: los encargos tienen su pantalla y su buscador, y la
+        // ficha de la clienta muestra todo junto.
+        const porId = new Map(encontradas.filter((v) => v.tipo !== 'ENCARGO').map((v) => [v.id, v]));
         setFueraDelPeriodo([...porId.values()]);
       } finally {
         if (vivo) setBuscando(false);
@@ -333,11 +303,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
   }, [busqueda]);
 
   const ventasPeriodo = useMemo(() => {
-    // En encargos, "por comprar", "en camino" y "por entregar" son todos
-    // pendientes guardados: la etapa se deriva de sus piezas.
-    const etapa = esEncargo ? ETAPA_DEL_FILTRO[filtro] : undefined;
-    const deLaEtapa = (lista: Venta[]) => (etapa ? lista.filter((v) => etapaEncargo(v) === etapa) : lista);
-    if (!busqueda.trim()) return deLaEtapa(ventas);
+    if (!busqueda.trim()) return ventas;
 
     const coincide = (v: Venta) => algunoContiene([v.codigo, v.cliente_nombre], busqueda);
 
@@ -346,13 +312,11 @@ export const VentasView: React.FC<VentasViewProps> = ({
     for (const v of ventas.filter(coincide)) porId.set(v.id, v);
     for (const v of fueraDelPeriodo ?? []) porId.set(v.id, v);
 
-    return deLaEtapa(
-      [...porId.values()].sort((a, b) => {
-        const cmp = (b.fecha || '').localeCompare(a.fecha || '');
-        return cmp !== 0 ? cmp : b.id - a.id;
-      })
-    );
-  }, [ventas, busqueda, fueraDelPeriodo, esEncargo, filtro]);
+    return [...porId.values()].sort((a, b) => {
+      const cmp = (b.fecha || '').localeCompare(a.fecha || '');
+      return cmp !== 0 ? cmp : b.id - a.id;
+    });
+  }, [ventas, busqueda, fueraDelPeriodo]);
 
   const totales = useMemo(() => {
     const activas = ventasPeriodo.filter((v) => v.estado !== 'CANCELADA');
@@ -403,17 +367,9 @@ export const VentasView: React.FC<VentasViewProps> = ({
       showToast({ message: r.error, type: 'error' });
       return;
     }
-    // "Encargo" es masculino: "E-0012: anulado", "V-0031: anulada".
-    const mensaje = `${v.codigo}: ${
-      v.tipo === 'ENCARGO' && (estado === 'CANCELADA' || estado === 'ENTREGADA')
-        ? estado === 'CANCELADA'
-          ? 'anulado'
-          : 'entregado'
-        : ESTADO_TEXTO[estado].toLowerCase()
-    }`;
+    const mensaje = `${v.codigo}: ${ESTADO_TEXTO[estado].toLowerCase()}`;
 
-    // Anular una venta devuelve su mercadería al inventario, y entregar un
-    // encargo la saca. Eso no se revierte restaurando el documento, así que
+    // Anular una venta devuelve su mercadería al inventario. Eso no se revierte restaurando el documento, así que
     // no se ofrece "Deshacer": la vuelta correcta es cambiar el estado otra
     // vez desde el detalle.
     if (r.data.reversible) {
@@ -433,31 +389,10 @@ export const VentasView: React.FC<VentasViewProps> = ({
     onCambio();
   };
 
-  /** "Ya lo compré", o desmarcarlo: la pieza espera paquete sin saber cuál. */
-  const marcarComprada = async (v: VentaCompleta, linea_id: number, comprado: boolean) => {
-    const r = await window.api.ventas.marcarCompradas(v.id, [linea_id], comprado);
-    if (!r.success) {
-      showToast({ message: r.error, type: 'error' });
-      return;
-    }
-    showUndoToast(
-      comprado ? 'Comprado: espera paquete' : 'Otra vez por comprar',
-      async () => {
-        await cargar();
-        await abrirDetalle(v.id);
-        onCambio();
-      },
-      r.data.evento_grupo_id
-    );
-    await cargar();
-    await abrirDetalle(v.id);
-    onCambio();
-  };
-
   const columnas: Column<Venta>[] = [
     {
       key: 'codigo',
-      header: esEncargo ? 'Encargo' : 'Venta',
+      header: 'Venta',
       render: (v) => (
         <div className="min-w-0">
           <div className="text-body font-semibold text-texto tracking-tight truncate">
@@ -473,14 +408,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
       key: 'estado',
       header: 'Estado',
       width: '130px',
-      render: (v) =>
-        // Un encargo muestra en qué va (por comprar, en camino, por entregar),
-        // que sale de sus piezas; una venta, su estado.
-        v.tipo === 'ENCARGO' ? (
-          <Badge tone={TONO_ETAPA[etapaEncargo(v)]} className="font-medium whitespace-nowrap">
-            {textoEtapa(etapaEncargo(v), v.piezas, v.motivo_anulacion)}
-          </Badge>
-        ) : (
+      render: (v) => (
         <Badge tone={ESTADO_TONO[v.estado]} className="gap-1.5 font-medium">
           <span
             className={cn(
@@ -496,19 +424,14 @@ export const VentasView: React.FC<VentasViewProps> = ({
           />
           {ESTADO_TEXTO[v.estado]}
         </Badge>
-        ),
+      ),
     },
     {
       key: 'total',
       header: 'Total',
       align: 'right',
       width: '120px',
-      render: (v) =>
-        esPedidoVacio(v) ? (
-          <span className="text-caption text-texto-3">Por cotizar</span>
-        ) : (
-          <Money usd_cents={v.total_usd_cents} size="sm" soloUsd />
-        ),
+      render: (v) => <Money usd_cents={v.total_usd_cents} size="sm" soloUsd />,
     },
     {
       key: 'pagado',
@@ -523,9 +446,8 @@ export const VentasView: React.FC<VentasViewProps> = ({
       align: 'right',
       width: '130px',
       render: (v) =>
-        // Una venta anulada no debe nada, aunque su saldo guardado diga otra
-        // cosa; un pedido sin precio, tampoco: no está "saldado".
-        v.estado === 'CANCELADA' || esPedidoVacio(v) ? (
+        // Una venta anulada no debe nada, aunque su saldo guardado diga otra cosa.
+        v.estado === 'CANCELADA' ? (
           <span className="text-caption text-texto-3">—</span>
         ) : v.saldo_usd_cents > 0 ? (
           <span className="font-semibold text-alerta">
@@ -542,7 +464,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
       width: '130px',
       // Anulada, no dejó ganancia: la cifra guardada es la que habría dejado.
       render: (v) =>
-        v.estado === 'CANCELADA' || esPedidoVacio(v) ? (
+        v.estado === 'CANCELADA' ? (
           <span className="text-caption text-texto-3">—</span>
         ) : (
           <Money usd_cents={v.ganancia_usd_cents} size="sm" soloUsd colorearSigno />
@@ -555,22 +477,20 @@ export const VentasView: React.FC<VentasViewProps> = ({
       width: '150px',
       render: (v) => (
         <div className="flex items-center justify-end gap-1">
-          {!esPedidoVacio(v) && (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="text-texto-2 hover:text-texto font-medium text-xs px-2.5 py-1 h-7 rounded-lg"
-              title={v.tipo === 'ENCARGO' ? 'Ver o imprimir la proforma' : 'Ver o imprimir la factura'}
-              onClick={async (e) => {
-                e.stopPropagation();
-                await abrirDetalle(v.id);
-                setDocumentoAbierto(true);
-              }}
-            >
-              <FileText className="w-3.5 h-3.5 mr-1" />
-              <span>{v.tipo === 'ENCARGO' ? 'Proforma' : 'Factura'}</span>
-            </Button>
-          )}
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-texto-2 hover:text-texto font-medium text-xs px-2.5 py-1 h-7 rounded-lg"
+            title="Ver o imprimir la factura"
+            onClick={async (e) => {
+              e.stopPropagation();
+              await abrirDetalle(v.id);
+              setDocumentoAbierto(true);
+            }}
+          >
+            <FileText className="w-3.5 h-3.5 mr-1" />
+            <span>Factura</span>
+          </Button>
 
           <Button
             size="sm"
@@ -593,16 +513,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
   const filtros: { id: Filtro; etiqueta: string }[] = [
     { id: 'TODAS', etiqueta: 'Todas' },
     { id: 'CON_SALDO', etiqueta: 'Con saldo' },
-    // Un pedido anotado sin precio, antes de todo lo demás.
-    ...(esEncargo ? ([{ id: 'POR_COTIZAR', etiqueta: 'Por cotizar' }] as { id: Filtro; etiqueta: string }[]) : []),
-    { id: 'PENDIENTES', etiqueta: esEncargo ? 'Por comprar' : 'Por entregar' },
-    // Un encargo pasa por dos etapas más antes de entregarse.
-    ...(esEncargo
-      ? ([
-          { id: 'EN_CAMINO', etiqueta: 'En camino' },
-          { id: 'POR_ENTREGAR', etiqueta: 'Por entregar' },
-        ] as { id: Filtro; etiqueta: string }[])
-      : []),
+    { id: 'PENDIENTES', etiqueta: 'Por entregar' },
     { id: 'ENTREGADAS', etiqueta: 'Entregadas' },
   ];
 
@@ -614,7 +525,6 @@ export const VentasView: React.FC<VentasViewProps> = ({
         <div className="flex items-center justify-between gap-3 shrink-0 flex-wrap">
           <span className="text-label text-texto-3 tabular">
             {(() => {
-              // Las que se ven: el filtro de etapa de los encargos se aplica acá.
               const n = ventasPeriodo.filter((v) => v.estado !== 'CANCELADA').length;
               return `${n} activa${n === 1 ? '' : 's'}`;
             })()}
@@ -627,14 +537,14 @@ export const VentasView: React.FC<VentasViewProps> = ({
               onClick={() => setEditorAbierto(true)}
             >
               <Plus className="w-4 h-4" />
-              <span>{esEncargo ? 'Nuevo encargo' : 'Nueva venta'}</span>
+              <span>Nueva venta</span>
             </Button>
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 stagger-children">
           <StatTile
-            label={esEncargo ? 'Total cotizado' : 'Total facturado'}
+            label="Total facturado"
             usd_cents={totales.vendido}
             tone="info"
             icon={ShoppingBag}
@@ -754,26 +664,18 @@ export const VentasView: React.FC<VentasViewProps> = ({
           <div className="p-12 text-center text-body text-texto-3">Cargando...</div>
         ) : ventasPeriodo.length === 0 ? (
           <EmptyState
-            icon={esEncargo ? ClipboardList : ShoppingBag}
-            title={
-              filtro !== 'TODAS' || periodo !== 'TODOS'
-                ? 'Nada con esos filtros'
-                : esEncargo
-                  ? 'Todavía no hay encargos'
-                  : 'Todavía no hay ventas'
-            }
+            icon={ShoppingBag}
+            title={filtro !== 'TODAS' || periodo !== 'TODOS' ? 'Nada con esos filtros' : 'Todavía no hay ventas'}
             description={
               filtro !== 'TODAS' || periodo !== 'TODOS'
                 ? 'Probá con otro período o quitá los filtros.'
-                : esEncargo
-                  ? 'Cotizás, cobrás el anticipo, comprás y entregás.'
-                  : 'Las existencias se descuentan solas al vender.'
+                : 'Las existencias se descuentan solas al vender.'
             }
             action={
               filtro === 'TODAS' && periodo === 'TODOS' ? (
                 <Button variant="primary" onClick={() => setEditorAbierto(true)}>
                   <Plus className="w-4 h-4" />
-                  <span>{esEncargo ? 'Registrar encargo' : 'Registrar venta'}</span>
+                  <span>Registrar venta</span>
                 </Button>
               ) : undefined
             }
@@ -827,13 +729,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
                   <h3 className="text-title font-bold text-texto tracking-tight truncate">
                     {ventaDetalle.cliente_nombre ?? 'Mostrador'}
                   </h3>
-                  {/* Igual que en la lista: un encargo dice en qué va. */}
-                  {esEncargo ? (
-                    <Badge tone={TONO_ETAPA[etapaEncargo(ventaDetalle)]} className="text-[11px] shrink-0 whitespace-nowrap">
-                      {textoEtapa(etapaEncargo(ventaDetalle), ventaDetalle.piezas, ventaDetalle.motivo_anulacion)}
-                    </Badge>
-                  ) : (
-                    <Badge tone={ESTADO_TONO[ventaDetalle.estado]} className="gap-1.5 text-[11px] shrink-0">
+                  <Badge tone={ESTADO_TONO[ventaDetalle.estado]} className="gap-1.5 text-[11px] shrink-0">
                       <span
                         className={cn(
                           'w-1.5 h-1.5 rounded-full shrink-0',
@@ -848,7 +744,6 @@ export const VentasView: React.FC<VentasViewProps> = ({
                       />
                       {ESTADO_TEXTO[ventaDetalle.estado]}
                     </Badge>
-                  )}
                 </div>
                 <p className="text-caption text-texto-3 tabular mt-0.5">
                   {ventaDetalle.codigo} · {formatearFecha(ventaDetalle.fecha)}
@@ -896,11 +791,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
                 <span className="text-label text-texto-2 font-medium">
                   {(ventaDetalle.descuento_usd_cents ?? 0) > 0 ? 'Total con descuento' : 'Total'}
                 </span>
-                {esPedidoVacio(ventaDetalle) ? (
-                  <span className="text-label text-texto-3">Por cotizar</span>
-                ) : (
-                  <Money usd_cents={ventaDetalle.total_usd_cents} size="sm" />
-                )}
+                <Money usd_cents={ventaDetalle.total_usd_cents} size="sm" />
               </div>
               <div className="flex justify-between items-center gap-2">
                 <span className="text-label text-texto-2 font-medium">Pagado</span>
@@ -910,8 +801,6 @@ export const VentasView: React.FC<VentasViewProps> = ({
                 <span className="text-body font-bold text-texto">Debe</span>
                 {ventaDetalle.estado === 'CANCELADA' ? (
                   <span className="text-label text-texto-3">Nada: está anulada</span>
-                ) : esPedidoVacio(ventaDetalle) ? (
-                  <span className="text-label text-texto-3">—</span>
                 ) : ventaDetalle.saldo_usd_cents > 0 ? (
                   <span className="font-bold text-alerta">
                     <Money usd_cents={ventaDetalle.saldo_usd_cents} size="md" soloUsd />
@@ -922,7 +811,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
               </div>
               <div className="flex justify-between items-center gap-2 pt-2 border-t border-borde/70">
                 <span className="text-label text-texto-2 font-medium">Ganancia</span>
-                {ventaDetalle.estado === 'CANCELADA' || esPedidoVacio(ventaDetalle) ? (
+                {ventaDetalle.estado === 'CANCELADA' ? (
                   <span className="text-label text-texto-3">—</span>
                 ) : (
                   <Money
@@ -956,51 +845,12 @@ export const VentasView: React.FC<VentasViewProps> = ({
                           )}
                         </div>
                         <div className="text-caption text-texto-3 tabular">
-                          {esEncargo && sinPrecio(l)
-                            ? `${l.cantidad} · sin precio`
-                            : `${l.cantidad} × ${formatearMoneda(l.precio_unitario_usd_cents, 'USD')}`}
+                          {`${l.cantidad} × ${formatearMoneda(l.precio_unitario_usd_cents, 'USD')}`}
                           {l.es_paquete && ' · paquete completo'}
                         </div>
-                        {/* De dónde sale cada pieza de un encargo. */}
-                        {esEncargo && ventaDetalle.estado !== 'CANCELADA' && ventaDetalle.estado !== 'ENTREGADA' && (
-                          <div className="text-caption text-texto-2 flex items-center gap-2 flex-wrap">
-                            {(() => {
-                              const e = estadoPieza(l);
-                              if (e === 'LLEGO')
-                                return `Llegó en ${l.compra_codigo ?? 'su paquete'}${l.llego_el ? ` el ${formatearFecha(l.llego_el)}` : ''}`;
-                              if (e === 'EN_CAMINO') return `Viene en ${l.compra_codigo ?? 'un paquete'}`;
-                              if (e === 'DE_BODEGA') return 'Sale de la bodega';
-                              // Ella no sabe en qué paquete viene: sólo que ya lo compró.
-                              const accion = (texto: string, comprado: boolean) => (
-                                <button
-                                  type="button"
-                                  onClick={() => marcarComprada(ventaDetalle, l.id, comprado)}
-                                  className="text-acento font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento rounded"
-                                >
-                                  {texto}
-                                </button>
-                              );
-                              if (e === 'COMPRADA')
-                                return (
-                                  <>
-                                    <span>
-                                      Comprado{l.comprado_el ? ` el ${formatearFecha(l.comprado_el)}` : ''}, espera paquete
-                                    </span>
-                                    {accion('Desmarcar', false)}
-                                  </>
-                                );
-                              return (
-                                <>
-                                  <span>Por comprar</span>
-                                  {accion('Ya lo compré', true)}
-                                </>
-                              );
-                            })()}
-                          </div>
-                        )}
                       </div>
                       <span className="text-body font-semibold text-texto tabular shrink-0">
-                        {esEncargo && sinPrecio(l) ? '—' : formatearMoneda(l.subtotal_usd_cents, 'USD')}
+                        {formatearMoneda(l.subtotal_usd_cents, 'USD')}
                       </span>
                     </div>
                   </li>
@@ -1060,31 +910,14 @@ export const VentasView: React.FC<VentasViewProps> = ({
 
             {/* Acciones principales */}
             <div className="space-y-2.5 pt-1">
-              {/* Ponerle precio: un pedido anotado sin precio, o corregir el de
-                  uno cotizado. En uno confirmado, sólo lo que falta cotizar. */}
-              {esEncargo &&
-                (ventaDetalle.estado === 'COTIZADA' ||
-                  (ventaDetalle.estado === 'PENDIENTE' && etapaEncargo(ventaDetalle) === 'POR_COTIZAR')) && (
-                  <Button
-                    variant={etapaEncargo(ventaDetalle) === 'POR_COTIZAR' ? 'primary' : 'secondary'}
-                    className="w-full"
-                    onClick={() => setCotizando(ventaDetalle)}
-                  >
-                    {etapaEncargo(ventaDetalle) === 'POR_COTIZAR' ? 'Cotizar' : 'Cambiar precios'}
-                  </Button>
-                )}
-
-              {/* Un pedido sin precio no tiene proforma que mandar. */}
-              {!(esEncargo && etapaEncargo(ventaDetalle) === 'POR_COTIZAR' && ventaDetalle.total_usd_cents === 0) && (
-                <Button
-                  variant="secondary"
-                  className="w-full flex items-center justify-center gap-1.5"
-                  onClick={() => setDocumentoAbierto(true)}
-                >
-                  <FileText className="w-4 h-4" />
-                  <span>{esEncargo ? 'Ver proforma' : 'Ver factura'}</span>
-                </Button>
-              )}
+              <Button
+                variant="secondary"
+                className="w-full flex items-center justify-center gap-1.5"
+                onClick={() => setDocumentoAbierto(true)}
+              >
+                <FileText className="w-4 h-4" />
+                <span>Ver factura</span>
+              </Button>
 
               {ventaDetalle.estado !== 'CANCELADA' && ventaDetalle.saldo_usd_cents > 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1109,34 +942,11 @@ export const VentasView: React.FC<VentasViewProps> = ({
                 </div>
               )}
 
-              {ventaDetalle.estado === 'PENDIENTE' && esEncargo && algoViene(ventaDetalle) && (
-                <p className="text-caption text-texto-3 text-center p-2 rounded-lg bg-superficie-2">
-                  Se entrega cuando llegue todo.
-                </p>
-              )}
-
-              {ventaDetalle.estado === 'PENDIENTE' && !(esEncargo && algoViene(ventaDetalle)) && (
-                <Button
-                  variant="secondary"
-                  className="w-full"
-                  onClick={() =>
-                    // Una pieza sin compra registrada se puede entregar, pero
-                    // queda con el costo estimado: se avisa antes.
-                    esEncargo && etapaEncargo(ventaDetalle) === 'POR_COMPRAR'
-                      ? setEntregandoSinCompra(ventaDetalle)
-                      : cambiarEstado(ventaDetalle, 'ENTREGADA')
-                  }
-                >
+              {ventaDetalle.estado === 'PENDIENTE' && (
+                <Button variant="secondary" className="w-full" onClick={() => cambiarEstado(ventaDetalle, 'ENTREGADA')}>
                   <PackageCheck className="w-4 h-4 text-acento" />
-                  <span>Marcar como {esEncargo ? 'entregado' : 'entregada'}</span>
+                  <span>Marcar como entregada</span>
                 </Button>
-              )}
-
-              {ventaDetalle.estado === 'COTIZADA' && etapaEncargo(ventaDetalle) !== 'POR_COTIZAR' && (
-                <p className="text-caption text-texto-3 text-center p-2 rounded-lg bg-superficie-2">
-                  Se confirma cuando pague el anticipo de{' '}
-                  <strong className="text-texto font-semibold">{formatearMoneda(ventaDetalle.anticipo_esperado_usd_cents, 'USD')}</strong>.
-                </p>
               )}
             </div>
 
@@ -1148,7 +958,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
                   className="inline-flex items-center gap-1.5 text-caption text-texto-3 hover:text-danger-600 transition-colors focus-visible:outline-none"
                 >
                   <XCircle className="w-3.5 h-3.5" />
-                  <span>Anular {esEncargo ? 'este encargo' : 'esta venta'}</span>
+                  <span>Anular esta venta</span>
                 </button>
               </div>
             )}
@@ -1158,7 +968,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
 
       <VentaEditor
         abierto={editorAbierto}
-        tipo={tipo}
+        tipo="INVENTARIO"
         productos={productos}
         clientes={clientes}
         parametros={parametros}
@@ -1169,50 +979,8 @@ export const VentasView: React.FC<VentasViewProps> = ({
         }}
       />
 
-      <CotizarEncargoModal
-        venta={cotizando}
-        parametros={parametros}
-        onGuardado={(grupo) => {
-          const v = cotizando;
-          showUndoToast(
-            `${v?.codigo ?? ''}: precios guardados`,
-            async () => {
-              await cargar();
-              if (v) await abrirDetalle(v.id);
-              onCambio();
-            },
-            grupo
-          );
-          void (async () => {
-            await cargar();
-            if (v) await abrirDetalle(v.id);
-            onCambio();
-          })();
-        }}
-        onCerrar={() => setCotizando(null)}
-      />
-
-      <AnularEncargoModal
-        venta={esEncargo ? anulando : null}
-        onConfirmar={(opciones) => anulando && cambiarEstado(anulando, 'CANCELADA', opciones)}
-        onCerrar={() => setAnulando(null)}
-      />
-
       <Confirmar
-        abierto={entregandoSinCompra !== null}
-        titulo={`¿Entregar ${entregandoSinCompra?.codigo ?? ''} sin compra registrada?`}
-        consecuencias={[
-          'Hay piezas que no están en ningún paquete.',
-          'Se entregan con el costo que estimaste al cotizar.',
-        ]}
-        textoConfirmar="Entregar igual"
-        textoCancelar="Cancelar"
-        onConfirmar={() => entregandoSinCompra && cambiarEstado(entregandoSinCompra, 'ENTREGADA')}
-        onCerrar={() => setEntregandoSinCompra(null)}
-      />
-
-      <Confirmar
-        abierto={!esEncargo && anulando !== null}
+        abierto={anulando !== null}
         peligroso
         titulo={`¿Anular ${anulando?.codigo ?? ''}?`}
         consecuencias={[
@@ -1226,7 +994,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
             : []),
           'Deja de contar en tus ganancias.',
         ]}
-        textoConfirmar={esEncargo ? 'Sí, anular el encargo' : 'Sí, anular la venta'}
+        textoConfirmar="Sí, anular la venta"
         textoCancelar="No, dejarla como está"
         onConfirmar={() => anulando && cambiarEstado(anulando, 'CANCELADA')}
         onCerrar={() => setAnulando(null)}
@@ -1268,8 +1036,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
             },
             {
               id: 'ver-factura',
-              label:
-                menuContextual.venta.tipo === 'ENCARGO' ? 'Ver proforma' : 'Ver factura',
+              label: 'Ver factura',
               icon: <FileText className="w-4 h-4" />,
               onClick: async () => {
                 await abrirDetalle(menuContextual.venta.id);
@@ -1332,7 +1099,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
               ? [
                   {
                     id: 'cancelar',
-                    label: esEncargo ? 'Anular encargo...' : 'Anular venta...',
+                    label: 'Anular venta...',
                     icon: <XCircle className="w-4 h-4" />,
                     tone: 'danger' as const,
                     onClick: () => setAnulando(menuContextual.venta),

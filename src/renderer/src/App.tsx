@@ -383,7 +383,6 @@ export const App: React.FC = () => {
               {tab === 'ventas' && (
                 <VentasView
                   key={tab}
-                  tipo="INVENTARIO"
                   productos={productos}
                   clientes={clientes}
                   parametros={parametros}
