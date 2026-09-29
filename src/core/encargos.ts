@@ -106,6 +106,14 @@ export function etapaEncargo(v: { estado: EstadoVenta; piezas?: PiezasEncargo })
   return 'POR_ENTREGAR';
 }
 
+/** Qué pidió, en una línea: "Bolso Coach, 2 Perfume". */
+export function quePidio(lineas: readonly { descripcion?: string; cantidad?: number }[]): string {
+  return lineas
+    .filter((l) => l.descripcion)
+    .map((l) => ((l.cantidad ?? 1) > 1 ? `${l.cantidad} ${l.descripcion}` : l.descripcion))
+    .join(', ');
+}
+
 /** "En camino · 1 de 2 llegó", para la lista. */
 export function textoEtapa(etapa: EtapaEncargo, piezas?: PiezasEncargo, motivo?: MotivoAnulacion): string {
   switch (etapa) {

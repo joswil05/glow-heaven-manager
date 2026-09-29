@@ -56,7 +56,7 @@ export interface LineaVentaInput {
 import type { PagoInicialInput, LineaCotizacion } from '../../../shared/ipc-contracts';
 import { hoyISO, sumarDiasAFecha } from '../../../core/fechas';
 import { esDeuda, estadoInicialEncargo } from '../../../core/cobranza';
-import { piezasDe, estadoPieza, sinPrecio } from '../../../core/encargos';
+import { piezasDe, estadoPieza, sinPrecio, quePidio } from '../../../core/encargos';
 import { repartirMayorResiduo } from '../../../core/prorrateo';
 import { lotesDe } from './productos.repo';
 import { unidadesDeLotes, type Consumo } from '../../../core/lotes';
@@ -209,6 +209,8 @@ export class VentasRepoFirestore {
       return {
         ...v,
         cliente_nombre: v.cliente_id ? cliMap!.get(v.cliente_id) : undefined,
+        // Un encargo se reconoce por lo que pidió: la lista lo muestra.
+        que_pidio: v.tipo === 'ENCARGO' ? quePidio(data.lineas || []) : undefined,
       };
     });
 

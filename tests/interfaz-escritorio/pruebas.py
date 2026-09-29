@@ -11,6 +11,7 @@ el código: lo que se prueba es lo que se publica.
 
 Se corre con:  npm run test:interfaz-escritorio
 """
+import re
 import sys
 from playwright.sync_api import sync_playwright, Page
 
@@ -455,16 +456,17 @@ def caso_encargo_en_camino(page: Page) -> list[str]:
     if "En camino · 1 de 2 llegó" not in fila.first.inner_text():
         fallas.append(f"la fila no dice en qué va: {fila.first.inner_text()[:120]!r}")
 
-    # Cada filtro trae sólo lo de su etapa.
-    page.get_by_role("button", name="En camino", exact=True).click()
+    # Cada filtro trae sólo lo de su etapa. Tocar el mismo otra vez lo quita.
+    filtro = lambda nombre: page.get_by_role("button", name=re.compile(f"^{nombre}")).first
+    filtro("En camino").click()
     page.wait_for_timeout(500)
     if page.locator("tr", has_text=e["codigo"]).count() == 0:
         fallas.append("el filtro 'En camino' no trae el encargo que viene en camino")
-    page.get_by_role("button", name="Por comprar", exact=True).click()
+    filtro("Por comprar").click()
     page.wait_for_timeout(500)
     if page.locator("tr", has_text=e["codigo"]).count() > 0:
         fallas.append("el filtro 'Por comprar' trae un encargo que ya se compró entero")
-    page.get_by_role("button", name="Todas", exact=True).click()
+    filtro("Por comprar").click()
     page.wait_for_timeout(500)
 
     # Con una pieza en camino no se ofrece entregarlo.
@@ -472,10 +474,10 @@ def caso_encargo_en_camino(page: Page) -> list[str]:
     page.wait_for_timeout(800)
     if page.get_by_text("Se entrega cuando llegue todo.").count() == 0:
         fallas.append("el detalle no avisa que se entrega cuando llegue todo")
-    if page.get_by_role("button", name="Marcar como entregado").count() > 0:
+    if page.get_by_role("button", name="Entregar", exact=True).count() > 0:
         fallas.append("se ofrece entregar un encargo con una pieza en camino")
 
-    page.get_by_role("button", name="Anular este encargo").click()
+    page.get_by_role("button", name="Anular", exact=True).click()
     modal = page.get_by_role("alertdialog")
     try:
         modal.wait_for(timeout=5000)
@@ -566,24 +568,18 @@ def caso_pedido_sin_precio(page: Page) -> list[str]:
     page.wait_for_timeout(900)
     page.get_by_role("button", name="Nuevo encargo").first.click()
     page.wait_for_timeout(700)
-    page.get_by_placeholder("Ej: Vestido floral").first.fill("Pedido sin precio")
-    page.get_by_role("button", name="Siguiente").click()
+    nuevo = page.get_by_role("dialog")
+    nuevo.get_by_label("Clienta").fill("Mar")
     page.wait_for_timeout(500)
-    if page.get_by_text("Cada producto necesita un precio").count() > 0:
-        return ["el encargo sigue pidiendo precio para anotarse"]
-    page.get_by_placeholder("Buscar clienta por nombre o teléfono").fill("Mar")
-    page.wait_for_timeout(500)
-    page.get_by_role("button", name="María López").first.click()
+    nuevo.get_by_role("button", name=re.compile("^María López")).first.click()
     page.wait_for_timeout(300)
-    if page.get_by_text("Se guarda como pedido, sin precio").count() == 0:
-        fallas.append("el paso de la clienta no avisa que se guarda como pedido")
-    page.get_by_role("button", name="Siguiente").click()
-    page.wait_for_timeout(500)
-    try:
-        page.get_by_role("button", name="Guardar pedido").click(timeout=4000)
-    except Exception:
-        return fallas + ["no aparece 'Guardar pedido'"]
+    nuevo.get_by_label("Qué quiere 1").fill("Pedido sin precio")
+    if nuevo.get_by_text("Sin precio: se cotiza después").count() == 0:
+        fallas.append("sin precio, el formulario no avisa que se cotiza después")
+    nuevo.get_by_role("button", name="Guardar", exact=True).click()
     page.wait_for_timeout(1200)
+    if page.get_by_role("dialog").count() > 0:
+        return fallas + ["el encargo sigue pidiendo algo para anotarse sin precio"]
 
     fila = page.locator("tr", has_text="María López").filter(has_text="Por cotizar")
     if fila.count() == 0:

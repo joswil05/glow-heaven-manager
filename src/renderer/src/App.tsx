@@ -6,6 +6,7 @@ import { PinLockView } from './views/PinLockView';
 import { PanelView, type DestinoPanel } from './views/PanelView';
 import { InventarioView } from './views/InventarioView';
 import { VentasView } from './views/VentasView';
+import { EncargosView } from './views/EncargosView';
 import { ClientesView } from './views/ClientesView';
 import { CobranzaView } from './views/CobranzaView';
 import { ConfigView } from './views/ConfigView';
@@ -379,15 +380,25 @@ export const App: React.FC = () => {
                 />
               )}
 
-              {(tab === 'ventas' || tab === 'encargos') && (
+              {tab === 'ventas' && (
                 <VentasView
                   key={tab}
-                  tipo={tab === 'encargos' ? 'ENCARGO' : 'INVENTARIO'}
+                  tipo="INVENTARIO"
                   productos={productos}
                   clientes={clientes}
                   parametros={parametros}
                   ventaInicialId={ventaSeleccionada}
                   abrirEditorAlEntrar={abrirEditor === tab}
+                  onCambio={cargar}
+                />
+              )}
+
+              {tab === 'encargos' && (
+                <EncargosView
+                  clientes={clientes}
+                  parametros={parametros}
+                  encargoInicialId={ventaSeleccionada}
+                  abrirNuevoAlEntrar={abrirEditor === 'encargos'}
                   onCambio={cargar}
                 />
               )}

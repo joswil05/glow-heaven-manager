@@ -530,6 +530,8 @@ export interface Venta {
   anticipo_bp?: number;
   /** Encargos anulados: "no se consiguió". */
   motivo_anulacion?: MotivoAnulacion;
+  /** Encargos, en la lista: qué pidió ("Bolso Coach, 2 Perfume"). No se guarda: sale de sus piezas. */
+  que_pidio?: string;
 
   /** Encargos: el resumen de sus piezas, para listarlo sin leer las líneas. */
   piezas?: PiezasEncargo;

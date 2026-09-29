@@ -557,6 +557,15 @@ describe('pedidos: anotar sin precio, cotizar después', () => {
     expect(alertas.alertas.map((a) => a.id)).not.toContain(`encargo-cotizar-${nuevo}`);
   });
 
+  it('la lista dice qué pidió, sin tener que abrirlo', async () => {
+    const e = await pedido([
+      { descripcion: 'Bolso Coach', cantidad: 1, precio_unitario_usd_cents: 0 },
+      { descripcion: 'Perfume', cantidad: 2, precio_unitario_usd_cents: 0 },
+    ]);
+    const v = (await Ventas.listar({ tipo: 'ENCARGO' })).find((x) => x.id === e)!;
+    expect(v.que_pidio).toBe('Bolso Coach, 2 Perfume');
+  });
+
   it('deshacer la cotización la deja como estaba', async () => {
     const e = await pedido();
     const pieza = (await Ventas.getById(e))!.lineas[0];
