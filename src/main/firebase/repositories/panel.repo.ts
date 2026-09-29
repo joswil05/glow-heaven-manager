@@ -339,7 +339,7 @@ function calcularAlertas(s: Instantanea, parametros?: ParametrosSistema): Alerta
     const nombre = v.cliente_id ? (cliMap.get(v.cliente_id) ?? 'Cliente') : 'Cliente';
     const etapa = etapaEncargo(v);
     // Un pedido anotado sin precio: el aviso es lo que evita que se olvide.
-    if (etapa === 'POR_COTIZAR' && v.fecha <= limiteEncargos) {
+    if (etapa === 'POR_BUSCAR' && v.fecha <= limiteEncargos) {
       const que = (v.lineas || []).map((l) => l.descripcion).filter(Boolean).join(', ');
       alertas.push({
         id: `encargo-cotizar-${v.id}`,

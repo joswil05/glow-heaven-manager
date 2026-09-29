@@ -64,3 +64,14 @@ export function sumarDiasAFecha(fechaISO: string, dias: number): string {
   base.setUTCDate(base.getUTCDate() + dias);
   return base.toISOString().slice(0, 10);
 }
+
+/**
+ * Cuántos días de calendario van de una fecha `AAAA-MM-DD` a otra: "hace 3
+ * días". Como `sumarDiasAFecha`, opera sobre el mediodía UTC de cada día, así
+ * que no depende de la zona de la máquina.
+ */
+export function diasEntre(desdeISO: string, hastaISO: string): number {
+  const desde = Date.parse(`${desdeISO.slice(0, 10)}T12:00:00Z`);
+  const hasta = Date.parse(`${hastaISO.slice(0, 10)}T12:00:00Z`);
+  return Math.round((hasta - desde) / 86_400_000);
+}

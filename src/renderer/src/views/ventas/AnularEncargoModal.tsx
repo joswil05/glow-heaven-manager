@@ -55,7 +55,7 @@ export const AnularEncargoModal: React.FC<AnularEncargoModalProps> = ({ venta, o
     setDestinos({});
     setAnticipo('DEVOLVER');
     // Un pedido que se anula casi siempre es porque no se encontró.
-    setNoSeConsiguio(etapaEncargo(venta) === 'POR_COTIZAR');
+    setNoSeConsiguio(etapaEncargo(venta) === 'POR_BUSCAR');
     if ('lineas' in venta && venta.lineas) {
       setCompleta(venta);
       return;

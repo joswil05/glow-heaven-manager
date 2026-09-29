@@ -10,6 +10,7 @@ import { AnularEncargoModal } from './ventas/AnularEncargoModal';
 import { NuevoEncargoModal } from './encargos/NuevoEncargoModal';
 import { etapaEncargo, textoEtapa, estadoPieza, sinPrecio, quePidio, type EtapaEncargo } from '@core/encargos';
 import { formatearMoneda, formatearFecha } from '@core/moneda';
+import { hoyISO } from '@core/fechas';
 import { algunoContiene } from '@core/texto';
 import { enlaceWhatsApp } from '../lib/whatsapp';
 import { useToast } from '../context/ToastContext';
@@ -41,16 +42,18 @@ type Vista = 'EN_CURSO' | 'ENTREGADOS' | 'ANULADOS';
 
 /** Las etapas en las que hay algo que hacer, en el orden en que pasan. */
 const ETAPAS: { etapa: EtapaEncargo; titulo: string; hint: string }[] = [
-  { etapa: 'POR_COTIZAR', titulo: 'Por cotizar', hint: 'Esperan precio' },
-  { etapa: 'COTIZADO', titulo: 'Cotizados', hint: 'Esperan el anticipo' },
+  { etapa: 'POR_BUSCAR', titulo: 'Por buscar', hint: 'Esperan precio' },
+  { etapa: 'POR_MANDAR', titulo: 'Por mandar', hint: 'Falta mandarla' },
+  { etapa: 'ESPERANDO', titulo: 'Esperando', hint: 'Que responda' },
   { etapa: 'POR_COMPRAR', titulo: 'Por comprar', hint: 'Ya confirmados' },
   { etapa: 'EN_CAMINO', titulo: 'En camino', hint: 'Comprados' },
   { etapa: 'POR_ENTREGAR', titulo: 'Por entregar', hint: 'Ya llegaron' },
 ];
 
 const TONO: Record<EtapaEncargo, Tone> = {
-  POR_COTIZAR: 'purple',
-  COTIZADO: 'neutral',
+  POR_BUSCAR: 'purple',
+  POR_MANDAR: 'neutral',
+  ESPERANDO: 'neutral',
   POR_COMPRAR: 'warning',
   EN_CAMINO: 'info',
   POR_ENTREGAR: 'success',
@@ -67,7 +70,7 @@ const $ = (c: number) => formatearMoneda(c, 'USD');
 const queDe = (v: Venta | VentaCompleta) => v.que_pidio ?? ('lineas' in v && v.lineas ? quePidio(v.lineas) : '');
 
 /** Sin ningún precio todavía: no hay total, deuda ni ganancia que mostrar. */
-const sinTotal = (v: Venta) => etapaEncargo(v) === 'POR_COTIZAR' && (v.total_usd_cents || 0) === 0;
+const sinTotal = (v: Venta) => etapaEncargo(v) === 'POR_BUSCAR' && (v.total_usd_cents || 0) === 0;
 
 export const EncargosView: React.FC<EncargosViewProps> = ({
   clientes,
@@ -202,9 +205,10 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
     const e = etapaEncargo(v);
     const porComprar = v.lineas.filter((l) => estadoPieza(l) === 'POR_COMPRAR');
     switch (e) {
-      case 'POR_COTIZAR':
+      case 'POR_BUSCAR':
         return { texto: 'Cotizar', accion: () => setCotizando(v), nota: 'Ponele precio cuando lo encuentres.' };
-      case 'COTIZADO':
+      case 'POR_MANDAR':
+      case 'ESPERANDO':
         return {
           texto: 'Registrar anticipo',
           accion: () => setPagoAbierto(true),
@@ -265,7 +269,7 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
       width: '200px',
       render: (v) => (
         <Badge tone={TONO[etapaEncargo(v)]} className="font-medium whitespace-nowrap">
-          {textoEtapa(etapaEncargo(v), v.piezas, v.motivo_anulacion)}
+          {textoEtapa(v, hoyISO())}
         </Badge>
       ),
     },
@@ -320,7 +324,7 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
           </div>
 
           {/* Lo que hay que hacer, por etapa. Tocar una tarjeta filtra. */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {ETAPAS.map((x) => (
               <StatTile
                 key={x.etapa}
@@ -448,7 +452,7 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
                   {detalle.cliente_nombre ?? 'Sin clienta'}
                 </h3>
                 <Badge tone={TONO[etapaEncargo(detalle)]} className="text-[11px] whitespace-nowrap">
-                  {textoEtapa(etapaEncargo(detalle), detalle.piezas, detalle.motivo_anulacion)}
+                  {textoEtapa(detalle, hoyISO())}
                 </Badge>
               </div>
               <p className="text-caption text-texto-3 tabular mt-0.5">
@@ -562,7 +566,7 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
                   WhatsApp
                 </button>
               )}
-              {detalle.estado === 'COTIZADA' && etapaEncargo(detalle) !== 'POR_COTIZAR' && (
+              {detalle.estado === 'COTIZADA' && etapaEncargo(detalle) !== 'POR_BUSCAR' && (
                 <button type="button" onClick={() => setCotizando(detalle)} className="text-texto-2 hover:text-texto hover:underline">
                   Cambiar precios
                 </button>

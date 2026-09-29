@@ -37,11 +37,25 @@ export function esCotizacion(v: VentaParaCobranza): boolean {
 }
 
 /**
- * El estado con el que nace un encargo.
+ * Quien paga, aceptó. Un pago confirma el encargo cuando cubre el anticipo
+ * pedido; si no se pidió anticipo, cualquier pago lo confirma.
+ */
+export function pagoAcepta(p: { pagado_usd_cents: number; anticipo_esperado_usd_cents: number }): boolean {
+  if (p.pagado_usd_cents <= 0) return false;
+  return p.pagado_usd_cents >= Math.max(0, p.anticipo_esperado_usd_cents);
+}
+
+/**
+ * El estado de un encargo según lo que pagó: al nacer, y cada vez que se
+ * cotiza de nuevo.
  *
- * `PENDIENTE` quiere decir "confirmado, hay que comprarlo". Pasa cuando lo
- * pagado cubre el anticipo pedido, o cuando no se pidió anticipo: con 0% la
- * dueña decidió que no hace falta adelanto.
+ * `COTIZADA` quiere decir "la clienta todavía no aceptó" y `PENDIENTE`,
+ * "aceptó, hay que comprarlo". Aceptar es un paso propio ("Aceptó", en la
+ * pantalla) y el anticipo puede llegar después. Lo único que acepta sin ese
+ * paso es un pago (`pagoAcepta`).
+ *
+ * Hasta la 2.15, con anticipo de 0% tener precio ya lo confirmaba, sin que la
+ * clienta hubiera dicho nada.
  */
 export function estadoInicialEncargo(params: {
   total_usd_cents: number;
@@ -52,7 +66,8 @@ export function estadoInicialEncargo(params: {
 }): 'COTIZADA' | 'PENDIENTE' {
   const { total_usd_cents, pagado_usd_cents, anticipo_esperado_usd_cents } = params;
   if ((params.sin_precio ?? 0) > 0) return 'COTIZADA';
+  // Todo "no se consiguió": no hay nada que confirmar.
+  if (total_usd_cents <= 0) return 'COTIZADA';
   if (pagado_usd_cents >= total_usd_cents) return 'PENDIENTE';
-  if (anticipo_esperado_usd_cents <= 0) return 'PENDIENTE';
-  return pagado_usd_cents >= anticipo_esperado_usd_cents ? 'PENDIENTE' : 'COTIZADA';
+  return pagoAcepta({ pagado_usd_cents, anticipo_esperado_usd_cents }) ? 'PENDIENTE' : 'COTIZADA';
 }

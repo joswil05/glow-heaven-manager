@@ -581,9 +581,9 @@ def caso_pedido_sin_precio(page: Page) -> list[str]:
     if page.get_by_role("dialog").count() > 0:
         return fallas + ["el encargo sigue pidiendo algo para anotarse sin precio"]
 
-    fila = page.locator("tr", has_text="María López").filter(has_text="Por cotizar")
+    fila = page.locator("tr", has_text="María López").filter(has_text="Por buscar")
     if fila.count() == 0:
-        return fallas + ["el pedido no aparece 'Por cotizar' en la lista"]
+        return fallas + ["el pedido no aparece 'Por buscar' en la lista"]
     fila.first.click()
     page.wait_for_timeout(800)
     try:
@@ -602,9 +602,9 @@ def caso_pedido_sin_precio(page: Page) -> list[str]:
         usar.first.click()
     modal.get_by_role("button", name="Guardar precios").click()
     page.wait_for_timeout(1000)
-    badge = page.locator("tr", has_text="María López").filter(has_text="Cotizado")
+    badge = page.locator("tr", has_text="María López").filter(has_text="Por mandar")
     if badge.count() == 0:
-        fallas.append("cotizado, el encargo no pasa a 'Cotizado'")
+        fallas.append("cotizado, el encargo no pasa a 'Por mandar'")
     page.keyboard.press("Escape")
     page.wait_for_timeout(300)
     return fallas

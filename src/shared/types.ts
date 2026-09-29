@@ -77,11 +77,16 @@ export interface Consumo {
 /**
  * Qué hacer al anular un encargo. Ver `VentasRepoFirestore.cambiarEstado`.
  */
-/** Por qué se anuló un encargo, cuando no es sólo que la clienta se arrepintió. */
-export type MotivoAnulacion = 'NO_SE_CONSIGUIO';
+/**
+ * Por qué se anuló un encargo, cuando no es sólo que la clienta se arrepintió
+ * ("Ya no lo quiere", que se guarda sin motivo).
+ *  - NO_SE_CONSIGUIO: ella no lo pudo comprar.
+ *  - NO_ACEPTO: la clienta no aceptó la cotización.
+ */
+export type MotivoAnulacion = 'NO_SE_CONSIGUIO' | 'NO_ACEPTO';
 
 export interface OpcionesAnulacion {
-  /** "No se consiguió": lo que ella no pudo comprar. */
+  /** "No se consiguió" o "No aceptó". Sin motivo: ya no lo quiere. */
   motivo?: MotivoAnulacion;
   /** Lo que ya pagó: se devuelve (se anulan los pagos) o se queda. */
   anticipo?: 'DEVOLVER' | 'RETENER';
@@ -106,6 +111,12 @@ export interface PiezasEncargo {
   esperan_paquete?: number;
   /** Piezas que todavía no tienen precio: el encargo es un pedido por cotizar. */
   sin_precio?: number;
+  /**
+   * Piezas que no se consiguieron. Siguen en la lista, tachadas, pero no
+   * cuentan en ningún otro contador ni en la plata. Un resumen guardado antes
+   * de la 2.16 no lo trae.
+   */
+  descartadas?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -496,6 +507,11 @@ export interface VentaLinea {
   /** Con qué se cotizó: precio en la tienda y peso aproximado. */
   precio_tienda_usd_cents?: number;
   peso_mlb?: number;
+  /**
+   * "No se consiguió" (AAAA-MM-DD). La pieza queda en la lista con su precio
+   * para mostrarlo, pero con subtotal y costo en cero: no cuenta en la plata.
+   */
+  descartada_el?: string;
 
   producto_nombre?: string;
   talla?: string;
@@ -537,6 +553,22 @@ export interface Venta {
   piezas?: PiezasEncargo;
   /** Encargos: cuándo llegó la última pieza que venía en un paquete. */
   llego_el?: string;
+
+  // Encargos: el camino de la cotización. Ver core/encargos.ts.
+  /** La última vez que cambió un precio o se descartó una pieza (AAAA-MM-DD). */
+  cotizado_el?: string;
+  /**
+   * Sube cada vez que cambia un precio o se descarta una pieza. Con esto, y no
+   * con fechas, se sabe si la clienta tiene la cotización al día: cotizar y
+   * mandar pueden caer en el mismo instante.
+   */
+  cotizacion_version?: number;
+  /** La última vez que se le mandó la cotización (AAAA-MM-DD). */
+  cotizacion_enviada_el?: string;
+  /** Qué versión se le mandó. */
+  cotizacion_enviada_version?: number;
+  /** Cuándo aceptó (AAAA-MM-DD): por el botón, o por un pago que cubre el anticipo. */
+  aceptado_el?: string;
 
   notas?: string;
   activo: boolean;

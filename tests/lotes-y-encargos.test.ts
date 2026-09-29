@@ -400,7 +400,7 @@ describe('encargos: comprado, sin saber en qué paquete viene', () => {
     const v = (await Ventas.getById(e))!;
     expect(v.lineas[0].comprado_el).toBe(HOY);
     expect(await etapa(e)).toBe('EN_CAMINO');
-    expect(v.piezas).toEqual({ total: 1, compradas: 1, llegadas: 0, de_bodega: 0, esperan_paquete: 1, sin_precio: 0 });
+    expect(v.piezas).toEqual({ total: 1, compradas: 1, llegadas: 0, de_bodega: 0, esperan_paquete: 1, sin_precio: 0, descartadas: 0 });
 
     await Ventas.marcarCompradas(e, [pieza.id], false, g());
     expect(await etapa(e)).toBe('POR_COMPRAR');
@@ -478,11 +478,11 @@ describe('pedidos: anotar sin precio, cotizar después', () => {
     ...extra,
   });
 
-  it('se anota sin precio: queda por cotizar y no cuenta en nada', async () => {
+  it('se anota sin precio: queda por buscar y no cuenta en nada', async () => {
     const e = await pedido();
     const v = (await Ventas.getById(e))!;
     expect([v.estado, v.total_usd_cents, v.saldo_usd_cents]).toEqual(['COTIZADA', 0, 0]);
-    expect(await etapa(e)).toBe('POR_COTIZAR');
+    expect(await etapa(e)).toBe('POR_BUSCAR');
     const panel = await Panel.cargar(true);
     expect([panel.resumen.por_cobrar_usd_cents, panel.resumen.cotizado_sin_confirmar_usd_cents]).toEqual([0, 0]);
   });
@@ -501,7 +501,7 @@ describe('pedidos: anotar sin precio, cotizar después', () => {
     ).rejects.toThrow(/sin precio/);
   });
 
-  it('cotizarlo le pone precio, costo y anticipo: queda cotizado', async () => {
+  it('cotizarlo le pone precio, costo y anticipo: queda por mandar', async () => {
     const e = await pedido();
     const pieza = (await Ventas.getById(e))!.lineas[0];
     await Ventas.cotizar(e, [cotizacion(pieza.id, 6000, { descripcion: 'Bolso Coach Tabby negro' })], g());
@@ -509,7 +509,7 @@ describe('pedidos: anotar sin precio, cotizar después', () => {
     expect([v.total_usd_cents, v.saldo_usd_cents, v.anticipo_esperado_usd_cents, v.costo_total_usd_cents]).toEqual([6000, 6000, 3000, 3800]);
     expect(v.lineas[0].descripcion).toBe('Bolso Coach Tabby negro');
     expect(v.lineas[0].precio_tienda_usd_cents).toBe(3000);
-    expect(await etapa(e)).toBe('COTIZADO');
+    expect(await etapa(e)).toBe('POR_MANDAR');
     expect((await Panel.cargar(true)).resumen.cotizado_sin_confirmar_usd_cents).toBe(6000);
   });
 
@@ -572,7 +572,7 @@ describe('pedidos: anotar sin precio, cotizar después', () => {
     const grupo = g();
     await Ventas.cotizar(e, [cotizacion(pieza.id, 6000)], grupo);
     await Eventos.deshacerGrupo(grupo);
-    expect(await etapa(e)).toBe('POR_COTIZAR');
+    expect(await etapa(e)).toBe('POR_BUSCAR');
     expect((await Ventas.getById(e))!.total_usd_cents).toBe(0);
   });
 });
