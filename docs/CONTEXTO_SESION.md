@@ -219,6 +219,22 @@ celular. Falta, con el visto bueno de Joswill:
 Después viene la 2.17 (encargos en el celular). El orden completo está en la
 sección 0 del plan.
 
+### Hecho el 29 de septiembre, sobre producción: V-0007 borrada a mano
+
+V-0007 (29/9) se borró desde la consola de Firebase para corregir una venta
+con productos equivocados. Borrar el documento no deshace la venta: Polvo Rosa
+Nine West, Combo Gloss Paris Hilton y Blush de Elf quedaron con una unidad
+menos (dos en "agotado"), y su pago de C$600.00 siguió contado como cobrado.
+Se reparó con `scripts/reparar-venta-borrada.ts` (ensayo, después `--aplicar`,
+en un commit con condiciones): V-0007 existe otra vez, anulada, sus tres
+unidades volvieron a sus lotes y el pago quedó anulado (Joswill: no fue real).
+Respaldos antes y después en `respaldos/`. V-0001, una venta anulada del 17/9
+que también se había borrado, se deja así por decisión de Joswill: ya estaba
+compensada.
+
+La salida de fondo es poder **corregir** una venta y un abono desde las dos
+apps (en curso, 2.16).
+
 ### Hecho el 26 de septiembre, sobre producción
 
 - **Los datos quedaron en el flujo de lotes**, con
@@ -337,6 +353,11 @@ manejarla con Playwright: `--remote-debugging-port=9223` y
 **El PIN lo escribe una persona.** La sesión de Google queda guardada entre
 arranques, pero el PIN se pide cada vez que abre la app. No se busca ni se
 saca de ningún lado: se le pide a Joswill que lo escriba en la ventana.
+
+**Nunca se borra una venta, un pago ni un movimiento desde la consola de
+Firebase.** El documento se va, pero lo que hizo se queda: las unidades fuera
+de sus lotes, el pago contado como cobrado. Se anula (o, desde la 2.16, se
+corrige) desde la app. Si ya pasó, `scripts/reparar-venta-borrada.ts`.
 
 **El Firestore falso es demasiado rápido para probar el deshacer.** Deshacer
 rechaza un grupo si el documento cambió DESPUÉS del evento que lo restaura, y
