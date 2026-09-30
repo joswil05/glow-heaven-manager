@@ -355,7 +355,18 @@ cuyo nombre lo contiene.
 
 Verificado: `tsc` de las dos apps, 514 pruebas, 98 contra el emulador, 26
 casos de interfaz de escritorio y 16 de la PWA, las tres auditorías y el
-build del celular. Las fases 1 a 6 de la auditoría **no están autorizadas**.
+build del celular.
+
+**Publicada como `v2.16.3` el 30 de septiembre**, a pedido de Joswill: commit
+`0a7feec`, release con `latest.yml` verificado (sha512, tamaño y versión) y
+la PWA en los dos sitios sirviendo el build nuevo. La app de esta máquina
+quedó en 2.16.3 (se abrió para que descargara y se cerró para que se
+instalara). Subir el exe con `gh release create` cortó por tiempo (HTTP 408)
+y no dejó nada; se hizo en tres pasos: la release como borrador, `gh release
+upload` de los tres archivos y `gh release edit --draft=false --latest`.
+
+Joswill pidió seguir con el plan: la Fase 1 de la auditoría (un solo marco
+de ventana y formularios que no pierden lo escrito) es la siguiente.
 
 ### Hecho el 29 de septiembre, sobre producción: V-0007 borrada a mano
 

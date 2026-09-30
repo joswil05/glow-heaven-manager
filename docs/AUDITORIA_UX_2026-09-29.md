@@ -604,7 +604,7 @@ Reglas para todas las fases:
 
 **Objetivo**: que ninguna pantalla cambie o registre datos que nadie decidió, y que ningún aviso de plata quede ilegible.
 
-> **Estado al 30/9**: hecha en el código y probada; **sin publicar** (falta tu visto bueno para la 2.16.3). Cada uno de los 18 hallazgos de la tabla tiene una prueba que se vio fallar antes del arreglo: `tests/fase0-auditoria.test.ts` (12, motor en memoria), 8 casos nuevos en `tests/interfaz-escritorio/pruebas.py` y 6 en `tests/interfaz/pruebas.py`. `tests/motor-real/fase0-auditoria.test.ts` repite cinco de las reglas contra el emulador. Tres cosas salieron distintas de lo planeado:
+> **Estado al 30/9**: hecha, probada y **publicada como 2.16.3** en las dos apps. Cada uno de los 18 hallazgos de la tabla tiene una prueba que se vio fallar antes del arreglo: `tests/fase0-auditoria.test.ts` (12, motor en memoria), 8 casos nuevos en `tests/interfaz-escritorio/pruebas.py` y 6 en `tests/interfaz/pruebas.py`. `tests/motor-real/fase0-auditoria.test.ts` repite cinco de las reglas contra el emulador. Tres cosas salieron distintas de lo planeado:
 >
 > - **"Recalcular precios del inventario" ya no existe como botón**: ahora es "Revisar precios del inventario" y abre la misma ventana que el aviso de Inventario, donde se elige qué precios cambiar. Guardar un margen o un redondeo nuevos la abre sola.
 > - **"Registrar abono" de Cobros arranca sin clienta y lista primero a las que deben, con su saldo**; el buscador de clientas queda para la Fase 2, con el formulario único de abono.
