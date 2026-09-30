@@ -861,3 +861,14 @@ a pedido de Joswill. Cambios respecto de lo escrito en 2c, al hacerlo:
 - **El nombre que se muestra es el primero de la cuenta de Google** ("Rosa"
   de "Rosa María Pérez"), o lo de antes de la arroba si la cuenta no tiene
   nombre.
+
+## Estado al 30 de septiembre
+
+**Antes de la 2.17 salió una 2.16.3 que este plan no tenía.** El 29 Joswill
+pidió auditar toda la interfaz de las dos apps; el informe y su plan por
+fases están en [AUDITORIA_UX_2026-09-29.md](AUDITORIA_UX_2026-09-29.md). Su
+Fase 0 (lo que cambiaba datos o plata sin que nadie lo decidiera) es la
+2.16.3. Las fases 1 a 6 de ese informe reemplazan la lista de la sección 5.2
+de este documento: traen cada formulario con su hallazgo, y la tipografía de
+la factura sigue en la fase que allá se indica. Ninguna está autorizada
+todavía, y el orden entre esas fases y la 2.17 lo decide Joswill.

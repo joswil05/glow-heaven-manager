@@ -54,9 +54,14 @@ La ficha del producto es catálogo: no tiene costo, existencias ni paquete.
   que la trajo. Nada reparte flete a los productos después: en `v2.11` eso
   suponía que un producto viene de un solo paquete, y con el segundo el
   reparto se inflaba (un flete de $50 llegó a repartir $110).
-- **El precio sigue al costo sólo cuando entra un paquete o cambia el
-  margen.** Nunca al vender, ajustar o devolver: el precio que ella le dio a
-  una clienta no puede cambiar solo. Un precio escrito a mano no se toca.
+- **El precio sigue al costo sólo cuando entra un paquete.** Nunca al
+  vender, ajustar o devolver: el precio que ella le dio a una clienta no
+  puede cambiar solo. Un precio escrito a mano no se toca. **Un margen o un
+  redondeo nuevos tampoco cambian precios** (desde `v2.16.3`): los dejan
+  para "Revisar precios" (`core/revisar-precios.ts` +
+  `ProductosRepo.aplicarPrecios`), donde ella elige cuáles. Guardar
+  Configuración manda sólo lo que cambió; hasta la 2.16.2 cada guardado
+  reescribía el catálogo entero en silencio.
 - **La ganancia se mide contra el costo aterrizado**, ya con tax y envío
   adentro. Medirla contra el precio de USA es lo que hacía la versión
   anterior y mentía: un "35%" en pantalla era un 20% real.
@@ -108,6 +113,15 @@ La ficha del producto es catálogo: no tiene costo, existencias ni paquete.
 - **Eliminar una clienta no deja nada colgado**: se rechaza si debe, si
   tiene un encargo en curso (aunque cotizado no sea deuda) o una venta por
   entregar. Sus ventas viejas siguen siendo suyas.
+- **Eliminar un producto tampoco** (desde `v2.16.3`): se rechaza si se
+  vendió, si vino en un paquete o si está en uno sin cerrar, y el mensaje
+  ofrece descatalogarlo.
+- **Una pantalla que edita parámetros manda sólo lo que la persona cambió.**
+  Las vistas del celular se montan antes de que lleguen los parámetros:
+  copiarlos a un `useState` deja el campo vacío y guardarlo borra el dato
+  (así se perdía el nombre del negocio desde Ajustes).
+- **El código de una venta sale de `codigoDeVenta()`** (`core/codigos.ts`),
+  en el repositorio y en las pantallas. Armarlo a mano daba "V-24".
 - **Cobros lista todas las ventas que se deben** (`PanelData.por_cobrar`
   entera, desde `v2.16.2`); la pantalla que quiera mostrar menos, corta ella.
 - **Lo que mueve stock recarga los productos** también en el celular
@@ -132,7 +146,10 @@ La ficha del producto es catálogo: no tiene costo, existencias ni paquete.
   guarda con qué costo salió la unidad. Recalcularlo después reescribiría la
   ganancia histórica cada vez que llega un paquete nuevo.
 - **La tasa de cambio se congela por documento.** Nunca leer la global para
-  convertir un pago viejo.
+  convertir un pago viejo, ni para mostrar en córdobas el total o el saldo de
+  una venta: `tasaDelDocumento()` para la factura, la proforma y su mensaje,
+  y `FilaPorCobrar.tasa_cambio_cents` en Cobros ("Pagar todo" con la tasa de
+  hoy dejaba centavos pendientes).
 - Nada se borra físicamente: `activo = false` o estado `CANCELADA`.
 - Toda mutación escribe en `eventos` con un `evento_grupo_id` (UUID). Un grupo
   es una acción del usuario, aunque toque diez documentos, y es lo que revierte
@@ -189,6 +206,14 @@ exponen en `tailwind.config.js` con **nombres semánticos**: `fondo`,
 `superficie`, `superficie-2`, `borde`, `borde-fuerte`, `texto`, `texto-2`,
 `texto-3`, `barra*`, `acento*`, `inverso*`, `velo`, más las escalas de estado
 `success` / `warning` / `danger`. La paleta es crema y verde claro.
+
+**Nunca `--x` sobre `--x-suave`**: dentro de un badge, una pastilla o un
+recuadro de aviso el texto va en `--x-fuerte` (peligro sobre su tinte da
+3,93:1 en claro). En la escala, 50-200 son el tinte, 500-600 el color y
+700-900 el texto fuerte. `scripts/auditar-colores.mjs` lo revisa clase por
+clase, y las dos suites de interfaz miden el contraste en la pantalla, en
+los dos temas, porque la auditoría no ve un texto cuyo fondo lo pone el
+contenedor. No agregues clases `dark:`: los tokens ya cambian con el tema.
 
 `slate`, `navy` y `brand` **ya no existen**: eran Tailwind renombrado (`navy`
 era exactamente `slate`, `brand` exactamente `indigo`), así que ningún color
@@ -252,12 +277,12 @@ ID viaja dentro de la aplicación, así que nunca fue un secreto.
 
 ## Comandos de verificación
 
-- `npm test` — 382 pruebas contra el Firestore falso, sin red.
+- `npm test` — 514 pruebas contra el Firestore falso, sin red.
 - `npm run typecheck` — cero errores con `strict: true`
 - `npm run build` — compila y empaqueta
 - `npm run build:exe` — instalador NSIS. Borrá `release/` antes para
   garantizar que el instalador sea fresco.
-- `npm run emulador` + `npm run test:emulador` — 91 pruebas contra el emulador
+- `npm run emulador` + `npm run test:emulador` — 98 pruebas contra el emulador
   OFICIAL de Firestore, autenticadas y con las reglas aplicadas.
 
 ### Las dos suites, y por qué hacen falta las dos

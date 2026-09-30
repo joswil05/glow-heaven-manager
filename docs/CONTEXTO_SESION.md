@@ -7,8 +7,10 @@
 > dos apps (sección 2 y sección 3), y la `v2.16.1` el mismo día: el
 > historial a la vista, quién registró cada cosa y los abonos en su moneda
 > (sección 3). Joswill las está probando él mismo. Los datos de producción se
-> migraron a lotes con `scripts/migrar-a-lotes.ts` (sección 3).
-> **Última actualización**: 29 de septiembre de 2026.
+> migraron a lotes con `scripts/migrar-a-lotes.ts` (sección 3). El 29 se
+> auditó toda la interfaz ([AUDITORIA_UX_2026-09-29.md](AUDITORIA_UX_2026-09-29.md))
+> y el 30 se hizo su Fase 0, la `v2.16.3` (sección 3).
+> **Última actualización**: 30 de septiembre de 2026.
 
 Leé este archivo primero. Después:
 
@@ -296,6 +298,65 @@ Después viene la 2.17 (encargos en el celular). Ojo: la quinta pestaña del
 celular ya es Historial; "Encargos" necesita otro lugar (sección 2c del plan).
 El orden completo está en la sección 0 del plan.
 
+### La auditoría de interfaz del 29 de septiembre y su Fase 0 (2.16.3)
+
+Pedido de Joswill: revisar cada pantalla, cada texto y cada formulario de las
+dos apps antes de darlas por hechas, con las reglas de Emil Kowalski, y
+corregir por fases **sin tocar código hasta que él autorice cada una**. El
+informe es [AUDITORIA_UX_2026-09-29.md](AUDITORIA_UX_2026-09-29.md): 399
+hallazgos con ID por pantalla (`COB-01`, `CAJ-01`…), 20 de nivel A, y un plan
+de siete fases (0 a 6). **Antes de tocar la interfaz, leé ese documento**: lo
+que encuentres probablemente ya tiene ID, arreglo propuesto y fase.
+
+**Fase 0 (datos y plata), hecha el 30 de septiembre.** Lo que cambió de
+comportamiento, que es lo que hay que saber para no deshacerlo:
+
+1. **Guardar Configuración ya no recalcula precios.** Mandaba siempre el
+   margen y el redondeo, y el repositorio, al verlos, reescribía los precios
+   de todo el catálogo, sin aviso, sin Deshacer y sin evento. Ahora la
+   pantalla manda sólo lo que cambió, y `ParametrosRepo.actualizar` y
+   `guardarCategoria` no tocan productos: un margen o un redondeo nuevos
+   abren "Revisar precios" (`core/revisar-precios.ts` +
+   `ProductosRepo.aplicarPrecios`), donde se elige cuáles. El botón
+   "Recalcular precios del inventario" pasó a ser "Revisar precios del
+   inventario" y abre la misma ventana. `recalcularPrecios()` sigue en el
+   repositorio pero ninguna pantalla lo llama.
+2. **Ajustes del celular abría con el nombre y el teléfono vacíos** y con
+   "Guardar cambios" a la vista: las seis pantallas se montan al abrir la
+   app, antes de que lleguen los parámetros, y los campos copiaban su valor
+   una sola vez. Guardar borraba el nombre del negocio en las dos apps.
+   Ahora guarda sólo lo que la persona escribió (`editado`) y lee el resto
+   de los parámetros en cada dibujo. **Cualquier formulario del celular que
+   copie parámetros a un `useState` tiene el mismo problema.**
+3. **Un producto con ventas o paquetes no se elimina**
+   (`porQueNoSePuedeEliminar`): dice por qué y ofrece descatalogarlo.
+4. **En Cobros, "Abonar" en una fila registra en esa venta** (abre
+   `PagoModal`); antes abría el abono por clienta, que paga primero lo más
+   viejo. "Registrar abono" de la cabecera arranca sin clienta elegida.
+5. **Ctrl+Z no actúa dentro de un campo** y deshace el aviso más reciente;
+   los avisos se leen hasta en tres líneas y los de error duran 8 segundos.
+6. **La tasa de la venta en todo lo que sale de una venta**:
+   `tasaDelDocumento()` para la factura, la proforma, su mensaje y la hoja
+   del celular; `FilaPorCobrar.tasa_cambio_cents` para "Pagar todo" y los
+   saldos en córdobas de Cobros.
+7. **El código de una venta sale de `codigoDeVenta()`** (`core/codigos.ts`):
+   el recibo del celular lo armaba a mano y decía "V-24" por "V-0024".
+8. **Contraste**: la escala de Tailwind 700-900 apunta a `-fuerte`, y
+   `auditar-colores.mjs` tiene una regla 4 ("nunca `--x` sobre `--x-suave`").
+   Como esa auditoría mira cada `className` por separado, las dos suites de
+   interfaz tienen además un caso que **mide** el contraste en la pantalla,
+   en claro y en oscuro.
+
+Cada hallazgo tiene una prueba que se vio fallar antes del arreglo:
+`tests/fase0-auditoria.test.ts`, `tests/motor-real/fase0-auditoria.test.ts`
+y los casos con ID de las dos suites de interfaz. `SOLO="CAJ-01"` delante de
+`npm run test:interfaz` (o `test:interfaz-escritorio`) corre sólo los casos
+cuyo nombre lo contiene.
+
+Verificado: `tsc` de las dos apps, 514 pruebas, 98 contra el emulador, 26
+casos de interfaz de escritorio y 16 de la PWA, las tres auditorías y el
+build del celular. Las fases 1 a 6 de la auditoría **no están autorizadas**.
+
 ### Hecho el 29 de septiembre, sobre producción: V-0007 borrada a mano
 
 V-0007 (29/9) se borró desde la consola de Firebase para corregir una venta
@@ -506,8 +567,8 @@ prueba que Firestore de verdad acepte lo que el código le manda.
 
 ```bash
 npm run typecheck              # 0 errores, sin excepción
-npm test                       # 299 pruebas, 27 archivos
-npm run test:emulador          # 91 pruebas contra el emulador de Firestore
+npm test                       # 514 pruebas, 36 archivos
+npm run test:emulador          # 98 pruebas contra el emulador de Firestore
 npm run test:interfaz          # la PWA, con Playwright
 npm run test:interfaz-escritorio
 npm run auditar:colores        # ningún par fondo/texto ilegible
