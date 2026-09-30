@@ -35,10 +35,24 @@ export function escaparHtml(texto: unknown): string {
 }
 
 /**
+ * La tasa con que se pasa a córdobas un documento: la de la venta. La de hoy
+ * sólo si la venta no la tiene (documentos de antes de que se congelara).
+ */
+export function tasaDelDocumento(
+  venta: Pick<VentaCompleta, 'tasa_cambio_cents'>,
+  parametros: Pick<ParametrosSistema, 'tasa_cambio_cents'> | null | undefined
+): number {
+  return venta.tasa_cambio_cents || parametros?.tasa_cambio_cents || 3662;
+}
+
+/**
  * Genera el documento HTML completo de una Factura Comercial de Venta.
  */
 export function generarHtmlFactura(venta: VentaCompleta, parametros: ParametrosSistema): string {
-  const tasa = parametros.tasa_cambio_cents || venta.tasa_cambio_cents || 3662;
+  // La tasa congelada de la venta, no la de hoy: reimprimir una factura vieja
+  // después de cambiar la tasa daba otro "Total C$" que el original, y no
+  // coincidía con los abonos, que se registran con la tasa de la venta.
+  const tasa = tasaDelDocumento(venta, parametros);
   const tasaNum = tasa / 100;
   const totalCs = Math.round((venta.total_usd_cents * tasa) / 100);
   const saldoCs = Math.round((venta.saldo_usd_cents * tasa) / 100);
@@ -449,7 +463,7 @@ export function generarHtmlFactura(venta: VentaCompleta, parametros: ParametrosS
  * Genera el documento HTML completo de una Proforma / Cotización para Encargos.
  */
 export function generarHtmlProforma(venta: VentaCompleta, parametros: ParametrosSistema): string {
-  const tasa = parametros.tasa_cambio_cents || venta.tasa_cambio_cents || 3662;
+  const tasa = tasaDelDocumento(venta, parametros);
   const tasaNum = tasa / 100;
   const totalCs = Math.round((venta.total_usd_cents * tasa) / 100);
   const anticipoEsperadoCs = Math.round((venta.anticipo_esperado_usd_cents * tasa) / 100);

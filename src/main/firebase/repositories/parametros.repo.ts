@@ -189,12 +189,12 @@ export class ParametrosRepoFirestore {
       detalle: `Configuración actualizada (${Object.keys(valores).length} campo(s))`,
     });
 
-    if (
-      valores.margen_defecto_bp !== undefined ||
-      valores.paso_redondeo_usd_cents !== undefined
-    ) {
-      await this.recalcularPrecios();
-    }
+    // Hasta la 2.16.2 acá se recalculaban los precios de todo el catálogo si
+    // venían el margen o el redondeo, y Configuración los mandaba siempre:
+    // guardar un mensaje de WhatsApp reescribía en silencio los precios que
+    // "Revisar precios" deja decidir uno por uno, sin Deshacer ni registro.
+    // Ahora un cambio de margen deja la lista armada (`preciosParaRevisar`) y
+    // ella elige qué aplicar (`ProductosRepo.aplicarPrecios`).
   }
 
   static async getCategorias(): Promise<Categoria[]> {
@@ -268,8 +268,8 @@ export class ParametrosRepoFirestore {
         detalle: `Categoría '${nombreLimpio}' actualizada`,
       });
 
-      // Los productos que heredan el margen de esta categoría cambian con ella.
-      await this.recalcularPrecios();
+      // Los productos que heredan el margen de esta categoría NO cambian solos:
+      // quedan en "Revisar precios" (ver `actualizar`).
       return input.id;
     }
 
@@ -344,6 +344,10 @@ export class ParametrosRepoFirestore {
   /**
    * Recalcula el precio de venta de todo el inventario en un solo lote.
    * Un precio MANUAL nunca se toca: lo escribió una persona a propósito.
+   *
+   * Desde la 2.16.3 ninguna pantalla lo llama: no registra eventos (no se
+   * puede deshacer) y aplica todo sin preguntar. Las pantallas usan
+   * `preciosParaRevisar` + `ProductosRepo.aplicarPrecios`, que sí.
    */
   static async recalcularPrecios(): Promise<number> {
     const db = getFirestoreDb();

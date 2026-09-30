@@ -15,6 +15,7 @@ import { ParametrosRepoFirestore as ParametrosRepo } from '../src/main/firebase/
 import { PanelRepoFirestore as PanelRepo } from '../src/main/firebase/repositories/panel.repo';
 import { EventosRepoFirestore as EventosRepo } from '../src/main/firebase/repositories/eventos.repo';
 import { hoyISO } from '../src/core/fechas';
+import { preciosParaRevisar } from '../src/core/revisar-precios';
 
 const g = () => randomUUID();
 const HOY = hoyISO();
@@ -208,7 +209,9 @@ describe('precio de venta con margen sobre el costo real', () => {
     expect(p.ganancia_unitaria_usd_cents).toBe(1740);
   });
 
-  it('cambiar el margen global recalcula todo el inventario', async () => {
+  it('cambiar el margen global deja los precios para revisar, y aplicarlos los recalcula', async () => {
+    // Hasta la 2.16.2 el cambio de margen reescribía todo el catálogo en el
+    // mismo guardado. Ahora ella ve la lista y elige (auditoría UX, CFG-01).
     const id = await ProductosRepo.crear(
       { nombre: 'Perfume', stock_inicial: { cantidad: 2, costo_unitario_usd_cents: 2000 } },
       g()
@@ -216,7 +219,16 @@ describe('precio de venta con margen sobre el costo real', () => {
     const antes = (await ProductosRepo.getById(id))!.precio_venta_usd_cents;
 
     await ParametrosRepo.actualizar({ margen_defecto_bp: 10000 }, g());
+    expect((await ProductosRepo.getById(id))!.precio_venta_usd_cents).toBe(antes);
 
+    const revisar = preciosParaRevisar(
+      await ProductosRepo.listar(),
+      await ParametrosRepo.getCategorias(),
+      await ParametrosRepo.getParametros()
+    );
+    expect(revisar.find((x) => x.producto.id === id)?.calculado).toBe(4000);
+
+    await ProductosRepo.aplicarPrecios([id], g());
     const despues = (await ProductosRepo.getById(id))!.precio_venta_usd_cents;
     expect(despues).toBeGreaterThan(antes);
     expect(despues).toBe(4000);
@@ -246,6 +258,14 @@ describe('precio de venta con margen sobre el costo real', () => {
       g()
     );
     await ParametrosRepo.actualizar({ margen_defecto_bp: 20000 }, g());
+    const revisar = preciosParaRevisar(
+      await ProductosRepo.listar(),
+      await ParametrosRepo.getCategorias(),
+      await ParametrosRepo.getParametros()
+    );
+    expect(revisar.some((x) => x.producto.id === manual)).toBe(false);
+    await ProductosRepo.aplicarPrecios([manual], g());
+    await ParametrosRepo.recalcularPrecios();
     expect((await ProductosRepo.getById(manual))!.precio_venta_usd_cents).toBe(3300);
   });
 });

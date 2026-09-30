@@ -1,6 +1,7 @@
 import { formatearMoneda, formatearPorcentaje } from '../moneda';
 import { enlaceWhatsapp } from '../telefono';
 import { anticipoBpDe, noConseguidas } from '../encargos';
+import { tasaDelDocumento } from './plantillas';
 import type { VentaCompleta, ParametrosSistema, CuentaBancaria } from '../../shared/types';
 
 /**
@@ -56,7 +57,8 @@ export function mensajeWhatsappDocumento(
   venta: VentaCompleta,
   parametros: ParametrosSistema | null
 ): string {
-  const tasa = parametros?.tasa_cambio_cents ?? 3662;
+  // La de la venta, igual que el documento que acompaña.
+  const tasa = tasaDelDocumento(venta, parametros);
   const totalCs = Math.round((venta.total_usd_cents * tasa) / 100);
   const esEncargo = venta.tipo === 'ENCARGO';
 

@@ -672,6 +672,11 @@ export interface FilaPorCobrar {
   total_usd_cents: number;
   pagado_usd_cents: number;
   saldo_usd_cents: number;
+  /**
+   * La tasa congelada de la venta. Un abono se registra con ella: "Pagar
+   * todo" en córdobas tiene que convertir con ésta, no con la de hoy.
+   */
+  tasa_cambio_cents?: number;
   proxima_cuota?: string;
   cuotas_vencidas: number;
 }

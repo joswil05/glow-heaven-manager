@@ -233,6 +233,7 @@ function calcularPorCobrar(s: Instantanea, limite: number): FilaPorCobrar[] {
       total_usd_cents: v.total_usd_cents,
       pagado_usd_cents: v.pagado_usd_cents,
       saldo_usd_cents: v.saldo_usd_cents,
+      tasa_cambio_cents: v.tasa_cambio_cents,
       proxima_cuota: pendientes[0]?.fecha_vencimiento,
       cuotas_vencidas: pendientes.filter((q) => q.fecha_vencimiento < hoy).length,
     });

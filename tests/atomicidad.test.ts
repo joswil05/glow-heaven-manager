@@ -82,15 +82,17 @@ describe('el umbral de atomicidad', () => {
       );
     }
 
-    // Cambiar el margen recalcula los precios dentro de la misma operación:
-    // `actualizar()` llama a `recalcularPrecios()` al final. Por eso se mide
-    // la operación completa, que es lo que la usuaria aprieta una sola vez.
-    reiniciarContadores();
+    // Desde la 2.16.3 cambiar el margen no toca los precios: quedan en
+    // "Revisar precios" y ella los aplica todos de una vez. Eso es lo que se
+    // mide, porque es lo que la usuaria aprieta una sola vez.
     await ParametrosRepoFirestore.actualizar({ margen_defecto_bp: 9000 }, g());
+    const ids = (await ProductosRepoFirestore.listar()).map((p) => p.id);
+    reiniciarContadores();
+    await ProductosRepoFirestore.aplicarPrecios(ids, g());
     const { escrituras } = contadores();
 
     // eslint-disable-next-line no-console
-    console.log(`  cambiar el margen con 120 productos: ${escrituras} escrituras`);
+    console.log(`  aplicar el margen nuevo a 120 productos: ${escrituras} escrituras`);
     expect(escrituras).toBeGreaterThan(0);
     // Si esto crece por encima de 500, la operación deja de ser atómica. No
     // es grave para ESTA operación, pero tiene que ser una decisión, no una

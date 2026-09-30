@@ -1089,6 +1089,9 @@ export class ProductosRepoFirestore {
     const anterior = await EventosRepoFirestore.snapshot('productos', id);
     if (!anterior) throw new Error(`El producto #${id} no existe.`);
 
+    const motivo = await this.porQueNoSePuedeEliminar(id, anterior as unknown as ProductoDoc);
+    if (motivo) throw new Error(motivo);
+
     await aplicarLote([
       {
         coleccion: 'productos',
@@ -1105,6 +1108,47 @@ export class ProductosRepoFirestore {
       valor_anterior: anterior,
       detalle: `Producto '${anterior.nombre}' eliminado definitivamente de la base de datos`,
     });
+  }
+
+  /**
+   * Borrar un producto sólo es seguro si nada lo nombra.
+   *
+   * Hasta la 2.16.2 se borraba igual, y la ventana sólo aconsejaba
+   * descatalogarlo: quedaban ventas y paquetes apuntando a un producto que ya
+   * no existe. Mismo criterio que el guardia de clientas de la 2.16.2: se
+   * dice por qué no, y qué hacer en su lugar.
+   */
+  private static async porQueNoSePuedeEliminar(id: number, p: ProductoDoc): Promise<string | null> {
+    const db = getFirestoreDb();
+    const nombre = `“${p.nombre}”`;
+
+    // Cada venta deja un movimiento de salida: con uno alcanza.
+    const vendido = await getDocs(
+      query(
+        collection(db, 'movimientos_inventario'),
+        where('producto_id', '==', id),
+        where('tipo', '==', 'SALIDA'),
+        limit(1)
+      )
+    );
+    if (!vendido.empty) {
+      return `${nombre} se vendió: si se elimina, sus ventas quedan apuntando a un producto que no existe. Descatalogalo, así los reportes no cambian.`;
+    }
+
+    if ((p.paquetes ?? []).length > 0 || p.paquete_id) {
+      return `${nombre} vino en un paquete: si se elimina, el paquete deja de cuadrar. Descatalogalo.`;
+    }
+
+    // Un paquete sin cerrar todavía no lo anota en la ficha. Son pocos.
+    const compras = await getDocs(query(collection(db, 'compras'), where('activo', '==', true)));
+    const borrador = compras.docs
+      .map((d) => d.data() as { estado?: string; codigo?: string; lineas?: { producto_id?: number }[] })
+      .find((c) => c.estado !== 'RECIBIDA' && (c.lineas ?? []).some((l) => l.producto_id === id));
+    if (borrador) {
+      return `${nombre} está en el paquete ${borrador.codigo ?? 'sin cerrar'}, que todavía no pasó al inventario. Sacalo de ese paquete antes de eliminarlo.`;
+    }
+
+    return null;
   }
 
   static async existenciasTotales(producto_id: number): Promise<number> {

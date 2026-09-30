@@ -68,6 +68,7 @@ import {
   recalcularEncargo,
 } from '../../../core/encargos';
 import { formatearMoneda } from '../../../core/moneda';
+import { codigoDeVenta } from '../../../core/codigos';
 import { repartirMayorResiduo } from '../../../core/prorrateo';
 import { lotesDe, escrituraDeLotes } from './productos.repo';
 import {
@@ -402,7 +403,7 @@ export class VentasRepoFirestore {
       leerVarios<ProductoDoc>('productos', idsProductos),
     ]);
 
-    const codigo = `${esEncargo ? 'E' : 'V'}-${String(ventaId).padStart(4, '0')}`;
+    const codigo = codigoDeVenta(ventaId, esEncargo ? 'ENCARGO' : 'INVENTARIO');
     const tasa = params.tasa_cambio_cents ?? 3662;
 
     // 1. Validar todo antes de escribir. Se acumula lo pedido por producto
