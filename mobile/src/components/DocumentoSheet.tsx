@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { MessageCircle, Download, Loader2, FileText } from 'lucide-react';
 import type { VentaCompleta } from '@shared/types';
-import { generarHtmlFactura, generarHtmlProforma } from '@core/documentos/plantillas';
+import { generarHtmlFactura, generarHtmlProforma, tasaDelDocumento } from '@core/documentos/plantillas';
 import { enlaceWhatsappDocumento } from '@core/documentos/mensajes';
-import { formatearMoneda } from '@core/moneda';
+import { formatearMoneda, usdCentavosACorCentavos } from '@core/moneda';
 import { VentasRepoFirestore } from '@repos/ventas.repo';
 import { BottomSheet } from './BottomSheet';
 import { useDatosNegocio } from '../context/DataContext';
@@ -161,10 +161,10 @@ export function DocumentoSheet({
                   {formatearMoneda(venta.total_usd_cents, 'USD')}
                 </span>
                 <span className="text-sm font-bold tabular-nums text-texto-2">
+                  {/* La misma tasa que lleva el PDF: la de la venta. Con la de
+                      hoy, la hoja y el documento decían montos distintos. */}
                   {formatearMoneda(
-                    Math.round(
-                      (venta.total_usd_cents * (parametros?.tasa_cambio_cents ?? 3662)) / 100
-                    ),
+                    usdCentavosACorCentavos(venta.total_usd_cents, tasaDelDocumento(venta, parametros)),
                     'COR'
                   )}
                 </span>

@@ -26,6 +26,7 @@ import type {
   TipoDescuento,
 } from '@shared/types';
 import { formatearMoneda } from '@core/moneda';
+import { codigoDeVenta } from '@core/codigos';
 import { parsearACentavos, parsearDecimal } from '@core/numeros';
 import { nuevoGrupoEvento, hoyISO, linkWhatsapp } from '../lib/util';
 import { useDatosNegocio } from '../context/DataContext';
@@ -294,7 +295,10 @@ export function QuickSaleView() {
 
       const ventaInmediata: VentaCompleta = {
         id: ventaId,
-        codigo: `V-${ventaId}`,
+        // El mismo código que guarda el repositorio. Armado a mano daba
+        // "V-24" donde el sistema dice "V-0024", y el recibo de WhatsApp
+        // salía con un comprobante que no existe.
+        codigo: codigoDeVenta(ventaId),
         cliente_id: clienteSeleccionado?.id,
         cliente: clienteSeleccionado
           ? {
@@ -573,7 +577,7 @@ export function QuickSaleView() {
                           haptics.impact('medium');
                           setProductoConVariantesAbierto(p);
                         }}
-                        className="m3-press flex items-center gap-1.5 rounded-xl bg-acento-suave hover:bg-acento-suave border border-acento-suave px-3 py-2 text-xs font-bold text-acento active:scale-95 transition-all cursor-pointer"
+                        className="m3-press flex items-center gap-1.5 rounded-xl bg-acento-suave hover:bg-acento-suave border border-acento-suave px-3 py-2 text-xs font-bold text-acento-fuerte active:scale-95 transition-all cursor-pointer"
                       >
                         <span>Tonos</span>
                         {cantidadEnCarrito > 0 && (
@@ -686,7 +690,10 @@ export function QuickSaleView() {
               </div>
             </div>
 
-            <div className="flex items-center gap-1 rounded-xl bg-acento hover:bg-acento px-3.5 py-2 text-xs font-black text-texto uppercase tracking-wide shadow-sm">
+            {/* `text-acento-texto`, que es el texto que va ENCIMA del relleno.
+                Con `text-texto` daba 1,68:1 en oscuro: el botón principal de
+                la venta no se leía. */}
+            <div className="flex items-center gap-1 rounded-xl bg-acento hover:bg-acento px-3.5 py-2 text-xs font-black text-acento-texto uppercase tracking-wide shadow-sm">
               <span>Cobrar</span>
               <ChevronRight size={16} />
             </div>
@@ -723,7 +730,7 @@ export function QuickSaleView() {
                   </span>
                 </div>
                 {!agotado && (
-                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-acento-suave text-acento">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-acento-suave text-acento-fuerte">
                     <Plus size={16} />
                   </div>
                 )}
@@ -1047,7 +1054,7 @@ export function QuickSaleView() {
             <button
               type="button"
               onClick={() => setModoCrearCliente(true)}
-              className="m3-press flex items-center justify-center gap-2 rounded-2xl border border-dashed border-acento-suave bg-acento-suave p-3 text-xs font-bold text-acento cursor-pointer"
+              className="m3-press flex items-center justify-center gap-2 rounded-2xl border border-dashed border-acento-suave bg-acento-suave p-3 text-xs font-bold text-acento-fuerte cursor-pointer"
             >
               <UserPlus size={16} />
               + Crear nueva clienta ahora
@@ -1161,7 +1168,7 @@ function PantallaExito({ venta, onNuevaVenta }: { venta: VentaCompleta; onNuevaV
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-5 bg-fondo px-6 pb-safe-b pt-safe-t text-center animate-m3-fade">
-      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-acento-suave text-acento shadow-xl shadow-m3-2 ring-8 ring-acento">
+      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-acento-suave text-acento-fuerte shadow-xl shadow-m3-2 ring-8 ring-acento">
         <CheckCircle2 size={48} />
       </div>
 
@@ -1216,7 +1223,7 @@ function PantallaExito({ venta, onNuevaVenta }: { venta: VentaCompleta; onNuevaV
         </div>
 
         {venta.saldo_usd_cents > 0 && (
-          <div className="mt-2 rounded-xl bg-alerta-suave border border-alerta-suave p-2.5 text-center text-xs font-bold text-alerta">
+          <div className="mt-2 rounded-xl bg-alerta-suave border border-alerta-suave p-2.5 text-center text-xs font-bold text-alerta-fuerte">
             Saldo pendiente: {formatearMoneda(venta.saldo_usd_cents, 'USD')}
           </div>
         )}

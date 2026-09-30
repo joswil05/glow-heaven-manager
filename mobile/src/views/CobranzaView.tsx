@@ -193,7 +193,7 @@ export function CobranzaView() {
               filtro === 'vencidas'
                 ? 'bg-peligro text-peligro-texto shadow-xs'
                 : cuentasVencidas.length > 0
-                ? 'bg-peligro-suave text-peligro border border-peligro-suave'
+                ? 'bg-peligro-suave text-peligro-fuerte border border-peligro-suave'
                 : 'bg-superficie-2 text-texto-2 hover:bg-superficie-3 border border-borde'
             }`}
           >
@@ -203,7 +203,7 @@ export function CobranzaView() {
                 className={`text-[10px] py-0.2 px-1.5 rounded-full font-bold ${
                   filtro === 'vencidas'
                     ? 'bg-acento-suave text-acento-fuerte'
-                    : 'bg-peligro-suave text-peligro'
+                    : 'bg-peligro-suave text-peligro-fuerte'
                 }`}
               >
                 {cuentasVencidas.length}
@@ -241,9 +241,9 @@ export function CobranzaView() {
       <PullToRefresh onRefresh={() => cargar(true)}>
         <main ref={scrollRevealRef} className="flex flex-col gap-3 px-3.5 pt-3 pb-24 scroll-smooth">
           {error && (
-            <div className="rounded-2xl bg-peligro-suave border border-peligro-suave px-4 py-3 text-xs font-semibold text-peligro flex items-center justify-between">
+            <div className="rounded-2xl bg-peligro-suave border border-peligro-suave px-4 py-3 text-xs font-semibold text-peligro-fuerte flex items-center justify-between">
               <span>{error}</span>
-              <button onClick={() => cargar(true)} className="underline text-peligro">Reintentar</button>
+              <button onClick={() => cargar(true)} className="underline">Reintentar</button>
             </div>
           )}
 
@@ -305,7 +305,7 @@ export function CobranzaView() {
             </div>
           ) : cuentasFiltradas.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 px-4 bg-superficie rounded-2xl border border-borde text-center shadow-xs">
-              <div className="w-12 h-12 rounded-full bg-acento-suave text-acento flex items-center justify-center mb-2.5">
+              <div className="w-12 h-12 rounded-full bg-acento-suave text-acento-fuerte flex items-center justify-center mb-2.5">
                 <CheckCircle2 size={24} />
               </div>
               <p className="text-sm font-bold text-texto">
@@ -425,7 +425,7 @@ export function CobranzaView() {
       {/* Modal Bottom Sheet de Kardex de Abonos del Cliente */}
       <DetalleCobroSheet
         fila={detalleCobro}
-        tasaCambioCents={tasa}
+        tasaCambioCents={detalleCobro?.tasa_cambio_cents || tasa}
         onCerrar={() => setDetalleCobro(null)}
         onAbonar={(f) => {
           setDetalleCobro(null);
@@ -435,6 +435,7 @@ export function CobranzaView() {
             cliente_nombre: f.cliente_nombre,
             cliente_telefono: f.cliente_telefono,
             saldo_usd_cents: f.saldo_usd_cents,
+            tasa_cambio_cents: f.tasa_cambio_cents,
           });
         }}
         onVerKardex={(f) => {
@@ -446,6 +447,7 @@ export function CobranzaView() {
             saldo_usd_cents: f.saldo_usd_cents,
             venta_id: f.venta_id,
             codigo: f.codigo,
+            tasa_cambio_cents: f.tasa_cambio_cents,
           });
         }}
       />

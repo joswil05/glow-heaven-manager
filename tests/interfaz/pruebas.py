@@ -15,6 +15,8 @@ Cada caso devuelve una lista de fallas. Vacía es aprobado.
 """
 from __future__ import annotations
 
+import os
+import re
 import sys
 from pathlib import Path
 
@@ -41,11 +43,14 @@ def caso(nombre: str):
 
 def cerrar_hojas(page: Page) -> None:
     """Cierra cualquier hoja abierta: tapan la barra de navegación."""
-    for _ in range(3):
-        boton = visible(page, "button[aria-label='Cerrar']")
-        if boton is None:
+    for _ in range(4):
+        botones = page.locator("button[aria-label='Cerrar']")
+        abiertos = [botones.nth(i) for i in range(botones.count()) if botones.nth(i).is_visible()]
+        if not abiertos:
             break
-        boton.click()
+        # La de más arriba primero: con dos hojas apiladas (el detalle y, encima,
+        # la factura) el botón de la de abajo está tapado y no se puede tocar.
+        abiertos[-1].click()
         page.wait_for_timeout(500)
     page.keyboard.press("Escape")
     page.wait_for_timeout(300)
@@ -154,6 +159,109 @@ def _valor(v: dict):
     return v
 
 
+# El contraste de un texto contra lo que tiene pintado debajo, con la fórmula
+# de WCAG. Si el elemento no tiene fondo propio opaco, se mezcla con el primer
+# ancestro que sí lo tenga.
+JS_CONTRASTE = """(el) => {
+  const num = (s) => (s.match(/[\\d.]+/g) || []).map(Number);
+  const rgba = (s) => { const [r, g, b, a] = num(s); return [r, g, b, a === undefined ? 1 : a]; };
+  let fondo = [255, 255, 255, 1];
+  for (let n = el.parentElement; n; n = n.parentElement) {
+    const c = rgba(getComputedStyle(n).backgroundColor);
+    if (c[3] > 0.99) { fondo = c; break; }
+  }
+  const propio = rgba(getComputedStyle(el).backgroundColor);
+  const mezcla = [0, 1, 2].map((i) => propio[i] * propio[3] + fondo[i] * (1 - propio[3]));
+  const lum = (c) => {
+    const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+    return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]);
+  };
+  const texto = rgba(getComputedStyle(el).color);
+  const a = lum(texto), b = lum(mezcla);
+  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+}"""
+
+
+# Todo texto que esté pintado sobre uno de los tintes (`--x-suave`) y no llegue
+# al contraste mínimo. Es la regla de temas.css ("nunca --x sobre --x-suave")
+# medida en la pantalla y no en el código: `auditar-colores.mjs` mira cada
+# className por separado y no ve un texto cuyo fondo lo pone el contenedor.
+# Los íconos no cuentan (no tienen texto) y el texto grande pide 3:1.
+JS_TEXTO_SOBRE_TINTE = r"""() => {
+  const raiz = getComputedStyle(document.documentElement);
+  const token = (n) => raiz.getPropertyValue('--' + n).trim().split(/\s+/).map(Number);
+  const tintes = ['peligro', 'alerta', 'exito', 'acento'].map((r) => token(r + '-suave'));
+  const num = (s) => (s.match(/[\d.]+/g) || []).map(Number);
+  const lum = (c) => {
+    const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+    return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]);
+  };
+  const malos = new Set();
+  for (const el of document.querySelectorAll('body *')) {
+    if (![...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) continue;
+    if (el.getClientRects().length === 0) continue;
+    let fondo = null;
+    for (let n = el; n && !fondo; n = n.parentElement) {
+      const c = num(getComputedStyle(n).backgroundColor);
+      if (c.length >= 3 && (c[3] === undefined || c[3] > 0.99)) fondo = c;
+    }
+    if (!fondo || !tintes.some((t) => t[0] === fondo[0] && t[1] === fondo[1] && t[2] === fondo[2])) continue;
+    const estilo = getComputedStyle(el);
+    const color = num(estilo.color);
+    const alfa = color[3] === undefined ? 1 : color[3];
+    const mezcla = [0, 1, 2].map((i) => color[i] * alfa + fondo[i] * (1 - alfa));
+    const a = lum(mezcla), b = lum(fondo);
+    const contraste = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+    const px = parseFloat(estilo.fontSize);
+    const grande = px >= 24 || (px >= 18.66 && Number(estilo.fontWeight) >= 700);
+    if (contraste < (grande ? 3 : 4.5)) {
+      malos.add('"' + el.textContent.trim().slice(0, 32) + '" ' + contraste.toFixed(2) + ':1');
+    }
+  }
+  return [...malos];
+}"""
+
+
+def textos_ilegibles_sobre_tinte(page: Page, pantallas, abrir) -> list[str]:
+    """Recorre las pantallas en claro y en oscuro y junta lo que no se lee."""
+    fallas: list[str] = []
+    clases = "document.documentElement.classList"
+    estaba_oscuro = page.evaluate(f"() => {clases}.contains('dark')")
+    try:
+        for tema, oscuro in (("claro", False), ("oscuro", True)):
+            page.evaluate(f"(o) => {clases}.toggle('dark', o)", oscuro)
+            for pantalla in pantallas:
+                abrir(page, pantalla)
+                page.wait_for_timeout(500)
+                for malo in page.evaluate(JS_TEXTO_SOBRE_TINTE):
+                    fallas.append(f"{pantalla} en {tema}: {malo}")
+    finally:
+        page.evaluate(f"(o) => {clases}.toggle('dark', o)", estaba_oscuro)
+        page.wait_for_timeout(300)
+    return fallas
+
+
+def campo_de(page: Page, etiqueta: str):
+    """El campo que vive dentro del `<label>` visible con ese texto."""
+    rotulo = visible(page, "label", etiqueta)
+    return rotulo.locator("input").first if rotulo is not None else None
+
+
+def poner_en_el_carrito(page: Page, producto: str) -> str | None:
+    """Deja un producto en el carrito de Vender, si todavía no hay ninguno."""
+    ir_a(page, "Vender")
+    if visible(page, "span:text-is('Cobrar')") is not None:
+        return None
+    agregar = visible(page, f"button[aria-label='Agregar {producto}']")
+    if agregar is None:
+        return f"Vender no ofrece agregar {producto!r}"
+    agregar.click()
+    page.wait_for_timeout(700)
+    if visible(page, "span:text-is('Cobrar')") is None:
+        return "agregar un producto no muestra la barra del carrito"
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Casos
 # ---------------------------------------------------------------------------
@@ -187,6 +295,145 @@ def caso_cobranza_lista(page: Page) -> list[str]:
         fallas.append("la clienta con deuda no aparece en Cobros")
     if "$100.00" not in cuerpo and "100.00" not in cuerpo:
         fallas.append(f"no se ve el saldo de $100; texto: {cuerpo[:200]!r}")
+    return fallas
+
+
+@caso("CAJ-01 · Ajustes muestra el nombre y el teléfono guardados, y guardar sólo manda lo que cambió")
+def caso_ajustes(page: Page) -> list[str]:
+    """
+    Las seis pantallas se montan al abrir la app, antes de que lleguen los
+    parámetros. Ajustes copiaba nombre y teléfono una sola vez, vacíos, y como
+    "vacío" era distinto de lo guardado ofrecía "Guardar cambios" sin que nadie
+    hubiera tocado nada: un toque borraba el nombre del negocio en las dos apps
+    y en todas las facturas.
+    """
+    fallas = []
+    ir_a(page, "Inicio")
+    boton = visible(page, "button[aria-label='Ajustes']")
+    if boton is None:
+        return ["Inicio no tiene el botón de Ajustes"]
+    boton.click()
+    page.wait_for_timeout(900)
+
+    try:
+        nombre = campo_de(page, "Nombre")
+        telefono = campo_de(page, "Teléfono")
+        if nombre is None or telefono is None:
+            return ["Ajustes no muestra los campos del negocio"]
+
+        if nombre.input_value() != "Glow Heaven Prueba":
+            fallas.append(f"el nombre guardado es 'Glow Heaven Prueba' y el campo dice {nombre.input_value()!r}")
+        if telefono.input_value() != "8888-0000":
+            fallas.append(f"el teléfono guardado es '8888-0000' y el campo dice {telefono.input_value()!r}")
+        if visible(page, "button", "Guardar cambios") is not None:
+            fallas.append("ofrece 'Guardar cambios' sin que se haya tocado nada")
+        if "recalcula" in page.locator("body").inner_text():
+            fallas.append("dice que cambiar la tasa recalcula los precios, y no lo hace (CAJ-02)")
+
+        # Un cambio de verdad: la barra aparece, y guardar no pisa lo demás.
+        telefono.fill("7777-1111")
+        page.wait_for_timeout(300)
+        guardar = visible(page, "button", "Guardar cambios")
+        if guardar is None:
+            fallas.append("cambiar el teléfono no ofrece guardar")
+        else:
+            guardar.click()
+            page.wait_for_timeout(2500)
+            guardado = leer_doc("parametros", "sistema")
+            if guardado.get("telefono_negocio") != "7777-1111":
+                fallas.append(f"el teléfono no se guardó: quedó {guardado.get('telefono_negocio')!r}")
+            if guardado.get("nombre_negocio") != "Glow Heaven Prueba":
+                fallas.append(f"guardar el teléfono cambió el nombre del negocio a {guardado.get('nombre_negocio')!r}")
+            if guardado.get("tasa_cambio_cents") != 3700:
+                fallas.append(f"guardar el teléfono cambió la tasa a {guardado.get('tasa_cambio_cents')!r}")
+            if visible(page, "button", "Guardar cambios") is not None:
+                fallas.append("después de guardar sigue ofreciendo 'Guardar cambios'")
+    finally:
+        volver = visible(page, "button[aria-label='Volver']")
+        if volver is not None:
+            volver.click()
+            page.wait_for_timeout(700)
+    return fallas
+
+
+@caso("CCO-01 · 'Pagar todo' en córdobas llena el saldo con la tasa de la venta")
+def caso_pagar_todo(page: Page) -> list[str]:
+    """
+    El abono se registra con la tasa congelada de la venta. La hoja llenaba
+    "Pagar todo" con la de hoy: con la venta a 36,00 y la tasa en 37,00 proponía
+    C$3,700 por una cuenta que se cierra con C$3,600.
+    """
+    fallas = []
+    venta = next(v for v in listar_coleccion("ventas") if v.get("codigo") == "V-0001")
+    esperado = round(venta["saldo_usd_cents"] * venta["tasa_cambio_cents"] / 100) / 100
+
+    problema = abrir_hoja_de_abono(page)
+    if problema:
+        return [problema]
+    try:
+        cordobas = en_hoja(page, "button", "Córdobas")
+        if cordobas is not None:
+            cordobas.click()
+            page.wait_for_timeout(300)
+        todo = en_hoja(page, "button", "Pagar todo")
+        campo = en_hoja(page, "input[inputmode='decimal']")
+        if todo is None or campo is None:
+            return ["la hoja de abono no tiene 'Pagar todo' o el campo del monto"]
+        todo.click()
+        page.wait_for_timeout(300)
+        if campo.input_value() != f"{esperado:.2f}":
+            fallas.append(
+                f"'Pagar todo' propone C${campo.input_value()} y la cuenta se cierra con C${esperado:,.2f} "
+                f"(la venta se hizo a {venta['tasa_cambio_cents'] / 100:.2f})"
+            )
+        hoja = page.locator("[role='dialog']").last.inner_text()
+        if f"C${esperado:,.2f}" not in hoja:
+            fallas.append(f"la hoja no muestra el saldo en córdobas de la venta (C${esperado:,.2f})")
+    finally:
+        cerrar_hojas(page)
+    return fallas
+
+
+@caso("CHI-08 · la hoja de la factura muestra el total en córdobas con la tasa de la venta")
+def caso_factura_con_su_tasa(page: Page) -> list[str]:
+    """
+    El PDF sale con la tasa de la venta (DOC-01). La hoja que lo ofrece
+    calculaba el total con la de hoy: la pantalla y el documento decían montos
+    distintos de la misma factura.
+    """
+    fallas = []
+    venta = next(v for v in listar_coleccion("ventas") if v.get("codigo") == "V-0001")
+    esperado = round(venta["total_usd_cents"] * venta["tasa_cambio_cents"] / 100) / 100
+
+    problema = abrir_historial(page, "Ventas")
+    if problema:
+        return [problema]
+    try:
+        fila = visible(page, "main button", "Ana Prueba")
+        if fila is None:
+            return ["la venta de Ana Prueba no aparece en el Historial"]
+        fila.click()
+        page.wait_for_timeout(800)
+        ver = en_hoja(page, "button", "Ver factura")
+        if ver is None:
+            return ["el detalle de la venta no ofrece 'Ver factura'"]
+        ver.click()
+        page.wait_for_timeout(2000)
+        # El rótulo va en mayúsculas por CSS: se compara sin distinguirlas.
+        hoja = next(
+            (t for t in page.locator("[role='dialog']").all_inner_texts() if "total de la factura" in t.lower()),
+            None,
+        )
+        if hoja is None:
+            return ["la hoja de la factura no muestra su total"]
+        if f"C${esperado:,.2f}" not in hoja:
+            montos = re.findall(r"C\$[\d,]+\.\d\d", hoja)
+            fallas.append(
+                f"la factura es de C${esperado:,.2f} (venta a {venta['tasa_cambio_cents'] / 100:.2f}) "
+                f"y la hoja dice {montos[:2]}"
+            )
+    finally:
+        cerrar_hojas(page)
     return fallas
 
 
@@ -522,6 +769,86 @@ def caso_reacciona(page: Page) -> list[str]:
     return fallas
 
 
+@caso("COL-01 y COL-02 · ningún texto queda con el color base sobre su tinte, en claro ni en oscuro")
+def caso_tintes(page: Page) -> list[str]:
+    """
+    Los avisos de deuda vencida y de stock agotado son lo que más importa leer
+    y eran lo menos legible: peligro sobre su tinte da 3,93:1 en claro.
+    """
+    return textos_ilegibles_sobre_tinte(
+        page, ["Inicio", "Vender", "Cobros", "Historial", "Catálogo"], ir_a
+    )
+
+
+@caso("CVE-01 · 'Cobrar' del carrito se lee en claro y en oscuro")
+def caso_cobrar_se_lee(page: Page) -> list[str]:
+    """
+    Es el botón principal de la venta y tenía el texto del color de la página
+    sobre el verde: 1,68:1 en oscuro. Se mide, no se mira.
+    """
+    fallas = []
+    problema = poner_en_el_carrito(page, "Perfume Carolina Herrera")
+    if problema:
+        return [problema]
+    boton = visible(page, "span:text-is('Cobrar')").locator("xpath=..")
+    raiz = "document.documentElement.classList"
+    estaba_oscuro = page.evaluate(f"() => {raiz}.contains('dark')")
+    try:
+        for tema, oscuro in (("claro", False), ("oscuro", True)):
+            page.evaluate(f"(o) => {raiz}.toggle('dark', o)", oscuro)
+            page.wait_for_timeout(500)
+            contraste = boton.evaluate(JS_CONTRASTE)
+            if contraste < 4.5:
+                fallas.append(f"en {tema} 'Cobrar' no se lee: contraste {contraste:.2f}:1")
+    finally:
+        page.evaluate(f"(o) => {raiz}.toggle('dark', o)", estaba_oscuro)
+        page.wait_for_timeout(300)
+    return fallas
+
+
+@caso("CVE-02 · la venta registrada muestra el mismo código que queda guardado")
+def caso_codigo_de_la_venta(page: Page) -> list[str]:
+    """
+    La pantalla de éxito armaba el código a mano ("V-2") y el sistema guarda
+    "V-0002": el comprobante que se manda por WhatsApp no existía.
+    """
+    fallas = []
+    problema = poner_en_el_carrito(page, "Perfume Carolina Herrera")
+    if problema:
+        return [problema]
+    antes = {v.get("codigo") for v in listar_coleccion("ventas")}
+
+    visible(page, "span:text-is('Cobrar')").click()
+    page.wait_for_timeout(900)
+    registrar = en_hoja(page, "button", "Registrar venta")
+    if registrar is None:
+        return ["el carrito no ofrece 'Registrar venta'"]
+    registrar.click()
+    page.wait_for_selector("text=Venta registrada", timeout=15000)
+    page.wait_for_timeout(500)
+
+    try:
+        nuevos = [v.get("codigo") for v in listar_coleccion("ventas") if v.get("codigo") not in antes]
+        if len(nuevos) != 1:
+            return [f"registrar la venta creó {len(nuevos)} ventas"]
+        pantalla = page.locator("body").inner_text()
+        mostrado = re.search(r"Comprobante #(\S+)", pantalla)
+        if mostrado is None:
+            fallas.append("la pantalla de venta registrada no muestra el comprobante")
+        elif mostrado.group(1) != nuevos[0]:
+            fallas.append(f"la pantalla dice {mostrado.group(1)!r} y la venta quedó guardada como {nuevos[0]!r}")
+        recibo = visible(page, "a", "Enviar recibo a WhatsApp")
+        enlace = (recibo.get_attribute("href") or "") if recibo is not None else ""
+        if enlace and nuevos[0] not in enlace:
+            fallas.append(f"el recibo de WhatsApp no lleva el código {nuevos[0]!r}")
+    finally:
+        otra = visible(page, "button", "Nueva venta rápida")
+        if otra is not None:
+            otra.click()
+            page.wait_for_timeout(700)
+    return fallas
+
+
 @caso("no quedan errores de consola al recorrer la app")
 def caso_consola(page: Page) -> list[str]:
     # Lo llena el registrador; se evalúa al final de la corrida.
@@ -555,7 +882,12 @@ def main() -> int:
 
         arnes.abrir_app(page)
 
+        # `SOLO=texto` corre sólo los casos cuyo nombre lo contiene: sirve para
+        # iterar sobre uno sin esperar a toda la suite.
+        solo = os.environ.get("SOLO", "")
         for nombre, fn in CASOS:
+            if solo and solo.lower() not in nombre.lower():
+                continue
             try:
                 fallas = fn(page)
             except Exception as err:

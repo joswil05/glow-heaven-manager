@@ -131,7 +131,7 @@ function AppContenido() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-fondo p-6">
         <div className="flex flex-col items-center gap-4 text-center max-w-sm bg-superficie p-6 rounded-2xl border border-peligro-suave shadow-lg">
-          <div className="h-12 w-12 rounded-full bg-peligro-suave flex items-center justify-center text-peligro">
+          <div className="h-12 w-12 rounded-full bg-peligro-suave flex items-center justify-center text-peligro-fuerte">
             <ShieldAlert size={28} />
           </div>
           <div>

@@ -129,7 +129,9 @@ export function AbonoSelectorSheet({
             </div>
           ) : (
             filtradas.map((c) => {
-              const saldoCor = Math.round((c.saldo_usd_cents * tasa) / 100);
+              // Con la tasa de esa venta: es lo que hay que cobrar en
+              // córdobas para cerrarla, y lo que va a decir la hoja del abono.
+              const saldoCor = Math.round((c.saldo_usd_cents * (c.tasa_cambio_cents || tasa)) / 100);
               const vencida = c.cuotas_vencidas > 0;
 
               return (
@@ -145,7 +147,7 @@ export function AbonoSelectorSheet({
                     <div className="flex items-center gap-1.5">
                       <p className="truncate text-xs font-bold text-texto">{c.cliente_nombre}</p>
                       {vencida && (
-                        <span className="inline-flex items-center gap-0.5 rounded-md bg-peligro-suave px-1.5 py-0.5 text-[10px] font-bold text-peligro">
+                        <span className="inline-flex items-center gap-0.5 rounded-md bg-peligro-suave px-1.5 py-0.5 text-[10px] font-bold text-peligro-fuerte">
                           <AlertTriangle size={10} />
                           Vencida
                         </span>
@@ -172,6 +174,7 @@ export function AbonoSelectorSheet({
                         cliente_nombre: c.cliente_nombre,
                         cliente_telefono: c.cliente_telefono,
                         saldo_usd_cents: c.saldo_usd_cents,
+                        tasa_cambio_cents: c.tasa_cambio_cents,
                       });
                       onCerrar();
                     }}

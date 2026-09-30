@@ -20,6 +20,12 @@
  *      invierte con el tema, el texto desaparece en LOS DOS. Así quedó
  *      invisible el total del carrito.
  *
+ *   4. `--x` sobre `--x-suave`: la regla escrita en temas.css ("dentro de un
+ *      badge, --x-fuerte sobre --x-suave"). En claro, peligro sobre su tinte
+ *      da 3,93:1 y no llega a 4,5. Se colaba por dos lados: a mano
+ *      (`bg-peligro-suave text-peligro`) y por la escala de Tailwind, donde
+ *      `danger-800` era el color base. Auditoría de interfaz del 29/9, COL-02.
+ *
  * Corre dentro de `npm run build:mobile`. Si falla, no es un aviso de estilo:
  * hay texto que alguien no va a poder leer.
  */
@@ -65,6 +71,24 @@ function fondosOpacos(s) {
   }
   return [...r];
 }
+/**
+ * La escala de Tailwind (`bg-danger-50`, `text-warning-800`) traducida a los
+ * tokens que pinta, para auditarla con las mismas reglas. Tiene que coincidir
+ * con `tailwind.config.js`: 50-200 son el tinte, 500-600 el color, 700-900 el
+ * texto fuerte.
+ */
+const ROL_DE_ESCALA = { danger: 'peligro', warning: 'alerta', success: 'exito' };
+function sinEscalas(s) {
+  return s.replace(
+    /\b(bg|text|border)-(danger|warning|success)-(\d{2,3})((?:\/\d{1,3})?)(?![\w-])/g,
+    (_, prop, escala, tono, alfa) => {
+      const n = Number(tono);
+      const sufijo = n <= 200 ? '-suave' : n >= 700 ? '-fuerte' : '';
+      return `${prop}-${ROL_DE_ESCALA[escala]}${sufijo}${alfa}`;
+    }
+  );
+}
+
 /** Todos los tokens de fondo, con o sin tinte (para el mensaje de error). */
 const todosLosFondos = (s) => [...new Set([...s.matchAll(RE_FONDO)].map((m) => m[1]))];
 const textosDe = (s) => [...new Set([...s.matchAll(RE_TEXTO)].map((m) => m[1]))];
@@ -76,12 +100,32 @@ for (const [app, raiz] of RAICES) {
     const relativo = `${app}: ${path.relative(raiz, archivo).split(path.sep).join('/')}`;
     readFileSync(archivo, 'utf8').split('\n').forEach((linea, i) => {
       for (const m of linea.matchAll(RE_CADENA)) {
-        const s = m[1] ?? m[2] ?? m[3] ?? '';
+        const s = sinEscalas(m[1] ?? m[2] ?? m[3] ?? '');
         if (!s.includes('text-')) continue;
 
         const opacos = fondosOpacos(s);
         const fondos = todosLosFondos(s);
         const textos = textosDe(s);
+
+        // Esta regla mira el elemento en reposo: un `hover:bg-x-suave` de un
+        // botón de ícono dura lo que dura el mouse encima, y el mínimo para un
+        // ícono (3:1) lo cumple.
+        const reposo = s
+          .split(/\s+/)
+          .filter((c) => !c.includes(':'))
+          .join(' ');
+        const opacosEnReposo = fondosOpacos(reposo);
+        const textosEnReposo = textosDe(reposo);
+        for (const rol of BASES) {
+          if (opacosEnReposo.includes(`${rol}-suave`) && textosEnReposo.includes(rol)) {
+            fallas.push([
+              relativo,
+              i + 1,
+              `text-${rol} sobre bg-${rol}-suave: va text-${rol}-fuerte (temas.css: nunca --x sobre --x-suave)`,
+              s,
+            ]);
+          }
+        }
 
         for (const t of textos) {
           if (opacos.includes(t)) {

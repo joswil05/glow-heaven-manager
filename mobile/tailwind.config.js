@@ -53,9 +53,11 @@ export default {
         'peligro-fuerte': c('peligro-fuerte'),
         'peligro-suave': c('peligro-suave'),
         'peligro-texto': c('peligro-texto'),
-        success: { 50: c('exito-suave'), 500: c('exito'), 600: c('exito'), 700: c('exito') },
-        warning: { 50: c('alerta-suave'), 500: c('alerta'), 600: c('alerta'), 700: c('alerta') },
-        danger: { 50: c('peligro-suave'), 500: c('peligro'), 600: c('peligro'), 700: c('peligro') },
+        // La escala de Tailwind sobre los mismos tokens. Del 700 para arriba
+        // va `-fuerte`: son los tonos que se usan como texto sobre el tinte.
+        success: { 50: c('exito-suave'), 500: c('exito'), 600: c('exito'), 700: c('exito-fuerte'), 800: c('exito-fuerte'), 900: c('exito-fuerte') },
+        warning: { 50: c('alerta-suave'), 500: c('alerta'), 600: c('alerta'), 700: c('alerta-fuerte'), 800: c('alerta-fuerte'), 900: c('alerta-fuerte') },
+        danger: { 50: c('peligro-suave'), 500: c('peligro'), 600: c('peligro'), 700: c('peligro-fuerte'), 800: c('peligro-fuerte'), 900: c('peligro-fuerte') },
       },
       borderRadius: {
         '2xl': '1rem',

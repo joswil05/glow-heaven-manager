@@ -23,6 +23,7 @@ import { BottomSheet } from '../components/BottomSheet';
 import { useSnackbar } from '../components/Snackbar';
 import { nuevoGrupoEvento } from '../lib/util';
 import { haptics, estadoHaptico } from '../lib/haptics';
+import type { ParametrosSistema } from '@shared/types';
 
 /**
  * Ajustes del celular.
@@ -37,9 +38,10 @@ import { haptics, estadoHaptico } from '../lib/haptics';
  *   - Apariencia: hoy vive escondida en un botón de la cabecera del Inicio.
  *   - El negocio: sale en los comprobantes que se mandan por WhatsApp.
  *   - Stock mínimo: define cuándo el catálogo avisa "queda poco".
- *   - Tasa de cambio: se muestra, no se edita. Cambiarla desde el mostrador
- *     recalcula precios de todo el catálogo, y eso no es una decisión para
- *     tomar con el pulgar entre una clienta y otra.
+ *   - Tasa de cambio: se muestra, no se edita. Cada venta guarda la tasa del
+ *     día en que se hizo, así que cambiarla sólo afecta las ventas nuevas;
+ *     igual es una decisión de la computadora, no del pulgar entre una
+ *     clienta y otra.
  *   - Cerrar sesión.
  */
 export function AjustesView({ onVolver }: { onVolver: () => void }) {
@@ -50,10 +52,26 @@ export function AjustesView({ onVolver }: { onVolver: () => void }) {
 
   const [confirmandoSalida, setConfirmandoSalida] = useState(false);
   const [guardando, setGuardando] = useState(false);
-  const [nombre, setNombre] = useState(parametros?.nombre_negocio ?? '');
-  const [telefono, setTelefono] = useState(parametros?.telefono_negocio ?? '');
-  const [stockMinimo, setStockMinimo] = useState(String(parametros?.stock_minimo_defecto ?? 2));
+  /**
+   * Sólo lo que la persona escribió. Lo que no tocó se lee de los parámetros
+   * en cada dibujo.
+   *
+   * Antes cada campo copiaba su valor al montarse, y esta pantalla se monta
+   * con las demás al abrir la app, ANTES de que lleguen los parámetros: los
+   * campos quedaban vacíos para siempre, "vacío" era distinto de lo guardado y
+   * la barra de Guardar aparecía sola. Un toque borraba el nombre y el
+   * teléfono del negocio en las dos apps y en todas las facturas.
+   */
+  const [editado, setEditado] = useState<{ nombre?: string; telefono?: string; stockMinimo?: string }>({});
   const [buscandoVersion, setBuscandoVersion] = useState(false);
+
+  const nombreGuardado = parametros?.nombre_negocio ?? '';
+  const telefonoGuardado = parametros?.telefono_negocio ?? '';
+  const stockGuardado = parametros?.stock_minimo_defecto ?? 2;
+
+  const nombre = editado.nombre ?? nombreGuardado;
+  const telefono = editado.telefono ?? telefonoGuardado;
+  const stockMinimo = editado.stockMinimo ?? String(stockGuardado);
 
   // Se calcula una sola vez: pregunta por capacidades del navegador, no cambia
   // mientras la app está abierta.
@@ -92,34 +110,35 @@ export function AjustesView({ onVolver }: { onVolver: () => void }) {
     }
   }
 
-  const hayCambios =
-    nombre !== (parametros?.nombre_negocio ?? '') ||
-    telefono !== (parametros?.telefono_negocio ?? '') ||
-    stockMinimo !== String(parametros?.stock_minimo_defecto ?? 2);
-
   // Se valida ANTES de guardar y se rechaza lo inválido, en vez de convertirlo
   // en cero en silencio: un stock mínimo de 0 nunca avisaría de nada.
-  const stockValido = (() => {
-    const v = parsearDecimal(stockMinimo, { min: 0 });
-    return v !== null && Number.isInteger(v);
-  })();
+  const stockNumero = parsearDecimal(stockMinimo, { min: 0 });
+  const stockValido = stockNumero !== null && Number.isInteger(stockNumero);
+
+  // Lo que de verdad cambió, y es lo único que se manda: guardar el teléfono
+  // no tiene por qué reescribir el nombre con lo que haya en la pantalla.
+  const cambios: Partial<ParametrosSistema> = {};
+  if (nombre.trim() !== nombreGuardado.trim()) cambios.nombre_negocio = nombre.trim();
+  if (telefono.trim() !== telefonoGuardado.trim()) cambios.telefono_negocio = telefono.trim();
+  if (stockValido && stockNumero !== stockGuardado) cambios.stock_minimo_defecto = stockNumero;
+
+  // Un stock mal escrito también cuenta: la barra queda a la vista (apagada)
+  // junto al aviso, en vez de desaparecer como si no hubiera nada pendiente.
+  const hayCambios = parametros !== null && (Object.keys(cambios).length > 0 || !stockValido);
 
   async function guardar() {
     if (!stockValido) {
       mostrar('Tiene que ser un número entero, 0 o más.', 'error');
       return;
     }
+    if (Object.keys(cambios).length === 0) return;
     setGuardando(true);
     try {
-      await ParametrosRepoFirestore.actualizar(
-        {
-          nombre_negocio: nombre.trim(),
-          telefono_negocio: telefono.trim(),
-          stock_minimo_defecto: parsearDecimal(stockMinimo, { min: 0 }) ?? 2,
-        },
-        nuevoGrupoEvento()
-      );
+      await ParametrosRepoFirestore.actualizar(cambios, nuevoGrupoEvento());
       await recargar();
+      // Lo escrito ya es lo guardado: los campos vuelven a leerse de los
+      // parámetros, que es lo que también ve la computadora.
+      setEditado({});
       haptics.impact('medium');
       mostrar('Ajustes guardados', 'success');
     } catch (err) {
@@ -219,8 +238,9 @@ export function AjustesView({ onVolver }: { onVolver: () => void }) {
               <span className="text-label font-semibold text-texto-2">Nombre</span>
               <input
                 value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
-                className="mt-1 h-11 w-full rounded-xl border border-borde bg-superficie-2 px-3 text-body font-medium text-texto outline-none transition-[border-color,box-shadow] focus:border-acento focus:ring-2 focus:ring-acento/30"
+                onChange={(e) => setEditado((p) => ({ ...p, nombre: e.target.value }))}
+                disabled={!parametros}
+                className="mt-1 h-11 w-full rounded-xl border border-borde bg-superficie-2 px-3 text-body font-medium text-texto outline-none transition-[border-color,box-shadow] focus:border-acento focus:ring-2 focus:ring-acento/30 disabled:opacity-60"
               />
             </label>
 
@@ -228,9 +248,10 @@ export function AjustesView({ onVolver }: { onVolver: () => void }) {
               <span className="text-label font-semibold text-texto-2">Teléfono</span>
               <input
                 value={telefono}
-                onChange={(e) => setTelefono(e.target.value)}
+                onChange={(e) => setEditado((p) => ({ ...p, telefono: e.target.value }))}
+                disabled={!parametros}
                 inputMode="tel"
-                className="mt-1 h-11 w-full rounded-xl border border-borde bg-superficie-2 px-3 text-body font-medium text-texto outline-none transition-[border-color,box-shadow] focus:border-acento focus:ring-2 focus:ring-acento/30"
+                className="mt-1 h-11 w-full rounded-xl border border-borde bg-superficie-2 px-3 text-body font-medium text-texto outline-none transition-[border-color,box-shadow] focus:border-acento focus:ring-2 focus:ring-acento/30 disabled:opacity-60"
               />
             </label>
           </section>
@@ -248,9 +269,10 @@ export function AjustesView({ onVolver }: { onVolver: () => void }) {
               <div className="mt-1 flex items-center gap-2">
                 <input
                   value={stockMinimo}
-                  onChange={(e) => setStockMinimo(e.target.value)}
+                  onChange={(e) => setEditado((p) => ({ ...p, stockMinimo: e.target.value }))}
+                  disabled={!parametros}
                   inputMode="numeric"
-                  className={`h-11 w-24 rounded-xl border bg-superficie-2 px-3 text-body font-bold tabular-nums text-texto outline-none transition-[border-color,box-shadow] focus:ring-2 ${
+                  className={`h-11 w-24 rounded-xl border bg-superficie-2 px-3 text-body font-bold tabular-nums text-texto outline-none transition-[border-color,box-shadow] focus:ring-2 disabled:opacity-60 ${
                     stockValido
                       ? 'border-borde focus:border-acento focus:ring-acento/30'
                       : 'border-peligro focus:ring-peligro/30'
@@ -281,8 +303,8 @@ export function AjustesView({ onVolver }: { onVolver: () => void }) {
               <span className="text-label text-texto-3">por dólar</span>
             </div>
             <p className="mt-1.5 text-[11px] leading-relaxed text-texto-3">
-              Se cambia desde la computadora. Tocarla recalcula los precios de todo el catálogo, y
-              esa no es una decisión para tomar entre una clienta y otra.
+              Se cambia desde la computadora. Cada venta guarda la tasa del día en que se hizo,
+              así que cambiarla sólo afecta las ventas nuevas.
             </p>
           </section>
 

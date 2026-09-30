@@ -73,7 +73,7 @@ export function LoginView() {
         </div>
 
         <div className="mt-2">
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-acento-suave px-3 py-1 text-xs font-bold text-acento border border-acento-suave mb-2">
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-acento-suave px-3 py-1 text-xs font-bold text-acento-fuerte border border-acento-suave mb-2">
             <span className="h-2 w-2 rounded-full bg-acento animate-pulse" />
             Punto de Venta Móvil
           </div>
@@ -93,14 +93,14 @@ export function LoginView() {
                 <Smartphone size={18} />
               </div>
               <div className="flex-1">
-                <h3 className="text-xs font-bold text-alerta">
+                <h3 className="text-xs font-bold text-alerta-fuerte">
                   Aviso para iPhone en WhatsApp
                 </h3>
-                <p className="mt-1 text-[11px] leading-relaxed text-alerta/90">
+                <p className="mt-1 text-[11px] leading-relaxed text-alerta-fuerte">
                   Si ves un error al iniciar sesión, ábrelo en Safari:
                 </p>
 
-                <div className="mt-2 space-y-1 rounded-xl bg-superficie/70 p-2 border border-alerta-suave text-[11px] text-alerta">
+                <div className="mt-2 space-y-1 rounded-xl bg-superficie/70 p-2 border border-alerta-suave text-[11px] text-alerta-fuerte">
                   <p>1. Tocá los <strong>tres puntos (…)</strong> abajo a la derecha.</p>
                   <p>2. Elegí <strong>"Abrir en Safari"</strong>.</p>
                 </div>
@@ -128,10 +128,10 @@ export function LoginView() {
                 <AlertCircle size={18} />
               </div>
               <div className="flex-1">
-                <h3 className="text-xs font-bold text-alerta">
+                <h3 className="text-xs font-bold text-alerta-fuerte">
                   Usá la otra dirección para entrar
                 </h3>
-                <p className="mt-1 text-[11px] leading-relaxed text-alerta/90">
+                <p className="mt-1 text-[11px] leading-relaxed text-alerta-fuerte">
                   Desde esta dirección el inicio de sesión de Google no puede terminar en el
                   celular. Abrí la app en la dirección de abajo y entrá ahí; desde esa pantalla
                   podés volver a agregarla a la pantalla de inicio.
@@ -161,7 +161,7 @@ export function LoginView() {
 
         {error && (
           <div className="w-full flex flex-col gap-2">
-            <p className="w-full rounded-xl bg-peligro-suave border border-peligro-suave p-3 text-center text-xs font-semibold text-peligro" role="alert">
+            <p className="w-full rounded-xl bg-peligro-suave border border-peligro-suave p-3 text-center text-xs font-semibold text-peligro-fuerte" role="alert">
               {error}
             </p>
             <button
@@ -182,7 +182,7 @@ export function LoginView() {
 
           {/* Consejo para usuarios de iPhone en Safari */}
           {esIOS && !esInterno && (
-            <div className="flex items-center gap-2 rounded-xl bg-acento-suave border border-acento-suave px-3 py-2 text-left text-[11px] text-acento shadow-xs">
+            <div className="flex items-center gap-2 rounded-xl bg-acento-suave border border-acento-suave px-3 py-2 text-left text-[11px] text-acento-fuerte shadow-xs">
               <Share size={14} className="shrink-0 text-acento" />
               <span>
                 En Safari, tocá <em>Compartir</em> y <strong>"Añadir a pantalla de inicio"</strong> para usarla como app.

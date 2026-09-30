@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { DollarSign, MessageCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { BottomSheet } from './BottomSheet';
 import { PagosRepoFirestore } from '@repos/pagos.repo';
-import { formatearMoneda } from '@core/moneda';
+import { formatearMoneda, usdCentavosACorCentavos } from '@core/moneda';
 import { parsearACentavos } from '@core/numeros';
 import { nuevoGrupoEvento, hoyISO, linkWhatsapp } from '../lib/util';
 import { useDatosNegocio } from '../context/DataContext';
@@ -16,6 +16,12 @@ export interface VentaCobroItem {
   cliente_nombre: string;
   cliente_telefono?: string;
   saldo_usd_cents: number;
+  /**
+   * La tasa congelada de la venta. El abono se registra con ésta, así que el
+   * saldo en córdobas y "Pagar todo" tienen que salir de la misma: con la de
+   * hoy, "Pagar todo" dejaba centavos pendientes o cobraba de más.
+   */
+  tasa_cambio_cents?: number;
 }
 
 interface AbonoModalSheetProps {
@@ -38,11 +44,11 @@ export function AbonoModalSheet({ venta, onCerrar, onAbonoRegistrado }: AbonoMod
     nuevoSaldoUsdCents: number;
   } | null>(null);
 
-  const tasa = parametros?.tasa_cambio_cents ?? 3662;
-
   if (!venta) return null;
 
-  const saldoCordobas = Math.round((venta.saldo_usd_cents * tasa) / 100);
+  // La de la venta. La de hoy sólo si la venta no la trae (un anticipo suelto).
+  const tasa = venta.tasa_cambio_cents || parametros?.tasa_cambio_cents || 3662;
+  const saldoCordobas = usdCentavosACorCentavos(venta.saldo_usd_cents, tasa);
 
   function llenarSaldoTotal() {
     haptics.impact('medium');

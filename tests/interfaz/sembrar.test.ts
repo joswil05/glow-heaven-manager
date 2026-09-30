@@ -24,7 +24,19 @@ describe('decorado para las pruebas de interfaz', () => {
     'deja el negocio con productos, una clienta y una venta a crédito',
     async () => {
       await baseLimpia();
-      const { Productos, Clientes, Ventas } = await repos();
+      const { Productos, Clientes, Ventas, Parametros } = await repos();
+
+      // El negocio con su nombre y su teléfono guardados: Ajustes tiene que
+      // mostrarlos, no dos campos en blanco (CAJ-01). Y la tasa en 36,00, que
+      // es la que queda congelada en la venta de abajo.
+      await Parametros.actualizar(
+        {
+          nombre_negocio: 'Glow Heaven Prueba',
+          telefono_negocio: '8888-0000',
+          tasa_cambio_cents: 3600,
+        },
+        g()
+      );
 
       // Inventario con stock suficiente para vender varias veces.
       const labial = await Productos.crear(
@@ -73,8 +85,14 @@ describe('decorado para las pruebas de interfaz', () => {
         g()
       );
 
+      // La tasa sube DESPUÉS de la venta. La venta quedó a 36,00 y hoy está a
+      // 37,00: todo lo que se cobre de esa venta va con la suya (CCO-01).
+      await Parametros.actualizar({ tasa_cambio_cents: 3700 }, g());
+
       const v = (await Ventas.getById(venta))!;
       expect(v.saldo_usd_cents).toBe(10000);
+      expect(v.tasa_cambio_cents).toBe(3600);
+      expect((await Parametros.getParametros()).tasa_cambio_cents).toBe(3700);
       expect((await Productos.listar()).length).toBe(3);
 
       // eslint-disable-next-line no-console

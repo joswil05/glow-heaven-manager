@@ -29,6 +29,8 @@ export interface ClienteKardexInfo {
   saldo_usd_cents?: number;
   venta_id?: number;
   codigo?: string;
+  /** La tasa de esa venta: con ella se pasa el saldo a córdobas. */
+  tasa_cambio_cents?: number;
 }
 
 interface KardexClienteSheetProps {
@@ -67,7 +69,7 @@ export function KardexClienteSheet({
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const tasa = parametros?.tasa_cambio_cents ?? 3662;
+  const tasa = cliente?.tasa_cambio_cents || parametros?.tasa_cambio_cents || 3662;
 
   useEffect(() => {
     if (!abierto || !cliente) {
@@ -126,6 +128,7 @@ export function KardexClienteSheet({
           cliente_nombre: cliente.cliente_nombre,
           cliente_telefono: cliente.cliente_telefono,
           saldo_usd_cents: (cliente.saldo_usd_cents ?? 0) + p.monto_usd_cents,
+          tasa_cambio_cents: cliente.tasa_cambio_cents,
         });
       }
     } catch (err) {
@@ -235,6 +238,7 @@ export function KardexClienteSheet({
               cliente_nombre: cliente.cliente_nombre,
               cliente_telefono: cliente.cliente_telefono,
               saldo_usd_cents: saldoUsd,
+              tasa_cambio_cents: cliente.tasa_cambio_cents,
             });
             onCerrar();
           }}
@@ -263,7 +267,7 @@ export function KardexClienteSheet({
               <span className="text-xs text-texto-3 font-medium">Cargando…</span>
             </div>
           ) : error ? (
-            <div className="flex items-center gap-2 p-3 rounded-xl bg-peligro-suave border border-peligro-suave text-peligro text-xs">
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-peligro-suave border border-peligro-suave text-peligro-fuerte text-xs">
               <AlertCircle size={15} className="shrink-0" />
               <span>{error}</span>
             </div>

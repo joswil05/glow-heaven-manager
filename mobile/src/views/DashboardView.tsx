@@ -162,9 +162,9 @@ export function DashboardView({
           className="flex flex-col flex-1 min-h-0 gap-2.5 px-3.5 pt-2 pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))]"
         >
           {error && (
-            <div className="rounded-xl bg-peligro-suave border border-peligro-suave px-3.5 py-2 text-caption sm:text-label font-semibold text-peligro flex items-center justify-between shrink-0">
+            <div className="rounded-xl bg-peligro-suave border border-peligro-suave px-3.5 py-2 text-caption sm:text-label font-semibold text-peligro-fuerte flex items-center justify-between shrink-0">
               <span>{error}</span>
-              <button onClick={() => cargar(true)} className="underline text-peligro">Reintentar</button>
+              <button onClick={() => cargar(true)} className="underline">Reintentar</button>
             </div>
           )}
 
@@ -272,7 +272,7 @@ export function DashboardView({
                     <p className="text-caption sm:text-label font-semibold text-texto-3 truncate">Por cobrar</p>
                   </div>
                   {cuotasVencidas.length > 0 && (
-                    <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-peligro-suave text-peligro border border-peligro-suave shrink-0">
+                    <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-peligro-suave text-peligro-fuerte border border-peligro-suave shrink-0">
                       {cuotasVencidas.length} ven.
                     </span>
                   )}
@@ -299,7 +299,7 @@ export function DashboardView({
                     <p className="text-caption sm:text-label font-semibold text-texto-3 truncate">Inventario</p>
                   </div>
                   {(panel?.total_bajo_stock ?? 0) > 0 && (
-                    <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-alerta-suave text-alerta border border-alerta-suave shrink-0 flex items-center gap-0.5">
+                    <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-alerta-suave text-alerta-fuerte border border-alerta-suave shrink-0 flex items-center gap-0.5">
                       <PackageX size={10} />
                       {panel!.total_bajo_stock} bajo
                     </span>
@@ -430,14 +430,14 @@ export function DashboardView({
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-label sm:text-body font-bold text-peligro truncate leading-tight">
+                      <span className="text-label sm:text-body font-bold text-peligro-fuerte truncate leading-tight">
                         Stock crítico ({panel!.total_bajo_stock})
                       </span>
                       {panel!.bajo_stock.some((i) => i.existencias === 0) && (
                         <span className="h-2 w-2 rounded-full bg-peligro animate-pulse shrink-0" />
                       )}
                     </div>
-                    <p className="text-caption text-peligro/80 font-medium truncate mt-0.5 leading-tight">
+                    <p className="text-caption text-peligro-fuerte font-medium truncate mt-0.5 leading-tight">
                       {panel!.total_bajo_stock === 1
                         ? panel!.bajo_stock[0].nombre
                         : `${panel!.bajo_stock.filter((i) => i.existencias === 0).length} agotados`}
@@ -445,7 +445,7 @@ export function DashboardView({
                   </div>
                 </div>
 
-                <div className="flex w-full items-center justify-center gap-1.5 text-label font-bold text-peligro bg-peligro-suave px-3 py-2.5 rounded-xl border border-peligro-suave shrink-0">
+                <div className="flex w-full items-center justify-center gap-1.5 text-label font-bold text-peligro-fuerte bg-peligro-suave px-3 py-2.5 rounded-xl border border-peligro-suave shrink-0">
                   <span>Revisar inventario</span>
                   <ChevronRight size={15} />
                 </div>
@@ -457,7 +457,7 @@ export function DashboardView({
                     <CheckCircle2 size={20} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <span className="text-label sm:text-body font-bold text-acento block leading-tight">
+                    <span className="text-label sm:text-body font-bold text-acento-fuerte block leading-tight">
                       Inventario en orden
                     </span>
                     <span className="text-caption text-texto-3 block mt-0.5 leading-tight">
@@ -466,7 +466,7 @@ export function DashboardView({
                   </div>
                 </div>
 
-                <div className="flex w-full items-center justify-center gap-1.5 text-label font-bold text-acento bg-acento-suave px-3 py-2.5 rounded-xl border border-acento-suave shrink-0">
+                <div className="flex w-full items-center justify-center gap-1.5 text-label font-bold text-acento-fuerte bg-acento-suave px-3 py-2.5 rounded-xl border border-acento-suave shrink-0">
                   <span>Ver inventario</span>
                   <ChevronRight size={15} />
                 </div>
