@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   Save,
   Database,
-  RefreshCw,
   Plus,
   Archive,
   Tag,
@@ -44,6 +43,8 @@ import { formatearMoneda } from '@core/moneda';
 import { hoyISO, mesISO } from '@core/fechas';
 import { generarCSV, dinero, nombreArchivo, type Columna } from '@core/exportar';
 import { plantillaProforma as plantillaProformaVigente } from '@core/documentos/mensajes';
+import { preciosParaRevisar, type PrecioParaRevisar } from '@core/revisar-precios';
+import { RevisarPreciosModal } from './inventario/RevisarPreciosModal';
 
 interface ConfigViewProps {
   parametros: ParametrosSistema | null;
@@ -61,6 +62,129 @@ const PASOS = [
 ];
 
 const num = (t: string): number => parsearDecimal(t) ?? 0;
+
+const PLANTILLA_COBRO_DEFECTO =
+  'Hola {cliente}, te saludamos de Glow Heaven ✨ Te recordamos que tienes un saldo pendiente de {saldo_usd} ({saldo_cs}). Si ya realizaste tu abono, por favor compártenos el comprobante. ¡Muchas gracias!';
+const PLANTILLA_FACTURA_DEFECTO =
+  '¡Hola {cliente}! ✨ Muchas gracias por tu compra en Glow Heaven 🛍️\n\n📄 Factura: {codigo}\n💵 Total: {total_usd} (≈ {total_cs})\n{estado_pago}\n\n{cuentas_bancarias}\n¡Esperamos que disfrutes tus prendas! 💖';
+
+/** Lo que el formulario muestra para unos parámetros guardados. */
+function formularioDe(p: ParametrosSistema) {
+  return {
+    tasa: (p.tasa_cambio_cents / 100).toFixed(2),
+    tax: String(p.tax_bp / 100),
+    tarifaEnvio: (p.tarifa_envio_cents_lb / 100).toFixed(2),
+    margen: String(p.margen_defecto_bp / 100),
+    paso: p.paso_redondeo_usd_cents,
+    anticipo: String(p.anticipo_defecto_bp / 100),
+    stockMinimo: String(p.stock_minimo_defecto),
+    mostrarCordobas: p.mostrar_cordobas,
+    nombreNegocio: p.nombre_negocio,
+    telefono: p.telefono_negocio,
+    pinSeguridad: p.pin_seguridad ?? '',
+    confirmarPin: p.pin_seguridad ?? '',
+    plantillaCobro: p.plantilla_cobro_whatsapp ?? PLANTILLA_COBRO_DEFECTO,
+    plantillaFactura: p.plantilla_factura_whatsapp ?? PLANTILLA_FACTURA_DEFECTO,
+    // La vigente, no la guardada a ciegas: la de antes de la 2.16 decía "50%"
+    // escrito a mano y está guardada en la base como si fuera propia.
+    plantillaProforma: plantillaProformaVigente(p),
+    cuentasBancarias: p.cuentas_bancarias ?? [],
+    diasMora: p.dias_alerta_mora ?? 15,
+    diasEncargos: p.dias_alerta_encargos ?? 10,
+    monedaDefectoVenta: p.moneda_defecto_venta ?? ('USD' as 'USD' | 'NIO'),
+    metodoDefecto: p.metodo_pago_defecto ?? ('EFECTIVO' as MetodoPago),
+    cuotasCantidad: String(p.cuotas_defecto_cantidad ?? 4),
+    cuotasDias: String(p.cuotas_defecto_dias ?? 15),
+    pantallaInicio: p.pantalla_inicio ?? 'panel',
+    pantallaInicioMovil: p.pantalla_inicio_movil ?? 'panel',
+    codigoPais: p.codigo_pais_whatsapp ?? '505',
+  };
+}
+type Formulario = ReturnType<typeof formularioDe>;
+
+/** Lo que se guarda a partir de lo que dice el formulario, o qué campo está mal. */
+function valoresDe(f: Formulario): { valores: Record<string, unknown> } | { error: string } {
+  if (f.pinSeguridad.trim()) {
+    if (!/^\d{4,6}$/.test(f.pinSeguridad.trim())) {
+      return { error: 'El PIN debe contener entre 4 y 6 dígitos numéricos (ej. 1234).' };
+    }
+    if (f.pinSeguridad.trim() !== f.confirmarPin.trim()) {
+      return { error: 'El PIN y la confirmación no coinciden.' };
+    }
+  }
+  const tasaCents = parsearACentavos(f.tasa, { min: 0.01 });
+  if (tasaCents === null) {
+    return { error: 'La tasa de cambio (C$ por USD) debe ser un número válido mayor a cero.' };
+  }
+  const taxBp = parsearDecimal(f.tax, { min: 0, max: 100 });
+  if (taxBp === null) {
+    return { error: 'El impuesto tax de USA (%) debe ser un número válido entre 0 y 100.' };
+  }
+  const tarifaEnvioCents = parsearACentavos(f.tarifaEnvio, { min: 0 });
+  if (tarifaEnvioCents === null) {
+    return { error: 'La tarifa de envío por libra ($) debe ser un monto válido mayor o igual a cero.' };
+  }
+  const margenBp = parsearDecimal(f.margen, { min: 0 });
+  if (margenBp === null) {
+    return { error: 'El margen de ganancia (%) debe ser un número válido mayor o igual a cero.' };
+  }
+  const anticipoBp = parsearDecimal(f.anticipo, { min: 0, max: 100 });
+  if (anticipoBp === null) {
+    return { error: 'El anticipo por defecto para encargos (%) debe ser un número entre 0 y 100.' };
+  }
+  const stockMin = parsearDecimal(f.stockMinimo, { min: 0 });
+  if (stockMin === null) {
+    return { error: 'El stock mínimo por defecto debe ser un número mayor o igual a cero.' };
+  }
+  return {
+    valores: {
+      tasa_cambio_cents: tasaCents,
+      tax_bp: Math.round(taxBp * 100),
+      tarifa_envio_cents_lb: tarifaEnvioCents,
+      margen_defecto_bp: Math.round(margenBp * 100),
+      paso_redondeo_usd_cents: f.paso,
+      anticipo_defecto_bp: Math.round(anticipoBp * 100),
+      stock_minimo_defecto: Math.round(stockMin),
+      mostrar_cordobas: f.mostrarCordobas,
+      nombre_negocio: f.nombreNegocio.trim(),
+      telefono_negocio: f.telefono.trim(),
+      pin_seguridad: f.pinSeguridad.trim(),
+      plantilla_cobro_whatsapp: f.plantillaCobro.trim(),
+      plantilla_factura_whatsapp: f.plantillaFactura.trim(),
+      plantilla_proforma_whatsapp: f.plantillaProforma.trim(),
+      cuentas_bancarias: f.cuentasBancarias,
+      dias_alerta_mora: f.diasMora,
+      dias_alerta_encargos: f.diasEncargos,
+      moneda_defecto_venta: f.monedaDefectoVenta,
+      metodo_pago_defecto: f.metodoDefecto,
+      cuotas_defecto_cantidad: Number(f.cuotasCantidad) || 4,
+      cuotas_defecto_dias: Number(f.cuotasDias) || 15,
+      pantalla_inicio: f.pantallaInicio,
+      pantalla_inicio_movil: f.pantallaInicioMovil,
+      codigo_pais_whatsapp: f.codigoPais.replace(/\D/g, '') || '505',
+    },
+  };
+}
+
+/**
+ * Sólo lo que cambió.
+ *
+ * Hasta la 2.16.2 se mandaban todos los campos en cada guardado: el margen y
+ * el redondeo iban siempre, y el repositorio recalculaba en silencio los
+ * precios del catálogo aunque sólo se hubiera cambiado un mensaje. Y como el
+ * celular escribe el mismo documento, guardar acá pisaba lo que se hubiera
+ * cambiado allá mientras esta pantalla estaba abierta.
+ */
+function soloLoQueCambio(
+  nuevos: Record<string, unknown>,
+  antes: Record<string, unknown>
+): Record<string, unknown> {
+  const cambios: Record<string, unknown> = {};
+  for (const [clave, valor] of Object.entries(nuevos)) {
+    if (JSON.stringify(valor) !== JSON.stringify(antes[clave])) cambios[clave] = valor;
+  }
+  return cambios;
+}
 
 /** Quien desarrolló la herramienta. Se avisa distinto al quitarle el acceso. */
 const CORREO_DESARROLLADOR = 'espinozajoswill@gmail.com';
@@ -116,43 +240,93 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
   const [guardando, setGuardando] = useState(false);
   const [guardadoExitoso, setGuardadoExitoso] = useState(false);
   const [info, setInfo] = useState<InfoSistema | null>(null);
+  /** El formulario tal como se cargó: lo que no cambió no se manda. */
+  const [inicial, setInicial] = useState<Formulario | null>(null);
+  /** La lista de "Revisar precios" abierta (null: cerrada). */
+  const [revision, setRevision] = useState<PrecioParaRevisar[] | null>(null);
 
   useEffect(() => {
     if (!parametros) return;
-    setTasa((parametros.tasa_cambio_cents / 100).toFixed(2));
-    setTax(String(parametros.tax_bp / 100));
-    setTarifaEnvio((parametros.tarifa_envio_cents_lb / 100).toFixed(2));
-    setMargen(String(parametros.margen_defecto_bp / 100));
-    setPaso(parametros.paso_redondeo_usd_cents);
-    setAnticipo(String(parametros.anticipo_defecto_bp / 100));
-    setStockMinimo(String(parametros.stock_minimo_defecto));
-    setMostrarCordobas(parametros.mostrar_cordobas);
-    setNombreNegocio(parametros.nombre_negocio);
-    setTelefono(parametros.telefono_negocio);
-    setPinSeguridad(parametros.pin_seguridad ?? '');
-    setConfirmarPin(parametros.pin_seguridad ?? '');
-    setPlantillaCobro(
-      parametros.plantilla_cobro_whatsapp ??
-        'Hola {cliente}, te saludamos de Glow Heaven ✨ Te recordamos que tienes un saldo pendiente de {saldo_usd} ({saldo_cs}). Si ya realizaste tu abono, por favor compártenos el comprobante. ¡Muchas gracias!'
-    );
-    setPlantillaFactura(
-      parametros.plantilla_factura_whatsapp ??
-        '¡Hola {cliente}! ✨ Muchas gracias por tu compra en Glow Heaven 🛍️\n\n📄 Factura: {codigo}\n💵 Total: {total_usd} (≈ {total_cs})\n{estado_pago}\n\n{cuentas_bancarias}\n¡Esperamos que disfrutes tus prendas! 💖'
-    );
-    // La vigente, no la guardada a ciegas: la de antes de la 2.16 decía "50%"
-    // escrito a mano y está guardada en la base como si fuera propia.
-    setPlantillaProforma(plantillaProformaVigente(parametros));
-    setCuentasBancarias(parametros.cuentas_bancarias ?? []);
-    setDiasMora(parametros.dias_alerta_mora ?? 15);
-    setDiasEncargos(parametros.dias_alerta_encargos ?? 10);
-    setMonedaDefectoVenta(parametros.moneda_defecto_venta ?? 'USD');
-    setMetodoDefecto(parametros.metodo_pago_defecto ?? 'EFECTIVO');
-    setCuotasCantidad(String(parametros.cuotas_defecto_cantidad ?? 4));
-    setCuotasDias(String(parametros.cuotas_defecto_dias ?? 15));
-    setPantallaInicio(parametros.pantalla_inicio ?? 'panel');
-    setPantallaInicioMovil(parametros.pantalla_inicio_movil ?? 'panel');
-    setCodigoPais(parametros.codigo_pais_whatsapp ?? '505');
+    const f = formularioDe(parametros);
+    setTasa(f.tasa);
+    setTax(f.tax);
+    setTarifaEnvio(f.tarifaEnvio);
+    setMargen(f.margen);
+    setPaso(f.paso);
+    setAnticipo(f.anticipo);
+    setStockMinimo(f.stockMinimo);
+    setMostrarCordobas(f.mostrarCordobas);
+    setNombreNegocio(f.nombreNegocio);
+    setTelefono(f.telefono);
+    setPinSeguridad(f.pinSeguridad);
+    setConfirmarPin(f.confirmarPin);
+    setPlantillaCobro(f.plantillaCobro);
+    setPlantillaFactura(f.plantillaFactura);
+    setPlantillaProforma(f.plantillaProforma);
+    setCuentasBancarias(f.cuentasBancarias);
+    setDiasMora(f.diasMora);
+    setDiasEncargos(f.diasEncargos);
+    setMonedaDefectoVenta(f.monedaDefectoVenta);
+    setMetodoDefecto(f.metodoDefecto);
+    setCuotasCantidad(f.cuotasCantidad);
+    setCuotasDias(f.cuotasDias);
+    setPantallaInicio(f.pantallaInicio);
+    setPantallaInicioMovil(f.pantallaInicioMovil);
+    setCodigoPais(f.codigoPais);
+    // Contra esto se compara al guardar: se manda sólo lo que ella cambió.
+    setInicial(f);
   }, [parametros]);
+
+  const formularioActual = (): Formulario => ({
+    tasa,
+    tax,
+    tarifaEnvio,
+    margen,
+    paso,
+    anticipo,
+    stockMinimo,
+    mostrarCordobas,
+    nombreNegocio,
+    telefono,
+    pinSeguridad,
+    confirmarPin,
+    plantillaCobro,
+    plantillaFactura,
+    plantillaProforma,
+    cuentasBancarias,
+    diasMora,
+    diasEncargos,
+    monedaDefectoVenta,
+    metodoDefecto,
+    cuotasCantidad,
+    cuotasDias,
+    pantallaInicio,
+    pantallaInicioMovil,
+    codigoPais,
+  });
+
+  /**
+   * "Revisar precios" con los parámetros y las categorías que valen ahora.
+   *
+   * Un cambio de margen o de redondeo ya no reescribe precios: abre esta
+   * lista (antes → después), y ella aplica los que elige, con Deshacer.
+   */
+  const abrirRevisionDePrecios = async (
+    params: ParametrosSistema,
+    cats: Categoria[],
+    avisarSiNoHay: boolean
+  ) => {
+    const r = await window.api.productos.list({});
+    if (!r.success) {
+      showToast({ message: r.error, type: 'error' });
+      return;
+    }
+    const lista = preciosParaRevisar(r.data, cats, params);
+    if (lista.length > 0) setRevision(lista);
+    else if (avisarSiNoHay) {
+      showToast({ message: 'Todos los precios corresponden a su costo.', type: 'success' });
+    }
+  };
 
   useEffect(() => {
     window.api.sistema.info().then((r) => {
@@ -386,82 +560,21 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
   };
 
   const guardar = async () => {
-    if (pinSeguridad.trim()) {
-      if (!/^\d{4,6}$/.test(pinSeguridad.trim())) {
-        showToast({
-          message: 'El PIN debe contener entre 4 y 6 dígitos numéricos (ej. 1234).',
-          type: 'error',
-        });
-        return;
-      }
-      if (pinSeguridad.trim() !== confirmarPin.trim()) {
-        showToast({
-          message: 'El PIN y la confirmación no coinciden.',
-          type: 'error',
-        });
-        return;
-      }
-    }
-
-    const tasaCents = parsearACentavos(tasa, { min: 0.01 });
-    if (tasaCents === null) {
-      showToast({ message: 'La tasa de cambio (C$ por USD) debe ser un número válido mayor a cero.', type: 'error' });
+    const actual = valoresDe(formularioActual());
+    if ('error' in actual) {
+      showToast({ message: actual.error, type: 'error' });
       return;
     }
-    const taxBp = parsearDecimal(tax, { min: 0, max: 100 });
-    if (taxBp === null) {
-      showToast({ message: 'El impuesto tax de USA (%) debe ser un número válido entre 0 y 100.', type: 'error' });
-      return;
-    }
-    const tarifaEnvioCents = parsearACentavos(tarifaEnvio, { min: 0 });
-    if (tarifaEnvioCents === null) {
-      showToast({ message: 'La tarifa de envío por libra ($) debe ser un monto válido mayor o igual a cero.', type: 'error' });
-      return;
-    }
-    const margenBp = parsearDecimal(margen, { min: 0 });
-    if (margenBp === null) {
-      showToast({ message: 'El margen de ganancia (%) debe ser un número válido mayor o igual a cero.', type: 'error' });
-      return;
-    }
-    const anticipoBp = parsearDecimal(anticipo, { min: 0, max: 100 });
-    if (anticipoBp === null) {
-      showToast({ message: 'El anticipo por defecto para encargos (%) debe ser un número entre 0 y 100.', type: 'error' });
-      return;
-    }
-    const stockMin = parsearDecimal(stockMinimo, { min: 0 });
-    if (stockMin === null) {
-      showToast({ message: 'El stock mínimo por defecto debe ser un número mayor o igual a cero.', type: 'error' });
+    const base = inicial ? valoresDe(inicial) : null;
+    const cambios = soloLoQueCambio(actual.valores, base && 'valores' in base ? base.valores : {});
+    if (Object.keys(cambios).length === 0) {
+      showToast({ message: 'No hay cambios para guardar.', type: 'info' });
       return;
     }
 
     setGuardando(true);
     try {
-      const r = await window.api.parametros.update({
-        tasa_cambio_cents: tasaCents,
-        tax_bp: Math.round(taxBp * 100),
-        tarifa_envio_cents_lb: tarifaEnvioCents,
-        margen_defecto_bp: Math.round(margenBp * 100),
-        paso_redondeo_usd_cents: paso,
-        anticipo_defecto_bp: Math.round(anticipoBp * 100),
-        stock_minimo_defecto: Math.round(stockMin),
-        mostrar_cordobas: mostrarCordobas,
-        nombre_negocio: nombreNegocio.trim(),
-        telefono_negocio: telefono.trim(),
-        pin_seguridad: pinSeguridad.trim(),
-        plantilla_cobro_whatsapp: plantillaCobro.trim(),
-        plantilla_factura_whatsapp: plantillaFactura.trim(),
-        plantilla_proforma_whatsapp: plantillaProforma.trim(),
-        cuentas_bancarias: cuentasBancarias,
-        dias_alerta_mora: diasMora,
-        dias_alerta_encargos: diasEncargos,
-        moneda_defecto_venta: monedaDefectoVenta,
-        metodo_pago_defecto: metodoDefecto,
-        cuotas_defecto_cantidad: Number(cuotasCantidad) || 4,
-        cuotas_defecto_dias: Number(cuotasDias) || 15,
-        pantalla_inicio: pantallaInicio,
-        pantalla_inicio_movil: pantallaInicioMovil,
-        codigo_pais_whatsapp: codigoPais.replace(/\D/g, '') || '505',
-      });
+      const r = await window.api.parametros.update(cambios);
 
       if (!r.success) {
         showToast({ message: r.error, type: 'error' });
@@ -472,20 +585,22 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
       setGuardadoExitoso(true);
       setTimeout(() => setGuardadoExitoso(false), 2200);
       onCambio();
+
+      // Un margen o un redondeo nuevo no cambia ningún precio solo: se
+      // muestran los que ya no corresponden a su costo y ella elige.
+      if (parametros && ('margen_defecto_bp' in cambios || 'paso_redondeo_usd_cents' in cambios)) {
+        await abrirRevisionDePrecios({ ...parametros, ...cambios } as ParametrosSistema, categorias, true);
+      }
     } finally {
       setGuardando(false);
     }
   };
 
-  const recalcular = async () => {
-    const r = await window.api.parametros.recalcularPrecios();
-    if (r.success) {
-      showToast({
-        message: `Precios recalculados en ${r.data.productos} producto(s).`,
-        type: 'success',
-      });
-      onCambio();
-    }
+  // Antes recalculaba todo el catálogo al instante, sin confirmar ni Deshacer,
+  // y con el margen guardado (no el que se veía en pantalla). Ahora abre la
+  // misma revisión que Inventario: la lista, elegir, Deshacer.
+  const revisarPrecios = () => {
+    if (parametros) void abrirRevisionDePrecios(parametros, categorias, true);
   };
 
   const alPresionarEnter = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -542,7 +657,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
                     : 'border-borde bg-superficie hover:border-borde-fuerte hover:bg-superficie-2/50'
                 )}
               >
-                <div className="w-10 h-10 rounded-xl bg-alerta-suave text-alerta flex items-center justify-center mb-2 shadow-xs">
+                <div className="w-10 h-10 rounded-xl bg-alerta-suave text-alerta-fuerte flex items-center justify-center mb-2 shadow-xs">
                   <Sun size={20} />
                 </div>
                 <span className="text-sm font-bold text-texto">Claro</span>
@@ -696,11 +811,11 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={recalcular}
+                  onClick={revisarPrecios}
                   className="mt-3 w-full"
                 >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  <span>Recalcular precios del inventario</span>
+                  <Tag className="w-3.5 h-3.5" />
+                  <span>Revisar precios del inventario</span>
                 </Button>
               </div>
             </div>
@@ -708,7 +823,14 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
         </Card>
 
         {/* Categorías */}
-        <CategoriasSection categorias={categorias} onCambio={onCambio} margenGlobal={num(margen)} />
+        <CategoriasSection
+          categorias={categorias}
+          onCambio={onCambio}
+          margenGlobal={num(margen)}
+          onMargenGuardado={(cats) => {
+            if (parametros) void abrirRevisionDePrecios(parametros, cats, false);
+          }}
+        />
 
         {/* Ventas */}
         <Card>
@@ -1197,6 +1319,13 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
           </CardContent>
         </Card>
 
+        <RevisarPreciosModal
+          abierto={revision !== null}
+          lista={revision ?? []}
+          onCerrar={() => setRevision(null)}
+          onAplicado={() => onCambio()}
+        />
+
         <Confirmar
           abierto={quitando !== null}
           peligroso
@@ -1521,7 +1650,9 @@ const CategoriasSection: React.FC<{
   categorias: Categoria[];
   margenGlobal: number;
   onCambio: () => void;
-}> = ({ categorias, margenGlobal, onCambio }) => {
+  /** Con las categorías ya con el margen nuevo: abre "Revisar precios". */
+  onMargenGuardado?: (categorias: Categoria[]) => void;
+}> = ({ categorias, margenGlobal, onCambio, onMargenGuardado }) => {
   const { showToast } = useToast();
   const [editando, setEditando] = useState<Record<number, string>>({});
   const [nueva, setNueva] = useState('');
@@ -1553,6 +1684,12 @@ const CategoriasSection: React.FC<{
     });
     showToast({ message: `Margen de ${c.nombre} actualizado`, type: 'success' });
     onCambio();
+    // Los productos de la categoría no cambian de precio solos (desde la
+    // 2.16.3): se ofrecen en "Revisar precios".
+    const margenNuevo = Math.round(margenParsed * 100);
+    onMargenGuardado?.(
+      categorias.map((x) => (x.id === c.id ? { ...x, margen_defecto_bp: margenNuevo } : x))
+    );
   };
 
   const agregar = async () => {

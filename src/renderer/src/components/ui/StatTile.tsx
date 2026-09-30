@@ -74,7 +74,7 @@ export const StatTile: React.FC<StatTileProps> = ({
           <span
             className={cn(
               'order-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[11px] font-semibold tabular',
-              delta.positivo ? 'bg-acento-suave text-acento' : 'bg-peligro-suave text-peligro'
+              delta.positivo ? 'bg-acento-suave text-acento-fuerte' : 'bg-peligro-suave text-peligro-fuerte'
             )}
           >
             {delta.positivo ? (

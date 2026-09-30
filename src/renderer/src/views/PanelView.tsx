@@ -125,7 +125,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
     return (
       <div className="flex-1 p-8 flex items-center justify-center">
         <div className="flex max-w-md flex-col items-center gap-3 rounded-2xl border border-borde bg-superficie p-6 text-center">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-peligro-suave text-peligro">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-peligro-suave text-peligro-fuerte">
             <AlertTriangle size={22} />
           </div>
           <h2 className="text-body font-bold text-texto">No se pudo cargar tu resumen</h2>
@@ -266,7 +266,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
       >
         {sinDatos ? (
           <div className="rounded-2xl border border-dashed border-borde-fuerte bg-superficie p-8 text-center shadow-sm">
-            <div className="w-12 h-12 rounded-xl bg-acento-suave/80 text-acento flex items-center justify-center mx-auto mb-3 border border-acento/20">
+            <div className="w-12 h-12 rounded-xl bg-acento-suave/80 text-acento-fuerte flex items-center justify-center mx-auto mb-3 border border-acento/20">
               <Package className="w-6 h-6 text-acento" />
             </div>
             <h3 className="text-title font-bold text-texto">Empezá por tu primer paquete</h3>
@@ -378,7 +378,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
               </div>
               <div className="flex-1 min-w-0 space-y-1">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-peligro">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-peligro-fuerte">
                     Atención requerida ({urgentes.length})
                   </span>
                 </div>
@@ -554,8 +554,8 @@ export const PanelView: React.FC<PanelViewProps> = ({
                       {/* Anticipos por entregar si existen */}
                       {resumen.anticipos_por_entregar_usd_cents > 0 && (
                         <div className="px-3 py-1.5 rounded-lg border border-alerta-suave bg-alerta-suave flex items-center justify-between text-[11px]">
-                          <span className="font-medium text-alerta">Anticipos por entregar</span>
-                          <Money usd_cents={resumen.anticipos_por_entregar_usd_cents} size="sm" soloUsd className="font-bold text-alerta tabular" />
+                          <span className="font-medium text-alerta-fuerte">Anticipos por entregar</span>
+                          <Money usd_cents={resumen.anticipos_por_entregar_usd_cents} size="sm" soloUsd className="font-bold text-alerta-fuerte tabular" />
                         </div>
                       )}
 
@@ -628,7 +628,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
                               <div className="text-body font-semibold text-texto truncate group-hover:text-acento transition-colors flex items-center gap-1.5">
                                 <span className="truncate">{p.cliente_nombre}</span>
                                 {p.cuotas_vencidas > 0 && (
-                                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-peligro-suave text-peligro dark:bg-peligro-suave dark:text-peligro border border-peligro-suave shrink-0">
+                                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-peligro-suave text-peligro-fuerte border border-peligro-suave shrink-0">
                                     {p.cuotas_vencidas} vencida{p.cuotas_vencidas > 1 ? 's' : ''}
                                   </span>
                                 )}
@@ -717,8 +717,8 @@ export const PanelView: React.FC<PanelViewProps> = ({
                             className={cn(
                               'text-[11px] font-bold px-2 py-0.5 rounded-md border shrink-0',
                               p.existencias === 0
-                                ? 'bg-peligro-suave text-peligro border-peligro-suave dark:bg-peligro-suave dark:text-peligro dark:border-peligro-suave'
-                                : 'bg-alerta-suave text-alerta border-alerta-suave dark:bg-alerta-suave dark:text-alerta dark:border-alerta-suave'
+                                ? 'bg-peligro-suave text-peligro-fuerte border-peligro-suave'
+                                : 'bg-alerta-suave text-alerta-fuerte border-alerta-suave'
                             )}
                           >
                             {p.existencias === 0 ? 'Agotado (0)' : `${p.existencias} en stock`}

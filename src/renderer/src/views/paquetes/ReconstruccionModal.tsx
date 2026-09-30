@@ -119,7 +119,7 @@ export const ReconstruccionModal: React.FC<Props> = ({
             )}
 
             {datos && datos.avisos.length > 0 && (
-              <ul className="rounded-xl border border-alerta-suave bg-alerta-suave p-3 text-caption text-alerta space-y-1">
+              <ul className="rounded-xl border border-alerta-suave bg-alerta-suave p-3 text-caption text-alerta-fuerte space-y-1">
                 {datos.avisos.map((a) => (
                   <li key={a}>{a}</li>
                 ))}

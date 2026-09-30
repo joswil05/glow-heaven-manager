@@ -557,8 +557,9 @@ const api: ApiPuente = {
   parametros: {
     get: () => ok(db.parametros),
     update: (valores) => {
+      // Como el repositorio desde la 2.16.3: guardar no cambia precios. Un
+      // margen nuevo deja los precios para revisar (`aplicarPrecios`).
       db.parametros = { ...db.parametros, ...(valores as Partial<ParametrosSistema>) };
-      db.productos = db.productos.map(recalcularProducto);
       return ok(grupo());
     },
     recalcularPrecios: () => {
@@ -573,7 +574,6 @@ const api: ApiPuente = {
         db.categorias = db.categorias.map((c) =>
           c.id === input.id ? { ...c, ...input } : c
         );
-        db.productos = db.productos.map(recalcularProducto);
         return ok({ ...grupo(), id: input.id });
       }
       const id = db.siguienteId++;

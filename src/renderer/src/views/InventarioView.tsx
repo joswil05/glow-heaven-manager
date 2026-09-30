@@ -656,8 +656,8 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
         {precios.length > 0 && (
           <div className="flex items-center justify-between gap-3 rounded-xl bg-alerta-suave px-4 py-2.5">
             <div className="flex items-center gap-2.5 min-w-0">
-              <Tag className="w-4 h-4 text-alerta shrink-0" />
-              <p className="text-label text-alerta">
+              <Tag className="w-4 h-4 text-alerta-fuerte shrink-0" />
+              <p className="text-label text-alerta-fuerte">
                 {precios.length === 1
                   ? '1 precio no corresponde a su costo.'
                   : `${precios.length} precios no corresponden a su costo.`}
@@ -1206,7 +1206,7 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
         titulo={`¿Eliminar definitivamente "${eliminandoDefinitivo?.nombre ?? ''}"?`}
         consecuencias={[
           'No se puede deshacer.',
-          'Si tiene ventas, mejor descatalogalo: así los reportes no cambian.',
+          'Sólo se puede si nunca se vendió ni vino en un paquete. Si tiene historia, descatalogalo: así las ventas y los paquetes siguen cuadrando.',
         ]}
         textoConfirmar="Eliminar"
         onConfirmar={() => eliminandoDefinitivo && eliminarDefinitivo(eliminandoDefinitivo)}

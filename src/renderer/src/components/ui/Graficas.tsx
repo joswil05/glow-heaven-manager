@@ -226,7 +226,7 @@ export const LineaCreciente: React.FC<LineaCrecienteProps> = ({
               className={cn(
                 'px-2.5 py-1 rounded-lg transition-[background-color,border-color,color,box-shadow,transform,opacity] duration-150 flex items-center gap-1.5',
                 modo === 'ganancias'
-                  ? 'bg-acento-suave text-acento font-semibold shadow-xs border border-acento-suave'
+                  ? 'bg-acento-suave text-acento-fuerte font-semibold shadow-xs border border-acento-suave'
                   : 'text-texto-3 hover:text-texto'
               )}
             >
@@ -298,7 +298,7 @@ export const LineaCreciente: React.FC<LineaCrecienteProps> = ({
                     <div className="font-bold text-texto uppercase tracking-wider text-xs border-b border-borde/50 pb-1 mb-1.5 flex items-center justify-between">
                       <span>{d.etiqueta}</span>
                       {margen !== null && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-acento-suave text-acento font-bold">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-acento-suave text-acento-fuerte font-bold">
                           {margen}% margen
                         </span>
                       )}

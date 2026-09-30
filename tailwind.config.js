@@ -65,21 +65,28 @@ export default {
         'peligro-suave': c('peligro-suave'),
         'peligro-texto': c('peligro-texto'),
 
+        // La escala de Tailwind, traducida a los mismos tokens: 50-200 son el
+        // tinte, 500-600 el color y 700-900 el texto fuerte. Del 700 para
+        // arriba va `-fuerte` y no el color base porque esos tonos se usan
+        // como texto sobre el tinte, y el color base ahí no llega a 4,5:1
+        // (peligro: 3,93). `scripts/auditar-colores.mjs` lee esta misma tabla.
         success: {
           50: c('exito-suave'),
           100: c('exito-suave'),
           500: c('exito'),
           600: c('exito'),
-          700: c('exito'),
-          800: c('exito'),
+          700: c('exito-fuerte'),
+          800: c('exito-fuerte'),
+          900: c('exito-fuerte'),
         },
         warning: {
           50: c('alerta-suave'),
           100: c('alerta-suave'),
           500: c('alerta'),
           600: c('alerta'),
-          700: c('alerta'),
-          800: c('alerta'),
+          700: c('alerta-fuerte'),
+          800: c('alerta-fuerte'),
+          900: c('alerta-fuerte'),
         },
         danger: {
           50: c('peligro-suave'),
@@ -87,8 +94,9 @@ export default {
           200: c('peligro-suave'),
           500: c('peligro'),
           600: c('peligro'),
-          700: c('peligro'),
-          800: c('peligro'),
+          700: c('peligro-fuerte'),
+          800: c('peligro-fuerte'),
+          900: c('peligro-fuerte'),
         },
       },
       // Las sombras salen de tokens para poder cambiar con el tema: en oscuro

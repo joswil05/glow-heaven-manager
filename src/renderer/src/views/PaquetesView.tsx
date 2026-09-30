@@ -498,7 +498,7 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
             {estadoDetalle === 'CARGANDO' && (
               <div className="px-3.5 py-2.5 rounded-xl bg-alerta-suave flex items-center justify-between gap-3">
-                <p className="text-label text-alerta">Todavía no entró al inventario.</p>
+                <p className="text-label text-alerta-fuerte">Todavía no entró al inventario.</p>
                 <Button size="sm" variant="primary" className="whitespace-nowrap" onClick={() => abrirEditor(detalle.id)}>
                   Seguir cargando
                 </Button>

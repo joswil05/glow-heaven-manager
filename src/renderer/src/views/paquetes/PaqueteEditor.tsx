@@ -781,7 +781,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                 )}
 
                 {esCorreccion && (
-                  <div className="flex items-center gap-2.5 rounded-xl bg-alerta-suave px-3 py-2.5 text-label text-alerta">
+                  <div className="flex items-center gap-2.5 rounded-xl bg-alerta-suave px-3 py-2.5 text-label text-alerta-fuerte">
                     <Info className="w-4 h-4 shrink-0" />
                     <p>La diferencia sólo cambia el costo de lo que sigue en bodega.</p>
                   </div>

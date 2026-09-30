@@ -421,7 +421,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
                     )}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-caption font-semibold text-acento bg-acento-suave hover:bg-acento-suave dark:hover:bg-acento-suave px-2 py-0.5 rounded-full border border-acento-suave transition-colors mt-1"
+                    className="inline-flex items-center gap-1.5 text-caption font-semibold text-acento-fuerte bg-acento-suave hover:bg-acento-suave dark:hover:bg-acento-suave px-2 py-0.5 rounded-full border border-acento-suave transition-colors mt-1"
                   >
                     <MessageCircle className="w-3 h-3 shrink-0" />
                     <span>WhatsApp</span>

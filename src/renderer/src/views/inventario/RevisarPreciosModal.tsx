@@ -1,55 +1,20 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { X, ArrowRight, Info } from 'lucide-react';
-import type { Categoria, ParametrosSistema, ProductoConStock } from '../../../../shared/types';
+import type { PrecioParaRevisar } from '@core/revisar-precios';
 import { Button, Portal } from '../../components/ui';
-import { precioParaCosto } from '@core/paquete';
-import { margenEfectivo } from '@core/precios';
 import { formatearMoneda } from '@core/moneda';
 import { useToast } from '../../context/ToastContext';
 import { useCerrarConEscape } from '../../lib/useCerrarConEscape';
 import { cn } from '../../lib/cn';
 
 /**
- * Los precios que no corresponden a su costo, para que ella decida.
+ * Los precios que no corresponden a su costo, para que ella decida: la lista
+ * (antes → después), elegir cuáles, Deshacer.
  *
- * Antes de este cambio el precio se calculaba cuando se creaba el producto,
- * sin el flete, y después cambiaba solo al vender. Hay productos con un precio
- * que no es el que da su margen. No se corrigen por detrás: son los precios que
- * ella les da a sus clientas.
- *
- * Un precio escrito a mano no aparece: ese lo decidió ella.
+ * La lista se arma en `@core/revisar-precios`, porque también la abre
+ * Configuración después de un cambio de margen o de redondeo.
  */
-
-export interface PrecioParaRevisar {
-  producto: ProductoConStock;
-  calculado: number;
-}
-
-/** Los productos cuyo precio guardado no es el que da su costo y su margen. */
-export function preciosParaRevisar(
-  productos: ProductoConStock[],
-  categorias: Categoria[],
-  parametros: ParametrosSistema | null
-): PrecioParaRevisar[] {
-  if (!parametros) return [];
-  const salida: PrecioParaRevisar[] = [];
-  for (const p of productos) {
-    if (!p.activo || p.modo_precio === 'MANUAL' || p.costo_unitario_usd_cents <= 0) continue;
-    const calculado = precioParaCosto(
-      {
-        modo_precio: p.modo_precio,
-        margen_bp: margenEfectivo(p, categorias, parametros.margen_defecto_bp),
-        multiplicador_bp: p.multiplicador_bp,
-        precio_manual_usd_cents: p.precio_manual_usd_cents,
-        precio_venta_usd_cents: p.precio_venta_usd_cents,
-      },
-      p.costo_unitario_usd_cents,
-      parametros.paso_redondeo_usd_cents
-    );
-    if (calculado !== p.precio_venta_usd_cents) salida.push({ producto: p, calculado });
-  }
-  return salida.sort((a, b) => a.producto.nombre.localeCompare(b.producto.nombre));
-}
+export { preciosParaRevisar, type PrecioParaRevisar } from '@core/revisar-precios';
 
 interface Props {
   abierto: boolean;

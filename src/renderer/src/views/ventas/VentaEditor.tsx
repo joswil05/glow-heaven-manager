@@ -27,7 +27,7 @@ import type {
 } from '../../../../shared/types';
 import { Button, Field, Input, Select, Textarea, Badge, Money, Portal } from '../../components/ui';
 import { parsearDecimal, parsearACentavos } from '@core/numeros';
-import { formatearMoneda } from '@core/moneda';
+import { formatearMoneda, usdCentavosACorCentavos } from '@core/moneda';
 import { useToast } from '../../context/ToastContext';
 import { cn } from '../../lib/cn';
 import { formatearNombreEntidad } from '@shared/formatoTexto';
@@ -296,6 +296,20 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
   const totalPrendas = useMemo(() => {
     return lineas.reduce((acc, l) => acc + Math.max(1, Math.round(num(l.cantidad))), 0);
   }, [lineas]);
+
+  /**
+   * Cuánto cobrar cuando la venta se paga ahora: en córdobas, con la tasa de
+   * hoy (la que la venta va a guardar), y DESPUÉS del descuento.
+   *
+   * Hasta la 2.16.2 no aparecía en ningún lado: el pie decía "Total $25.00" y
+   * el único C$ a la vista era el del subtotal de antes del descuento.
+   */
+  const cobroAhora =
+    !corrigiendo && !esEncargo && formaCobro === 'CONTADO'
+      ? monedaPago === 'COR'
+        ? formatearMoneda(usdCentavosACorCentavos(totales.total, parametros?.tasa_cambio_cents ?? 3662), 'COR')
+        : formatearMoneda(totales.total, 'USD')
+      : null;
 
   const clienteSeleccionado = useMemo(() => {
     if (!clienteId) return null;
@@ -1450,7 +1464,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                             <option value="OTRO">Otro</option>
                           </Select>
                         </Field>
-                        <Field label="Moneda">
+                        <Field label="Moneda" hint={cobroAhora ? `Son ${cobroAhora}` : undefined}>
                           <Select
                             value={monedaPago}
                             onChange={(e) => setMonedaPago(e.target.value as MonedaPago)}
@@ -1642,10 +1656,12 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                       </div>
                     )}
 
-                    {/* Alerta bajo costo */}
+                    {/* Alerta bajo costo. Sin `dark:`: los tokens ya cambian con
+                        el tema. El `dark:text-danger-200` que tenía era el
+                        tinte oscuro usado como texto: 1,12:1, invisible. */}
                     {totales.bajoCosto && (
-                      <div className="flex items-start gap-2.5 p-3 rounded-lg bg-danger-50/60 dark:bg-danger-50/20 border border-danger-200 dark:border-danger-500/40 text-danger-800 dark:text-danger-200 text-caption">
-                        <AlertTriangle className="w-4 h-4 text-danger-600 dark:text-danger-400 shrink-0 mt-0.5" />
+                      <div className="flex items-start gap-2.5 p-3 rounded-lg bg-peligro-suave border border-peligro-suave text-peligro-fuerte text-caption">
+                        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                         <span>
                           Con este descuento perdés <strong>{formatearMoneda(Math.abs(totales.ganancia), 'USD')}</strong>: queda por debajo del costo.
                         </span>
@@ -1820,13 +1836,15 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                   );
                 })()}
 
-                {/* Banner de estado de cobro */}
-                {!corrigiendo && !esEncargo && formaCobro === 'CONTADO' && (
-                  <div className="flex items-center gap-2.5 text-caption text-texto-2">
-                    <CheckCircle2 className="w-4 h-4 text-success-600 shrink-0" />
-                    <span>
-                      Pagada ahora, en {metodoPago === 'TRANSFERENCIA' ? 'transferencia' : metodoPago === 'EFECTIVO' ? 'efectivo' : 'otro medio'} ({monedaPago === 'COR' ? 'córdobas' : 'dólares'}).
-                    </span>
+                {/* Cuánto cobrar: la cifra que Ross tiene que recibir, en la
+                    moneda en que se la pagan y ya con el descuento. */}
+                {cobroAhora && (
+                  <div className="flex items-center gap-2.5 rounded-lg bg-superficie-2 px-4 py-3" data-testid="cobro-ahora">
+                    <CheckCircle2 className="w-5 h-5 text-success-600 shrink-0" />
+                    <p className="text-body text-texto-2">
+                      Cobrá <strong className="text-title font-bold text-texto tabular">{cobroAhora}</strong>
+                      {metodoPago === 'TRANSFERENCIA' ? ' por transferencia.' : metodoPago === 'EFECTIVO' ? ' en efectivo.' : '.'}
+                    </p>
                   </div>
                 )}
 
@@ -1923,6 +1941,11 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
               <span className="text-body font-bold text-texto tabular leading-tight">
                 {esPedido && totales.total === 0 ? 'Por cotizar' : formatearMoneda(totales.total, 'USD')}
               </span>
+              {cobroAhora && monedaPago === 'COR' && (
+                <span className="block text-caption text-texto-2 tabular leading-tight">
+                  Cobrá {cobroAhora}
+                </span>
+              )}
             </div>
 
             {paso < 3 ? (

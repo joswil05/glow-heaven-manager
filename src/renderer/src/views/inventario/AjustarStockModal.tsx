@@ -164,7 +164,7 @@ export const AjustarStockModal: React.FC<Props> = ({
           )}
 
           {valido && diferencia > 0 && (
-            <div className="rounded-xl bg-alerta-suave p-3 text-caption text-alerta space-y-2">
+            <div className="rounded-xl bg-alerta-suave p-3 text-caption text-alerta-fuerte space-y-2">
               <p>
                 ¿Llegaron en un paquete? Registralas ahí, así entran con su costo real.
               </p>

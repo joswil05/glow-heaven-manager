@@ -14,7 +14,9 @@ import {
   Pencil,
 } from 'lucide-react';
 import { CorregirPagoModal } from '../components/CorregirPagoModal';
+import { PagoModal } from '../components/PagoModal';
 import type {
+  VentaCompleta,
   PagoCompleto,
   ClienteDetalle,
   ParametrosSistema,
@@ -89,6 +91,9 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
   const [abonoNotas, setAbonoNotas] = useState('');
   const [abonoGuardando, setAbonoGuardando] = useState(false);
 
+  // El abono a una venta puntual (el botón "Abonar" de cada fila)
+  const [ventaAbonando, setVentaAbonando] = useState<VentaCompleta | null>(null);
+
   // Anular o corregir un abono
   const [pagoAnulando, setPagoAnulando] = useState<PagoCompleto | null>(null);
   const [pagoCorrigiendo, setPagoCorrigiendo] = useState<PagoCompleto | null>(null);
@@ -135,6 +140,18 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
     cargar();
   }, [cargar]);
 
+  /** Primero las que deben (la que más debe arriba); después las demás. */
+  const clientasParaAbonar = useMemo(
+    () =>
+      [...clientes].sort(
+        (a, b) =>
+          (b.saldo_pendiente_usd_cents > 0 ? 1 : 0) - (a.saldo_pendiente_usd_cents > 0 ? 1 : 0) ||
+          b.saldo_pendiente_usd_cents - a.saldo_pendiente_usd_cents ||
+          a.nombre.localeCompare(b.nombre)
+      ),
+    [clientes]
+  );
+
   // Totales calculados
   const totalAbonosUsd = useMemo(() => {
     return pagos.reduce((sum, p) => sum + (p.monto_usd_cents || 0), 0);
@@ -179,10 +196,24 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
     return list;
   }, [cuentasPorCobrar, filtroCuentas, busqueda]);
 
+  /**
+   * "Abonar" en la fila de una venta abre el abono DE ESA VENTA: el mismo de
+   * Ventas, con su tasa, su equivalencia, "cómo queda" y Deshacer.
+   *
+   * Hasta la 2.16.2 abría el abono por clienta, que reparte por antigüedad:
+   * tocar "Abonar" en V-0015 mandaba la plata a V-0009, la más vieja, y un
+   * encargo esperando su anticipo no pasaba a "por comprar".
+   */
+  const abrirAbonoDeVenta = async (ventaId: number) => {
+    const r = await window.api.ventas.get(ventaId);
+    if (r.success && r.data) setVentaAbonando(r.data);
+    else showToast({ message: r.success ? 'No se encontró la venta.' : r.error, type: 'error' });
+  };
+
   // Registrar abono
   const guardarAbono = async () => {
     if (!clienteSeleccionadoId) {
-      showToast({ message: 'Selecciona a qué clienta abonar', type: 'error' });
+      showToast({ message: 'Elegí a qué clienta es el abono.', type: 'error' });
       return;
     }
     const montoCents = parsearACentavos(abonoMontoTexto, { min: 0.01 });
@@ -436,7 +467,9 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
                 size="sm"
                 className="rounded-xl shadow-xs flex items-center gap-1.5"
                 onClick={() => {
-                  setClienteSeleccionadoId(clientes[0]?.id);
+                  // Sin clienta elegida: arrancar con la primera de la lista
+                  // registraba el abono a otra persona si se tipeaba rápido.
+                  setClienteSeleccionadoId(undefined);
                   setModalAbonoAbierto(true);
                 }}
               >
@@ -642,10 +675,8 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
                               variant="secondary"
                               size="sm"
                               className="rounded-xl shadow-xs flex items-center gap-1"
-                              onClick={() => {
-                                setClienteSeleccionadoId(c.cliente_id);
-                                setModalAbonoAbierto(true);
-                              }}
+                              aria-label={`Abonar a ${c.codigo}`}
+                              onClick={() => abrirAbonoDeVenta(c.venta_id)}
                             >
                               <DollarSign className="w-3.5 h-3.5 text-acento" />
                               <span>Abonar</span>
@@ -694,11 +725,12 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
             <div className="space-y-3">
               <Field label="Clienta" className="mb-0">
                 <select
-                  value={clienteSeleccionadoId}
-                  onChange={(e) => setClienteSeleccionadoId(Number(e.target.value))}
+                  value={clienteSeleccionadoId ?? ''}
+                  onChange={(e) => setClienteSeleccionadoId(e.target.value ? Number(e.target.value) : undefined)}
                   className="w-full rounded-lg border border-borde bg-superficie-2 px-3 py-2 text-label text-texto focus:outline-none focus:ring-2 focus:ring-acento/50"
                 >
-                  {clientes.map((cli) => (
+                  <option value="">Elegí la clienta</option>
+                  {clientasParaAbonar.map((cli) => (
                     <option key={cli.id} value={cli.id}>
                       {cli.nombre}{cli.saldo_pendiente_usd_cents > 0 ? ` · debe ${formatearMoneda(cli.saldo_pendiente_usd_cents, 'USD')}` : ''}
                     </option>
@@ -808,6 +840,17 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
         textoCancelar="Cancelar"
         onConfirmar={confirmarAnularPago}
         onCerrar={() => setPagoAnulando(null)}
+      />
+
+      <PagoModal
+        abierto={ventaAbonando !== null}
+        venta={ventaAbonando}
+        parametros={parametros}
+        onCerrar={() => setVentaAbonando(null)}
+        onRegistrado={async () => {
+          await cargar();
+          onCambio();
+        }}
       />
 
       <CorregirPagoModal

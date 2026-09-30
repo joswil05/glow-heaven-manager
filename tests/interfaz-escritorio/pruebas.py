@@ -11,6 +11,7 @@ el código: lo que se prueba es lo que se publica.
 
 Se corre con:  npm run test:interfaz-escritorio
 """
+import os
 import re
 import sys
 from playwright.sync_api import sync_playwright, Page
@@ -947,6 +948,430 @@ def caso_abono_en_cordobas(page: Page) -> list[str]:
     return fallas
 
 
+# ---------------------------------------------------------------------------
+# Fase 0 de la auditoría de interfaz del 29/9 (docs/AUDITORIA_UX_2026-09-29.md).
+# Cada caso lleva el ID del hallazgo que reproduce.
+# ---------------------------------------------------------------------------
+
+JS_CONTRASTE = """(el) => {
+  const num = (s) => (s.match(/[\\d.]+/g) || []).map(Number);
+  const rgba = (s) => { const [r, g, b, a] = num(s); return [r, g, b, a === undefined ? 1 : a]; };
+  let fondo = [255, 255, 255, 1];
+  for (let n = el.parentElement; n; n = n.parentElement) {
+    const c = rgba(getComputedStyle(n).backgroundColor);
+    if (c[3] > 0.99) { fondo = c; break; }
+  }
+  const propio = rgba(getComputedStyle(el).backgroundColor);
+  const mezcla = [0, 1, 2].map((i) => propio[i] * propio[3] + fondo[i] * (1 - propio[3]));
+  const lum = (c) => {
+    const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+    return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]);
+  };
+  const texto = rgba(getComputedStyle(el).color);
+  const a = lum(texto), b = lum(mezcla);
+  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+}"""
+
+
+# Todo texto que esté pintado sobre uno de los tintes (`--x-suave`) y no llegue
+# al contraste mínimo. Es la regla de temas.css ("nunca --x sobre --x-suave")
+# medida en la pantalla y no en el código: `auditar-colores.mjs` mira cada
+# className por separado y no ve un texto cuyo fondo lo pone el contenedor.
+# Los íconos no cuentan (no tienen texto) y el texto grande pide 3:1.
+JS_TEXTO_SOBRE_TINTE = r"""() => {
+  const raiz = getComputedStyle(document.documentElement);
+  const token = (n) => raiz.getPropertyValue('--' + n).trim().split(/\s+/).map(Number);
+  const tintes = ['peligro', 'alerta', 'exito', 'acento'].map((r) => token(r + '-suave'));
+  const num = (s) => (s.match(/[\d.]+/g) || []).map(Number);
+  const lum = (c) => {
+    const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+    return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]);
+  };
+  const malos = new Set();
+  for (const el of document.querySelectorAll('body *')) {
+    if (![...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) continue;
+    if (el.getClientRects().length === 0) continue;
+    let fondo = null;
+    for (let n = el; n && !fondo; n = n.parentElement) {
+      const c = num(getComputedStyle(n).backgroundColor);
+      if (c.length >= 3 && (c[3] === undefined || c[3] > 0.99)) fondo = c;
+    }
+    if (!fondo || !tintes.some((t) => t[0] === fondo[0] && t[1] === fondo[1] && t[2] === fondo[2])) continue;
+    const estilo = getComputedStyle(el);
+    const color = num(estilo.color);
+    const alfa = color[3] === undefined ? 1 : color[3];
+    const mezcla = [0, 1, 2].map((i) => color[i] * alfa + fondo[i] * (1 - alfa));
+    const a = lum(mezcla), b = lum(fondo);
+    const contraste = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+    const px = parseFloat(estilo.fontSize);
+    const grande = px >= 24 || (px >= 18.66 && Number(estilo.fontWeight) >= 700);
+    if (contraste < (grande ? 3 : 4.5)) {
+      malos.add('"' + el.textContent.trim().slice(0, 32) + '" ' + contraste.toFixed(2) + ':1');
+    }
+  }
+  return [...malos];
+}"""
+
+
+def textos_ilegibles_sobre_tinte(page: Page, pantallas, abrir) -> list[str]:
+    """Recorre las pantallas en claro y en oscuro y junta lo que no se lee."""
+    fallas: list[str] = []
+    clases = "document.documentElement.classList"
+    estaba_oscuro = page.evaluate(f"() => {clases}.contains('dark')")
+    try:
+        for tema, oscuro in (("claro", False), ("oscuro", True)):
+            page.evaluate(f"(o) => {clases}.toggle('dark', o)", oscuro)
+            for pantalla in pantallas:
+                abrir(page, pantalla)
+                page.wait_for_timeout(500)
+                for malo in page.evaluate(JS_TEXTO_SOBRE_TINTE):
+                    fallas.append(f"{pantalla} en {tema}: {malo}")
+    finally:
+        page.evaluate(f"(o) => {clases}.toggle('dark', o)", estaba_oscuro)
+        page.wait_for_timeout(300)
+    return fallas
+
+
+def descatalogar_desde_el_detalle(page: Page, nombre: str) -> None:
+    fila_de(page, nombre).click()
+    page.wait_for_timeout(500)
+    page.locator("aside").get_by_role("button", name="Descatalogar").click()
+    page.get_by_role("alertdialog").get_by_role("button", name="Sí, descatalogar").click()
+    page.wait_for_timeout(600)
+
+
+def recargar_datos(page: Page) -> None:
+    """F5 dentro de la app: vuelve a leer todo (lo sembrado por la api no avisa)."""
+    page.keyboard.press("F5")
+    page.wait_for_timeout(1200)
+
+
+def ir_a(page: Page, seccion: str) -> None:
+    # Por la barra lateral, que va primero en la página: "Inventario" lleva un
+    # contador al lado y su nombre accesible no es exacto.
+    page.get_by_role("button", name=seccion, exact=False).first.click()
+    page.wait_for_timeout(900)
+
+
+def cerrar_ventanas(page: Page) -> None:
+    """Cierra lo que haya quedado abierto (ventanas, listas), descartando lo escrito."""
+    for _ in range(5):
+        abiertas = (
+            page.get_by_role("dialog").count()
+            + page.get_by_role("alertdialog").count()
+            + page.locator("div.fixed.inset-0").count()
+        )
+        if abiertas == 0:
+            return
+        descartar = page.get_by_role("alertdialog").get_by_role("button", name="Descartar")
+        if descartar.count() > 0:
+            descartar.first.click()
+        else:
+            page.keyboard.press("Escape")
+        page.wait_for_timeout(250)
+
+
+def cerrar_editor_de_venta(page: Page) -> None:
+    cerrar_ventanas(page)
+
+
+@caso("BAS-01 · Ctrl+Z dentro de un campo no deshace lo guardado, y fuera deshace lo último")
+def caso_ctrl_z(page: Page) -> list[str]:
+    cerrar_ventanas(page)
+    fallas: list[str] = []
+    datos = page.evaluate("""async () => {
+      const ps = (await window.api.productos.list()).data.filter((p) => p.activo !== false);
+      const [a, b] = ps.slice(0, 2);
+      window.__grupos = [];
+      window.__deshechos = [];
+      const archivar = window.api.productos.archivar;
+      window.api.productos.archivar = async (id) => {
+        const r = await archivar(id);
+        if (r.success) window.__grupos.push(r.data.evento_grupo_id);
+        return r;
+      };
+      const deshacer = window.api.sistema.deshacer;
+      window.api.sistema.deshacer = async (g) => { window.__deshechos.push(g); return deshacer(g); };
+      window.__restaurar = () => { window.api.productos.archivar = archivar; window.api.sistema.deshacer = deshacer; };
+      return { a: a.nombre, b: b.nombre, ids: [a.id, b.id] };
+    }""")
+    ir_a(page, "Inicio")
+    ir_a(page, "Inventario")
+    descatalogar_desde_el_detalle(page, datos["a"])
+    descatalogar_desde_el_detalle(page, datos["b"])
+    grupos = page.evaluate("window.__grupos")
+    if len(grupos) != 2:
+        page.evaluate("window.__restaurar()")
+        return [f"no se pudieron descatalogar los dos productos: {grupos}"]
+
+    buscar = page.get_by_label("Buscar productos")
+    buscar.click()
+    buscar.fill("zz")
+    page.keyboard.press("Control+z")
+    page.wait_for_timeout(400)
+    if page.evaluate("window.__deshechos"):
+        fallas.append("Ctrl+Z escribiendo en el buscador deshizo una operación guardada")
+
+    page.evaluate("document.activeElement && document.activeElement.blur()")
+    page.keyboard.press("Control+z")
+    page.wait_for_timeout(400)
+    deshechos = page.evaluate("window.__deshechos")
+    if deshechos[-1:] != [grupos[1]]:
+        fallas.append(f"Ctrl+Z fuera de un campo no deshizo lo último: deshizo {deshechos}, lo último era {grupos[1]}")
+
+    page.evaluate("""async (ids) => {
+      window.__restaurar();
+      for (const id of ids) await window.api.productos.reactivar(id);
+    }""", datos["ids"])
+    buscar.fill("")
+    recargar_datos(page)
+    return fallas
+
+
+@caso("BAS-02 · un aviso largo se lee entero")
+def caso_aviso_largo(page: Page) -> list[str]:
+    cerrar_ventanas(page)
+    largo = (
+        "No se pudo descatalogar: el producto está en un paquete que todavía no pasó al "
+        "inventario. Sacalo de ese paquete primero y volvé a intentarlo."
+    )
+    nombre = page.evaluate("""async (largo) => {
+      const p = (await window.api.productos.list()).data.find((x) => x.activo !== false);
+      const archivar = window.api.productos.archivar;
+      window.api.productos.archivar = async () => { window.api.productos.archivar = archivar; return { success: false, error: largo }; };
+      return p.nombre;
+    }""", largo)
+    # Pasar por Inicio vuelve a montar Inventario: la lista se relee.
+    ir_a(page, "Inicio")
+    ir_a(page, "Inventario")
+    descatalogar_desde_el_detalle(page, nombre)
+    texto = page.get_by_text(largo[:40], exact=False).first
+    try:
+        texto.wait_for(timeout=3000)
+    except Exception:
+        return ["el error no apareció como aviso"]
+    medida = texto.evaluate("""(el) => {
+      const cs = getComputedStyle(el);
+      return { ws: cs.whiteSpace, cabe: el.scrollWidth <= el.clientWidth + 1 && el.scrollHeight <= el.clientHeight + 1 };
+    }""")
+    fallas: list[str] = []
+    if medida["ws"] == "nowrap" or not medida["cabe"]:
+        fallas.append(f"el aviso largo queda cortado: {medida}")
+    page.keyboard.press("Escape")
+    return fallas
+
+
+def sembrar_clienta_con_dos_ventas(page: Page) -> dict:
+    return page.evaluate("""async () => {
+      const hoy = new Date();
+      const ayer = new Date(hoy.getTime() - 86400000);
+      const iso = (d) => d.toISOString().slice(0, 10);
+      const cli = (await window.api.clientes.guardar({ nombre: 'Clienta De Dos Ventas' })).data.id;
+      const crear = async (fecha, precio) =>
+        (await window.api.ventas.crear({
+          cliente_id: cli, fecha, tipo: 'INVENTARIO',
+          lineas: [{ descripcion: 'Algo', cantidad: 1, precio_unitario_usd_cents: precio }],
+        })).data.id;
+      const vieja = await crear(iso(ayer), 3000);
+      const nueva = await crear(iso(hoy), 2000);
+      const codigo = async (id) => (await window.api.ventas.get(id)).data.codigo;
+      return { cli, vieja, nueva, codigoVieja: await codigo(vieja), codigoNueva: await codigo(nueva) };
+    }""")
+
+
+@caso("COB-01 · en Cobros, Abonar en una venta registra el abono en esa venta")
+def caso_abonar_en_esa_venta(page: Page) -> list[str]:
+    cerrar_ventanas(page)
+    datos = sembrar_clienta_con_dos_ventas(page)
+    ir_a(page, "Inicio")
+    ir_a(page, "Cobros")
+    fila = page.locator("div.p-4", has=page.get_by_text(datos["codigoNueva"], exact=True)).last
+    fila.get_by_role("button", name="Abonar").click()
+    ventana = page.get_by_role("dialog", name=re.compile(re.escape(datos["codigoNueva"])))
+    try:
+        ventana.wait_for(timeout=3000)
+    except Exception:
+        page.keyboard.press("Escape")
+        return [f"'Abonar' en {datos['codigoNueva']} no abrió el abono de esa venta"]
+    ventana.get_by_label("Moneda").select_option("USD")
+    ventana.get_by_label("Cuánto pagó").fill("5.00")
+    ventana.get_by_role("button", name="Registrar abono").click()
+    page.wait_for_timeout(900)
+    pagado = page.evaluate("""async (d) => ({
+      nueva: (await window.api.ventas.get(d.nueva)).data.pagado_usd_cents,
+      vieja: (await window.api.ventas.get(d.vieja)).data.pagado_usd_cents,
+    })""", datos)
+    if pagado != {"nueva": 500, "vieja": 0}:
+        return [f"el abono no quedó en la venta de la fila: {pagado}"]
+    return []
+
+
+@caso("COB-02 · Registrar abono de Cobros arranca sin clienta elegida")
+def caso_abono_sin_clienta(page: Page) -> list[str]:
+    cerrar_ventanas(page)
+    ir_a(page, "Inicio")
+    ir_a(page, "Cobros")
+    page.get_by_role("button", name="Registrar abono").first.click()
+    page.wait_for_timeout(400)
+    elegida = page.get_by_label("Clienta").input_value()
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(300)
+    descartar = page.get_by_role("alertdialog").get_by_role("button", name="Descartar")
+    if descartar.count() > 0:
+        descartar.click()
+    if elegida:
+        return [f"el abono arrancó con una clienta ya elegida (id {elegida})"]
+    return []
+
+
+def producto_para_vender(page: Page, precio_minimo: int = 1000) -> dict:
+    return page.evaluate("""async (minimo) => {
+      const p = (await window.api.productos.list()).data.find(
+        (x) => x.activo !== false && x.existencias >= 1 && x.variantes.length <= 1 && x.precio_venta_usd_cents >= minimo
+      );
+      const tasa = (await window.api.parametros.get()).data.tasa_cambio_cents;
+      return { nombre: p.nombre, precio: p.precio_venta_usd_cents, costo: p.costo_unitario_usd_cents, tasa };
+    }""", precio_minimo)
+
+
+def armar_venta_hasta_el_cobro(page: Page, nombre: str):
+    page.get_by_role("button", name="Nueva venta").first.click()
+    editor = page.get_by_role("dialog", name="Nueva venta")
+    editor.wait_for(timeout=3000)
+    # Una venta nueva abre con el buscador de productos ya desplegado.
+    buscar = editor.get_by_placeholder("Buscar por nombre o código")
+    if buscar.count() == 0:
+        editor.get_by_role("button", name="Buscar en inventario").click()
+    buscar.fill(nombre)
+    page.wait_for_timeout(300)
+    editor.locator("ul button", has_text=nombre).first.click()
+    editor.get_by_role("button", name="Siguiente").click()
+    page.wait_for_timeout(300)
+    return editor
+
+
+@caso("VED-03 · vender al contado en córdobas dice cuántos córdobas cobrar, con el descuento")
+def caso_contado_en_cordobas(page: Page) -> list[str]:
+    cerrar_ventanas(page)
+    recargar_datos(page)
+    p = producto_para_vender(page)
+    ir_a(page, "Ventas")
+    editor = armar_venta_hasta_el_cobro(page, p["nombre"])
+    editor.get_by_label("Moneda").select_option("COR")
+    editor.get_by_role("button", name=re.compile("^Descuento")).click()
+    editor.get_by_role("button", name="$5", exact=True).click()
+    editor.get_by_role("button", name="Siguiente").click()
+    page.wait_for_timeout(300)
+    esperado = round((p["precio"] - 500) * p["tasa"] / 100)
+    texto_esperado = f"C${esperado / 100:,.2f}"
+    visto = editor.inner_text()
+    cerrar_editor_de_venta(page)
+    if f"Cobrá {texto_esperado}" not in visto:
+        return [f"el último paso no dice 'Cobrá {texto_esperado}'"]
+    return []
+
+
+@caso("VED-04 · el aviso de pérdida por descuento se lee en tema oscuro")
+def caso_perdida_en_oscuro(page: Page) -> list[str]:
+    cerrar_ventanas(page)
+    recargar_datos(page)
+    p = producto_para_vender(page)
+    ir_a(page, "Configuración")
+    page.get_by_role("button", name=re.compile("^Oscuro")).click()
+    page.wait_for_timeout(300)
+    ir_a(page, "Ventas")
+    editor = armar_venta_hasta_el_cobro(page, p["nombre"])
+    editor.get_by_role("button", name=re.compile("^Descuento")).click()
+    editor.get_by_label("Tipo").select_option("MONTO_FIJO")
+    editor.get_by_label("Monto ($)").fill(f"{(p['precio'] - 1) / 100:.2f}")
+    page.wait_for_timeout(300)
+    aviso = editor.get_by_text(re.compile("Con este descuento perdés")).first
+    fallas: list[str] = []
+    if aviso.count() == 0:
+        fallas.append("vender por debajo del costo no mostró el aviso")
+    else:
+        contraste = aviso.locator("xpath=..").evaluate(JS_CONTRASTE)
+        if contraste < 4.5:
+            fallas.append(f"en oscuro el aviso de pérdida no se lee: contraste {contraste:.2f}:1")
+    cerrar_editor_de_venta(page)
+    ir_a(page, "Configuración")
+    page.get_by_role("button", name=re.compile("^Automático")).click()
+    page.wait_for_timeout(300)
+    return fallas
+
+
+@caso("COL-01 y COL-02 · ningún texto queda con el color base sobre su tinte, en claro ni en oscuro")
+def caso_tintes(page: Page) -> list[str]:
+    """
+    "Agotado", "Vencida" y "Debe" son las señales más importantes y eran las
+    menos legibles: peligro sobre su tinte da 3,93:1 en claro. La escala de
+    Tailwind (`danger-700`, `-800`) caía en la misma combinación.
+    """
+    cerrar_ventanas(page)
+    return textos_ilegibles_sobre_tinte(
+        page,
+        ["Inicio", "Ventas", "Encargos", "Cobros", "Clientes", "Inventario", "Configuración"],
+        ir_a,
+    )
+
+
+@caso("CFG-01 · guardar Configuración manda sólo lo que cambió, y un margen nuevo abre la revisión de precios")
+def caso_configuracion_sin_recalculo(page: Page) -> list[str]:
+    cerrar_ventanas(page)
+    fallas: list[str] = []
+    page.evaluate("""() => {
+      window.__updates = [];
+      window.__recalculos = 0;
+      const update = window.api.parametros.update;
+      window.api.parametros.update = async (v) => { window.__updates.push(v); return update(v); };
+      const recalcular = window.api.parametros.recalcularPrecios;
+      window.api.parametros.recalcularPrecios = async () => { window.__recalculos++; return recalcular(); };
+    }""")
+    ir_a(page, "Inicio")
+    ir_a(page, "Configuración")
+
+    mensaje = page.get_by_label(re.compile("Plantilla de Cobro"))
+    mensaje.fill("Hola {cliente}, te escribo de Glow Heaven por tu saldo de {saldo_usd}.")
+    page.get_by_role("button", name=re.compile("Guardar configuración")).click()
+    page.wait_for_timeout(800)
+    updates = page.evaluate("window.__updates")
+    if not updates:
+        return ["guardar la configuración no mandó nada"]
+    if sorted(updates[-1].keys()) != ["plantilla_cobro_whatsapp"]:
+        fallas.append(f"guardar un mensaje mandó {sorted(updates[-1].keys())}")
+
+    margen = page.get_by_label("Ganancia por defecto (%)")
+    anterior = margen.input_value()
+    margen.fill("80")
+    page.get_by_role("button", name=re.compile("Guardar configuración")).click()
+    revision = page.get_by_role("dialog", name="Precios para revisar")
+    try:
+        revision.wait_for(timeout=3000)
+        revision.get_by_role("button", name="Ahora no").click()
+    except Exception:
+        fallas.append("cambiar el margen no abrió la revisión de precios")
+
+    boton = page.get_by_role("button", name=re.compile("Revisar precios del inventario"))
+    if boton.count() == 0:
+        fallas.append("no está el botón 'Revisar precios del inventario'")
+    else:
+        boton.click()
+        page.wait_for_timeout(600)
+        abierta = page.get_by_role("dialog", name="Precios para revisar")
+        if abierta.count() > 0:
+            abierta.get_by_role("button", name="Ahora no").click()
+    if page.evaluate("window.__recalculos"):
+        fallas.append("se recalcularon precios sin pasar por la revisión")
+
+    margen.fill(anterior)
+    page.get_by_role("button", name=re.compile("Guardar configuración")).click()
+    page.wait_for_timeout(800)
+    abierta = page.get_by_role("dialog", name="Precios para revisar")
+    if abierta.count() > 0:
+        abierta.get_by_role("button", name="Ahora no").click()
+    return fallas
+
+
 @caso("no quedan errores de consola")
 def caso_consola(page: Page) -> list[str]:
     return []  # lo evalúa el corredor al final
@@ -966,7 +1391,12 @@ def main() -> int:
         page.goto(URL)
         page.wait_for_selector("button:has-text('Inicio')", timeout=30000)
 
+        # `SOLO=texto` corre sólo los casos cuyo nombre lo contiene (más el de
+        # la consola, que cierra la corrida). Para iterar sin esperar la suite.
+        solo = os.environ.get("SOLO", "")
         for nombre, fn in CASOS:
+            if solo and solo not in nombre and nombre != "no quedan errores de consola":
+                continue
             try:
                 fallas = fn(page)
             except Exception as err:

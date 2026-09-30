@@ -60,7 +60,7 @@ export class LimiteDeError extends React.Component<Props, Estado> {
       <div className="fixed inset-0 z-[200] flex items-center justify-center bg-fondo p-6">
         <div className="w-full max-w-lg rounded-2xl border border-borde bg-superficie p-6 shadow-lg">
           <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-peligro-suave text-peligro">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-peligro-suave text-peligro-fuerte">
               <AlertTriangle size={20} />
             </div>
             <div className="min-w-0">

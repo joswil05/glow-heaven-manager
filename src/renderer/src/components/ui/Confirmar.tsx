@@ -72,7 +72,7 @@ export const Confirmar: React.FC<ConfirmarProps> = ({
             <div
               className={cn(
                 'w-9 h-9 rounded-full flex items-center justify-center shrink-0',
-                peligroso ? 'bg-danger-50 text-danger-600' : 'bg-acento-suave text-acento'
+                peligroso ? 'bg-peligro-suave text-peligro-fuerte' : 'bg-acento-suave text-acento-fuerte'
               )}
             >
               <AlertTriangle className="w-5 h-5" />

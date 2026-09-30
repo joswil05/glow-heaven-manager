@@ -22,6 +22,16 @@ interface ToastContextType {
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
+/** Si el foco está donde se escribe: ahí Ctrl+Z es del campo, no de la app. */
+function enUnCampo(el: Element | null): boolean {
+  if (!el) return false;
+  if ((el as HTMLElement).isContentEditable) return true;
+  if (el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') return true;
+  if (el.tagName !== 'INPUT') return false;
+  const tipo = ((el as HTMLInputElement).type || 'text').toLowerCase();
+  return !['checkbox', 'radio', 'button', 'submit', 'reset', 'range', 'color', 'file'].includes(tipo);
+}
+
 export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const intervalos = useRef(new Map<string, ReturnType<typeof setInterval>>());
@@ -36,7 +46,8 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   const showToast = useCallback(
-    ({ message, type = 'info', duration = 4000 }: ToastOptions) => {
+    // Un error se lee más despacio que un "listo": dice qué pasó y qué hacer.
+    ({ message, type = 'info', duration = type === 'error' ? 8000 : 4000 }: ToastOptions) => {
       const id = Math.random().toString(36).substring(2, 9);
       const newToast: ToastItem = {
         id,
@@ -118,11 +129,17 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [removeToast, showToast]
   );
 
-  // Atajo global Ctrl+Z contextual cuando hay un toast activo
+  // Atajo global Ctrl+Z contextual cuando hay un toast activo.
+  //
+  // Dentro de un campo, Ctrl+Z es "borrar lo que escribí": hasta la 2.16.2
+  // también deshacía la última operación guardada (un abono, una venta)
+  // mientras su aviso siguiera en pantalla. Y deshace el aviso MÁS RECIENTE,
+  // no el más viejo: deshacer va de atrás para adelante.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
-        const undoableToast = toasts.find((t) => t.undoable && t.onUndo);
+        if (enUnCampo(document.activeElement)) return;
+        const undoableToast = [...toasts].reverse().find((t) => t.undoable && t.onUndo);
         if (undoableToast && undoableToast.onUndo) {
           e.preventDefault();
           undoableToast.onUndo();
@@ -150,7 +167,11 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               {toast.type === 'success' && <CheckCircle2 className="w-5 h-5 text-success-500 shrink-0" />}
               {toast.type === 'error' && <AlertCircle className="w-5 h-5 text-danger-500 shrink-0" />}
               {toast.type === 'info' && <Info className="w-5 h-5 text-acento-suave shrink-0" />}
-              <span className="text-body leading-snug truncate">{toast.message}</span>
+              {/* Hasta tres líneas: los errores explican qué hacer, y en una
+                  sola línea se cortaban justo ahí. */}
+              <span className="text-body leading-snug line-clamp-3 break-words" title={toast.message}>
+                {toast.message}
+              </span>
             </div>
 
             <div className="flex items-center gap-2 shrink-0">

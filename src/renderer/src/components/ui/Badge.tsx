@@ -5,9 +5,9 @@ export type Tone = 'neutral' | 'success' | 'warning' | 'danger' | 'info' | 'purp
 
 const TONOS: Record<Tone, string> = {
   neutral: 'bg-superficie-2 text-texto-2 border border-borde/80',
-  success: 'bg-acento-suave text-acento border border-acento-suave',
-  warning: 'bg-alerta-suave text-alerta border border-alerta-suave',
-  danger: 'bg-peligro-suave text-peligro border border-peligro-suave',
+  success: 'bg-acento-suave text-acento-fuerte border border-acento-suave',
+  warning: 'bg-alerta-suave text-alerta-fuerte border border-alerta-suave',
+  danger: 'bg-peligro-suave text-peligro-fuerte border border-peligro-suave',
   info: 'bg-superficie-3 text-texto-2 border border-borde',
   purple: 'bg-alerta-suave text-alerta-fuerte border border-alerta-suave',
 };
