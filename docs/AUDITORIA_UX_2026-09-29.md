@@ -627,7 +627,7 @@ Reglas para todas las fases:
 
 **Objetivo**: toda ventana y toda hoja se cierra igual, pregunta antes de descartar, y dice los errores donde están.
 
-> **Estado al 30/9**: hecha y probada; sale como **2.16.4**. Los 37 hallazgos de la tabla quedaron resueltos. Cada A y cada M se vio fallar contra la 2.16.3 antes del arreglo: 8 casos nuevos en `tests/interfaz-escritorio/pruebas.py` y 2 en `tests/interfaz/pruebas.py`. Cómo quedó:
+> **Estado al 1/10**: hecha, probada y **publicada como 2.16.4** en las dos apps. Los 37 hallazgos de la tabla quedaron resueltos. Cada A y cada M se vio fallar contra la 2.16.3 antes del arreglo: 8 casos nuevos en `tests/interfaz-escritorio/pruebas.py` y 2 en `tests/interfaz/pruebas.py`. Cómo quedó:
 >
 > - **Un solo marco, en tres pisos**: `MarcoModal` (capa, foco, teclado, salida), `Ventana` (más "¿Descartar lo que escribiste?") y `Dialogo` (más título, cuerpo y pie). Las nueve ventanas con marco propio usan `Ventana` o `Dialogo`. `useCerrarConEscape` se borró.
 > - **"Cancelar" también pregunta** si hay algo escrito, no sólo Escape y el clic afuera. Un clic que empieza en un campo y termina en el velo (seleccionar texto) ya no cierra.

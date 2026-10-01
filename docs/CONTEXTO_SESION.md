@@ -402,6 +402,42 @@ build del celular. Encontrado para la Fase 2: ClientesView y VentasView
 arman el enlace de WhatsApp anteponiendo "505" a mano, y eso rompe los
 números extranjeros (deberían usar `telefonoWhatsapp()` de `@core/telefono`).
 
+**Publicada como `v2.16.4` el 1 de octubre**, a pedido de Joswill, junto con
+el formato de datos de abajo (`04d105a`): commit `980cb9a`, release con
+`latest.yml` verificado (sha512, tamaño y versión; es la "Latest") y la PWA
+en los dos sitios sirviendo el build nuevo. **Se compiló y se probó en un
+worktree limpio en ese commit, no en el árbol de trabajo**: había otras dos
+sesiones con cambios sin commitear en el mismo árbol (la vibración del
+iPhone y "Fue un error"), y un `build:exe` o un `deploy:mobile` desde ahí
+los habría publicado sin que nadie los aprobara. El push se hizo por SHA
+(`git push origin 980cb9a:master`) por lo mismo: el master local ya tenía
+encima el commit de la vibración, que sale aparte como 2.16.5.
+
+### Limpieza de datos y formato al guardar (30 de septiembre)
+
+Pedido de Joswill después de revisar los datos de producción: sacar lo que
+nunca pasó y que lo que se escribe en un formulario se guarde con un solo
+formato. **En producción** (un commit REST con condiciones, 68 escrituras,
+respaldos `antes-de-limpiar-2026-09-30b.json` y
+`despues-de-limpiar-2026-09-30.json`): se borraron V-0007, V-0021 y la
+clienta duplicada #17 (las tres se habían vuelto a cargar bien como V-0018 y
+V-0022), los restos de V-0001, el abono anulado de José Linarte, la entrada
+huérfana de P-0014, los eventos de "Camisa X" y `conexion_prueba`, cada uno
+con sus pagos, movimientos y eventos. Se corrigieron los teléfonos, "Steve
+Maddem" → "Madden", la ciudad de Fryda, la línea 15 de PQ-0001 (apuntaba a
+una talla borrada), la hora de 7 pagos iniciales, y el contador de productos
+vuelve a P-0024. El dinero no se movió: 18 ventas, $157.07 cobrado, $335.93
+por cobrar, bodega $37.95, costo vendido + bodega = $370.16. **En el código**
+(`04d105a`): `core/formatos.ts`, aplicado por los repositorios: teléfono
+`+505 8601 2442` (o `+1 504 463 6250`), y uno que no encaja se rechaza;
+nombres de persona con mayúscula inicial; productos arreglados sólo si
+vienen todo en minúscula o todo en mayúscula; tallas en mayúscula. Buscar
+un número compara sólo dígitos, y el pago inicial guarda `creado_en`. El
+diseño aprobado de "Borrar: fue un error" (sin rastro, con PIN, hasta 7 días
+y dentro del mes), lo que falta de WhatsApp con números extranjeros y la
+convivencia con `shared/formatoTexto.ts` están en
+[PLAN_EQUIVOCACIONES_Y_FORMATOS.md](PLAN_EQUIVOCACIONES_Y_FORMATOS.md).
+
 ### Hecho el 29 de septiembre, sobre producción: V-0007 borrada a mano
 
 V-0007 (29/9) se borró desde la consola de Firebase para corregir una venta
@@ -476,6 +512,19 @@ sin que lo pida.
 ## 4. Las trampas que ya cobraron su precio
 
 Cada una de estas costó una sesión. No hace falta repetirlas.
+
+**Una app instalada antes de la 2.16.4 guarda el teléfono como se escriba**,
+y su buscador no encuentra "86012442" en "+505 8601 2442" (sí "8601 2442").
+Mientras quede alguna sin actualizar puede entrar un teléfono sin formato:
+después de que se actualicen, conviene una pasada de sólo lectura por las
+clientas.
+
+**Con otras sesiones trabajando en el mismo árbol, se publica desde un
+worktree limpio** en el commit exacto (`git worktree add --detach <dir>
+<sha>` y un enlace a `node_modules`), y el push va por SHA. Compilar o
+desplegar desde el árbol de trabajo publica lo que otra sesión tiene a
+medias. Antes de borrar el worktree, sacá el enlace a `node_modules`: un
+borrado recursivo que lo siga vacía el `node_modules` de verdad.
 
 **Los índices de Firestore no fallan a medias.** Si falta el índice compuesto,
 Firestore rechaza la consulta entera y la pantalla queda en blanco. Y **el
