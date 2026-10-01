@@ -3,7 +3,11 @@ import { createRoot } from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
 import { App } from './App';
 import { AuthProvider } from './context/AuthContext';
+import { instalarHapticos } from './lib/haptics';
 import './index.css';
+
+// En iPhone la vibración necesita una capa sobre cada botón: ver lib/haptics.
+instalarHapticos();
 
 /**
  * La versión nueva se aplica, pero no en medio de algo.

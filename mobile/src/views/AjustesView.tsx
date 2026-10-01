@@ -81,6 +81,9 @@ export function AjustesView({ onVolver }: { onVolver: () => void }) {
    * Dispara la secuencia de confirmación, que es la más larga: si algo se
    * siente, es ésta. Sirve para comprobarlo en el teléfono de verdad, que es
    * el único lugar donde se puede comprobar.
+   *
+   * En iPhone sólo vibra lo que se pide en el instante del toque: si algún
+   * día esto espera algo antes de llamar a `haptics`, en iPhone queda mudo.
    */
   function probarVibracion() {
     haptics.success();
@@ -337,7 +340,7 @@ export function AjustesView({ onVolver }: { onVolver: () => void }) {
               {haptico.via === 'vibracion'
                 ? 'Este teléfono vibra con distinta fuerza según la acción.'
                 : haptico.via === 'interruptor'
-                  ? 'En iPhone vibra siempre igual, sea cual sea la acción.'
+                  ? 'En iPhone se siente un toque suave al tocar un botón, siempre igual. Si no sentís nada, revisá en Configuración > Sonidos y vibración que esté activada la Vibración del sistema.'
                   : 'Este teléfono no vibra desde la app. En iPhone hace falta iOS 17.4.'}
             </p>
             <button
