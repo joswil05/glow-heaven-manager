@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { MessageCircle, Clock3, DollarSign, AlertTriangle } from 'lucide-react';
 import type { FilaPorCobrar } from '@shared/types';
 import { formatearMoneda } from '@core/moneda';
@@ -32,9 +33,13 @@ export function DetalleCobroSheet({
   onAbonar,
   onVerKardex,
 }: DetalleCobroSheetProps) {
-  if (!fila) return null;
-
-  const f = fila;
+  // Cerrada, se sigue mostrando lo último mientras la hoja baja: sin esto el
+  // componente desaparecía antes de que la hoja pudiera animar su salida.
+  const ultima = useRef(fila);
+  if (fila) ultima.current = fila;
+  const visto = fila ?? ultima.current;
+  if (!visto) return null;
+  const f = visto;
   const saldoCor = Math.round((f.saldo_usd_cents * tasaCambioCents) / 100);
   const total = f.total_usd_cents || 1;
   const pagado = f.pagado_usd_cents || 0;
@@ -49,7 +54,7 @@ export function DetalleCobroSheet({
 
   return (
     <BottomSheet
-      abierto={f !== null}
+      abierto={fila !== null}
       onCerrar={onCerrar}
       titulo={f.cliente_nombre}
       subtitulo={`${f.codigo} · ${f.fecha}`}

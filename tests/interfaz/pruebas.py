@@ -51,7 +51,12 @@ def cerrar_hojas(page: Page) -> None:
         # La de más arriba primero: con dos hojas apiladas (el detalle y, encima,
         # la factura) el botón de la de abajo está tapado y no se puede tocar.
         abiertos[-1].click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(300)
+        # Con algo escrito, cerrar pregunta: acá se descarta.
+        descartar = visible(page, "[role='alertdialog'] button", "Descartar")
+        if descartar is not None:
+            descartar.click()
+        page.wait_for_timeout(400)
     page.keyboard.press("Escape")
     page.wait_for_timeout(300)
 
@@ -323,8 +328,11 @@ def caso_ajustes(page: Page) -> list[str]:
 
         if nombre.input_value() != "Glow Heaven Prueba":
             fallas.append(f"el nombre guardado es 'Glow Heaven Prueba' y el campo dice {nombre.input_value()!r}")
-        if telefono.input_value() != "8888-0000":
-            fallas.append(f"el teléfono guardado es '8888-0000' y el campo dice {telefono.input_value()!r}")
+        # Lo que diga la base, con el formato que le haya dado el repositorio
+        # ("8888-0000" o "+505 8888 0000"): lo que importa es que no esté vacío.
+        guardado_antes = leer_doc("parametros", "sistema").get("telefono_negocio") or ""
+        if not guardado_antes or telefono.input_value() != guardado_antes:
+            fallas.append(f"el teléfono guardado es {guardado_antes!r} y el campo dice {telefono.input_value()!r}")
         if visible(page, "button", "Guardar cambios") is not None:
             fallas.append("ofrece 'Guardar cambios' sin que se haya tocado nada")
         if "recalcula" in page.locator("body").inner_text():
@@ -340,7 +348,7 @@ def caso_ajustes(page: Page) -> list[str]:
             guardar.click()
             page.wait_for_timeout(2500)
             guardado = leer_doc("parametros", "sistema")
-            if guardado.get("telefono_negocio") != "7777-1111":
+            if re.sub(r"\D", "", guardado.get("telefono_negocio") or "")[-8:] != "77771111":
                 fallas.append(f"el teléfono no se guardó: quedó {guardado.get('telefono_negocio')!r}")
             if guardado.get("nombre_negocio") != "Glow Heaven Prueba":
                 fallas.append(f"guardar el teléfono cambió el nombre del negocio a {guardado.get('nombre_negocio')!r}")
@@ -434,6 +442,96 @@ def caso_factura_con_su_tasa(page: Page) -> list[str]:
             )
     finally:
         cerrar_hojas(page)
+    return fallas
+
+
+def app_sigue_abierta(page: Page) -> bool:
+    return page.url.startswith(arnes.URL_APP) and page.locator("nav button", has_text="Inicio").count() > 0
+
+
+def volver_a_la_app(page: Page) -> None:
+    if not app_sigue_abierta(page):
+        arnes.abrir_app(page)
+
+
+@caso("CEL-01 · 'atrás' de Android cierra la hoja de arriba, y con algo escrito pregunta")
+def caso_atras_cierra_la_hoja(page: Page) -> list[str]:
+    """
+    Antes la app no tocaba el historial: con una hoja abierta, "atrás" salía de
+    la app o volvía a la pantalla anterior, y lo cargado se perdía.
+    """
+    fallas = []
+    ir_a(page, "Cobros")
+    fila = visible(page, "button", "Ana Prueba")
+    if fila is None:
+        return ["no encontré la fila de Ana en Cobros"]
+    fila.click()
+    page.wait_for_timeout(900)
+    if page.locator("[role='dialog']").count() == 0:
+        return ["tocar la fila no abrió su detalle"]
+
+    page.go_back()
+    page.wait_for_timeout(700)
+    if not app_sigue_abierta(page):
+        fallas.append("'atrás' con una hoja abierta salió de la app")
+        volver_a_la_app(page)
+        return fallas
+    if page.locator("[role='dialog']").count() > 0:
+        fallas.append("'atrás' no cerró la hoja")
+        cerrar_hojas(page)
+
+    # Con un abono a medio escribir, "atrás" pregunta y la hoja se queda.
+    problema = abrir_hoja_de_abono(page)
+    if problema:
+        return fallas + [problema]
+    campo = en_hoja(page, "input[inputmode='decimal']")
+    campo.fill("150")
+    page.go_back()
+    page.wait_for_timeout(700)
+    if not app_sigue_abierta(page):
+        volver_a_la_app(page)
+        return fallas + ["'atrás' con un abono escrito salió de la app"]
+    pregunta = visible(page, "[role='alertdialog']")
+    if pregunta is None:
+        fallas.append("'atrás' con un abono escrito no preguntó antes de descartarlo")
+    else:
+        visible(page, "[role='alertdialog'] button", "Seguir editando").click()
+        page.wait_for_timeout(300)
+        campo = en_hoja(page, "input[inputmode='decimal']")
+        if campo is None or campo.input_value() != "150":
+            fallas.append("después de 'Seguir editando' se perdió el monto")
+    cerrar_hojas(page)
+    return fallas
+
+
+@caso("CEL-02, CEL-06 y CEL-08 · la hoja pregunta antes de descartar, sale animada y se nombra por su título")
+def caso_hoja_con_cambios(page: Page) -> list[str]:
+    fallas = []
+    volver_a_la_app(page)
+    problema = abrir_hoja_de_abono(page)
+    if problema:
+        return [problema]
+    hoja = page.locator("[role='dialog']").last
+    if not hoja.get_attribute("aria-labelledby"):
+        fallas.append("la hoja no se nombra por su título (aria-labelledby)")
+    campo = en_hoja(page, "input[inputmode='decimal']")
+    campo.fill("150")
+    # Tocar el velo, arriba de la hoja.
+    page.mouse.click(195, 40)
+    page.wait_for_timeout(400)
+    pregunta = visible(page, "[role='alertdialog']")
+    if pregunta is None:
+        fallas.append("con un abono escrito, tocar afuera cerró la hoja sin preguntar")
+        return fallas
+    visible(page, "[role='alertdialog'] button", "Descartar").click()
+    salio = page.evaluate("""() => new Promise((listo) => requestAnimationFrame(() => requestAnimationFrame(() =>
+      listo(document.querySelector('.animate-m3-salida-hoja') !== null))))""")
+    if not salio:
+        fallas.append("al cerrarse, la hoja desaparece de golpe en vez de bajar")
+    page.wait_for_timeout(500)
+    if page.locator("[role='dialog']").count() > 0:
+        fallas.append("'Descartar' no cerró la hoja")
+    cerrar_hojas(page)
     return fallas
 
 

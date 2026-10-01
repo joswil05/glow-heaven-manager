@@ -1035,6 +1035,7 @@ export function QuickSaleView() {
           setSheetClienteAbierto(false);
           setModoCrearCliente(false);
         }}
+        hayCambios={modoCrearCliente && (nuevoNombre.trim() !== '' || nuevoTelefono.trim() !== '')}
         titulo={modoCrearCliente ? 'Clienta nueva' : 'Elegí la clienta'}
       >
         {!modoCrearCliente ? (

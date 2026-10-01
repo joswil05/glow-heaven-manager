@@ -83,6 +83,10 @@ export function CorregirAbonoSheet({
     <BottomSheet
       abierto={pago !== null}
       onCerrar={onCerrar}
+      hayCambios={
+        pago !== null &&
+        (montoTexto !== montoOriginal(pago) || moneda !== pago.moneda || metodo !== pago.metodo || fecha !== pago.fecha)
+      }
       titulo={codigo ? `Corregir abono · ${codigo}` : 'Corregir abono'}
       subtitulo={
         pago

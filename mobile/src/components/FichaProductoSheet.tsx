@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { MessageCircle, PackageX } from 'lucide-react';
 import type { ProductoConStock } from '@shared/types';
 import { formatearMoneda } from '@core/moneda';
@@ -20,9 +21,13 @@ interface FichaProductoSheetProps {
  * una acción no le estorba a nadie.
  */
 export function FichaProductoSheet({ producto, tasaCambioCents, onCerrar }: FichaProductoSheetProps) {
-  if (!producto) return null;
-
-  const p = producto;
+  // Cerrada, se sigue mostrando lo último mientras la hoja baja: sin esto el
+  // componente desaparecía antes de que la hoja pudiera animar su salida.
+  const ultimo = useRef(producto);
+  if (producto) ultimo.current = producto;
+  const visto = producto ?? ultimo.current;
+  if (!visto) return null;
+  const p = visto;
   const precioCordobas = Math.round((p.precio_venta_usd_cents * tasaCambioCents) / 100);
   const hayStock = p.existencias > 0;
   const stockBajo = hayStock && p.existencias <= p.stock_minimo;
@@ -45,7 +50,7 @@ export function FichaProductoSheet({ producto, tasaCambioCents, onCerrar }: Fich
 
   return (
     <BottomSheet
-      abierto={p !== null}
+      abierto={producto !== null}
       onCerrar={onCerrar}
       titulo={p.nombre}
       subtitulo={[`#${p.codigo}`, p.categoria_nombre].filter(Boolean).join(' · ')}

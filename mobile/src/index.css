@@ -343,6 +343,22 @@ input, textarea, [contenteditable="true"] {
   animation: m3SlideUp 280ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
+/* La salida de una hoja: por donde entró, más corta que la entrada (cerrar
+ * es una respuesta y no tiene que hacer esperar). Sin `from`: si se la venía
+ * arrastrando, sale desde donde la dejó el dedo, sin saltar arriba. */
+@keyframes m3SalidaHoja {
+  to { transform: translateY(100%); }
+}
+.animate-m3-salida-hoja {
+  animation: m3SalidaHoja 200ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+@keyframes m3SalidaVelo {
+  to { opacity: 0; }
+}
+.animate-m3-salida-velo {
+  animation: m3SalidaVelo 200ms ease-out forwards;
+}
+
 .animate-m3-snackbar {
   animation: m3SnackbarIn 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
@@ -406,6 +422,10 @@ input, textarea, [contenteditable="true"] {
   .animate-m3-slide-down,
   .animate-card-enter {
     animation: m3FadeIn 120ms ease forwards;
+  }
+
+  .animate-m3-salida-hoja {
+    animation: m3SalidaVelo 120ms ease forwards;
   }
 
   .m3-press:active,

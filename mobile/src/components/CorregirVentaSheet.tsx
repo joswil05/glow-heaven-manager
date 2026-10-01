@@ -95,6 +95,23 @@ export function CorregirVentaSheet({
     };
   }, [ventaId, mostrar]);
 
+  // Lo que cambió desde que se abrió: cerrar con algo corregido pregunta.
+  const firmaOriginal = useMemo(
+    () =>
+      venta
+        ? JSON.stringify([
+            venta.cliente_id ?? undefined,
+            venta.lineas.map((l) => [l.producto_id, l.variante_id, l.cantidad, l.precio_unitario_usd_cents]),
+            true,
+          ])
+        : '',
+    [venta]
+  );
+  const hayCambios =
+    venta !== null &&
+    JSON.stringify([clienta.id, lineas.map((l) => [l.producto_id, l.variante_id, l.cantidad, l.precio]), ajustarAbono]) !==
+      firmaOriginal;
+
   useEffect(() => {
     if (!buscandoClienta) return;
     let vivo = true;
@@ -222,6 +239,7 @@ export function CorregirVentaSheet({
     <BottomSheet
       abierto={ventaId !== null}
       onCerrar={onCerrar}
+      hayCambios={hayCambios}
       titulo={venta ? `Corregir ${venta.codigo}` : 'Corregir venta'}
       subtitulo="Queda con el mismo número"
       maxHeight="92vh"

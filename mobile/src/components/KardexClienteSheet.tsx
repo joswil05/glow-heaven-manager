@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Clock,
   DollarSign,
@@ -43,12 +43,17 @@ interface KardexClienteSheetProps {
 }
 
 export function KardexClienteSheet({
-  cliente,
+  cliente: clienteAbierto,
   abierto,
   onCerrar,
   onAbonar,
   onCambio,
 }: KardexClienteSheetProps) {
+  // Cerrada, se sigue mostrando lo último mientras la hoja baja: sin esto el
+  // componente desaparecía antes de que la hoja pudiera animar su salida.
+  const ultimoCliente = useRef(clienteAbierto);
+  if (clienteAbierto) ultimoCliente.current = clienteAbierto;
+  const cliente = clienteAbierto ?? ultimoCliente.current;
   const { parametros, version } = useDatosNegocio();
   const [pagos, setPagos] = useState<PagoCompleto[]>([]);
   /**

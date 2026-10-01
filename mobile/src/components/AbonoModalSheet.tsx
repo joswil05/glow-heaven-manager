@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { DollarSign, MessageCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { BottomSheet } from './BottomSheet';
 import { PagosRepoFirestore } from '@repos/pagos.repo';
@@ -30,7 +30,12 @@ interface AbonoModalSheetProps {
   onAbonoRegistrado: () => void;
 }
 
-export function AbonoModalSheet({ venta, onCerrar, onAbonoRegistrado }: AbonoModalSheetProps) {
+export function AbonoModalSheet({ venta: ventaAbierta, onCerrar, onAbonoRegistrado }: AbonoModalSheetProps) {
+  // Cerrada, se sigue mostrando lo último mientras la hoja baja: sin esto el
+  // componente desaparecía antes de que la hoja pudiera animar su salida.
+  const ultimaVenta = useRef(ventaAbierta);
+  if (ventaAbierta) ultimaVenta.current = ventaAbierta;
+  const venta = ventaAbierta ?? ultimaVenta.current;
   const { parametros } = useDatosNegocio();
   const { mostrar } = useSnackbar();
 
@@ -115,8 +120,10 @@ export function AbonoModalSheet({ venta, onCerrar, onAbonoRegistrado }: AbonoMod
 
   return (
     <BottomSheet
-      abierto={Boolean(venta)}
+      abierto={Boolean(ventaAbierta)}
       onCerrar={handleCerrarTodo}
+      // Un monto o una referencia escritos y no registrados: cerrar pregunta.
+      hayCambios={!exito && (montoTexto.trim() !== '' || referencia.trim() !== '')}
       titulo="Registrar abono"
       subtitulo={`${venta.cliente_nombre} · Venta #${venta.codigo}`}
     >
