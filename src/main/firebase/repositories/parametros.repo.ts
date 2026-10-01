@@ -9,6 +9,12 @@ import {
 import type { MetodoPago } from '../../../shared/types';
 import { esPasoRedondeoValido, calcularPrecio } from '../../../core/precios';
 import { EventosRepoFirestore } from './eventos.repo';
+import {
+  arreglarMayusculasFrase,
+  formatearTelefono,
+  limpiarTexto,
+  nombrePropio,
+} from '../../../core/formatos';
 import type { ParametrosSistema, Categoria, ModoPrecio, CuentaBancaria } from '../../../shared/types';
 
 export interface CategoriaInput {
@@ -161,6 +167,25 @@ export class ParametrosRepoFirestore {
       }
     }
 
+    // Lo que se escribe a mano se guarda con el formato de toda la app
+    // (`core/formatos.ts`). El nombre del negocio es una marca: sólo se limpia.
+    valores = { ...valores };
+    if (typeof valores.telefono_negocio === 'string') {
+      valores.telefono_negocio = formatearTelefono(valores.telefono_negocio) ?? '';
+    }
+    if (typeof valores.nombre_negocio === 'string') {
+      valores.nombre_negocio = limpiarTexto(valores.nombre_negocio);
+    }
+    if (Array.isArray(valores.cuentas_bancarias)) {
+      valores.cuentas_bancarias = (valores.cuentas_bancarias as CuentaBancaria[]).map((c) => ({
+        ...c,
+        banco: limpiarTexto(c.banco),
+        numero: limpiarTexto(c.numero),
+        ...(c.titular !== undefined ? { titular: nombrePropio(c.titular) } : {}),
+        ...(c.tipo !== undefined ? { tipo: limpiarTexto(c.tipo) } : {}),
+      }));
+    }
+
     // Solo se guarda el valor anterior de lo que de verdad cambia, para que
     // deshacer no arrastre campos que nadie tocó.
     const actual = (await leerDoc<Record<string, unknown>>('parametros', 'sistema')) ?? {};
@@ -223,7 +248,7 @@ export class ParametrosRepoFirestore {
     input: CategoriaInput,
     evento_grupo_id: string
   ): Promise<number> {
-    const nombreLimpio = input.nombre.trim();
+    const nombreLimpio = arreglarMayusculasFrase(input.nombre);
     if (!nombreLimpio) {
       throw new Error('El nombre de la categoría es obligatorio.');
     }

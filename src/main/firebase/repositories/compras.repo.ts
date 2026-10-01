@@ -51,6 +51,7 @@ import type { Lote } from '../../../core/lotes';
 import { margenEfectivo } from '../../../core/precios';
 import { repartirFlete } from '../../../core/costo-producto';
 import { normalizar } from '../../../core/texto';
+import { arreglarMayusculas } from '../../../core/formatos';
 import { formatearMoneda } from '../../../core/moneda';
 import { ParametrosRepoFirestore } from './parametros.repo';
 import { ProductosRepoFirestore, lotesDe, escrituraDeLotes, type ProductoDoc } from './productos.repo';
@@ -764,7 +765,7 @@ export class ComprasRepoFirestore {
       nuevos.set(id, {
         id,
         codigo: `P-${String(id).padStart(4, '0')}`,
-        nombre: l.descripcion.trim(),
+        nombre: arreglarMayusculas(l.descripcion),
         tiene_variantes: false,
         variantes: [{ id: 1, producto_id: id, existencias: 0, activo: true }],
         valor_inventario_usd_cents: 0,

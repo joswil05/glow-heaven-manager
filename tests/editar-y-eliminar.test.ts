@@ -274,7 +274,7 @@ describe('Clientas: editar', () => {
     expect((await Ventas.listar({})).find((x) => x.id === v)?.cliente_nombre).toBe('Ana María');
     Panel.invalidarCache();
     const fila = (await Panel.cargar(true)).por_cobrar.find((f) => f.venta_id === v)!;
-    expect([fila.cliente_nombre, fila.cliente_telefono]).toEqual(['Ana María', '88881111']);
+    expect([fila.cliente_nombre, fila.cliente_telefono]).toEqual(['Ana María', '+505 8888 1111']);
     await cuadra();
   });
 });

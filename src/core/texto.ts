@@ -24,13 +24,30 @@ export function normalizar(texto: string | null | undefined): string {
 }
 
 /**
+ * Una búsqueda que es un número ("86012442", "8601-2442", "+505 8601") se
+ * compara sólo por sus dígitos. Los teléfonos se guardan como
+ * "+505 8601 2442", y quien busca escribe el número como lo tiene anotado:
+ * sin los espacios, un `includes` diría que esa clienta no existe.
+ */
+function digitosDeBusqueda(busqueda: string): string | null {
+  if (!/^[\d\s+().-]+$/.test(busqueda.trim())) return null;
+  const digitos = busqueda.replace(/\D+/g, '');
+  return digitos.length >= 3 ? digitos : null;
+}
+
+function coincide(campo: string | null | undefined, q: string, digitos: string | null): boolean {
+  if (normalizar(campo).includes(q)) return true;
+  return digitos !== null && !!campo && campo.replace(/\D+/g, '').includes(digitos);
+}
+
+/**
  * ¿El campo contiene lo que se buscó, ignorando tildes y mayúsculas?
  * Una búsqueda vacía coincide con todo: es el estado inicial de un buscador.
  */
 export function contiene(campo: string | null | undefined, busqueda: string): boolean {
   const q = normalizar(busqueda);
   if (!q) return true;
-  return normalizar(campo).includes(q);
+  return coincide(campo, q, digitosDeBusqueda(busqueda));
 }
 
 /** ¿Alguno de los campos coincide? Atajo para los buscadores de varias columnas. */
@@ -40,5 +57,6 @@ export function algunoContiene(
 ): boolean {
   const q = normalizar(busqueda);
   if (!q) return true;
-  return campos.some((c) => normalizar(c).includes(q));
+  const digitos = digitosDeBusqueda(busqueda);
+  return campos.some((c) => coincide(c, q, digitos));
 }

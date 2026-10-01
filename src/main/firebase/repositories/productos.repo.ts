@@ -20,6 +20,7 @@ import {
 } from '../client';
 import { calcularPrecio, margenEfectivo as margenDe } from '../../../core/precios';
 import { algunoContiene } from '../../../core/texto';
+import { arreglarMayusculas, formatearTalla, limpiarTexto } from '../../../core/formatos';
 import { precioParaCosto } from '../../../core/paquete';
 import { costoUnitario } from '../../../core/inventario';
 import {
@@ -348,8 +349,8 @@ export class ProductosRepoFirestore {
         ? input.variantes.map((v, i) => ({
             id: i + 1,
             producto_id: nuevoId,
-            talla: v.talla?.trim() || undefined,
-            color: v.color?.trim() || undefined,
+            talla: formatearTalla(v.talla),
+            color: arreglarMayusculas(v.color) || undefined,
             existencias: Math.max(0, Math.round(v.existencias ?? 0)),
             activo: true,
           }))
@@ -405,7 +406,8 @@ export class ProductosRepoFirestore {
     const nuevoProducto: ProductoDoc = {
       id: nuevoId,
       codigo,
-      nombre: input.nombre.trim(),
+      // "termo stanley" o con el bloqueo de mayúsculas: se arregla; si mezcla, se respeta.
+      nombre: arreglarMayusculas(input.nombre),
       categoria_id: input.categoria_id,
       tiene_variantes: Boolean(input.tiene_variantes),
       variantes: variantes.map((v) => sinUndefined(v as unknown as Record<string, unknown>)) as unknown as ProductoVariante[],
@@ -474,6 +476,9 @@ export class ProductosRepoFirestore {
       ParametrosRepoFirestore.getCategorias(),
     ]);
     if (!p) throw new Error(`El producto #${input.id} no existe.`);
+    if (input.nombre !== undefined && !limpiarTexto(input.nombre)) {
+      throw new Error('El producto necesita un nombre.');
+    }
 
     const anterior = { ...p } as unknown as Record<string, unknown>;
 
@@ -499,13 +504,13 @@ export class ProductosRepoFirestore {
       let maxId = variantes.reduce((max, v) => Math.max(max, v.id), 0);
 
       variantes = input.variantes.map((v) => {
-        const clave = `${v.talla?.trim() ?? ''}|${v.color?.trim() ?? ''}`.toLowerCase();
+        const clave = `${limpiarTexto(v.talla)}|${limpiarTexto(v.color)}`.toLowerCase();
         const existente = porClave.get(clave);
         return {
           id: existente?.id ?? v.id ?? ++maxId,
           producto_id: input.id,
-          talla: v.talla?.trim() || undefined,
-          color: v.color?.trim() || undefined,
+          talla: formatearTalla(v.talla),
+          color: arreglarMayusculas(v.color) || undefined,
           existencias: existente ? existente.existencias : 0,
           activo: true,
         };
@@ -544,7 +549,7 @@ export class ProductosRepoFirestore {
         id: input.id,
         merge: true,
         datos: sinUndefined({
-          nombre: input.nombre !== undefined ? input.nombre.trim() : p.nombre,
+          nombre: input.nombre !== undefined ? arreglarMayusculas(input.nombre) : p.nombre,
           categoria_id: nuevaCategoria ?? null,
           tiene_variantes:
             input.tiene_variantes !== undefined ? input.tiene_variantes : p.tiene_variantes,

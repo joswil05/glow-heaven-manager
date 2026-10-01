@@ -69,6 +69,7 @@ import {
 } from '../../../core/encargos';
 import { formatearMoneda } from '../../../core/moneda';
 import { codigoDeVenta } from '../../../core/codigos';
+import { arreglarMayusculas } from '../../../core/formatos';
 import { repartirMayorResiduo } from '../../../core/prorrateo';
 import { lotesDe, escrituraDeLotes } from './productos.repo';
 import {
@@ -489,7 +490,7 @@ export class VentasRepoFirestore {
         const linea = input.lineas[i];
         const { cantidad, prod, precioUnitario, subtotal } = precios[i];
 
-        const descripcion = linea.descripcion?.trim() || prod?.nombre || '';
+        const descripcion = arreglarMayusculas(linea.descripcion) || prod?.nombre || '';
         let costoUnitario = linea.costo_estimado_unitario_usd_cents ?? 0;
         let costoLinea = costoUnitario * cantidad;
         let consumos: Consumo[] | undefined;
@@ -581,6 +582,7 @@ export class VentasRepoFirestore {
             notas: input.pago_inicial.notas,
             es_anticipo: esEncargo,
             activo: true,
+            creado_en: new Date().toISOString(),
             registrado_por: autorActual(),
           };
         }
@@ -968,7 +970,7 @@ export class VentasRepoFirestore {
           venta_id,
           producto_id: linea.producto_id,
           variante_id: linea.variante_id,
-          descripcion: linea.descripcion?.trim() || t?.p.nombre || '',
+          descripcion: arreglarMayusculas(linea.descripcion) || t?.p.nombre || '',
           cantidad,
           precio_unitario_usd_cents: precioUnitario,
           costo_unitario_usd_cents: costoUnitario,
@@ -1167,7 +1169,7 @@ export class VentasRepoFirestore {
           // Una pieza que no se consiguió conserva su precio para mostrarlo,
           // pero no cuenta: subtotal y costo en cero.
           ...(descartada ? { descartada_el: l.descartada_el ?? hoy } : {}),
-          descripcion: c.descripcion?.trim() || l.descripcion,
+          descripcion: arreglarMayusculas(c.descripcion) || l.descripcion,
           precio_unitario_usd_cents: precio,
           subtotal_usd_cents: descartada ? 0 : precio * l.cantidad,
           costo_unitario_usd_cents: costoUnitario,

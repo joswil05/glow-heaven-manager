@@ -4,6 +4,13 @@ import { EventosRepoFirestore } from './eventos.repo';
 import type { ClienteDetalle } from '../../../shared/types';
 import { formatearMoneda } from '../../../core/moneda';
 import { algunoContiene } from '../../../core/texto';
+import {
+  formatearTelefono,
+  limpiarLineas,
+  nombrePropio,
+  nombrePropioOpcional,
+  textoOpcional,
+} from '../../../core/formatos';
 import { esDeuda } from '../../../core/cobranza';
 
 export interface GuardarClienteInput {
@@ -85,16 +92,19 @@ export class ClientesRepoFirestore {
   }
 
   static async guardar(input: GuardarClienteInput, evento_grupo_id: string): Promise<number> {
-    const nombre = input.nombre.trim();
+    // Se guarda con un solo formato, venga de la pantalla que venga
+    // (`core/formatos.ts`): "maría josé" queda "María José", y el teléfono
+    // "+505 8601 2442". Un teléfono que no encaja se rechaza antes de escribir.
+    const nombre = nombrePropio(input.nombre);
     if (!nombre) throw new Error('El nombre del cliente es obligatorio.');
 
     const campos = {
       nombre,
-      alias: input.alias?.trim() || null,
-      telefono: input.telefono?.trim() || null,
-      direccion: input.direccion?.trim() || null,
-      ciudad: input.ciudad?.trim() || null,
-      notas: input.notas?.trim() || null,
+      alias: textoOpcional(input.alias),
+      telefono: formatearTelefono(input.telefono),
+      direccion: textoOpcional(input.direccion),
+      ciudad: nombrePropioOpcional(input.ciudad),
+      notas: limpiarLineas(input.notas),
     };
 
     if (input.id) {

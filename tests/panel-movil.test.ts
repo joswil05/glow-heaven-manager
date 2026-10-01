@@ -252,7 +252,7 @@ describe('los encargos pendientes', () => {
 
     expect(pendientes).toHaveLength(1);
     expect(pendientes[0].cliente_nombre).toBe('Ana');
-    expect(pendientes[0].cliente_telefono).toBe('88887777');
+    expect(pendientes[0].cliente_telefono).toBe('+505 8888 7777');
   });
 
   it('un encargo sin clienta se muestra como mostrador, no vacío', async () => {
