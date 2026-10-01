@@ -41,6 +41,7 @@ import { piezasDe, estadoPieza, sinPrecio, descartable, recalcularEncargo } from
 import { algunoContiene, normalizar } from '@core/texto';
 import { esDeuda, esCotizacion, estadoInicialEncargo, pagoAcepta } from '@core/cobranza';
 import { hoyISO, sumarDiasAFecha } from '@core/fechas';
+import { porQueNoSeBorraAbono, porQueNoSeBorraVenta } from '@core/borrado';
 import { formatearMoneda } from '@core/moneda';
 import { abonoQueSigueAlTotal, monedaDeLosAbonos, textoLoPagado, textoTotalEn } from '@core/abonos';
 import type { Autor } from '../../shared/types';
@@ -1524,6 +1525,18 @@ const api: ApiPuente = {
       );
       return ok({ ...grupo(), reversible: !movioMercaderia });
     },
+    // "Fue un error": las mismas reglas que `BorradoRepoFirestore.venta`.
+    borrarPorError: (id, pin) => {
+      const venta = db.ventas.find((v) => v.id === id);
+      if (!venta) return falla(`La venta #${id} no existe.`);
+      if (db.parametros.pin_seguridad && (pin ?? '').trim() !== db.parametros.pin_seguridad) {
+        return falla('El PIN no es correcto.');
+      }
+      const motivo = porQueNoSeBorraVenta(venta, venta.pagos);
+      if (motivo) return falla(motivo);
+      db.ventas = db.ventas.filter((v) => v.id !== id);
+      return ok({ que: venta.codigo, abonos: venta.pagos.filter((p) => p.activo !== false).length });
+    },
   },
   pagos: {
     registrar: (input) => {
@@ -1637,6 +1650,22 @@ const api: ApiPuente = {
         v.saldo_usd_cents = v.total_usd_cents - v.pagado_usd_cents;
       }
       return ok(grupo());
+    },
+    borrarPorError: (pago_id, pin) => {
+      if (db.parametros.pin_seguridad && (pin ?? '').trim() !== db.parametros.pin_seguridad) {
+        return falla('El PIN no es correcto.');
+      }
+      const venta = db.ventas.find((v) => v.pagos.some((p) => p.id === pago_id));
+      const pago = venta?.pagos.find((p) => p.id === pago_id);
+      if (!venta || !pago) return falla(`El abono #${pago_id} no existe.`);
+      const motivo = porQueNoSeBorraAbono(pago);
+      if (motivo) return falla(motivo);
+      venta.pagos = venta.pagos.filter((p) => p.id !== pago_id);
+      if (pago.activo !== false) {
+        venta.pagado_usd_cents -= pago.monto_usd_cents;
+        venta.saldo_usd_cents = venta.total_usd_cents - venta.pagado_usd_cents;
+      }
+      return ok({ que: 'el abono', abonos: 1 });
     },
     corregir: (pago_id, input) => {
       if (Math.round(input.monto_cents) <= 0) return falla('El monto del pago tiene que ser mayor que cero.');

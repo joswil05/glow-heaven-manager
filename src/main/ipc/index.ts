@@ -12,6 +12,7 @@ import { ProductosRepoFirestore as ProductosRepo } from '../firebase/repositorie
 import { ComprasRepoFirestore as ComprasRepo } from '../firebase/repositories/compras.repo';
 import { VentasRepoFirestore as VentasRepo } from '../firebase/repositories/ventas.repo';
 import { PagosRepoFirestore as PagosRepo } from '../firebase/repositories/pagos.repo';
+import { BorradoRepoFirestore as BorradoRepo } from '../firebase/repositories/borrado.repo';
 import { ClientesRepoFirestore as ClientesRepo } from '../firebase/repositories/clientes.repo';
 import { PanelRepoFirestore as PanelRepo } from '../firebase/repositories/panel.repo';
 import { EventosRepoFirestore as EventosRepo } from '../firebase/repositories/eventos.repo';
@@ -256,6 +257,14 @@ export function registrarHandlers(): void {
     }
   );
 
+  // "Fue un error" no deja eventos, así que no devuelve un grupo que deshacer;
+  // por eso el panel se invalida acá y no en `manejar`.
+  manejar(IPC.VENTAS_BORRAR_POR_ERROR, async (id: number, pin?: string) => {
+    const r = await BorradoRepo.venta(id, pin, nuevoGrupo());
+    PanelRepo.invalidarCache();
+    return r;
+  });
+
   manejar(IPC.VENTAS_MARCAR_COMPRADAS, async (id: number, linea_ids: number[], comprado: boolean) => {
     const evento_grupo_id = nuevoGrupo();
     await VentasRepo.marcarCompradas(id, linea_ids, comprado, evento_grupo_id);
@@ -308,6 +317,12 @@ export function registrarHandlers(): void {
     const evento_grupo_id = nuevoGrupo();
     await PagosRepo.anular(pago_id, evento_grupo_id);
     return { evento_grupo_id };
+  });
+
+  manejar(IPC.PAGOS_BORRAR_POR_ERROR, async (pago_id: number, pin?: string) => {
+    const r = await BorradoRepo.abono(pago_id, pin, nuevoGrupo());
+    PanelRepo.invalidarCache();
+    return r;
   });
 
   manejar(IPC.PAGOS_CORREGIR, async (pago_id: number, input: CorregirPagoInput) => {

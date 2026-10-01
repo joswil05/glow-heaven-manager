@@ -23,6 +23,7 @@ import type {
   EntradaDeProducto,
   PrecioDesactualizado,
   OpcionesAnulacion,
+  ResultadoBorrado,
 } from './types';
 
 /**
@@ -430,6 +431,12 @@ export interface ApiPuente {
       opciones?: OpcionesAnulacion
     ): Promise<Resultado<ConGrupoReversible>>;
     /**
+     * "Fue un error": borra la venta o el encargo con sus abonos, movimientos
+     * y eventos, sin dejar rastro. Pide el PIN si el negocio tiene uno. Ver
+     * `BorradoRepoFirestore.venta` y `core/borrado.ts`.
+     */
+    borrarPorError(id: number, pin?: string): Promise<Resultado<ResultadoBorrado>>;
+    /**
      * "Ya lo compré" (o desmarcarlo): piezas de un encargo compradas que
      * esperan paquete. Ver `VentasRepoFirestore.marcarCompradas`.
      */
@@ -449,6 +456,8 @@ export interface ApiPuente {
     listarPorCliente(cliente_id: number): Promise<Resultado<PagoCompleto[]>>;
     listarPorVenta(venta_id: number): Promise<Resultado<PagoCompleto[]>>;
     anular(pago_id: number): Promise<Resultado<ConGrupo>>;
+    /** "Fue un error": borra un abono que nunca entró. Ver `BorradoRepoFirestore.abono`. */
+    borrarPorError(pago_id: number, pin?: string): Promise<Resultado<ResultadoBorrado>>;
     /** Corrige monto, moneda, fecha, método o notas. Ver `PagosRepoFirestore.corregir`. */
     corregir(pago_id: number, input: CorregirPagoInput): Promise<Resultado<ConGrupo>>;
     recientes(limite?: number): Promise<Resultado<PagoCompleto[]>>;

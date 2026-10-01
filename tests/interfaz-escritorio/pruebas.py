@@ -1686,6 +1686,8 @@ def caso_confirmar_ocupado(page: Page) -> list[str]:
         confirmar.wait_for(timeout=2000)
     except Exception:
         return ["anular la venta no pidió confirmación"]
+    # Desde "Fue un error" (30/9) primero se pregunta qué pasó.
+    confirmar.get_by_role("radio", name=re.compile("Se devolvió")).click()
     boton = confirmar.get_by_role("button", name=re.compile("^Sí"))
     boton.click()
     page.wait_for_timeout(250)
@@ -1916,6 +1918,55 @@ def caso_acepto(page: Page) -> list[str]:
     if dlg.get_by_text("No hay conexión con la base.").count() == 0:
         fallas.append("el error del servidor no se ve")
     recargar_datos(page)
+    cerrar_ventanas(page)
+    return fallas
+
+
+@caso("Fue un error · una venta mal cargada se borra entera: pregunta qué pasó y no queda en la lista")
+def caso_fue_un_error(page: Page) -> list[str]:
+    """
+    Joswill, 30/9: lo que se cargó por error no tiene que quedar a la vista.
+    Anular pregunta qué pasó; "Fue un error al cargarla" la borra con todo lo
+    suyo (`docs/PLAN_EQUIVOCACIONES_Y_FORMATOS.md`).
+    """
+    fallas: list[str] = []
+    cerrar_ventanas(page)
+    venta = page.evaluate("""async () => {
+      const p = (await window.api.productos.list()).data.find((x) => x.activo !== false && x.existencias >= 1 && x.variantes.length <= 1);
+      const r = await window.api.ventas.crear({
+        fecha: new Date().toISOString().slice(0, 10), tipo: 'INVENTARIO',
+        lineas: [{ producto_id: p.id, variante_id: p.variantes[0]?.id, cantidad: 1, precio_unitario_usd_cents: 1500 }],
+      });
+      const v = (await window.api.ventas.get(r.data.id)).data;
+      return { id: v.id, codigo: v.codigo };
+    }""")
+    ir_a(page, "Inicio")
+    ir_a(page, "Ventas")
+    fila_de(page, venta["codigo"]).click()
+    page.wait_for_timeout(600)
+    page.get_by_role("button", name="Anular esta venta").first.click()
+    dialogo = page.get_by_role("alertdialog")
+    try:
+        dialogo.wait_for(timeout=2000)
+    except Exception:
+        return ["anular la venta no abrió la pregunta"]
+
+    # Sin elegir, confirmar no hace nada: dice que hay que elegir.
+    dialogo.get_by_role("button", name=re.compile("^Sí")).click()
+    page.wait_for_timeout(200)
+    if "Elegí qué pasó" not in dialogo.inner_text():
+        fallas.append("sin elegir qué pasó, confirmar no lo pide")
+
+    dialogo.get_by_role("radio", name=re.compile("Fue un error")).click()
+    dialogo.get_by_role("button", name="Sí, borrar la venta").click()
+    page.wait_for_timeout(1500)
+    if page.get_by_role("alertdialog").count() > 0:
+        fallas.append("la pregunta no se cerró al borrar")
+    queda = page.evaluate(f"async () => (await window.api.ventas.get({venta['id']})).data")
+    if queda:
+        fallas.append("la venta sigue existiendo")
+    if page.locator("tr", has_text=venta["codigo"]).count() > 0:
+        fallas.append("la venta sigue en la lista")
     cerrar_ventanas(page)
     return fallas
 

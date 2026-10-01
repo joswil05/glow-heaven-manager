@@ -12,12 +12,15 @@ import {
 } from 'lucide-react';
 import { BottomSheet } from './BottomSheet';
 import { PagosRepoFirestore } from '@repos/pagos.repo';
+import { BorradoRepoFirestore } from '@repos/borrado.repo';
+import { porQueNoSeBorraAbono } from '@core/borrado';
+import { AnularOBorrarPanel } from './AnularOBorrarPanel';
 import { formatearMoneda, formatearFecha } from '@core/moneda';
 import { textoEquivalente, textoPagado, textoQuien } from '@core/abonos';
 import { linkWhatsapp, nuevoGrupoEvento } from '../lib/util';
 import { useDatosNegocio } from '../context/DataContext';
 import { haptics } from '../lib/haptics';
-import { Ban, AlertTriangle, Pencil } from 'lucide-react';
+import { Ban, Pencil } from 'lucide-react';
 import { CorregirAbonoSheet } from './CorregirAbonoSheet';
 import type { PagoCompleto } from '@shared/types';
 import type { VentaCobroItem } from './AbonoModalSheet';
@@ -70,7 +73,6 @@ export function KardexClienteSheet({
   const [pagoAAnular, setPagoAAnular] = useState<PagoCompleto | null>(null);
   /** Mientras se corrige, esta hoja se esconde y vuelve al terminar. */
   const [pagoCorrigiendo, setPagoCorrigiendo] = useState<PagoCompleto | null>(null);
-  const [anulando, setAnulando] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -119,7 +121,6 @@ export function KardexClienteSheet({
   const saldoUsd = cliente.saldo_usd_cents ?? 0;
   const saldoCor = Math.round((saldoUsd * tasa) / 100);
   async function anularAbono(p: PagoCompleto) {
-    setAnulando(true);
     try {
       await PagosRepoFirestore.anular(p.id, nuevoGrupoEvento());
       setPagoAAnular(null);
@@ -139,7 +140,18 @@ export function KardexClienteSheet({
     } catch (err) {
       console.error('[KardexClienteSheet] Error anulando el abono:', err);
       setError('No se pudo anular el abono. Probá de nuevo.');
-      setAnulando(false);
+    }
+  }
+
+  /** "Fue un error": el abono se borra sin dejar rastro. Devuelve el error, si lo hubo. */
+  async function borrarAbono(p: PagoCompleto, pin: string): Promise<string | null> {
+    try {
+      await BorradoRepoFirestore.abono(p.id, pin || undefined, nuevoGrupoEvento());
+      setPagoAAnular(null);
+      onCambio?.();
+      return null;
+    } catch (err) {
+      return err instanceof Error && err.message ? err.message : 'No se pudo borrar. Probá de nuevo.';
     }
   }
 
@@ -293,39 +305,25 @@ export function KardexClienteSheet({
               {/* Mueve plata: se confirma antes, y se dice exactamente qué va
                   a pasar con el historial y con el saldo. */}
               {pagoAAnular && (
-                <div className="rounded-2xl border border-alerta-suave bg-alerta-suave p-3.5">
-                  <div className="flex items-start gap-2.5">
-                    <AlertTriangle size={18} className="mt-0.5 shrink-0 text-alerta-fuerte" />
-                    <div className="min-w-0 flex-1">
-                      <h4 className="text-xs font-bold text-alerta-fuerte">
-                        ¿Anular este abono de {textoPagado(pagoAAnular)}?
-                      </h4>
-                      <p className="mt-1 text-[11px] leading-relaxed text-alerta-fuerte/90">
-                        El saldo vuelve a subir {textoPagado(pagoAAnular)} y este abono deja de aparecer en
-                        el historial de la clienta; la anulación queda asentada en la auditoría. Si sólo el
-                        monto, la moneda o la fecha están mal, mejor corregilo.
-                      </p>
-                      <div className="mt-2.5 grid grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          disabled={anulando}
-                          onClick={() => setPagoAAnular(null)}
-                          className="tocable rounded-xl border border-borde bg-superficie px-3 py-2 text-xs font-bold text-texto-2 active:scale-[0.98] transition-transform disabled:opacity-50 cursor-pointer"
-                        >
-                          Cancelar
-                        </button>
-                        <button
-                          type="button"
-                          disabled={anulando}
-                          onClick={() => anularAbono(pagoAAnular)}
-                          className="tocable rounded-xl bg-alerta px-3 py-2 text-xs font-bold text-alerta-texto active:scale-[0.98] transition-transform disabled:opacity-50 cursor-pointer"
-                        >
-                          {anulando ? 'Anulando…' : 'Anular abono'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <AnularOBorrarPanel
+                  anular={{
+                    opcion: 'La plata se devolvió',
+                    detalle: `El saldo vuelve a subir ${textoPagado(pagoAAnular)}. Queda en el historial como anulado; si sólo el monto, la moneda o la fecha están mal, mejor corregilo.`,
+                    boton: 'Sí, anular el abono',
+                    enCurso: 'Anulando…',
+                  }}
+                  borrar={{
+                    opcion: 'Fue un error al cargarlo',
+                    detalle: 'Nunca entró: se cargó dos veces, o por error. Se borra sin dejar rastro.',
+                    boton: 'Sí, borrarlo',
+                    enCurso: 'Borrando…',
+                    noSePuede: porQueNoSeBorraAbono(pagoAAnular),
+                  }}
+                  pedirPin={Boolean(parametros?.pin_seguridad)}
+                  onAnular={() => anularAbono(pagoAAnular)}
+                  onBorrar={(pin) => borrarAbono(pagoAAnular, pin)}
+                  onCancelar={() => setPagoAAnular(null)}
+                />
               )}
 
               {pagos.map((p) => {

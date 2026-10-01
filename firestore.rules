@@ -146,9 +146,18 @@ service cloud.firestore {
 
     match /movimientos_inventario/{id} {
       // El historial de inventario explica por qué las existencias son las
-      // que son. Se agrega y se lee, pero no se edita ni se borra.
+      // que son. Se agrega y se lee, pero no se edita.
       allow read, create: if autenticado();
-      allow update, delete: if false;
+      allow update: if false;
+
+      // Se borra sólo con la venta que lo produjo, cuando esa venta "fue un
+      // error" y se borra entera (`borrado.repo.ts`): la venta y sus
+      // movimientos van en el mismo lote. Mientras la venta exista, su
+      // historial no se toca. `existsAfter` mira cómo queda la base al
+      // terminar el lote, así que alcanza con borrar la venta en él.
+      allow delete: if autenticado()
+                    && resource.data.referencia_tipo == 'VENTA'
+                    && !existsAfter(/databases/$(database)/documents/ventas/$(string(resource.data.referencia_id)));
     }
 
     match /eventos/{id} {

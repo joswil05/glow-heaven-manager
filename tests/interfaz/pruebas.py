@@ -845,6 +845,11 @@ def caso_reacciona(page: Page) -> list[str]:
         return fallas + ["el detalle no ofrece cancelar la venta"]
     cancelar.click()
     page.wait_for_timeout(300)
+    # Desde "Fue un error" (30/9) primero se pregunta qué pasó.
+    se_devolvio = en_hoja(page, "[role='radio']", "Se devolvió o se reembolsó")
+    if se_devolvio is None:
+        return fallas + ["cancelar no pregunta qué pasó"]
+    se_devolvio.click()
     confirmar = en_hoja(page, "button", "Sí, cancelar la venta")
     if confirmar is None:
         return fallas + ["cancelar no pide confirmación"]
@@ -864,6 +869,60 @@ def caso_reacciona(page: Page) -> list[str]:
                  and v.get("estado") != "CANCELADA" and v.get("saldo_usd_cents", 0) > 0]
         if not otras:
             fallas.append("Ana sigue en Cobros después de cancelar su única venta con saldo")
+    return fallas
+
+
+@caso("Fue un error · una venta cancelada que fue un error se borra del Historial sin dejar rastro")
+def caso_fue_un_error(page: Page) -> list[str]:
+    """
+    Joswill, 30/9: lo que se cargó por error no tiene que quedar a la vista.
+    La venta de Ana quedó cancelada en el caso anterior; borrarla se lleva la
+    venta, sus abonos y sus movimientos (`docs/PLAN_EQUIVOCACIONES_Y_FORMATOS.md`).
+    """
+    fallas = []
+    venta = next((v for v in listar_coleccion("ventas") if v.get("codigo") == "V-0001"), None)
+    if venta is None or venta.get("estado") != "CANCELADA":
+        return ["el caso anterior no dejó V-0001 cancelada"]
+
+    problema = abrir_historial(page, "Ventas")
+    if problema:
+        return [problema]
+    fila = visible(page, "main button", "Ana Prueba")
+    if fila is None:
+        return ["la venta cancelada de Ana no está en el Historial"]
+    fila.click()
+    page.wait_for_timeout(800)
+    borrar = en_hoja(page, "button", "Fue un error: borrarla")
+    if borrar is None:
+        return ["el detalle de una venta cancelada no ofrece borrarla"]
+    borrar.click()
+    page.wait_for_timeout(300)
+
+    # Cancelarla otra vez no se puede: la opción dice por qué.
+    otra_vez = en_hoja(page, "[role='radio']", "Se devolvió o se reembolsó")
+    if otra_vez is None or otra_vez.get_attribute("aria-disabled") != "true":
+        fallas.append("una venta ya cancelada ofrece cancelarla otra vez")
+    error = en_hoja(page, "[role='radio']", "Fue un error al cargarla")
+    if error is None:
+        return fallas + ["no se ofrece 'Fue un error'"]
+    error.click()
+    confirmar = en_hoja(page, "button", "Sí, borrarla")
+    if confirmar is None:
+        return fallas + ["no hay con qué confirmar el borrado"]
+    confirmar.click()
+    page.wait_for_timeout(2500)
+
+    if any(v.get("id") == venta["id"] for v in listar_coleccion("ventas")):
+        fallas.append("la venta sigue en la base")
+    if any(p.get("venta_id") == venta["id"] for p in listar_coleccion("pagos")):
+        fallas.append("sus abonos siguen en la base")
+    if any(
+        m.get("referencia_tipo") == "VENTA" and m.get("referencia_id") == venta["id"]
+        for m in listar_coleccion("movimientos_inventario")
+    ):
+        fallas.append("sus movimientos de inventario siguen en la base")
+    if visible(page, "main button", "Ana Prueba") is not None:
+        fallas.append("la venta sigue a la vista en el Historial")
     return fallas
 
 

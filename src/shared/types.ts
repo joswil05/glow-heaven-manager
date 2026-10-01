@@ -635,6 +635,13 @@ export interface PagoCompleto extends Pago {
   cliente_nombre?: string;
 }
 
+/** Lo que dejó "Fue un error": qué se borró y cuántos abonos se fueron con eso. */
+export interface ResultadoBorrado {
+  /** "V-0024", o "el abono" para un abono suelto. */
+  que: string;
+  abonos: number;
+}
+
 // ---------------------------------------------------------------------------
 // Panel
 // ---------------------------------------------------------------------------

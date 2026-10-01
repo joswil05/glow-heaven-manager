@@ -274,6 +274,16 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
     await refrescar(v.id);
   };
 
+  /** "Fue un error": el encargo se borra entero. Devuelve el error, si lo hubo. */
+  const borrarEncargo = async (v: VentaCompleta, pin: string): Promise<string | null> => {
+    const r = await window.api.ventas.borrarPorError(v.id, pin || undefined);
+    if (!r.success) return r.error;
+    showToast({ message: `${r.data.que} se borró.`, type: 'success' });
+    if (detalle?.id === v.id) setDetalle(null);
+    await refrescar();
+    return null;
+  };
+
   const marcarCompradas = async (v: VentaCompleta, ids: number[], comprado: boolean) => {
     const r = await window.api.ventas.marcarCompradas(v.id, ids, comprado);
     if (!r.success) {
@@ -407,6 +417,9 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
     }
     if (vivo) {
       items.push('separator', { id: 'anular', label: 'Anular…', tone: 'danger', onClick: () => setAnulando(v) });
+    } else if (v.estado === 'CANCELADA') {
+      // Uno anulado que en realidad fue un error también se borra.
+      items.push('separator', { id: 'borrar', label: 'Fue un error: borrarlo…', tone: 'danger', onClick: () => setAnulando(v) });
     }
     return items;
   };
@@ -940,6 +953,8 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
       <AnularEncargoModal
         venta={anulando}
         onConfirmar={(opciones) => anulando && cambiarEstado(anulando, 'CANCELADA', opciones)}
+        onBorrar={(pin) => (anulando ? borrarEncargo(anulando, pin) : Promise.resolve(null))}
+        pedirPin={Boolean(parametros?.pin_seguridad)}
         onCerrar={() => setAnulando(null)}
       />
 

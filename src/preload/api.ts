@@ -62,6 +62,7 @@ export const api: ApiPuente = {
     crear: (input) => ipcRenderer.invoke(IPC.VENTAS_CREAR, input),
     corregir: (id, input) => ipcRenderer.invoke(IPC.VENTAS_CORREGIR, id, input),
     cambiarEstado: (id, estado, opciones) => ipcRenderer.invoke(IPC.VENTAS_CAMBIAR_ESTADO, id, estado, opciones),
+    borrarPorError: (id, pin) => ipcRenderer.invoke(IPC.VENTAS_BORRAR_POR_ERROR, id, pin),
     marcarCompradas: (id, linea_ids, comprado) =>
       ipcRenderer.invoke(IPC.VENTAS_MARCAR_COMPRADAS, id, linea_ids, comprado),
     cotizar: (id, lineas) => ipcRenderer.invoke(IPC.VENTAS_COTIZAR, id, lineas),
@@ -81,6 +82,7 @@ export const api: ApiPuente = {
     listarPorCliente: (cliente_id) => ipcRenderer.invoke(IPC.PAGOS_LISTAR_POR_CLIENTE, cliente_id),
     listarPorVenta: (venta_id) => ipcRenderer.invoke(IPC.PAGOS_LISTAR_POR_VENTA, venta_id),
     anular: (pago_id) => ipcRenderer.invoke(IPC.PAGOS_ANULAR, pago_id),
+    borrarPorError: (pago_id, pin) => ipcRenderer.invoke(IPC.PAGOS_BORRAR_POR_ERROR, pago_id, pin),
     corregir: (pago_id, input) => ipcRenderer.invoke(IPC.PAGOS_CORREGIR, pago_id, input),
     recientes: (limite) => ipcRenderer.invoke(IPC.PAGOS_RECIENTES, limite),
     enRango: (desde, hasta) => ipcRenderer.invoke(IPC.PAGOS_EN_RANGO, desde, hasta),

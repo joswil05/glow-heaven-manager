@@ -34,7 +34,6 @@ import {
   Money,
   StatTile,
   DataTable,
-  Confirmar,
   ContextMenu,
   type Column,
   type Tone,
@@ -43,6 +42,8 @@ import { EmptyState } from '../components/shared/EmptyState';
 import { VentaEditor } from './ventas/VentaEditor';
 import { PagoModal } from '../components/PagoModal';
 import { CorregirPagoModal } from '../components/CorregirPagoModal';
+import { AnularOBorrar } from '../components/AnularOBorrar';
+import { porQueNoSeBorraVenta } from '@core/borrado';
 import { DocumentoModal } from '../components/DocumentoModal';
 import { useClickOutside } from '../lib/useClickOutside';
 import { useToast } from '../context/ToastContext';
@@ -395,6 +396,19 @@ export const VentasView: React.FC<VentasViewProps> = ({
     await cargar();
     if (ventaDetalle?.id === v.id) await abrirDetalle(v.id);
     onCambio();
+  };
+
+  /** "Fue un error": la venta se borra entera. Devuelve el error, si lo hubo. */
+  const borrarVenta = async (v: Venta, pin: string): Promise<string | null> => {
+    const r = await window.api.ventas.borrarPorError(v.id, pin || undefined);
+    if (!r.success) return r.error;
+    const conAbonos =
+      r.data.abonos === 0 ? '' : r.data.abonos === 1 ? ' con su abono' : ` con sus ${r.data.abonos} abonos`;
+    showToast({ message: `${r.data.que} se borró${conAbonos}.`, type: 'success' });
+    if (ventaDetalle?.id === v.id) setVentaDetalle(null);
+    await cargar();
+    onCambio();
+    return null;
   };
 
   const columnas: Column<Venta>[] = [
@@ -973,18 +987,17 @@ export const VentasView: React.FC<VentasViewProps> = ({
               )}
             </div>
 
-            {ventaDetalle.estado !== 'CANCELADA' && (
-              <div className="pt-3 border-t border-borde/70 flex justify-center">
-                <button
-                  type="button"
-                  onClick={() => setAnulando(ventaDetalle)}
-                  className="inline-flex items-center gap-1.5 text-caption text-texto-3 hover:text-danger-600 transition-colors focus-visible:outline-none"
-                >
-                  <XCircle className="w-3.5 h-3.5" />
-                  <span>Anular esta venta</span>
-                </button>
-              </div>
-            )}
+            {/* Una venta anulada que en realidad fue un error también se borra. */}
+            <div className="pt-3 border-t border-borde/70 flex justify-center">
+              <button
+                type="button"
+                onClick={() => setAnulando(ventaDetalle)}
+                className="inline-flex items-center gap-1.5 text-caption text-texto-3 hover:text-danger-600 transition-colors focus-visible:outline-none"
+              >
+                <XCircle className="w-3.5 h-3.5" />
+                <span>{ventaDetalle.estado === 'CANCELADA' ? 'Fue un error: borrarla' : 'Anular esta venta'}</span>
+              </button>
+            </div>
           </div>
         </aside>
       )}
@@ -1020,25 +1033,43 @@ export const VentasView: React.FC<VentasViewProps> = ({
         }}
       />
 
-      <Confirmar
+      <AnularOBorrar
         abierto={anulando !== null}
-        peligroso
-        titulo={`¿Anular ${anulando?.codigo ?? ''}?`}
-        consecuencias={[
-          ...(anulando && anulando.tipo === 'INVENTARIO'
-            ? ['Las unidades vuelven a tu inventario.']
-            : []),
-          ...(anulando && anulando.pagado_usd_cents > 0
-            ? [
-                `Los ${formatearMoneda(anulando.pagado_usd_cents, 'USD')} ya abonados quedan sin efecto.`,
-              ]
-            : []),
-          'Deja de contar en tus ganancias.',
-        ]}
-        textoConfirmar="Sí, anular la venta"
-        textoOcupado="Anulando…"
-        textoCancelar="No, dejarla como está"
-        onConfirmar={() => anulando && cambiarEstado(anulando, 'CANCELADA')}
+        que={anulando?.codigo ?? ''}
+        anular={{
+          opcion: 'Se devolvió o se reembolsó',
+          detalle: 'Pasó y se deshizo: queda en el historial como anulada.',
+          noSePuede: anulando?.estado === 'CANCELADA' ? 'Ya está anulada.' : null,
+          consecuencias: [
+            ...(anulando && anulando.tipo === 'INVENTARIO' ? ['Las unidades vuelven a tu inventario.'] : []),
+            ...(anulando && anulando.pagado_usd_cents > 0
+              ? [`Los ${formatearMoneda(anulando.pagado_usd_cents, 'USD')} ya abonados quedan sin efecto.`]
+              : []),
+            'Deja de contar en tus ganancias.',
+          ],
+          boton: 'Sí, anular la venta',
+        }}
+        borrar={{
+          opcion: 'Fue un error al cargarla',
+          detalle: 'Nunca pasó: se cargó dos veces, o por error. Se borra sin dejar rastro.',
+          consecuencias: [
+            anulando && anulando.pagado_usd_cents > 0
+              ? `Se borran ${anulando.codigo} y sus abonos (${formatearMoneda(anulando.pagado_usd_cents, 'USD')}).`
+              : `Se borra ${anulando?.codigo ?? 'la venta'}.`,
+            ...(anulando && anulando.tipo === 'INVENTARIO' && anulando.estado !== 'CANCELADA'
+              ? ['Las unidades vuelven a su lote, como si nunca hubieran salido.']
+              : []),
+            'No queda en el historial, ni en el inventario, ni en las ganancias.',
+          ],
+          boton: 'Sí, borrar la venta',
+          noSePuede: anulando ? porQueNoSeBorraVenta(anulando, 'pagos' in anulando ? anulando.pagos : []) : null,
+        }}
+        pedirPin={Boolean(parametros?.pin_seguridad)}
+        onAnular={async () => {
+          if (anulando) await cambiarEstado(anulando, 'CANCELADA');
+          return null;
+        }}
+        onBorrar={(pin) => (anulando ? borrarVenta(anulando, pin) : Promise.resolve(null))}
         onCerrar={() => setAnulando(null)}
       />
 
@@ -1157,7 +1188,15 @@ export const VentasView: React.FC<VentasViewProps> = ({
                     onClick: () => setAnulando(menuContextual.venta),
                   },
                 ]
-              : []),
+              : [
+                  {
+                    id: 'borrar',
+                    label: 'Fue un error: borrarla...',
+                    icon: <XCircle className="w-4 h-4" />,
+                    tone: 'danger' as const,
+                    onClick: () => setAnulando(menuContextual.venta),
+                  },
+                ]),
           ]}
         />
       )}

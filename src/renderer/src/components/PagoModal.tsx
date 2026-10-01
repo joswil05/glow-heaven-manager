@@ -10,9 +10,9 @@ import {
   Badge,
   Money,
   BarraProgreso,
-  Confirmar,
   Dialogo,
 } from './ui';
+import { AnularOBorrarAbono } from './AnularOBorrar';
 import { parsearDecimal } from '@core/numeros';
 import {
   usdCentavosACorCentavos,
@@ -409,17 +409,14 @@ export const PagoModal: React.FC<PagoModalProps> = ({
         </div>
       )}
 
-        <Confirmar
-          abierto={anulandoId !== null}
-          peligroso
-          titulo="¿Anular este abono?"
-          consecuencias={[
-            'El saldo de la venta vuelve a subir por ese monto.',
-            'El abono desaparece del historial de la venta.',
-          ]}
-          textoConfirmar="Sí, anular el abono"
-          textoOcupado="Anulando…"
-          onConfirmar={() => anulandoId !== null && anular(anulandoId)}
+        <AnularOBorrarAbono
+          abono={venta?.pagos.find((p) => p.id === anulandoId) ?? null}
+          pedirPin={Boolean(parametros?.pin_seguridad)}
+          onAnular={async (p) => {
+            await anular(p.id);
+            return null;
+          }}
+          onBorrado={onRegistrado}
           onCerrar={() => setAnulandoId(null)}
         />
     </Dialogo>

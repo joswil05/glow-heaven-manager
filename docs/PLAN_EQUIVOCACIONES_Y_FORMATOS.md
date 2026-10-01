@@ -6,9 +6,11 @@
 > parece desordenado que se quede ahí guardada y de forma visible"*, y *"los
 > formularios y números de teléfono deben tener un formato específico y
 > reparar errores de mayúsculas automáticamente"*.
-> **Estado**: la parte 1 (limpieza) está aplicada en producción; la parte 2
-> (formato al guardar) está hecha en los repositorios; la parte 3 ("Fue un
-> error") es diseño aprobado, para después de la Fase 1 de la auditoría.
+> **Estado (1 de octubre)**: la parte 1 (limpieza) está aplicada en
+> producción; la parte 2 (formato al guardar) salió publicada en la `v2.16.4`;
+> la parte 3 ("Fue un error") está hecha y probada en local, **sin publicar**:
+> antes que el código hay que desplegar `firestore.rules` (ver 3, "Para
+> publicar").
 
 ---
 
@@ -92,7 +94,7 @@ verificó sembrando el error: las nueve hicieron fallar su prueba.
 
 ---
 
-## 3. "Fue un error": borrar sin dejar rastro (diseño aprobado)
+## 3. "Fue un error": borrar sin dejar rastro (hecho en local, sin publicar)
 
 ### Tres salidas, una sola puerta
 
@@ -132,15 +134,52 @@ Al tocar **Anular**, la app pregunta qué pasó:
 - **Un producto**: ya está (Fase 0): se elimina si no tiene ventas ni
   paquetes; si no, se descataloga.
 
-### Antes de escribir código
+### Cómo quedó hecho
 
-- **Índices**: borrar busca movimientos por venta (`referencia_tipo`,
-  `referencia_id`) y eventos por entidad (`entidad_tipo`, `entidad_id`).
-  Declararlos, desplegarlos y esperar `READY` antes que el código
-  (`npm run auditar:indices`).
-- **Pruebas**: la simulación del negocio suma "borrar" a sus pasos, y las
-  invariantes tienen que seguir cuadrando (ninguna unidad vendida sin su
-  venta, ningún abono sin su venta, la clienta con sus totales).
-- **Dónde**: `VentaEditor`, el detalle de venta, Cobros y las hojas del
-  celular. Va después de que se cierre la Fase 1, que está reescribiendo esos
-  mismos archivos.
+- **La regla** está en `src/core/borrado.ts` (`porQueNoSeBorraVenta`,
+  `porQueNoSeBorraAbono`): una semana desde que se cargó, el mes en curso,
+  ningún abono de otro día, ninguna pieza de encargo comprada. Cada motivo es
+  una frase que dice qué hacer en su lugar.
+- **El borrado** está en `repositories/borrado.repo.ts`. Primero anula por el
+  camino de siempre (`cambiarEstado`, `PagosRepo.anular`), que ya devuelve
+  cada unidad a su lote y saca los abonos de lo cobrado, y después barre la
+  venta, sus abonos, sus movimientos y sus eventos (los de la venta, los de
+  sus abonos y los del grupo que la anuló). Si algo falla a mitad del barrido
+  queda una venta anulada, que es un estado válido. El PIN lo verifica el
+  repositorio, así vale igual en las dos apps.
+- **Sin índices nuevos**: todas las consultas son de una sola igualdad y se
+  afinan en memoria (`auditar-indices` las ve y aprueba).
+- **Las reglas** (`firestore.rules`): un movimiento de inventario se puede
+  borrar sólo si su venta ya no existe al terminar el lote (`existsAfter`).
+  Mientras la venta exista, su historial sigue siendo intocable; lo prueba
+  `tests/motor-real/borrado.test.ts` contra el emulador.
+- **Las pantallas**: en Windows, `components/AnularOBorrar.tsx` (ventas de
+  Ventas y abonos de Cobros, Clientes y la ventana de abonos) y "Fue un
+  error" como cuarta opción del "Por qué" de `AnularEncargoModal`. En el
+  celular, `components/AnularOBorrarPanel.tsx` en el Historial y en los
+  abonos de la clienta. Una venta o un encargo ya anulado que en realidad
+  fue un error ofrece "Fue un error: borrarla".
+- **Pruebas**: `tests/borrado.test.ts` (14, con once errores sembrados que
+  hicieron fallar alguna), `tests/motor-real/borrado.test.ts` (2) y un caso
+  nuevo en cada suite de interfaz. `npm test` 38 archivos, emulador 100,
+  interfaz del celular y de Windows aprobadas.
+
+### Lo que se decidió distinto del diseño
+
+- **Sin "Deshacer" después de borrar.** Volver a poner una venta borrada
+  significa volver a sacar sus unidades de los lotes, y en esos segundos otra
+  venta pudo llevárselas: es justo el tipo de cuenta que no avisa cuando se
+  desvía. La protección es la pregunta explícita, la lista de lo que se va a
+  borrar y el PIN.
+- **"Unir con…" para clientas duplicadas y "Ver anuladas" en las listas**
+  quedan para la Fase 6 de la auditoría (CLI duplicados, VEN listas), que
+  toca esas mismas pantallas.
+
+### Para publicar
+
+1. Desplegar las reglas **antes** que el código:
+   `npx firebase deploy --only firestore:rules --non-interactive`. Sin eso,
+   borrar falla con "Missing or insufficient permissions" al llegar a los
+   movimientos, y la venta queda anulada (no rota). Las apps de antes no
+   borran movimientos, así que la regla nueva no les cambia nada.
+2. Recién después, el exe y la PWA, con el "publicalo" de Joswill.

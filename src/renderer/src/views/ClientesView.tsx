@@ -31,6 +31,7 @@ import { enlaceWhatsApp } from '../lib/whatsapp';
 import { textoQuien } from '@core/abonos';
 import { MontoAbono } from '../components/MontoAbono';
 import { CorregirPagoModal } from '../components/CorregirPagoModal';
+import { AnularOBorrarAbono } from '../components/AnularOBorrar';
 
 interface ClientesViewProps {
   parametros?: ParametrosSistema | null;
@@ -724,18 +725,14 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
         </aside>
       )}
 
-      <Confirmar
-        abierto={pagoAnulando !== null}
-        peligroso
-        titulo="¿Anular este abono?"
-        consecuencias={[
-          `${formatearMoneda(pagoAnulando?.monto_usd_cents || 0, 'USD')}.`,
-          'Lo que debía vuelve a quedar pendiente.',
-        ]}
-        textoConfirmar="Anular abono"
-        textoOcupado="Anulando…"
-        textoCancelar="Cancelar"
-        onConfirmar={confirmarAnularPago}
+      <AnularOBorrarAbono
+        abono={pagoAnulando}
+        pedirPin={Boolean(parametros?.pin_seguridad)}
+        onAnular={async () => {
+          await confirmarAnularPago();
+          return null;
+        }}
+        onBorrado={refrescarDetalle}
         onCerrar={() => setPagoAnulando(null)}
       />
 

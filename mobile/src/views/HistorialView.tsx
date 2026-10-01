@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { History, ShoppingBag, HandCoins, Loader2, AlertTriangle, FileText, Pencil, Search, X } from 'lucide-react';
+import { History, ShoppingBag, HandCoins, Loader2, FileText, Pencil, Search, X } from 'lucide-react';
 import type { Venta, PagoCompleto } from '@shared/types';
 import { VentasRepoFirestore } from '@repos/ventas.repo';
 import { PagosRepoFirestore } from '@repos/pagos.repo';
+import { BorradoRepoFirestore } from '@repos/borrado.repo';
+import { porQueNoSeBorraAbono, porQueNoSeBorraVenta } from '@core/borrado';
 import { formatearMoneda } from '@core/moneda';
 import { algunoContiene } from '@core/texto';
 import { hoyISO } from '@core/fechas';
@@ -16,6 +18,7 @@ import { DocumentoSheet } from '../components/DocumentoSheet';
 import { CorregirVentaSheet } from '../components/CorregirVentaSheet';
 import { CorregirAbonoSheet } from '../components/CorregirAbonoSheet';
 import { haptics } from '../lib/haptics';
+import { AnularOBorrarPanel } from '../components/AnularOBorrarPanel';
 
 /**
  * Historial: qué pasó, y dónde se corrige.
@@ -53,7 +56,7 @@ interface Item {
 const TANDA = 50;
 
 export function HistorialView() {
-  const { version, marcarCambio, recargarProductos } = useDatosNegocio();
+  const { version, marcarCambio, recargarProductos, parametros } = useDatosNegocio();
   const { mostrar } = useSnackbar();
 
   const [ventas, setVentas] = useState<Venta[]>([]);
@@ -64,7 +67,6 @@ export function HistorialView() {
   const [busqueda, setBusqueda] = useState('');
   const [seleccionado, setSeleccionado] = useState<Item | null>(null);
   const [confirmandoAnular, setConfirmandoAnular] = useState(false);
-  const [anulando, setAnulando] = useState(false);
   const [documentoDeVenta, setDocumentoDeVenta] = useState<number | null>(null);
   const [ventaCorrigiendo, setVentaCorrigiendo] = useState<number | null>(null);
   const [abonoCorrigiendo, setAbonoCorrigiendo] = useState<PagoCompleto | null>(null);
@@ -143,8 +145,8 @@ export function HistorialView() {
     setConfirmandoAnular(false);
   }
 
+  // El panel de "¿Qué pasó?" muestra "Cancelando…" mientras esto corre.
   async function anular(item: Item) {
-    setAnulando(true);
     try {
       if (item.tipo === 'abono' && item.pago) {
         await PagosRepoFirestore.anular(item.pago.id, nuevoGrupoEvento());
@@ -165,8 +167,26 @@ export function HistorialView() {
       // Un encargo con piezas que ya llegaron no se anula desde acá: el
       // repositorio explica por qué, y eso es lo que tiene que leer ella.
       mostrar(err instanceof Error && err.message ? err.message : 'No se pudo anular. Probá de nuevo.', 'error');
-    } finally {
-      setAnulando(false);
+    }
+  }
+
+  /** "Fue un error": se borra sin dejar rastro. Devuelve el error, si lo hubo. */
+  async function borrar(item: Item, pin: string): Promise<string | null> {
+    try {
+      if (item.tipo === 'abono' && item.pago) {
+        await BorradoRepoFirestore.abono(item.pago.id, pin || undefined, nuevoGrupoEvento());
+        mostrar('Abono borrado. El saldo volvió a subir.', 'success');
+      } else if (item.tipo === 'venta' && item.venta) {
+        const r = await BorradoRepoFirestore.venta(item.venta.id, pin || undefined, nuevoGrupoEvento());
+        mostrar(`${r.que} se borró.`, 'success');
+        void recargarProductos(true);
+      }
+      haptics.impact('medium');
+      cerrarDetalle();
+      marcarCambio();
+      return null;
+    } catch (err) {
+      return err instanceof Error && err.message ? err.message : 'No se pudo borrar. Probá de nuevo.';
     }
   }
 
@@ -330,53 +350,41 @@ export function HistorialView() {
           sel ? `${sel.tipo === 'venta' ? 'Venta' : 'Abono'}${sel.codigo ? ` · ${sel.codigo}` : ''} · ${diaDeHistorial(sel.fecha, hoy)}` : undefined
         }
         footer={
-          sel && !sel.cancelada ? (
-            confirmandoAnular ? (
-              <div className="flex gap-2">
+          sel && confirmandoAnular ? undefined : sel && sel.cancelada ? (
+            // Una venta cancelada que en realidad fue un error también se borra.
+            <button
+              type="button"
+              onClick={() => setConfirmandoAnular(true)}
+              className="m3-press rounded-xl px-4 py-2.5 text-sm font-bold text-peligro cursor-pointer"
+            >
+              Fue un error: borrarla
+            </button>
+          ) : sel ? (
+            <div className="flex flex-col gap-1.5">
+              {sePuedeCorregir && (
                 <button
                   type="button"
-                  onClick={() => setConfirmandoAnular(false)}
-                  className="m3-press tocable flex-1 rounded-2xl border border-borde bg-superficie-2 px-4 py-3.5 text-sm font-bold text-texto cursor-pointer"
+                  onClick={() => {
+                    haptics.selection();
+                    // Una hoja a la vez: la de corregir reemplaza a esta.
+                    if (sel.tipo === 'venta') setVentaCorrigiendo(sel.venta?.id ?? null);
+                    else setAbonoCorrigiendo(sel.pago ?? null);
+                    cerrarDetalle();
+                  }}
+                  className="m3-press tocable flex w-full items-center justify-center gap-2 rounded-2xl bg-acento px-4 py-3.5 text-sm font-bold text-acento-texto active:scale-[0.98] transition-transform cursor-pointer"
                 >
-                  No
+                  <Pencil size={17} />
+                  {sel.tipo === 'venta' ? 'Corregir venta' : 'Corregir abono'}
                 </button>
-                <button
-                  type="button"
-                  disabled={anulando}
-                  onClick={() => anular(sel)}
-                  className="m3-press tocable flex flex-[2] items-center justify-center gap-2 rounded-2xl bg-peligro px-4 py-3.5 text-sm font-bold text-peligro-texto disabled:opacity-50 cursor-pointer"
-                >
-                  {anulando && <Loader2 size={18} className="animate-spin" />}
-                  {anulando ? 'Anulando…' : sel.tipo === 'venta' ? 'Sí, cancelar la venta' : 'Sí, anular el abono'}
-                </button>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-1.5">
-                {sePuedeCorregir && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      haptics.selection();
-                      // Una hoja a la vez: la de corregir reemplaza a esta.
-                      if (sel.tipo === 'venta') setVentaCorrigiendo(sel.venta?.id ?? null);
-                      else setAbonoCorrigiendo(sel.pago ?? null);
-                      cerrarDetalle();
-                    }}
-                    className="m3-press tocable flex w-full items-center justify-center gap-2 rounded-2xl bg-acento px-4 py-3.5 text-sm font-bold text-acento-texto active:scale-[0.98] transition-transform cursor-pointer"
-                  >
-                    <Pencil size={17} />
-                    {sel.tipo === 'venta' ? 'Corregir venta' : 'Corregir abono'}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setConfirmandoAnular(true)}
-                  className="m3-press rounded-xl px-4 py-2.5 text-sm font-bold text-peligro cursor-pointer"
-                >
-                  {sel.tipo === 'venta' ? 'Cancelar esta venta' : 'Anular este abono'}
-                </button>
-              </div>
-            )
+              )}
+              <button
+                type="button"
+                onClick={() => setConfirmandoAnular(true)}
+                className="m3-press rounded-xl px-4 py-2.5 text-sm font-bold text-peligro cursor-pointer"
+              >
+                {sel.tipo === 'venta' ? 'Cancelar esta venta' : 'Anular este abono'}
+              </button>
+            </div>
           ) : undefined
         }
       >
@@ -419,27 +427,46 @@ export function HistorialView() {
 
             {sel.cancelada && <p className="text-body text-texto-2">Esta venta ya está cancelada.</p>}
 
-            {confirmandoAnular && !sel.cancelada && (
-              <div className="rounded-2xl border border-alerta-suave bg-alerta-suave p-3.5">
-                <div className="flex items-start gap-2.5">
-                  <AlertTriangle size={18} className="mt-0.5 shrink-0 text-alerta-fuerte" />
-                  <p className="text-[11px] leading-relaxed text-alerta-fuerte">
-                    {sel.tipo === 'venta' ? (
-                      <>
-                        Se devuelven las existencias al inventario y se anulan los abonos de esta venta. Deja de
-                        contarse en las ganancias.
-                        {sel.fecha !== hoy && ' Es de otro día: van a cambiar cifras ya pasadas.'}
-                        {' '}Si sólo se cargó mal, mejor corregila.
-                      </>
-                    ) : (
-                      <>
-                        El saldo vuelve a subir {textoPagado(sel.pago!)} y el abono deja de aparecer en su historial.
-                        Si el monto o la moneda están mal, mejor corregilo.
-                      </>
-                    )}
-                  </p>
-                </div>
-              </div>
+            {confirmandoAnular && (
+              <AnularOBorrarPanel
+                anular={
+                  sel.tipo === 'venta'
+                    ? {
+                        opcion: 'Se devolvió o se reembolsó',
+                        detalle:
+                          'Las existencias vuelven al inventario y se anulan sus abonos. Queda en el historial como cancelada.' +
+                          (sel.fecha !== hoy ? ' Es de otro día: cambian cifras ya pasadas.' : ''),
+                        boton: 'Sí, cancelar la venta',
+                        enCurso: 'Cancelando…',
+                        noSePuede: sel.cancelada ? 'Ya está cancelada.' : null,
+                      }
+                    : {
+                        opcion: 'La plata se devolvió',
+                        detalle: `El saldo vuelve a subir ${textoPagado(sel.pago!)}. Queda en el historial como anulado.`,
+                        boton: 'Sí, anular el abono',
+                        enCurso: 'Anulando…',
+                      }
+                }
+                borrar={{
+                  opcion: sel.tipo === 'venta' ? 'Fue un error al cargarla' : 'Fue un error al cargarlo',
+                  detalle:
+                    sel.tipo === 'venta'
+                      ? 'Nunca pasó: se cargó dos veces, o por error. Se borra con sus abonos, sin dejar rastro.'
+                      : 'Nunca entró: se cargó dos veces, o por error. Se borra sin dejar rastro.',
+                  boton: sel.tipo === 'venta' ? 'Sí, borrarla' : 'Sí, borrarlo',
+                  enCurso: 'Borrando…',
+                  noSePuede:
+                    sel.tipo === 'venta' && sel.venta
+                      ? porQueNoSeBorraVenta(sel.venta, [])
+                      : sel.pago
+                        ? porQueNoSeBorraAbono(sel.pago)
+                        : null,
+                }}
+                pedirPin={Boolean(parametros?.pin_seguridad)}
+                onAnular={() => anular(sel)}
+                onBorrar={(pin) => borrar(sel, pin)}
+                onCancelar={() => setConfirmandoAnular(false)}
+              />
             )}
           </div>
         )}

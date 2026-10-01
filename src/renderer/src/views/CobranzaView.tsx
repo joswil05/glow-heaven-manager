@@ -13,6 +13,7 @@ import {
   Pencil,
 } from 'lucide-react';
 import { CorregirPagoModal } from '../components/CorregirPagoModal';
+import { AnularOBorrarAbono } from '../components/AnularOBorrar';
 import { PagoModal } from '../components/PagoModal';
 import type {
   VentaCompleta,
@@ -32,7 +33,6 @@ import {
   DataTable,
   Column,
   StatTile,
-  Confirmar,
   Dialogo,
 } from '../components/ui';
 import { formatearMoneda } from '@core/moneda';
@@ -823,19 +823,18 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
             </div>
       </Dialogo>
 
-      {/* Confirmar anulación de abono */}
-      <Confirmar
-        abierto={pagoAnulando !== null}
-        peligroso
-        titulo="¿Anular este abono?"
-        consecuencias={[
-          `${formatearMoneda(pagoAnulando?.monto_usd_cents || 0, 'USD')} de ${pagoAnulando?.cliente_nombre || 'la clienta'}.`,
-          'Lo que debía vuelve a quedar pendiente.',
-        ]}
-        textoConfirmar="Anular abono"
-        textoOcupado="Anulando…"
-        textoCancelar="Cancelar"
-        onConfirmar={confirmarAnularPago}
+      {/* Anular o borrar un abono: pregunta qué pasó. */}
+      <AnularOBorrarAbono
+        abono={pagoAnulando}
+        pedirPin={Boolean(parametros?.pin_seguridad)}
+        onAnular={async () => {
+          await confirmarAnularPago();
+          return null;
+        }}
+        onBorrado={async () => {
+          await cargar();
+          onCambio();
+        }}
         onCerrar={() => setPagoAnulando(null)}
       />
 
