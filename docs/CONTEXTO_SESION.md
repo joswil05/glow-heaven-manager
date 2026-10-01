@@ -10,8 +10,9 @@
 > migraron a lotes con `scripts/migrar-a-lotes.ts` (sección 3). El 29 se
 > auditó toda la interfaz ([AUDITORIA_UX_2026-09-29.md](AUDITORIA_UX_2026-09-29.md))
 > y el 30 se hicieron su Fase 0, la `v2.16.3`, y su Fase 1, la `v2.16.4`
-> (sección 3).
-> **Última actualización**: 30 de septiembre de 2026.
+> (sección 3). El 1 de octubre salió la `v2.16.5`: la vibración vuelve en
+> iPhone (sección 3).
+> **Última actualización**: 1 de octubre de 2026.
 
 Leé este archivo primero. Después:
 
@@ -413,6 +414,33 @@ los habría publicado sin que nadie los aprobara. El push se hizo por SHA
 (`git push origin 980cb9a:master`) por lo mismo: el master local ya tenía
 encima el commit de la vibración, que sale aparte como 2.16.5.
 
+### La vibración en iPhone: la `v2.16.5` (1 de octubre)
+
+Joswill la probó en un iPhone 14 y no vibraba nada, ni con "Probar la
+vibración". `mobile/src/lib/haptics.ts` alternaba por código un
+`<input type="checkbox" switch>` escondido, y desde iOS 26.5 (WebKit bug
+309082) un click por código le llega al interruptor como no confiable y no
+vibra. Sólo vibra un toque real del dedo sobre el interruptor o su label. Las
+pruebas pasaban porque contaban clicks, y no distinguían un dedo de un script.
+
+Ahora, sólo en iPhone (sin `navigator.vibrate`, con `switch` y con pantalla
+táctil), `instalarHapticos()` (llamada en `mobile/src/main.tsx`) pone dentro
+de cada `<button>` un `<label data-capa-haptica>` transparente, conectado a un
+interruptor escondido. El dedo toca el label y el botón recibe una copia del
+click. Si durante esa copia se llama a `haptics.*`, el label alterna el
+interruptor y el teléfono vibra; si no se llama, se cancela. En iPhone es un
+solo toque, siempre igual, y lo que se pida después de un `await` no vibra.
+En Android y en Windows no se instala nada. `tests/haptics.test.ts` simula la
+regla de iOS 26.5: sólo vibra un click `isTrusted`.
+
+**Publicada como `v2.16.5` el 1 de octubre**, en las dos apps aunque Windows
+no cambia: Joswill prefirió que cada versión siga teniendo su release. Commits
+`a6ea6c1` y `712d8d5`, desde un worktree limpio en `origin/master` y con push
+por SHA (4e tenía "Fue un error" sin commitear en el árbol). Release con
+`latest.yml` verificado y la PWA en los dos sitios sirviendo el build nuevo.
+**Falta probarla en el iPhone de verdad**: que vibre, que ningún botón se
+active dos veces y que se pueda deslizar empezando el dedo sobre un botón.
+
 ### Limpieza de datos y formato al guardar (30 de septiembre)
 
 Pedido de Joswill después de revisar los datos de producción: sacar lo que
@@ -512,6 +540,14 @@ sin que lo pida.
 ## 4. Las trampas que ya cobraron su precio
 
 Cada una de estas costó una sesión. No hace falta repetirlas.
+
+**En iPhone, la vibración sólo sale de un toque real.** Desde iOS 26.5, nada
+que se dispare por código, con un temporizador o después de un `await` vibra,
+aunque las pruebas pasen. No se arregla volviendo a alternar el interruptor
+por código: la capa de `mobile/src/lib/haptics.ts` es el único camino, y sólo
+cubre `<button>`. El WebKit de Playwright en Windows no trae `switch` y dice
+`maxTouchPoints` 0, así que para probar la capa ahí hay que definir esas dos
+propiedades con `add_init_script`.
 
 **Una app instalada antes de la 2.16.4 guarda el teléfono como se escriba**,
 y su buscador no encuentra "86012442" en "+505 8601 2442" (sí "8601 2442").
