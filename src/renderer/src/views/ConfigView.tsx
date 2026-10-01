@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Save,
   Database,
@@ -20,6 +20,8 @@ import {
   Users,
 } from 'lucide-react';
 import { cn } from '../lib/cn';
+import { enfocarPrimerError } from '../lib/enfocarPrimerError';
+import { useGuardiaDeSalida } from '../lib/guardiaDeSalida';
 import { useTheme } from '../context/ThemeContext';
 import type { ParametrosSistema, Categoria, CuentaBancaria, MetodoPago, Acceso } from '../../../shared/types';
 import type { InfoSistema } from '../../../shared/ipc-contracts';
@@ -102,40 +104,37 @@ function formularioDe(p: ParametrosSistema) {
 }
 type Formulario = ReturnType<typeof formularioDe>;
 
-/** Lo que se guarda a partir de lo que dice el formulario, o qué campo está mal. */
-function valoresDe(f: Formulario): { valores: Record<string, unknown> } | { error: string } {
+type CampoConfig = 'pin' | 'confirmarPin' | 'tasa' | 'tax' | 'tarifaEnvio' | 'margen' | 'anticipo' | 'stockMinimo';
+
+/**
+ * Lo que se guarda a partir de lo que dice el formulario, o qué campo está
+ * mal. El mensaje va debajo de ese campo, así que no repite su nombre: antes
+ * eran avisos flotantes que se cortaban, en registro formal y con jerga
+ * ("El impuesto tax de USA (%)…").
+ */
+function valoresDe(
+  f: Formulario
+): { valores: Record<string, unknown> } | { error: string; campo: CampoConfig } {
   if (f.pinSeguridad.trim()) {
     if (!/^\d{4,6}$/.test(f.pinSeguridad.trim())) {
-      return { error: 'El PIN debe contener entre 4 y 6 dígitos numéricos (ej. 1234).' };
+      return { campo: 'pin', error: 'Tienen que ser de 4 a 6 números.' };
     }
     if (f.pinSeguridad.trim() !== f.confirmarPin.trim()) {
-      return { error: 'El PIN y la confirmación no coinciden.' };
+      return { campo: 'confirmarPin', error: 'No coincide con el PIN.' };
     }
   }
   const tasaCents = parsearACentavos(f.tasa, { min: 0.01 });
-  if (tasaCents === null) {
-    return { error: 'La tasa de cambio (C$ por USD) debe ser un número válido mayor a cero.' };
-  }
+  if (tasaCents === null) return { campo: 'tasa', error: 'Tiene que ser mayor a cero.' };
   const taxBp = parsearDecimal(f.tax, { min: 0, max: 100 });
-  if (taxBp === null) {
-    return { error: 'El impuesto tax de USA (%) debe ser un número válido entre 0 y 100.' };
-  }
+  if (taxBp === null) return { campo: 'tax', error: 'Va de 0 a 100%.' };
   const tarifaEnvioCents = parsearACentavos(f.tarifaEnvio, { min: 0 });
-  if (tarifaEnvioCents === null) {
-    return { error: 'La tarifa de envío por libra ($) debe ser un monto válido mayor o igual a cero.' };
-  }
+  if (tarifaEnvioCents === null) return { campo: 'tarifaEnvio', error: 'Tiene que ser 0 o más.' };
   const margenBp = parsearDecimal(f.margen, { min: 0 });
-  if (margenBp === null) {
-    return { error: 'El margen de ganancia (%) debe ser un número válido mayor o igual a cero.' };
-  }
+  if (margenBp === null) return { campo: 'margen', error: 'Tiene que ser 0 o más.' };
   const anticipoBp = parsearDecimal(f.anticipo, { min: 0, max: 100 });
-  if (anticipoBp === null) {
-    return { error: 'El anticipo por defecto para encargos (%) debe ser un número entre 0 y 100.' };
-  }
+  if (anticipoBp === null) return { campo: 'anticipo', error: 'Va de 0 a 100%.' };
   const stockMin = parsearDecimal(f.stockMinimo, { min: 0 });
-  if (stockMin === null) {
-    return { error: 'El stock mínimo por defecto debe ser un número mayor o igual a cero.' };
-  }
+  if (stockMin === null) return { campo: 'stockMinimo', error: 'Tiene que ser 0 o más.' };
   return {
     valores: {
       tasa_cambio_cents: tasaCents,
@@ -239,15 +238,17 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
   const [hastaExp, setHastaExp] = useState(hoyISO());
   const [guardando, setGuardando] = useState(false);
   const [guardadoExitoso, setGuardadoExitoso] = useState(false);
+  /** El campo que no se pudo guardar, con su mensaje (CFG-04). */
+  const [errorCampo, setErrorCampo] = useState<{ campo: CampoConfig; mensaje: string } | null>(null);
+  const [errorCuenta, setErrorCuenta] = useState<string | null>(null);
+  const paginaRef = useRef<HTMLDivElement>(null);
   const [info, setInfo] = useState<InfoSistema | null>(null);
   /** El formulario tal como se cargó: lo que no cambió no se manda. */
   const [inicial, setInicial] = useState<Formulario | null>(null);
   /** La lista de "Revisar precios" abierta (null: cerrada). */
   const [revision, setRevision] = useState<PrecioParaRevisar[] | null>(null);
 
-  useEffect(() => {
-    if (!parametros) return;
-    const f = formularioDe(parametros);
+  const cargarFormulario = (f: Formulario) => {
     setTasa(f.tasa);
     setTax(f.tax);
     setTarifaEnvio(f.tarifaEnvio);
@@ -273,8 +274,16 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
     setPantallaInicio(f.pantallaInicio);
     setPantallaInicioMovil(f.pantallaInicioMovil);
     setCodigoPais(f.codigoPais);
+    setErrorCampo(null);
+  };
+
+  useEffect(() => {
+    if (!parametros) return;
+    const f = formularioDe(parametros);
+    cargarFormulario(f);
     // Contra esto se compara al guardar: se manda sólo lo que ella cambió.
     setInicial(f);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parametros]);
 
   const formularioActual = (): Formulario => ({
@@ -529,11 +538,26 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
     }
   };
 
+  // Lo escrito y no guardado: la barra de abajo lo dice, y salir de
+  // Configuración pregunta antes (CFG-02).
+  const firmaFormulario = JSON.stringify(formularioActual());
+  const hayCambios = inicial !== null && firmaFormulario !== JSON.stringify(inicial);
+  useGuardiaDeSalida(hayCambios);
+
+  // Lo que se corrige deja de marcarse.
+  useEffect(() => {
+    if (errorCampo) setErrorCampo(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firmaFormulario]);
+
+  const errorDe = (campo: CampoConfig) => (errorCampo?.campo === campo ? errorCampo.mensaje : undefined);
+
   const agregarCuenta = () => {
     if (!nuevaCuenta.numero.trim()) {
-      showToast({ message: 'Escribí el número de cuenta bancaria', type: 'error' });
+      setErrorCuenta('Escribí el número de cuenta.');
       return;
     }
+    setErrorCuenta(null);
     setCuentasBancarias((prev) => [...prev, { ...nuevaCuenta }]);
     setNuevaCuenta({
       banco: 'BAC Credomatic',
@@ -542,7 +566,6 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
       titular: '',
       tipo: 'Ahorros',
     });
-    showToast({ message: 'Cuenta agregada a la lista (guardá para confirmar)', type: 'info' });
   };
 
   const eliminarCuenta = (idx: number) => {
@@ -560,9 +583,11 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
   };
 
   const guardar = async () => {
+    if (guardando) return;
     const actual = valoresDe(formularioActual());
     if ('error' in actual) {
-      showToast({ message: actual.error, type: 'error' });
+      setErrorCampo({ campo: actual.campo, mensaje: actual.error });
+      enfocarPrimerError(paginaRef.current);
       return;
     }
     const base = inicial ? valoresDe(inicial) : null;
@@ -581,7 +606,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
         return;
       }
 
-      showToast({ message: 'Configuración guardada con éxito', type: 'success' });
+      // Una sola confirmación, en el botón (CFG-16): antes eran tres.
       setGuardadoExitoso(true);
       setTimeout(() => setGuardadoExitoso(false), 2200);
       onCambio();
@@ -603,35 +628,18 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
     if (parametros) void abrirRevisionDePrecios(parametros, categorias, true);
   };
 
-  const alPresionarEnter = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key !== 'Enter') return;
-    const target = e.target as HTMLElement;
-    if (target.tagName === 'TEXTAREA' || target.tagName === 'BUTTON') return;
-
-    if (target.tagName === 'INPUT' || target.tagName === 'SELECT') {
+  // Un solo modelo de teclado (TRA-09): Ctrl+Enter guarda, como en todas las
+  // ventanas. Enter ya no pasa de campo ni guarda la página: en "Invitar" y
+  // "Categoría nueva" hacía su acción y además la de la página (CFG-09).
+  const alPresionar = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
-      const contenedor = e.currentTarget;
-      const campos = Array.from(
-        contenedor.querySelectorAll<HTMLElement>(
-          'input:not([type="hidden"]):not([type="checkbox"]):not([disabled]), select:not([disabled])'
-        )
-      ).filter((el) => el.offsetParent !== null);
-
-      const idx = campos.indexOf(target);
-      if (idx !== -1 && idx + 1 < campos.length) {
-        const siguiente = campos[idx + 1];
-        siguiente.focus();
-        if (siguiente instanceof HTMLInputElement) {
-          siguiente.select?.();
-        }
-      } else {
-        guardar();
-      }
+      void guardar();
     }
   };
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 md:px-6 md:py-5 animate-fade-in scroll-smooth" onKeyDown={alPresionarEnter}>
+    <div ref={paginaRef} className="flex-1 overflow-y-auto p-4 md:px-6 md:py-5 animate-fade-in" onKeyDown={alPresionar}>
       <div className="max-w-[1500px] w-full mx-auto space-y-5 stagger-children">
         {/* Conexión con la base. Va primero porque sin esto nada funciona. */}
         <NubeSection />
@@ -729,17 +737,17 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <Field label="Impuesto de las tiendas (%)">
+              <Field label="Impuesto de las tiendas (%)" error={errorDe('tax')}>
                 <Input value={tax} onChange={(e) => setTax(e.target.value)} className="text-right" />
               </Field>
-              <Field label="Flete por libra ($)" hint="Sugerido al registrar un paquete">
+              <Field label="Flete por libra ($)" hint="Sugerido al registrar un paquete" error={errorDe('tarifaEnvio')}>
                 <Input
                   value={tarifaEnvio}
                   onChange={(e) => setTarifaEnvio(e.target.value)}
                   className="text-right"
                 />
               </Field>
-              <Field label="Córdobas por dólar">
+              <Field label="Córdobas por dólar" error={errorDe('tasa')}>
                 <Input value={tasa} onChange={(e) => setTasa(e.target.value)} className="text-right" />
               </Field>
             </div>
@@ -761,6 +769,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
                 <Field
                   label="Ganancia por defecto (%)"
                   hint="Cada categoría o producto puede tener el suyo"
+                  error={errorDe('margen')}
                 >
                   <Input
                     value={margen}
@@ -839,14 +848,14 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <Field label="Anticipo de los encargos (%)">
+              <Field label="Anticipo de los encargos (%)" error={errorDe('anticipo')}>
                 <Input
                   value={anticipo}
                   onChange={(e) => setAnticipo(e.target.value)}
                   className="text-right"
                 />
               </Field>
-              <Field label="Avisar cuando queden" hint="Unidades, para cada producto nuevo">
+              <Field label="Avisar cuando queden" hint="Unidades, para cada producto nuevo" error={errorDe('stockMinimo')}>
                 <Input
                   value={stockMinimo}
                   onChange={(e) => setStockMinimo(e.target.value)}
@@ -1164,11 +1173,14 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
                     <option value="NIO">Córdobas (C$)</option>
                   </Select>
                 </Field>
-                <Field label="Número de cuenta">
+                <Field label="Número de cuenta" error={errorCuenta ?? undefined}>
                   <Input
                     placeholder="000-000000-0"
                     value={nuevaCuenta.numero}
-                    onChange={(e) => setNuevaCuenta((p) => ({ ...p, numero: e.target.value }))}
+                    onChange={(e) => {
+                      setNuevaCuenta((p) => ({ ...p, numero: e.target.value }));
+                      setErrorCuenta(null);
+                    }}
                   />
                 </Field>
                 <Field label="Titular">
@@ -1332,6 +1344,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
           titulo={quitando ? `¿Quitarle el acceso a ${quitando.correo}?` : ''}
           consecuencias={quitando ? consecuenciasDeQuitar(quitando) : []}
           textoConfirmar="Sí, quitar el acceso"
+          textoOcupado="Quitando…"
           onConfirmar={confirmarQuitar}
           onCerrar={() => setQuitando(null)}
         />
@@ -1572,7 +1585,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg">
-              <Field label="PIN" hint="De 4 a 6 números">
+              <Field label="PIN" hint="De 4 a 6 números" error={errorDe('pin')}>
                 <Input
                   type="password"
                   inputMode="numeric"
@@ -1582,7 +1595,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
                   onChange={(e) => setPinSeguridad(e.target.value.replace(/\D/g, ''))}
                 />
               </Field>
-              <Field label="Repetilo">
+              <Field label="Repetilo" error={errorDe('confirmarPin')}>
                 <Input
                   type="password"
                   inputMode="numeric"
@@ -1606,35 +1619,44 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
                   className="text-danger-600 hover:text-danger-700"
                 >
                   <Lock className="w-3.5 h-3.5 mr-1" />
-                  <span>Quitar / Desactivar PIN</span>
+                  <span>Quitar el PIN</span>
                 </Button>
-                <span className="text-caption text-texto-3">
-                  (Guardá la configuración para aplicar el cambio)
-                </span>
               </div>
             )}
           </CardContent>
         </Card>
 
-        <div className="flex justify-end sticky bottom-0 py-4 bg-gradient-to-t from-fondo via-fondo">
+        <div className="sticky bottom-0 py-4 bg-gradient-to-t from-fondo via-fondo flex items-center justify-end gap-3 flex-wrap">
+          {hayCambios && (
+            <>
+              <span className="text-label text-texto-2" role="status">
+                Hay cambios sin guardar
+              </span>
+              <Button
+                variant="secondary"
+                onClick={() => inicial && cargarFormulario(inicial)}
+                disabled={guardando}
+              >
+                Descartar
+              </Button>
+            </>
+          )}
           <Button
             variant="primary"
             onClick={guardar}
             disabled={guardando}
-            className={cn(
-              'transition-[background-color,border-color,color,box-shadow,transform,opacity] duration-200 min-w-[190px]',
-              guardadoExitoso && 'bg-acento hover:bg-acento text-acento-texto shadow-lg'
-            )}
+            aria-keyshortcuts="Control+Enter"
+            className="min-w-[190px]"
           >
-            {guardadoExitoso ? (
+            {guardadoExitoso && !hayCambios ? (
               <>
-                <Check className="w-4 h-4 animate-check-pop text-acento-texto" />
-                <span>¡Guardado con éxito!</span>
+                <Check className="w-4 h-4" />
+                <span>Guardado</span>
               </>
             ) : (
               <>
-                <Save className={cn('w-4 h-4', guardando && 'animate-spin')} />
-                <span>{guardando ? 'Guardando...' : 'Guardar configuración'}</span>
+                <Save className="w-4 h-4" />
+                <span>{guardando ? 'Guardando…' : 'Guardar configuración'}</span>
               </>
             )}
           </Button>

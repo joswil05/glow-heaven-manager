@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useId } from 'react';
 import { X, Plus, Trash2, AlertTriangle, ImagePlus } from 'lucide-react';
 import type { Categoria, ProductoConStock, ModoPrecio } from '../../../../shared/types';
 import {
@@ -10,13 +10,15 @@ import {
   Badge,
   Money,
   Porcentaje,
-  Portal,
+  Ventana,
 } from '../../components/ui';
 import { calcularPrecio } from '@core/precios';
 import { parsearDecimal, parsearACentavos } from '@core/numeros';
 import { formatearMoneda } from '@core/moneda';
 import { aMiniatura } from '../../lib/foto';
 import { cn } from '../../lib/cn';
+import { useHayCambios } from '../../lib/useHayCambios';
+import { enfocarPrimerError } from '../../lib/enfocarPrimerError';
 import { formatearNombreEntidad } from '@shared/formatoTexto';
 
 /**
@@ -69,6 +71,15 @@ export interface DatosProducto {
   notas?: string;
 }
 
+interface ErroresProducto {
+  nombre?: string;
+  precio?: string;
+  variantes?: string;
+  /** La fila de talla vacía, para marcarla. */
+  varianteVacia?: number;
+  pack?: string;
+}
+
 const MODOS: { valor: ModoPrecio; etiqueta: string }[] = [
   { valor: 'MARGEN', etiqueta: 'Ganancia %' },
   { valor: 'MULTIPLICADOR', etiqueta: 'Multiplicar costo' },
@@ -105,12 +116,20 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
   const [unidadesPorPack, setUnidadesPorPack] = useState('5');
   const [notas, setNotas] = useState('');
   const [guardando, setGuardando] = useState(false);
+  /** Lo que no es de un campo: la foto que no se pudo usar, o el guardado. */
   const [error, setError] = useState<string | null>(null);
+  /** Cada error en su campo (INV-19): arriba del formulario quedaba fuera de la vista. */
+  const [errores, setErrores] = useState<ErroresProducto>({});
   const archivoRef = useRef<HTMLInputElement>(null);
+  const cuerpoRef = useRef<HTMLDivElement>(null);
+  const [versionFormulario, setVersionFormulario] = useState(0);
+  const idTitulo = useId();
 
   useEffect(() => {
     if (!abierto) return;
     setError(null);
+    setErrores({});
+    setVersionFormulario((n) => n + 1);
 
     if (producto) {
       setNombre(producto.nombre);
@@ -155,14 +174,24 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
     }
   }, [abierto, producto, categorias, nombreInicial, stockMinimoDefecto]);
 
-  useEffect(() => {
-    if (!abierto) return;
-    const alPresionar = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCerrar();
-    };
-    window.addEventListener('keydown', alPresionar);
-    return () => window.removeEventListener('keydown', alPresionar);
-  }, [abierto, onCerrar]);
+  const hayCambios = useHayCambios(
+    JSON.stringify([
+      nombre,
+      categoriaId,
+      foto,
+      tieneVariantes,
+      variantes,
+      modoPrecio,
+      margenTexto,
+      multiplicadorTexto,
+      precioManualTexto,
+      stockMinimo,
+      sePackea,
+      unidadesPorPack,
+      notas,
+    ]),
+    versionFormulario
+  );
 
   const margenCategoriaBp = useMemo(() => {
     const cat = categorias.find((c) => c.id === categoriaId);
@@ -194,8 +223,6 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
     [costoReal, modoPrecio, margenEfectivoBp, multiplicadorTexto, precioManualTexto, pasoRedondeo]
   );
 
-  if (!abierto) return null;
-
   const agregarVariante = () => setVariantes((prev) => [...prev, { talla: '', color: '' }]);
 
   const actualizarVariante = (i: number, campo: keyof VarianteBorrador, valor: string) =>
@@ -217,28 +244,32 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
   };
 
   const validar = (): boolean => {
-    const falla = (texto: string) => {
-      setError(texto);
-      return false;
-    };
-    if (!nombre.trim()) return falla('Escribí el nombre del producto.');
+    const nuevos: ErroresProducto = {};
+    if (!nombre.trim()) nuevos.nombre = 'Escribí el nombre del producto.';
     if (modoPrecio === 'MANUAL') {
-      if (!precioManualTexto.trim()) return falla('Escribí el precio de venta.');
-      if (parsearACentavos(precioManualTexto, { min: 0.01 }) === null) {
-        return falla('El precio tiene que ser mayor a $0.00.');
+      if (!precioManualTexto.trim()) nuevos.precio = 'Escribí el precio de venta.';
+      else if (parsearACentavos(precioManualTexto, { min: 0.01 }) === null) {
+        nuevos.precio = 'El precio tiene que ser mayor a $0.00.';
       }
     }
     if (tieneVariantes) {
-      if (variantes.length === 0) return falla('Agregá al menos una talla o tono.');
-      if (variantes.some((v) => !v.talla.trim() && !v.color.trim())) {
-        return falla('Cada fila necesita una talla o un tono.');
+      if (variantes.length === 0) nuevos.variantes = 'Agregá al menos una talla o tono.';
+      else {
+        const vacia = variantes.findIndex((v) => !v.talla.trim() && !v.color.trim());
+        if (vacia >= 0) {
+          nuevos.variantes = 'Cada fila necesita una talla o un tono.';
+          nuevos.varianteVacia = vacia;
+        }
       }
     }
     if (sePackea) {
       const u = parsearDecimal(unidadesPorPack);
-      if (u === null || u < 2 || !Number.isInteger(u)) {
-        return falla('Un pack trae 2 unidades o más.');
-      }
+      if (u === null || u < 2 || !Number.isInteger(u)) nuevos.pack = 'Un pack trae 2 unidades o más.';
+    }
+    setErrores(nuevos);
+    if (Object.keys(nuevos).length > 0) {
+      enfocarPrimerError(cuerpoRef.current);
+      return false;
     }
     setError(null);
     return true;
@@ -289,57 +320,32 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
     }
   };
 
-  // Enter pasa al campo siguiente; en el último, guarda.
-  const alPresionarEnter = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key !== 'Enter') return;
-    const target = e.target as HTMLElement;
-    if (target.tagName !== 'INPUT' && target.tagName !== 'SELECT') return;
-    if ((target as HTMLInputElement).type === 'checkbox') return;
-
-    e.preventDefault();
-    const campos = Array.from(
-      e.currentTarget.querySelectorAll<HTMLElement>(
-        'input:not([type="hidden"]):not([type="checkbox"]):not([type="file"]):not([disabled]), select:not([disabled])'
-      )
-    ).filter((el) => el.offsetParent !== null);
-    const idx = campos.indexOf(target);
-    if (idx !== -1 && idx + 1 < campos.length) {
-      const siguiente = campos[idx + 1];
-      siguiente.focus();
-      if (siguiente instanceof HTMLInputElement) siguiente.select?.();
-    } else {
-      manejarGuardar();
-    }
-  };
-
   const unidadesPack = Math.max(1, Math.round(parsearDecimal(unidadesPorPack) ?? 5));
 
   return (
-    <Portal>
-      <div
-        className="fixed inset-0 z-[110] flex items-center justify-center bg-velo/60 backdrop-blur-xs p-4 cursor-pointer"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="titulo-producto"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) onCerrar();
-        }}
-      >
-        <div
-          onKeyDown={alPresionarEnter}
-          onClick={(e) => e.stopPropagation()}
-          className="bg-superficie rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden border border-borde/80 animate-modal-pop cursor-default"
-        >
+    // Encima: también se abre desde "Registrar paquete".
+    <Ventana
+      abierto={abierto}
+      onCerrar={onCerrar}
+      hayCambios={hayCambios}
+      ocupado={guardando}
+      onEnviar={manejarGuardar}
+      idTitulo={idTitulo}
+      encima
+      clasePanel="rounded-2xl max-w-2xl max-h-[92vh] overflow-hidden"
+    >
+      {(cerrar) => (
+        <>
           <header className="flex items-center justify-between px-6 py-4 border-b border-borde shrink-0">
-            <h3 id="titulo-producto" className="text-title text-texto truncate">
-              {esNuevo ? 'Producto nuevo' : `Editar ${producto!.nombre}`}
+            <h3 id={idTitulo} className="text-title text-texto truncate">
+              {esNuevo ? 'Producto nuevo' : `Editar ${producto?.nombre ?? ''}`}
             </h3>
-            <Button variant="ghost" size="sm" onClick={onCerrar} aria-label="Cerrar">
+            <Button variant="ghost" size="sm" onClick={cerrar} aria-label="Cerrar">
               <X className="w-4 h-4" />
             </Button>
           </header>
 
-          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+          <div ref={cuerpoRef} className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
             {/* La 2.13.0 sacó este aviso y la ficha parecía que se olvidaba de
                 pedir el precio de compra. No lo pide porque cada paquete trae
                 el suyo, y puede ser distinto cada vez. */}
@@ -399,10 +405,13 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
               </div>
 
               <div className="flex-1 grid grid-cols-1 sm:grid-cols-[1fr_200px] gap-3">
-                <Field label="Nombre">
+                <Field label="Nombre" error={errores.nombre}>
                   <Input
                     value={nombre}
-                    onChange={(e) => setNombre(e.target.value)}
+                    onChange={(e) => {
+                      setNombre(e.target.value);
+                      if (errores.nombre) setErrores((x) => ({ ...x, nombre: undefined }));
+                    }}
                     onBlur={() => setNombre((prev) => formatearNombreEntidad(prev))}
                     placeholder="Ej: Boxers Calvin Klein"
                     autoFocus
@@ -482,10 +491,13 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
                   </Field>
                 )}
                 {modoPrecio === 'MANUAL' && (
-                  <Field label="Precio de venta ($)">
+                  <Field label="Precio de venta ($)" error={errores.precio}>
                     <Input
                       value={precioManualTexto}
-                      onChange={(e) => setPrecioManualTexto(e.target.value)}
+                      onChange={(e) => {
+                        setPrecioManualTexto(e.target.value);
+                        if (errores.precio) setErrores((x) => ({ ...x, precio: undefined }));
+                      }}
                       placeholder="0.00"
                       className="text-right"
                       inputMode="decimal"
@@ -579,6 +591,7 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
                           onChange={(e) => actualizarVariante(i, 'talla', e.target.value)}
                           placeholder="M, 30ml"
                           aria-label={`Talla ${i + 1}`}
+                          aria-invalid={errores.varianteVacia === i || undefined}
                         />
                       </Field>
                       <Field label={i === 0 ? 'Color o tono' : ''} className="flex-1">
@@ -604,6 +617,11 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
                     <Plus className="w-3.5 h-3.5" />
                     <span>Agregar otra</span>
                   </Button>
+                  {errores.variantes && (
+                    <p role="alert" className="text-caption text-danger-700">
+                      {errores.variantes}
+                    </p>
+                  )}
                 </div>
               )}
             </section>
@@ -629,9 +647,15 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
                       onChange={(e) => setUnidadesPorPack(e.target.value)}
                       className="text-right w-20"
                       aria-label="Unidades por pack"
+                      aria-invalid={Boolean(errores.pack) || undefined}
                     />
                     <span className="text-label text-texto-3">unidades por pack</span>
                   </div>
+                )}
+                {sePackea && errores.pack && (
+                  <p role="alert" className="pl-6 text-caption text-danger-700">
+                    {errores.pack}
+                  </p>
                 )}
               </div>
 
@@ -662,15 +686,20 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({
           </div>
 
           <footer className="flex items-center justify-end gap-2 px-6 py-4 border-t border-borde bg-superficie shrink-0">
-            <Button variant="secondary" onClick={onCerrar} disabled={guardando}>
+            <Button variant="secondary" onClick={cerrar} disabled={guardando}>
               Cancelar
             </Button>
-            <Button variant="primary" onClick={manejarGuardar} disabled={guardando}>
-              {guardando ? 'Guardando...' : esNuevo ? 'Crear producto' : 'Guardar cambios'}
+            <Button
+              variant="primary"
+              onClick={manejarGuardar}
+              disabled={guardando}
+              aria-keyshortcuts="Control+Enter"
+            >
+              {guardando ? 'Guardando…' : esNuevo ? 'Crear producto' : 'Guardar cambios'}
             </Button>
           </footer>
-        </div>
-      </div>
-    </Portal>
+        </>
+      )}
+    </Ventana>
   );
 };

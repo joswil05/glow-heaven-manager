@@ -12,6 +12,8 @@ import { CobranzaView } from './views/CobranzaView';
 import { ConfigView } from './views/ConfigView';
 import { MonedaProvider } from './context/MonedaContext';
 import { useToast } from './context/ToastContext';
+import { Confirmar } from './components/ui';
+import { haySinGuardar } from './lib/guardiaDeSalida';
 import type { UsuarioGoogle } from '../../shared/ipc-contracts';
 import type {
   ParametrosSistema,
@@ -236,7 +238,20 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('keydown', alPresionar);
   }, [usuario, cerrarSesion, cargar]);
 
-  const irA = (destino: NavTab, id?: number, abrirNuevo = false) => {
+  /** Una salida que espera respuesta: la pantalla de ahora tiene algo sin guardar. */
+  const [salidaPendiente, setSalidaPendiente] = useState<{
+    destino: NavTab;
+    id?: number;
+    abrirNuevo: boolean;
+  } | null>(null);
+
+  const irA = (destino: NavTab, id?: number, abrirNuevo = false, sinPreguntar = false) => {
+    // Configuración se guarda con un botón: irse con algo escrito lo perdía
+    // sin decir nada (CFG-02). Ahora pregunta.
+    if (!sinPreguntar && destino !== tab && haySinGuardar()) {
+      setSalidaPendiente({ destino, id, abrirNuevo });
+      return;
+    }
     setProductoSeleccionado(destino === 'inventario' ? id : undefined);
     setVentaSeleccionada(destino === 'ventas' || destino === 'encargos' ? id : undefined);
     setClienteSeleccionado(destino === 'clientes' ? id : undefined);
@@ -432,6 +447,21 @@ export const App: React.FC = () => {
           </main>
         </div>
       </div>
+
+      <Confirmar
+        abierto={salidaPendiente !== null}
+        titulo="¿Salir sin guardar?"
+        descripcion="Lo que cambiaste en Configuración todavía no se guardó."
+        textoCancelar="Seguir editando"
+        textoConfirmar="Salir sin guardar"
+        peligroso
+        onCerrar={() => setSalidaPendiente(null)}
+        onConfirmar={() => {
+          const s = salidaPendiente;
+          setSalidaPendiente(null);
+          if (s) irA(s.destino, s.id, s.abrirNuevo, true);
+        }}
+      />
     </MonedaProvider>
   );
 };

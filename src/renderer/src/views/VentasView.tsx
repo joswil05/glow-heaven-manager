@@ -1036,6 +1036,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
           'Deja de contar en tus ganancias.',
         ]}
         textoConfirmar="Sí, anular la venta"
+        textoOcupado="Anulando…"
         textoCancelar="No, dejarla como está"
         onConfirmar={() => anulando && cambiarEstado(anulando, 'CANCELADA')}
         onCerrar={() => setAnulando(null)}

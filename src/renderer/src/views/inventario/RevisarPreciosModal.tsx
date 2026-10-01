@@ -1,10 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useId, useMemo, useState } from 'react';
 import { X, ArrowRight, Info } from 'lucide-react';
 import type { PrecioParaRevisar } from '@core/revisar-precios';
-import { Button, Portal } from '../../components/ui';
+import { Button, Ventana } from '../../components/ui';
 import { formatearMoneda } from '@core/moneda';
 import { useToast } from '../../context/ToastContext';
-import { useCerrarConEscape } from '../../lib/useCerrarConEscape';
 import { cn } from '../../lib/cn';
 
 /**
@@ -29,19 +28,16 @@ export const RevisarPreciosModal: React.FC<Props> = ({ abierto, lista, onCerrar,
   const { showToast, showUndoToast } = useToast();
   const [elegidos, setElegidos] = useState<Set<number>>(new Set());
   const [aplicando, setAplicando] = useState(false);
+  const idTitulo = useId();
 
   useEffect(() => {
     if (abierto) setElegidos(new Set(lista.map((x) => x.producto.id)));
   }, [abierto, lista]);
 
-  useCerrarConEscape(abierto, onCerrar);
-
   const suben = useMemo(
     () => lista.filter((x) => x.calculado > x.producto.precio_venta_usd_cents).length,
     [lista]
   );
-
-  if (!abierto) return null;
 
   const alternar = (id: number) =>
     setElegidos((prev) => {
@@ -52,6 +48,7 @@ export const RevisarPreciosModal: React.FC<Props> = ({ abierto, lista, onCerrar,
     });
 
   const aplicar = async () => {
+    if (aplicando || elegidos.size === 0) return;
     setAplicando(true);
     try {
       const r = await window.api.productos.aplicarPrecios([...elegidos]);
@@ -74,25 +71,22 @@ export const RevisarPreciosModal: React.FC<Props> = ({ abierto, lista, onCerrar,
   };
 
   return (
-    <Portal>
-      <div
-        className="fixed inset-0 z-[100] flex items-center justify-center bg-velo/60 backdrop-blur-xs p-4 animate-fade-in cursor-pointer"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="titulo-precios"
-        onClick={(e) => {
-          if (e.target === e.currentTarget && !aplicando) onCerrar();
-        }}
-      >
-        <div
-          onClick={(e) => e.stopPropagation()}
-          className="bg-superficie rounded-2xl shadow-2xl w-full max-w-3xl max-h-[88vh] flex flex-col overflow-hidden border border-borde/80 animate-modal-pop cursor-default"
-        >
+    // Mientras aplica, nada la cierra: la acción seguía sin nadie mirando (INV-31).
+    <Ventana
+      abierto={abierto}
+      onCerrar={onCerrar}
+      ocupado={aplicando}
+      onEnviar={aplicar}
+      idTitulo={idTitulo}
+      clasePanel="rounded-2xl max-w-3xl max-h-[88vh] overflow-hidden"
+    >
+      {(cerrar) => (
+        <>
           <header className="flex items-center justify-between px-6 py-4 border-b border-borde shrink-0">
-            <h3 id="titulo-precios" className="text-title text-texto">
+            <h3 id={idTitulo} className="text-title text-texto">
               Precios para revisar
             </h3>
-            <Button variant="ghost" size="sm" onClick={onCerrar} aria-label="Cerrar">
+            <Button variant="ghost" size="sm" onClick={cerrar} aria-label="Cerrar" disabled={aplicando}>
               <X className="w-4 h-4" />
             </Button>
           </header>
@@ -170,7 +164,7 @@ export const RevisarPreciosModal: React.FC<Props> = ({ abierto, lista, onCerrar,
           <footer className="flex items-center justify-between gap-3 px-6 py-3.5 border-t border-borde bg-superficie-2/40 shrink-0">
             <p className="text-caption text-texto-3">Se puede deshacer.</p>
             <div className="flex items-center gap-2">
-              <Button variant="secondary" onClick={onCerrar} disabled={aplicando} className="rounded-xl">
+              <Button variant="secondary" onClick={cerrar} disabled={aplicando} className="rounded-xl">
                 Ahora no
               </Button>
               <Button
@@ -180,13 +174,13 @@ export const RevisarPreciosModal: React.FC<Props> = ({ abierto, lista, onCerrar,
                 className="rounded-xl"
               >
                 {aplicando
-                  ? 'Aplicando...'
+                  ? 'Aplicando…'
                   : `Aplicar ${elegidos.size} precio${elegidos.size === 1 ? '' : 's'}`}
               </Button>
             </div>
           </footer>
-        </div>
-      </div>
-    </Portal>
+        </>
+      )}
+    </Ventana>
   );
 };

@@ -1,12 +1,11 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useCerrarConEscape } from '../lib/useCerrarConEscape';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { enfocarPrimerError } from '../lib/enfocarPrimerError';
 import {
   Search,
   DollarSign,
   MessageCircle,
   CheckCircle2,
   X,
-  CreditCard,
   Users,
   Wallet,
   ArrowUpRight,
@@ -34,7 +33,7 @@ import {
   Column,
   StatTile,
   Confirmar,
-  Portal,
+  Dialogo,
 } from '../components/ui';
 import { formatearMoneda } from '@core/moneda';
 import { parsearACentavos } from '@core/numeros';
@@ -81,7 +80,6 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
 
   // Modal registrar abono
   const [modalAbonoAbierto, setModalAbonoAbierto] = useState(false);
-  useCerrarConEscape(modalAbonoAbierto, () => setModalAbonoAbierto(false));
   const [clienteSeleccionadoId, setClienteSeleccionadoId] = useState<number | undefined>();
   const [abonoMontoTexto, setAbonoMontoTexto] = useState('');
   const [abonoMoneda, setAbonoMoneda] = useState<MonedaPago>('COR');
@@ -90,6 +88,12 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
   const [abonoReferencia, setAbonoReferencia] = useState('');
   const [abonoNotas, setAbonoNotas] = useState('');
   const [abonoGuardando, setAbonoGuardando] = useState(false);
+  /** Cada error en su campo (TRA-10): el aviso flotante se cortaba y se iba. */
+  const [abonoErrores, setAbonoErrores] = useState<{ clienta?: string; monto?: string }>({});
+  const abonoCuerpoRef = useRef<HTMLDivElement>(null);
+  const abonoHayCambios = Boolean(
+    clienteSeleccionadoId || abonoMontoTexto.trim() || abonoReferencia.trim() || abonoNotas.trim()
+  );
 
   // El abono a una venta puntual (el botón "Abonar" de cada fila)
   const [ventaAbonando, setVentaAbonando] = useState<VentaCompleta | null>(null);
@@ -212,13 +216,15 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
 
   // Registrar abono
   const guardarAbono = async () => {
-    if (!clienteSeleccionadoId) {
-      showToast({ message: 'Elegí a qué clienta es el abono.', type: 'error' });
-      return;
-    }
+    if (abonoGuardando) return;
     const montoCents = parsearACentavos(abonoMontoTexto, { min: 0.01 });
-    if (montoCents === null) {
-      showToast({ message: 'Ingresa un monto válido para el abono (mayor a cero)', type: 'error' });
+    const errores = {
+      clienta: clienteSeleccionadoId ? undefined : 'Elegí a qué clienta es el abono.',
+      monto: montoCents === null ? 'Escribí cuánto pagó: tiene que ser mayor a cero.' : undefined,
+    };
+    setAbonoErrores(errores);
+    if (errores.clienta || errores.monto || !clienteSeleccionadoId || montoCents === null) {
+      enfocarPrimerError(abonoCuerpoRef.current);
       return;
     }
 
@@ -470,6 +476,10 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
                   // Sin clienta elegida: arrancar con la primera de la lista
                   // registraba el abono a otra persona si se tipeaba rápido.
                   setClienteSeleccionadoId(undefined);
+                  setAbonoMontoTexto('');
+                  setAbonoReferencia('');
+                  setAbonoNotas('');
+                  setAbonoErrores({});
                   setModalAbonoAbierto(true);
                 }}
               >
@@ -704,29 +714,34 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
       </div>
 
       {/* Modal para Registrar Abono */}
-      {modalAbonoAbierto && (
-        <Portal>
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-velo/60 p-4 animate-fade-in backdrop-blur-xs">
-            <div className="bg-superficie rounded-2xl border border-borde shadow-xl max-w-md w-full p-5 space-y-4 animate-scale-in">
-            <div className="flex items-center justify-between pb-2 border-b border-borde">
-              <div className="flex items-center gap-2">
-                <CreditCard className="w-5 h-5 text-acento" />
-                <h3 className="font-bold text-body text-texto">Registrar abono</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setModalAbonoAbierto(false)}
-                className="text-texto-3 hover:text-texto p-1 rounded-lg transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <Field label="Clienta" className="mb-0">
+      <Dialogo
+        abierto={modalAbonoAbierto}
+        titulo="Registrar abono"
+        ancho="sm"
+        hayCambios={abonoHayCambios}
+        ocupado={abonoGuardando}
+        onCerrar={() => setModalAbonoAbierto(false)}
+        onEnviar={guardarAbono}
+        pie={(cerrar) => (
+          <div className="flex items-center justify-end gap-2 w-full">
+            <Button variant="secondary" onClick={cerrar} disabled={abonoGuardando}>
+              Cancelar
+            </Button>
+            {/* Siempre activo: sin monto, dice qué falta en el campo (TRA-10). */}
+            <Button variant="primary" onClick={guardarAbono} disabled={abonoGuardando}>
+              {abonoGuardando ? 'Guardando…' : 'Registrar abono'}
+            </Button>
+          </div>
+        )}
+      >
+            <div ref={abonoCuerpoRef} className="space-y-3">
+              <Field label="Clienta" className="mb-0" error={abonoErrores.clienta}>
                 <select
                   value={clienteSeleccionadoId ?? ''}
-                  onChange={(e) => setClienteSeleccionadoId(e.target.value ? Number(e.target.value) : undefined)}
+                  onChange={(e) => {
+                    setClienteSeleccionadoId(e.target.value ? Number(e.target.value) : undefined);
+                    setAbonoErrores((x) => ({ ...x, clienta: undefined }));
+                  }}
                   className="w-full rounded-lg border border-borde bg-superficie-2 px-3 py-2 text-label text-texto focus:outline-none focus:ring-2 focus:ring-acento/50"
                 >
                   <option value="">Elegí la clienta</option>
@@ -763,7 +778,7 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
               </div>
 
               <div className="grid grid-cols-2 gap-2">
-                <Field label={`Monto (${abonoMoneda === 'USD' ? 'USD' : 'C$'})`} className="mb-0">
+                <Field label={`Monto (${abonoMoneda === 'USD' ? 'USD' : 'C$'})`} className="mb-0" error={abonoErrores.monto}>
                   <Input
                     // Texto, no `type="number"`: el navegador convierte "1,500"
                     // en "1.500" antes de que la aplicación lo vea, y eso se lee
@@ -772,7 +787,10 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
                     // `inputMode` mantiene el teclado numérico en el celular.
                     type="text"
                     value={abonoMontoTexto}
-                    onChange={(e) => setAbonoMontoTexto(e.target.value)}
+                    onChange={(e) => {
+                      setAbonoMontoTexto(e.target.value);
+                      setAbonoErrores((x) => ({ ...x, monto: undefined }));
+                    }}
                     placeholder="0.00"
                     className="text-right tabular"
                     autoFocus
@@ -803,29 +821,7 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
                 />
               </Field>
             </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-borde">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setModalAbonoAbierto(false)}
-                disabled={abonoGuardando}
-              >
-                Cancelar
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={guardarAbono}
-                disabled={abonoGuardando || !abonoMontoTexto}
-              >
-                {abonoGuardando ? 'Guardando...' : 'Registrar abono'}
-              </Button>
-            </div>
-          </div>
-        </div>
-        </Portal>
-      )}
+      </Dialogo>
 
       {/* Confirmar anulación de abono */}
       <Confirmar
@@ -837,6 +833,7 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
           'Lo que debía vuelve a quedar pendiente.',
         ]}
         textoConfirmar="Anular abono"
+        textoOcupado="Anulando…"
         textoCancelar="Cancelar"
         onConfirmar={confirmarAnularPago}
         onCerrar={() => setPagoAnulando(null)}

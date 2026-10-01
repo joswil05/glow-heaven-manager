@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 import type { VentaCompleta, MetodoPago, MonedaPago, ParametrosSistema, Pago } from '../../../shared/types';
 import {
@@ -111,11 +111,15 @@ export const PagoModal: React.FC<PagoModalProps> = ({
   const hayCambios = montoTexto !== montoInicial || referencia.trim() !== '' || notas.trim() !== '';
   /** El error del monto va en su campo; el resto, arriba. */
   const errorMonto = error === 'Escribí cuánto pagó la clienta.' ? error : undefined;
+  const montoRef = useRef<HTMLInputElement>(null);
 
   const registrar = async () => {
     if (!venta || guardando) return;
     if (montoCents <= 0) {
+      // El botón queda activo y el error va al campo, con el foco ahí (PAG-05):
+      // un botón gris no decía por qué.
       setError('Escribí cuánto pagó la clienta.');
+      montoRef.current?.focus();
       return;
     }
 
@@ -171,16 +175,17 @@ export const PagoModal: React.FC<PagoModalProps> = ({
       hayCambios={hayCambios}
       onCerrar={onCerrar}
       onEnviar={registrar}
-      pie={
+      // "Cancelar" pregunta, como Escape, si hay algo escrito.
+      pie={(cerrar) => (
         <div className="flex items-center justify-end gap-2 w-full">
-          <Button variant="secondary" onClick={onCerrar} disabled={guardando}>
+          <Button variant="secondary" onClick={cerrar} disabled={guardando}>
             Cerrar
           </Button>
-          <Button variant="primary" onClick={registrar} disabled={guardando || montoCents <= 0} className="min-w-[9.5rem]">
+          <Button variant="primary" onClick={registrar} disabled={guardando} className="min-w-[9.5rem]">
             {guardando ? 'Registrando…' : 'Registrar abono'}
           </Button>
         </div>
-      }
+      )}
     >
       {venta && (
         <div className="space-y-4">
@@ -230,6 +235,7 @@ export const PagoModal: React.FC<PagoModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Field label="Cuánto pagó" error={errorMonto}>
               <Input
+                ref={montoRef}
                 value={montoTexto}
                 onChange={(e) => {
                   setMontoTexto(e.target.value);
@@ -412,6 +418,7 @@ export const PagoModal: React.FC<PagoModalProps> = ({
             'El abono desaparece del historial de la venta.',
           ]}
           textoConfirmar="Sí, anular el abono"
+          textoOcupado="Anulando…"
           onConfirmar={() => anulandoId !== null && anular(anulandoId)}
           onCerrar={() => setAnulandoId(null)}
         />

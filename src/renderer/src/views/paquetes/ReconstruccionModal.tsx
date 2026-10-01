@@ -1,10 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useId, useState } from 'react';
 import { X, AlertTriangle, Info } from 'lucide-react';
 import type { Compra, ReconstruccionPaquete } from '../../../../shared/types';
-import { Button, Portal } from '../../components/ui';
+import { Button, Ventana } from '../../components/ui';
 import { formatearMoneda } from '@core/moneda';
 import { useToast } from '../../context/ToastContext';
-import { useCerrarConEscape } from '../../lib/useCerrarConEscape';
 
 /**
  * Completar el contenido de un paquete de antes del cambio.
@@ -38,6 +37,7 @@ export const ReconstruccionModal: React.FC<Props> = ({
   const [datos, setDatos] = useState<ReconstruccionPaquete | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
+  const idTitulo = useId();
 
   useEffect(() => {
     setDatos(null);
@@ -54,11 +54,8 @@ export const ReconstruccionModal: React.FC<Props> = ({
     };
   }, [compra]);
 
-  useCerrarConEscape(Boolean(compra), onCerrar);
-
-  if (!compra) return null;
-
   const guardar = async () => {
+    if (!compra || guardando) return;
     setGuardando(true);
     try {
       const r = await window.api.compras.completarReconstruccion(compra.id);
@@ -78,25 +75,21 @@ export const ReconstruccionModal: React.FC<Props> = ({
   };
 
   return (
-    <Portal>
-      <div
-        className="fixed inset-0 z-[100] flex items-center justify-center bg-velo/60 backdrop-blur-xs p-4 animate-fade-in cursor-pointer"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="titulo-reconstruccion"
-        onClick={(e) => {
-          if (e.target === e.currentTarget && !guardando) onCerrar();
-        }}
-      >
-        <div
-          onClick={(e) => e.stopPropagation()}
-          className="bg-superficie rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden border border-borde/80 animate-modal-pop cursor-default"
-        >
+    // Mientras guarda, nada la cierra (PAQ-22).
+    <Ventana
+      abierto={compra !== null}
+      onCerrar={onCerrar}
+      ocupado={guardando}
+      idTitulo={idTitulo}
+      clasePanel="rounded-2xl max-w-4xl max-h-[90vh] overflow-hidden"
+    >
+      {(cerrar) => (
+        <>
           <header className="flex items-center justify-between px-6 py-4 border-b border-borde shrink-0">
-            <h3 id="titulo-reconstruccion" className="text-title text-texto">
-              Contenido de {compra.codigo}
+            <h3 id={idTitulo} className="text-title text-texto">
+              Contenido de {compra?.codigo}
             </h3>
-            <Button variant="ghost" size="sm" onClick={onCerrar} aria-label="Cerrar">
+            <Button variant="ghost" size="sm" onClick={cerrar} aria-label="Cerrar" disabled={guardando}>
               <X className="w-4 h-4" />
             </Button>
           </header>
@@ -181,13 +174,14 @@ export const ReconstruccionModal: React.FC<Props> = ({
           </div>
 
           <footer className="flex items-center justify-end gap-2 px-6 py-3.5 border-t border-borde bg-superficie-2/40 shrink-0">
-            <Button variant="secondary" onClick={onCerrar} disabled={guardando} className="rounded-xl">
+            <Button variant="secondary" onClick={cerrar} disabled={guardando} className="rounded-xl">
               Cancelar
             </Button>
             {datos && datos.lineas.length === 0 && datos.avisos.length === 0 ? (
               <Button
                 variant="primary"
                 onClick={() => {
+                  if (!compra) return;
                   onCerrar();
                   onCargarContenido(compra);
                 }}
@@ -202,12 +196,12 @@ export const ReconstruccionModal: React.FC<Props> = ({
                 disabled={guardando || !datos || datos.lineas.length === 0}
                 className="rounded-xl"
               >
-                {guardando ? 'Guardando...' : 'Guardar este contenido'}
+                {guardando ? 'Guardando…' : 'Guardar este contenido'}
               </Button>
             )}
           </footer>
-        </div>
-      </div>
-    </Portal>
+        </>
+      )}
+    </Ventana>
   );
 };

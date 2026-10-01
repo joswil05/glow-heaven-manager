@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useId, useCallback } from 'react';
 import {
   X,
   AlertTriangle,
@@ -19,7 +19,11 @@ import type {
   ResultadoIngreso,
 } from '../../../../shared/types';
 import type { GuardarCompraInput, LineaCompraInput } from '../../../../shared/ipc-contracts';
-import { Button, Field, Input, Textarea, Portal, Badge, Confirmar } from '../../components/ui';
+import { Button, Field, Input, Textarea, Badge, Confirmar, Ventana } from '../../components/ui';
+import { useHayCambios } from '../../lib/useHayCambios';
+import { useListaConTeclado } from '../../lib/useListaConTeclado';
+import { useClickOutside } from '../../lib/useClickOutside';
+import { enfocarPrimerError } from '../../lib/enfocarPrimerError';
 import { parsearDecimal, parsearACentavos } from '@core/numeros';
 import { formatearMoneda, formatearPeso } from '@core/moneda';
 import {
@@ -36,7 +40,6 @@ import { algunoContiene } from '@core/texto';
 import { hoyISO } from '@core/fechas';
 import { estadoPieza, sinPaquete } from '@core/encargos';
 import { useToast } from '../../context/ToastContext';
-import { useCerrarConEscape } from '../../lib/useCerrarConEscape';
 import { cn } from '../../lib/cn';
 import { formatearTextoGeneral } from '../../../../shared/formatoTexto';
 import { ProductoModal, type DatosProducto } from '../inventario/ProductoModal';
@@ -96,6 +99,9 @@ interface PaqueteEditorProps {
   onCerrar: () => void;
   onGuardado: () => Promise<void> | void;
 }
+
+/** Para las listas desplegables de adentro de la ventana: ningún clic se ignora. */
+const NADA_QUE_IGNORAR: string[] = [];
 
 interface LineaEnPantalla {
   clave: string;
@@ -243,10 +249,20 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
   const [confirmando, setConfirmando] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * De qué campo es el error: `"fecha"`, `"flete"`… o `"<línea>:cantidad"`.
+   * Con 30 líneas, un mensaje arriba no decía cuál (PAQ-02): ahora la fila se
+   * marca, el mensaje va debajo y el foco salta al campo.
+   */
+  const [errorCampo, setErrorCampo] = useState<string | null>(null);
+  const cuerpoRef = useRef<HTMLDivElement>(null);
   const [resumen, setResumen] = useState<ResultadoIngreso | null>(null);
   /** El id que le dio el primer guardado, para no crear otro si se reintenta. */
   const [idGuardado, setIdGuardado] = useState<number | undefined>(undefined);
   const busquedaRef = useRef<HTMLInputElement>(null);
+  /** Sube cuando el paquete termina de cargarse: ésa es la firma de partida. */
+  const [versionFormulario, setVersionFormulario] = useState(0);
+  const idTitulo = useId();
 
   const productosPorId = useMemo(() => new Map(productos.map((p) => [p.id, p])), [productos]);
 
@@ -318,6 +334,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
       if (inicial && !(compra?.lineas ?? []).some((l) => l.producto_id === inicial.id)) {
         agregarProducto(inicial);
       }
+      setVersionFormulario((n) => n + 1);
     })();
     return () => {
       vivo = false;
@@ -332,7 +349,44 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
     setEnvioTexto(libras > 0 ? (Math.round(libras * tarifaLb) / 100).toFixed(2) : '');
   }, [abierto, pesoTotalTexto, tarifaLb, envioManual]);
 
-  useCerrarConEscape(abierto && productoNuevo === null && !confirmando, onCerrar);
+  const firma = JSON.stringify([
+      fecha,
+      pesoTotalTexto,
+      envioTexto,
+      otrosTexto,
+      taxReciboTexto,
+      notas,
+      lineas.map((l) => [
+        l.producto_id,
+        l.variante_id,
+        l.descripcion,
+        l.destino,
+        l.venta_linea_id,
+        l.esPack,
+        l.cantidadTexto,
+        l.precioUnitarioTexto,
+        l.packsTexto,
+        l.unidadesPorPackTexto,
+        l.precioPackTexto,
+        l.exento,
+        l.pesoTexto,
+      ]),
+    ]);
+  const hayCambios = useHayCambios(firma, versionFormulario);
+
+  useEffect(() => {
+    if (!errorCampo) return;
+    setErrorCampo(null);
+    setError(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firma]);
+
+  // Las dos listas desplegables se cierran con un clic afuera. Adentro de la
+  // ventana, así que no se ignora el diálogo (lo haría el valor por omisión).
+  const cerrarSugerencias = useCallback(() => setBuscando(false), []);
+  const cerrarEncargos = useCallback(() => setVerEncargos(false), []);
+  const refSugerencias = useClickOutside<HTMLDivElement>(buscando, cerrarSugerencias, NADA_QUE_IGNORAR);
+  const refEncargos = useClickOutside<HTMLDivElement>(verEncargos, cerrarEncargos, NADA_QUE_IGNORAR);
 
   // ---------------------------------------------------------------------------
   // La cuenta, en vivo
@@ -438,7 +492,13 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
     return productos.filter((p) => algunoContiene([p.nombre, p.codigo], t)).slice(0, 8);
   }, [busqueda, productos]);
 
-  if (!abierto) return null;
+  // Flechas y Enter en las sugerencias (PAQ-09). Sin marcar ninguna, Enter
+  // agrega la primera, como antes.
+  const listaSugerencias = useListaConTeclado(
+    sugerencias.length,
+    (i) => sugerencias[i] && agregarProducto(sugerencias[i]),
+    busqueda
+  );
 
   // ---------------------------------------------------------------------------
   // Agregar y editar líneas
@@ -557,30 +617,30 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
   // ---------------------------------------------------------------------------
 
   const armarInput = (exigirLineas: boolean): GuardarCompraInput | null => {
+    const falla = (campo: string, mensaje: string): null => {
+      setError(mensaje);
+      setErrorCampo(campo);
+      enfocarPrimerError(cuerpoRef.current);
+      return null;
+    };
     // Con la fecha borrada, el paquete quedaba sin fecha y perdido en la lista.
     if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
-      setError('Escribí la fecha en que llegó el paquete.');
-      return null;
+      return falla('fecha', 'Escribí la fecha en que llegó el paquete.');
     }
     if (pesoTotalTexto.trim() && parsearDecimal(pesoTotalTexto, { min: 0 }) === null) {
-      setError('El peso de la caja no es un número válido.');
-      return null;
+      return falla('peso', 'No es un número válido.');
     }
     if (envioTexto.trim() && parsearACentavos(envioTexto, { min: 0 }) === null) {
-      setError('El flete no es un monto válido.');
-      return null;
+      return falla('flete', 'No es un monto válido.');
     }
     if (otrosTexto.trim() && parsearACentavos(otrosTexto, { min: 0 }) === null) {
-      setError('Otros gastos no es un monto válido.');
-      return null;
+      return falla('otros', 'No es un monto válido.');
     }
     if (taxReciboTexto.trim() && taxRecibo === null) {
-      setError('El impuesto del recibo no es un monto válido.');
-      return null;
+      return falla('tax', 'No es un monto válido.');
     }
     if (exigirLineas && lineas.length === 0) {
-      setError('Agregá lo que trajo el paquete antes de pasarlo al inventario.');
-      return null;
+      return falla('lineas', 'Agregá lo que trajo el paquete antes de pasarlo al inventario.');
     }
 
     const salida: LineaCompraInput[] = [];
@@ -588,17 +648,14 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
       const nombre = l.descripcion || 'una línea';
       const cantidad = cantidadDe(l);
       if (cantidad === null) {
-        setError(`Escribí cuántas unidades de '${nombre}' vinieron (un número entero).`);
-        return null;
+        return falla(`${l.clave}:cantidad`, `Escribí cuántas unidades de '${nombre}' vinieron (un número entero).`);
       }
       const precio = precioLineaDe(l);
       if (precio === null) {
-        setError(`Escribí lo que costó '${nombre}' en la tienda.`);
-        return null;
+        return falla(`${l.clave}:precio`, `Escribí lo que costó '${nombre}' en la tienda.`);
       }
       if (l.pesoTexto.trim() && pesoManualDe(l) === null) {
-        setError(`El peso de '${nombre}' no es un número válido.`);
-        return null;
+        return falla(`${l.clave}:peso`, `El peso de '${nombre}' no es un número válido.`);
       }
       salida.push({
         id: l.id,
@@ -622,6 +679,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
     }
 
     setError(null);
+    setErrorCampo(null);
     return {
       id: idGuardado,
       fecha,
@@ -739,28 +797,38 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
       : 'Registrar paquete';
 
   return (
-    <Portal>
-      <div
-        className="fixed inset-0 z-[100] flex items-center justify-center bg-velo/60 backdrop-blur-xs p-4 animate-fade-in cursor-pointer"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="titulo-paquete"
-        onClick={(e) => {
-          if (e.target === e.currentTarget && !guardando) onCerrar();
+    <>
+      <Ventana
+        abierto={abierto}
+        // Con el resumen a la vista ya no hay nada que perder: cerrar es "Listo".
+        onCerrar={resumen ? terminar : onCerrar}
+        hayCambios={!resumen && hayCambios}
+        ocupado={guardando}
+        idTitulo={idTitulo}
+        clasePanel="rounded-2xl max-w-6xl h-[92vh] overflow-hidden"
+        // Escape por capas: primero lo desplegado, después el paquete (PAQ-01).
+        alEscape={() => {
+          if (buscando && busqueda.trim()) {
+            setBuscando(false);
+            return true;
+          }
+          if (verEncargos) {
+            setVerEncargos(false);
+            return true;
+          }
+          return false;
         }}
       >
-        <div
-          onClick={(e) => e.stopPropagation()}
-          className="bg-superficie rounded-2xl shadow-2xl w-full max-w-6xl h-[92vh] flex flex-col overflow-hidden border border-borde/80 animate-modal-pop cursor-default"
-        >
+        {(cerrar) => (
+        <>
           <header className="flex items-center justify-between px-6 py-4 border-b border-borde shrink-0">
-            <h3 id="titulo-paquete" className="text-title text-texto">
+            <h3 id={idTitulo} className="text-title text-texto">
               {titulo}
             </h3>
             <Button
               variant="ghost"
               size="sm"
-              onClick={resumen ? terminar : onCerrar}
+              onClick={cerrar}
               aria-label="Cerrar"
               className="rounded-lg text-texto-3 hover:text-texto"
             >
@@ -768,13 +836,13 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
             </Button>
           </header>
 
-          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+          <div ref={cuerpoRef} className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
             {resumen ? (
               <ResumenIngreso resultado={resumen} modo={esCorreccion ? 'correccion' : 'ingreso'} />
             ) : (
               <>
-                {error && (
-                  <div className="flex items-start gap-2 rounded-xl border border-danger-200 bg-danger-50 p-3">
+                {error && (!errorCampo || errorCampo === 'lineas') && (
+                  <div role="alert" className="flex items-start gap-2 rounded-xl border border-danger-200 bg-danger-50 p-3">
                     <AlertTriangle className="w-4 h-4 text-danger-600 shrink-0 mt-0.5" />
                     <p className="text-label text-danger-800">{error}</p>
                   </div>
@@ -794,10 +862,10 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                     masCostosVisibles ? 'lg:grid-cols-5' : 'lg:grid-cols-4'
                   )}
                 >
-                  <Field label="Fecha de llegada">
+                  <Field label="Fecha de llegada" error={errorCampo === 'fecha' ? (error ?? undefined) : undefined}>
                     <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
                   </Field>
-                  <Field label="Peso de la caja (lb)">
+                  <Field label="Peso de la caja (lb)" error={errorCampo === 'peso' ? (error ?? undefined) : undefined}>
                     <Input
                       value={pesoTotalTexto}
                       onChange={(e) => setPesoTotalTexto(e.target.value)}
@@ -809,6 +877,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                   <Field
                     label="Flete pagado"
                     hint={envioManual ? 'Escrito a mano' : `A ${$(tarifaLb)} la libra`}
+                    error={errorCampo === 'flete' ? (error ?? undefined) : undefined}
                   >
                     <Input
                       value={envioTexto}
@@ -823,7 +892,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                   </Field>
                   {masCostosVisibles ? (
                     <>
-                      <Field label="Otros gastos">
+                      <Field label="Otros gastos" error={errorCampo === 'otros' ? (error ?? undefined) : undefined}>
                         <Input
                           value={otrosTexto}
                           onChange={(e) => setOtrosTexto(e.target.value)}
@@ -832,7 +901,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                           className="text-right"
                         />
                       </Field>
-                      <Field label="Impuesto del recibo">
+                      <Field label="Impuesto del recibo" error={errorCampo === 'tax' ? (error ?? undefined) : undefined}>
                         <Input
                           value={taxReciboTexto}
                           onChange={(e) => setTaxReciboTexto(e.target.value)}
@@ -911,8 +980,10 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                                 (x) => x.destino === 'INVENTARIO' && x.producto_id === l.producto_id
                               ) === idx;
                             const p = l.producto_id ? productosPorId.get(l.producto_id) : undefined;
+                            const errorDeLinea = errorCampo?.startsWith(`${l.clave}:`) ? errorCampo.slice(l.clave.length + 1) : null;
                             return (
-                              <tr key={l.clave} className="align-top">
+                              <React.Fragment key={l.clave}>
+                              <tr className={cn('align-top', errorDeLinea && 'bg-peligro-suave')}>
                                 <td className="px-4 py-2.5">
                                   <div className="font-medium text-texto">
                                     {l.descripcion}
@@ -952,6 +1023,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                                     <div className="flex items-center justify-end gap-1">
                                       <Input
                                         aria-label="Packs"
+                                        aria-invalid={errorDeLinea === 'cantidad' || undefined}
                                         value={l.packsTexto}
                                         disabled={l.bloqueada}
                                         onChange={(e) => cambiarPrecio(l.clave, { packsTexto: e.target.value })}
@@ -973,6 +1045,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                                   ) : (
                                     <Input
                                       aria-label={`Unidades de ${l.descripcion}`}
+                                      aria-invalid={errorDeLinea === 'cantidad' || undefined}
                                       value={l.cantidadTexto}
                                       disabled={l.bloqueada}
                                       onChange={(e) => cambiarPrecio(l.clave, { cantidadTexto: e.target.value })}
@@ -991,6 +1064,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                                 <td className="px-2 py-2.5 text-right">
                                   <Input
                                     aria-label={l.esPack ? 'Precio por pack' : 'Precio por unidad en la tienda'}
+                                    aria-invalid={errorDeLinea === 'precio' || undefined}
                                     value={l.esPack ? l.precioPackTexto : l.precioUnitarioTexto}
                                     onChange={(e) =>
                                       cambiarPrecio(
@@ -1032,6 +1106,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                                 <td className="px-2 py-2.5 text-right">
                                   <Input
                                     aria-label={`Peso de ${l.descripcion}`}
+                                    aria-invalid={errorDeLinea === 'peso' || undefined}
                                     value={l.pesoTexto}
                                     onChange={(e) => cambiar(l.clave, { pesoTexto: e.target.value })}
                                     placeholder={
@@ -1100,6 +1175,16 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                                   )}
                                 </td>
                               </tr>
+                              {errorDeLinea && (
+                                <tr className="bg-peligro-suave">
+                                  <td colSpan={9} className="px-4 pb-2.5">
+                                    <p role="alert" className="text-caption text-danger-700">
+                                      {error}
+                                    </p>
+                                  </td>
+                                </tr>
+                              )}
+                              </React.Fragment>
                             );
                           })}
                         </tbody>
@@ -1109,7 +1194,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
 
                   {/* Agregar */}
                   <div className="px-4 py-3 border-t border-borde/70 bg-superficie-2/30 rounded-b-xl flex items-start gap-2 flex-wrap">
-                    <div className="relative flex-1 min-w-[260px]">
+                    <div ref={refSugerencias} className="relative flex-1 min-w-[260px]">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-texto-3 pointer-events-none" />
                       <Input
                         ref={busquedaRef}
@@ -1119,24 +1204,27 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                           setBuscando(true);
                         }}
                         onFocus={() => setBuscando(true)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && sugerencias[0]) {
-                            e.preventDefault();
-                            agregarProducto(sugerencias[0]);
-                          }
-                        }}
                         placeholder="Buscar producto por nombre o código"
                         className="pl-9"
                         aria-label="Buscar producto para agregar"
+                        aria-invalid={errorCampo === 'lineas' || undefined}
+                        {...(buscando && busqueda.trim() ? listaSugerencias.propsCampo : {})}
                       />
                       {buscando && busqueda.trim() && (
-                        <ul className="absolute z-20 left-0 right-0 mt-1 max-h-72 overflow-y-auto rounded-xl border border-borde bg-superficie shadow-xl">
-                          {sugerencias.map((p) => (
-                            <li key={p.id}>
+                        <ul
+                          {...listaSugerencias.propsLista}
+                          className="absolute z-20 left-0 right-0 mt-1 max-h-72 overflow-y-auto rounded-xl border border-borde bg-superficie shadow-xl"
+                        >
+                          {sugerencias.map((p, i) => (
+                            <li key={p.id} role="presentation">
                               <button
                                 type="button"
                                 onClick={() => agregarProducto(p)}
-                                className="w-full text-left px-3 py-2 hover:bg-superficie-2 flex items-center justify-between gap-3"
+                                {...listaSugerencias.propsOpcion(i)}
+                                className={cn(
+                                  'w-full text-left px-3 py-2 hover:bg-superficie-2 flex items-center justify-between gap-3',
+                                  listaSugerencias.activo === i && 'bg-superficie-2'
+                                )}
                               >
                                 <span className="text-body text-texto truncate">
                                   {p.nombre}
@@ -1150,7 +1238,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                               </button>
                             </li>
                           ))}
-                          <li className="border-t border-borde">
+                          <li role="presentation" className="border-t border-borde">
                             <button
                               type="button"
                               onClick={() => {
@@ -1171,7 +1259,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                       <span>Producto nuevo</span>
                     </Button>
                     {encargos.length > 0 && (
-                      <div className="relative">
+                      <div ref={refEncargos} className="relative">
                         <Button
                           variant="secondary"
                           onClick={() => setVerEncargos((v) => !v)}
@@ -1254,7 +1342,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                   {textoCriterio && <p className="text-caption text-texto-3 mt-0.5">{textoCriterio}</p>}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <Button variant="secondary" onClick={onCerrar} disabled={guardando} className="rounded-xl">
+                  <Button variant="secondary" onClick={cerrar} disabled={guardando} className="rounded-xl">
                     Cancelar
                   </Button>
                   {esCorreccion ? (
@@ -1269,7 +1357,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                       <Button
                         variant="primary"
                         onClick={accionPasar}
-                        disabled={guardando || lineas.length === 0}
+                        disabled={guardando}
                         className="rounded-xl"
                       >
                         {guardando ? 'Guardando...' : 'Pasar al inventario'}
@@ -1280,8 +1368,9 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
               </div>
             )}
           </footer>
-        </div>
-      </div>
+        </>
+        )}
+      </Ventana>
 
       <ProductoModal
         abierto={productoNuevo !== null}
@@ -1314,6 +1403,6 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
         }}
         onCerrar={() => setConfirmando(false)}
       />
-    </Portal>
+    </>
   );
 };

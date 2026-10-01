@@ -1,7 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useId, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { Button } from './Button';
-import { Portal } from './Portal';
+import { MarcoModal } from './MarcoModal';
 import { cn } from '../../lib/cn';
 
 /**
@@ -11,6 +11,11 @@ import { cn } from '../../lib/cn';
  * un cuadro del sistema, sin el idioma de la aplicación, sin poder enumerar
  * las consecuencias y sin distinguir entre "cerrar sin guardar" y "destruir
  * un registro con dinero adentro".
+ *
+ * Si `onConfirmar` devuelve una promesa, la confirmación se queda abierta
+ * mientras corre, con el botón en `textoOcupado` ("Anulando…") y nada que la
+ * cierre, y se va cuando termina. Antes cerraba al instante: anular una venta
+ * tarda, y sin respuesta en pantalla se volvía a apretar.
  */
 export interface ConfirmarProps {
   abierto: boolean;
@@ -19,9 +24,11 @@ export interface ConfirmarProps {
   consecuencias?: string[];
   descripcion?: string;
   textoConfirmar: string;
+  /** Lo que dice el botón mientras la acción corre. */
+  textoOcupado?: string;
   textoCancelar?: string;
   peligroso?: boolean;
-  onConfirmar: () => void;
+  onConfirmar: () => unknown;
   onCerrar: () => void;
 }
 
@@ -31,101 +38,87 @@ export const Confirmar: React.FC<ConfirmarProps> = ({
   consecuencias = [],
   descripcion,
   textoConfirmar,
+  textoOcupado = 'Un momento…',
   textoCancelar = 'No, dejar como está',
   peligroso = false,
   onConfirmar,
   onCerrar,
 }) => {
-  const salidaRef = useRef<HTMLButtonElement>(null);
+  const idTitulo = useId();
+  const [ocupado, setOcupado] = useState(false);
 
   useEffect(() => {
-    if (!abierto) return;
-    // El foco arranca en la salida, no en el botón que destruye.
-    salidaRef.current?.focus();
+    if (!abierto) setOcupado(false);
+  }, [abierto]);
 
-    const alPresionar = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCerrar();
-    };
-    window.addEventListener('keydown', alPresionar);
-    return () => window.removeEventListener('keydown', alPresionar);
-  }, [abierto, onCerrar]);
-
-  if (!abierto) return null;
+  const confirmar = async () => {
+    if (ocupado) return;
+    const r = onConfirmar();
+    if (r instanceof Promise) {
+      setOcupado(true);
+      try {
+        await r;
+      } finally {
+        setOcupado(false);
+      }
+    }
+    onCerrar();
+  };
 
   return (
-    <Portal>
-      <div
-        className="fixed inset-0 z-[110] flex items-center justify-center bg-velo/60 backdrop-blur-xs p-4 animate-fade-in cursor-pointer"
-        role="alertdialog"
-      aria-modal="true"
-      aria-labelledby="titulo-confirmar"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onCerrar();
-      }}
+    <MarcoModal
+      abierto={abierto}
+      onPedirCierre={onCerrar}
+      ocupado={ocupado}
+      idTitulo={idTitulo}
+      rol="alertdialog"
+      encima
+      clasePanel="rounded-xl max-w-md"
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="bg-superficie rounded-xl shadow-2xl w-full max-w-md animate-modal-pop border border-borde cursor-default"
-      >
-        <div className="p-5">
-          <div className="flex items-start gap-3">
-            <div
-              className={cn(
-                'w-9 h-9 rounded-full flex items-center justify-center shrink-0',
-                peligroso ? 'bg-peligro-suave text-peligro-fuerte' : 'bg-acento-suave text-acento-fuerte'
-              )}
-            >
-              <AlertTriangle className="w-5 h-5" />
-            </div>
-            <div className="min-w-0">
-              <h3 id="titulo-confirmar" className="text-title text-texto">
-                {titulo}
-              </h3>
-              {descripcion && (
-                <p className="mt-1 text-body text-texto-2">{descripcion}</p>
-              )}
-            </div>
+      <div className="p-5">
+        <div className="flex items-start gap-3">
+          <div
+            className={cn(
+              'w-9 h-9 rounded-full flex items-center justify-center shrink-0',
+              peligroso ? 'bg-peligro-suave text-peligro-fuerte' : 'bg-acento-suave text-acento-fuerte'
+            )}
+          >
+            <AlertTriangle className="w-5 h-5" />
           </div>
-
-          {consecuencias.length > 0 && (
-            <ul
-              className={cn(
-                'mt-4 rounded-md border p-3 space-y-1.5',
-                peligroso ? 'border-danger-200 bg-danger-50' : 'border-borde bg-superficie-2'
-              )}
-            >
-              {consecuencias.map((c, i) => (
-                <li
-                  key={i}
-                  className={cn(
-                    'text-label flex gap-2',
-                    peligroso ? 'text-danger-800' : 'text-texto-2'
-                  )}
-                >
-                  <span aria-hidden="true">·</span>
-                  <span>{c}</span>
-                </li>
-              ))}
-            </ul>
-          )}
+          <div className="min-w-0">
+            <h3 id={idTitulo} className="text-title text-texto">
+              {titulo}
+            </h3>
+            {descripcion && <p className="mt-1 text-body text-texto-2">{descripcion}</p>}
+          </div>
         </div>
 
-        <footer className="flex items-center justify-end gap-2 px-5 py-4 border-t border-borde">
-          <Button ref={salidaRef} variant="secondary" onClick={onCerrar}>
-            {textoCancelar}
-          </Button>
-          <Button
-            variant={peligroso ? 'danger' : 'primary'}
-            onClick={() => {
-              onConfirmar();
-              onCerrar();
-            }}
+        {consecuencias.length > 0 && (
+          <ul
+            className={cn(
+              'mt-4 rounded-md border p-3 space-y-1.5',
+              peligroso ? 'border-danger-200 bg-danger-50' : 'border-borde bg-superficie-2'
+            )}
           >
-            {textoConfirmar}
-          </Button>
-        </footer>
+            {consecuencias.map((c, i) => (
+              <li key={i} className={cn('text-label flex gap-2', peligroso ? 'text-danger-800' : 'text-texto-2')}>
+                <span aria-hidden="true">·</span>
+                <span>{c}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
-    </div>
-    </Portal>
+
+      <footer className="flex items-center justify-end gap-2 px-5 py-4 border-t border-borde">
+        {/* El foco arranca en la salida, no en el botón que destruye. */}
+        <Button autoFocus variant="secondary" onClick={onCerrar} disabled={ocupado}>
+          {textoCancelar}
+        </Button>
+        <Button variant={peligroso ? 'danger' : 'primary'} onClick={confirmar} disabled={ocupado}>
+          {ocupado ? textoOcupado : textoConfirmar}
+        </Button>
+      </footer>
+    </MarcoModal>
   );
 };

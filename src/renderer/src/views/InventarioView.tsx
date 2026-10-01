@@ -1209,6 +1209,7 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
           'Sólo se puede si nunca se vendió ni vino en un paquete. Si tiene historia, descatalogalo: así las ventas y los paquetes siguen cuadrando.',
         ]}
         textoConfirmar="Eliminar"
+        textoOcupado="Eliminando…"
         onConfirmar={() => eliminandoDefinitivo && eliminarDefinitivo(eliminandoDefinitivo)}
         onCerrar={() => setEliminandoDefinitivo(null)}
       />

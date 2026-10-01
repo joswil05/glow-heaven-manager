@@ -9,6 +9,7 @@ import { hoyISO } from '@core/fechas';
 import { formatearNombreEntidad, formatearTextoGeneral } from '../../../../shared/formatoTexto';
 import { useToast } from '../../context/ToastContext';
 import { cn } from '../../lib/cn';
+import { useListaConTeclado } from '../../lib/useListaConTeclado';
 
 /**
  * Anotar un encargo, en una sola pantalla: quién lo pide y qué quiere.
@@ -50,6 +51,8 @@ export const NuevoEncargoModal: React.FC<NuevoEncargoModalProps> = ({ abierto, c
   const [lista, setLista] = useState<ClienteDetalle[]>(clientes);
   const [cliente, setCliente] = useState<ClienteDetalle | null>(null);
   const [buscar, setBuscar] = useState('');
+  /** Escape cierra la lista de clientas sin borrar lo escrito; tipear la reabre. */
+  const [listaAbierta, setListaAbierta] = useState(true);
   const [piezas, setPiezas] = useState<Pieza[]>([piezaVacia(1)]);
   const [notas, setNotas] = useState('');
   const [errores, setErrores] = useState<Errores>(SIN_ERRORES);
@@ -78,6 +81,15 @@ export const NuevoEncargoModal: React.FC<NuevoEncargoModalProps> = ({ abierto, c
         ? lista.filter((c) => algunoContiene([c.nombre, c.alias, c.telefono], buscar)).slice(0, 6)
         : [],
     [buscar, lista]
+  );
+
+  const hayLista = !cliente && listaAbierta && buscar.trim() !== '';
+  // Flechas y Enter en la lista de clientas (ENC-12). La última opción es
+  // "Agregar … como clienta nueva".
+  const listaClientas = useListaConTeclado(
+    sugeridas.length + 1,
+    (i) => (i < sugeridas.length ? elegirClienta(sugeridas[i]) : agregarClienta()),
+    buscar
   );
 
   const campo = (clave: number, cual: keyof Omit<Pieza, 'clave'>) => (el: HTMLInputElement | null) => {
@@ -193,7 +205,14 @@ export const NuevoEncargoModal: React.FC<NuevoEncargoModalProps> = ({ abierto, c
       hayCambios={hayCambios}
       onCerrar={onCerrar}
       onEnviar={guardar}
-      pie={
+      // Escape por capas: primero la lista de clientas, después la ventana.
+      alEscape={() => {
+        if (!hayLista) return false;
+        setListaAbierta(false);
+        return true;
+      }}
+      // "Cancelar" pregunta, como Escape, si hay algo escrito.
+      pie={(cerrar) => (
         <>
           <span className="text-label text-texto-2 tabular">
             {sinPrecio === piezas.length
@@ -201,7 +220,7 @@ export const NuevoEncargoModal: React.FC<NuevoEncargoModalProps> = ({ abierto, c
               : `Total ${formatearMoneda(total, 'USD')}${sinPrecio > 0 ? ' · falta cotizar' : ''}`}
           </span>
           <div className="flex items-center gap-2">
-            <Button variant="secondary" onClick={onCerrar} disabled={guardando}>
+            <Button variant="secondary" onClick={cerrar} disabled={guardando}>
               Cancelar
             </Button>
             <Button variant="primary" onClick={guardar} disabled={guardando} className="min-w-[7rem]">
@@ -209,7 +228,7 @@ export const NuevoEncargoModal: React.FC<NuevoEncargoModalProps> = ({ abierto, c
             </Button>
           </div>
         </>
-      }
+      )}
     >
       {/* Quién lo pide */}
       <Field label="Clienta" error={errores.clienta}>
@@ -231,32 +250,45 @@ export const NuevoEncargoModal: React.FC<NuevoEncargoModalProps> = ({ abierto, c
               value={buscar}
               onChange={(e) => {
                 setBuscar(e.target.value);
+                setListaAbierta(true);
                 setErrores((x) => ({ ...x, clienta: undefined }));
               }}
               placeholder="Nombre o teléfono"
               aria-label="Clienta"
               autoFocus
               aria-invalid={Boolean(errores.clienta)}
+              {...(hayLista ? listaClientas.propsCampo : {})}
             />
-            {buscar.trim() && (
-              <ul className="absolute z-20 left-0 right-0 mt-1 max-h-60 overflow-y-auto rounded-xl border border-borde bg-superficie shadow-xl animate-desplegable">
-                {sugeridas.map((c) => (
-                  <li key={c.id}>
+            {hayLista && (
+              <ul
+                {...listaClientas.propsLista}
+                className="absolute z-20 left-0 right-0 mt-1 max-h-60 overflow-y-auto rounded-xl border border-borde bg-superficie shadow-xl animate-desplegable"
+              >
+                {sugeridas.map((c, i) => (
+                  <li key={c.id} role="presentation">
                     <button
                       type="button"
                       onClick={() => elegirClienta(c)}
-                      className="w-full text-left px-3 py-2 hover:bg-superficie-2 text-body text-texto"
+                      {...listaClientas.propsOpcion(i)}
+                      className={cn(
+                        'w-full text-left px-3 py-2 hover:bg-superficie-2 text-body text-texto',
+                        listaClientas.activo === i && 'bg-superficie-2'
+                      )}
                     >
                       {c.nombre}
                       {c.telefono && <span className="text-caption text-texto-3"> · {c.telefono}</span>}
                     </button>
                   </li>
                 ))}
-                <li>
+                <li role="presentation">
                   <button
                     type="button"
                     onClick={agregarClienta}
-                    className="w-full text-left px-3 py-2 hover:bg-superficie-2 text-body text-acento font-medium"
+                    {...listaClientas.propsOpcion(sugeridas.length)}
+                    className={cn(
+                      'w-full text-left px-3 py-2 hover:bg-superficie-2 text-body text-acento font-medium',
+                      listaClientas.activo === sugeridas.length && 'bg-superficie-2'
+                    )}
                   >
                     Agregar “{formatearNombreEntidad(buscar)}” como clienta nueva
                   </button>

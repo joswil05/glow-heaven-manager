@@ -98,7 +98,8 @@ export const MandarCotizacionModal: React.FC<MandarCotizacionModalProps> = ({
       hayCambios={mensaje !== inicial}
       onCerrar={onCerrar}
       onEnviar={abrirWhatsApp}
-      pie={
+      // "Cancelar" pregunta, como Escape, si hay algo escrito.
+      pie={(cerrar) => (
         venta && (
           <>
             <button
@@ -110,7 +111,7 @@ export const MandarCotizacionModal: React.FC<MandarCotizacionModalProps> = ({
               Ya la mandé por otro lado
             </button>
             <div className="flex items-center gap-2">
-              <Button variant="secondary" onClick={onCerrar} disabled={guardando}>
+              <Button variant="secondary" onClick={cerrar} disabled={guardando}>
                 Cancelar
               </Button>
               <Button
@@ -126,7 +127,7 @@ export const MandarCotizacionModal: React.FC<MandarCotizacionModalProps> = ({
             </div>
           </>
         )
-      }
+      )}
     >
       {venta && (
         <>

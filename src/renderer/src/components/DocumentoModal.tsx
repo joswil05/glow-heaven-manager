@@ -1,8 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useId, useMemo, useState } from 'react';
 import { enlaceWhatsappDocumento } from '../../../core/documentos/mensajes';
 import { X, Printer, MessageCircle, FileText, Download, Loader2 } from 'lucide-react';
 import type { VentaCompleta, ParametrosSistema } from '../../../shared/types';
-import { Button, Portal } from './ui';
+import { Button, Ventana } from './ui';
 import { useToast } from '../context/ToastContext';
 import {
   generarHtmlFactura,
@@ -27,15 +27,7 @@ export const DocumentoModal: React.FC<DocumentoModalProps> = ({
   const { showToast } = useToast();
   const [guardandoPdf, setGuardandoPdf] = useState(false);
   const [imprimiendo, setImprimiendo] = useState(false);
-
-  React.useEffect(() => {
-    if (!abierto) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCerrar();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [abierto, onCerrar]);
+  const idTitulo = useId();
 
   // OJO: todos los hooks van ANTES de cualquier `return` condicional.
   //
@@ -53,11 +45,10 @@ export const DocumentoModal: React.FC<DocumentoModalProps> = ({
       : generarHtmlFactura(venta, parametros);
   }, [venta, parametros, esEncargo]);
 
-  if (!abierto || !venta) return null;
-
   const titulo = esEncargo ? 'Proforma' : 'Factura';
 
   const handleGuardarPdf = async () => {
+    if (!venta) return;
     setGuardandoPdf(true);
     try {
       if (window.api?.documentos?.guardarPdf) {
@@ -99,25 +90,22 @@ export const DocumentoModal: React.FC<DocumentoModalProps> = ({
   };
 
   const handleEnviarWhatsApp = () => {
+    if (!venta) return;
     // El armado del mensaje vive en @core/documentos/mensajes: el celular
     // manda el mismo, y respeta las plantillas que se editan en Configuracion.
     window.open(enlaceWhatsappDocumento(venta, parametros ?? null), '_blank');
   };
 
   return (
-    <Portal>
-      <div
-        className="fixed inset-0 z-[100] flex items-center justify-center bg-velo/60 backdrop-blur-xs p-4 cursor-pointer"
-        role="dialog"
-      aria-modal="true"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onCerrar();
-      }}
+    // Marco común: se nombra por su título, sale animada y devuelve el foco (DOC-08).
+    <Ventana
+      abierto={abierto && venta !== null}
+      onCerrar={onCerrar}
+      idTitulo={idTitulo}
+      clasePanel="rounded-2xl max-w-4xl max-h-[92vh] overflow-hidden"
     >
-      <div
-        className="w-full max-w-4xl max-h-[92vh] flex flex-col rounded-2xl border border-borde bg-superficie shadow-xl cursor-default overflow-hidden animate-fade-in"
-        onClick={(e) => e.stopPropagation()}
-      >
+      {(cerrar) => venta && (
+      <>
         {/* Header con acciones principales */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-borde bg-superficie-2/50">
           <div className="flex items-center gap-3">
@@ -125,7 +113,7 @@ export const DocumentoModal: React.FC<DocumentoModalProps> = ({
               <FileText className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-body font-bold text-texto">
+              <h2 id={idTitulo} className="text-body font-bold text-texto">
                 {titulo} <span className="font-mono text-acento font-semibold">{venta.codigo}</span>
               </h2>
               <p className="text-caption text-texto-3">
@@ -177,9 +165,9 @@ export const DocumentoModal: React.FC<DocumentoModalProps> = ({
 
             <button
               type="button"
-              onClick={onCerrar}
+              onClick={cerrar}
               className="p-1.5 rounded-lg text-texto-3 hover:text-texto hover:bg-superficie-2 transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.94] ml-2 cursor-pointer"
-              aria-label="Cerrar modal"
+              aria-label="Cerrar"
             >
               <X className="w-5 h-5" />
             </button>
@@ -192,12 +180,15 @@ export const DocumentoModal: React.FC<DocumentoModalProps> = ({
             <iframe
               srcDoc={html}
               title={`Vista previa ${venta.codigo}`}
+              // Fuera del recorrido de Tab: adentro de un iframe las teclas son
+              // de otro documento y el foco se escapaba a la pantalla de atrás.
+              tabIndex={-1}
               className="w-full h-[68vh] min-h-[520px] border-0"
             />
           </div>
         </div>
-      </div>
-    </div>
-    </Portal>
+      </>
+      )}
+    </Ventana>
   );
 };

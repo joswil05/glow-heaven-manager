@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useId, useRef } from 'react';
 import { Users, Plus, Search, Trash2, X, MessageCircle, MapPin, Wallet, ShoppingBag, Copy, FileEdit, Eye, CreditCard, Clock, ChevronDown, MoreVertical } from 'lucide-react';
 import type { ClienteDetalle, Venta, ParametrosSistema, PagoCompleto, MetodoPago, MonedaPago } from '../../../shared/types';
 import type { AbonoClienteInput } from '../../../shared/ipc-contracts';
@@ -13,11 +13,12 @@ import {
   DataTable,
   Confirmar,
   ContextMenu,
-  Portal,
+  Ventana,
   type Column,
 } from '../components/ui';
 import { EmptyState } from '../components/shared/EmptyState';
 import { useClickOutside } from '../lib/useClickOutside';
+import { useHayCambios } from '../lib/useHayCambios';
 import { useToast } from '../context/ToastContext';
 import { formatearMoneda, formatearFecha } from '@core/moneda';
 import { parsearACentavos } from '@core/numeros';
@@ -527,8 +528,11 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
                 {abonoAbierto && (
                   <div
                     className="px-4 pb-4 pt-3 space-y-3 border-t border-borde/60 animate-fade-in"
+                    // Ctrl+Enter registra, como en todas las ventanas (TRA-09). Con
+                    // Enter solo, registraba desde cualquier campo, también desde
+                    // la referencia a medio escribir.
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !abonoGuardando && abonoMontoTexto) {
+                      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !abonoGuardando && abonoMontoTexto) {
                         e.preventDefault();
                         registrarAbono();
                       }
@@ -729,6 +733,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
           'Lo que debía vuelve a quedar pendiente.',
         ]}
         textoConfirmar="Anular abono"
+        textoOcupado="Anulando…"
         textoCancelar="Cancelar"
         onConfirmar={confirmarAnularPago}
         onCerrar={() => setPagoAnulando(null)}
@@ -756,6 +761,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
           'Sus ventas y pagos se conservan.',
         ]}
         textoConfirmar="Eliminar"
+        textoOcupado="Eliminando…"
         onConfirmar={() => archivando && archivar(archivando)}
         onCerrar={() => setArchivando(null)}
       />
@@ -868,11 +874,18 @@ const ClienteModal: React.FC<{
   const [ciudad, setCiudad] = useState('');
   const [notas, setNotas] = useState('');
   const [guardando, setGuardando] = useState(false);
+  /** Lo que responde el servidor. El nombre que falta va en su campo. */
   const [error, setError] = useState<string | null>(null);
+  const [errorNombre, setErrorNombre] = useState<string | null>(null);
+  const [versionFormulario, setVersionFormulario] = useState(0);
+  const idTitulo = useId();
+  const nombreRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!abierto) return;
     setError(null);
+    setErrorNombre(null);
+    setVersionFormulario((n) => n + 1);
     setNombre(cliente?.nombre ?? '');
     setAlias(cliente?.alias ?? '');
     setTelefono(cliente?.telefono ?? '');
@@ -881,20 +894,16 @@ const ClienteModal: React.FC<{
     setNotas(cliente?.notas ?? '');
   }, [abierto, cliente]);
 
-  useEffect(() => {
-    if (!abierto) return;
-    const alPresionar = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCerrar();
-    };
-    window.addEventListener('keydown', alPresionar);
-    return () => window.removeEventListener('keydown', alPresionar);
-  }, [abierto, onCerrar]);
-
-  if (!abierto) return null;
+  const hayCambios = useHayCambios(
+    JSON.stringify([nombre, alias, telefono, direccion, ciudad, notas]),
+    versionFormulario
+  );
 
   const guardar = async () => {
+    if (guardando) return;
     if (!nombre.trim()) {
-      setError('La clienta necesita un nombre.');
+      setErrorNombre('La clienta necesita un nombre.');
+      nombreRef.current?.focus();
       return;
     }
 
@@ -923,54 +932,23 @@ const ClienteModal: React.FC<{
     }
   };
 
-  const alPresionarEnter = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key !== 'Enter') return;
-    const target = e.target as HTMLElement;
-    if (target.tagName === 'TEXTAREA' || target.tagName === 'BUTTON') return;
-
-    if (target.tagName === 'INPUT' || target.tagName === 'SELECT') {
-      e.preventDefault();
-      const contenedor = e.currentTarget;
-      const campos = Array.from(
-        contenedor.querySelectorAll<HTMLElement>(
-          'input:not([type="hidden"]):not([type="checkbox"]):not([disabled]), select:not([disabled])'
-        )
-      ).filter((el) => el.offsetParent !== null);
-
-      const idx = campos.indexOf(target);
-      if (idx !== -1 && idx + 1 < campos.length) {
-        const siguiente = campos[idx + 1];
-        siguiente.focus();
-        if (siguiente instanceof HTMLInputElement) {
-          siguiente.select?.();
-        }
-      } else {
-        guardar();
-      }
-    }
-  };
-
   return (
-    <Portal>
-      <div
-        className="fixed inset-0 z-[100] flex items-center justify-center bg-velo/60 backdrop-blur-xs p-4 cursor-pointer"
-        role="dialog"
-        aria-modal="true"
-      aria-labelledby="titulo-cliente"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onCerrar();
-      }}
+    <Ventana
+      abierto={abierto}
+      onCerrar={onCerrar}
+      hayCambios={hayCambios}
+      ocupado={guardando}
+      onEnviar={guardar}
+      idTitulo={idTitulo}
+      clasePanel="rounded-2xl max-w-lg overflow-hidden"
     >
-      <div
-        onKeyDown={alPresionarEnter}
-        onClick={(e) => e.stopPropagation()}
-        className="bg-superficie rounded-2xl shadow-2xl w-full max-w-lg animate-modal-pop border border-borde/80 overflow-hidden cursor-default"
-      >
+      {(cerrar) => (
+      <>
         <header className="flex items-center justify-between px-5 py-4 border-b border-borde">
-          <h3 id="titulo-cliente" className="text-title text-texto">
+          <h3 id={idTitulo} className="text-title text-texto">
             {cliente ? `Editar ${cliente.nombre}` : 'Agregar clienta'}
           </h3>
-          <Button variant="ghost" size="sm" onClick={onCerrar} aria-label="Cerrar">
+          <Button variant="ghost" size="sm" onClick={cerrar} aria-label="Cerrar">
             <X className="w-4 h-4" />
           </Button>
         </header>
@@ -983,10 +961,14 @@ const ClienteModal: React.FC<{
           )}
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Nombre">
+            <Field label="Nombre" error={errorNombre ?? undefined}>
               <Input
+                ref={nombreRef}
                 value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
+                onChange={(e) => {
+                  setNombre(e.target.value);
+                  setErrorNombre(null);
+                }}
                 onBlur={() => setNombre((prev) => formatearNombreEntidad(prev))}
                 autoFocus
               />
@@ -1024,16 +1006,16 @@ const ClienteModal: React.FC<{
         </div>
 
         <footer className="flex items-center justify-end gap-2 px-5 py-4 border-t border-borde">
-          <Button variant="secondary" onClick={onCerrar} disabled={guardando}>
+          <Button variant="secondary" onClick={cerrar} disabled={guardando}>
             Cancelar
           </Button>
-          <Button variant="primary" onClick={guardar} disabled={guardando}>
-            {guardando ? 'Guardando...' : 'Guardar'}
+          <Button variant="primary" onClick={guardar} disabled={guardando} aria-keyshortcuts="Control+Enter">
+            {guardando ? 'Guardando…' : 'Guardar'}
           </Button>
         </footer>
-      </div>
-    </div>
-    </Portal>
+      </>
+      )}
+    </Ventana>
   );
 };
 

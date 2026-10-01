@@ -131,16 +131,17 @@ export const CorregirPagoModal: React.FC<CorregirPagoModalProps> = ({
       hayCambios={hayCambios}
       onCerrar={onCerrar}
       onEnviar={guardar}
-      pie={
+      // "Cancelar" pregunta, como Escape, si hay algo escrito.
+      pie={(cerrar) => (
         <div className="flex items-center justify-end gap-2 w-full">
-          <Button variant="secondary" onClick={onCerrar} disabled={guardando}>
+          <Button variant="secondary" onClick={cerrar} disabled={guardando}>
             Cancelar
           </Button>
           <Button variant="primary" onClick={guardar} disabled={guardando} className="min-w-[9.5rem]">
             {guardando ? 'Guardando…' : 'Guardar corrección'}
           </Button>
         </div>
-      }
+      )}
     >
       <div className="space-y-4">
         <p className="text-caption text-texto-3 -mt-2 tabular">

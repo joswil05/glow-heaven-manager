@@ -195,7 +195,8 @@ export const CotizarEncargoModal: React.FC<CotizarEncargoModalProps> = ({ venta,
       hayCambios={hayCambios}
       onCerrar={onCerrar}
       onEnviar={guardar}
-      pie={
+      // "Cancelar" pregunta, como Escape, si hay algo escrito.
+      pie={(cerrar) => (
         <>
           <span className="text-label text-texto-2 tabular">
             {vivas.length === 0 && lista.length > 0
@@ -205,7 +206,7 @@ export const CotizarEncargoModal: React.FC<CotizarEncargoModalProps> = ({ venta,
                 : `Total ${formatearMoneda(total, 'USD')} · anticipo ${formatearMoneda(Math.round((total * anticipoBp) / 10000), 'USD')}`}
           </span>
           <div className="flex items-center gap-2">
-            <Button variant="secondary" onClick={onCerrar} disabled={guardando}>
+            <Button variant="secondary" onClick={cerrar} disabled={guardando}>
               Cancelar
             </Button>
             <Button variant="primary" onClick={guardar} disabled={!piezas || guardando} className="min-w-[9rem]">
@@ -213,7 +214,7 @@ export const CotizarEncargoModal: React.FC<CotizarEncargoModalProps> = ({ venta,
             </Button>
           </div>
         </>
-      }
+      )}
     >
       {!piezas ? (
         <p className="text-label text-texto-3">Cargando sus piezas…</p>

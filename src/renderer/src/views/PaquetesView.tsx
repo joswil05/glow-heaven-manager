@@ -685,6 +685,7 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
           'Los productos nuevos que creaste quedan en el catálogo, sin unidades.',
         ]}
         textoConfirmar="Sí, eliminarlo"
+        textoOcupado="Eliminando…"
         onConfirmar={() => borrando && borrar(borrando)}
         onCerrar={() => setBorrando(null)}
       />

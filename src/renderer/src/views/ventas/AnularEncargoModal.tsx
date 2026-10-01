@@ -16,7 +16,8 @@ import { cn } from '../../lib/cn';
  */
 interface AnularEncargoModalProps {
   venta: Venta | VentaCompleta | null;
-  onConfirmar: (opciones: OpcionesAnulacion) => void;
+  /** Si devuelve una promesa, la ventana dice "Anulando…" hasta que termine. */
+  onConfirmar: (opciones: OpcionesAnulacion) => unknown;
   onCerrar: () => void;
 }
 
@@ -63,6 +64,7 @@ export const AnularEncargoModal: React.FC<AnularEncargoModalProps> = ({ venta, o
   const [destinos, setDestinos] = useState<Record<number, Destino>>({});
   const [anticipo, setAnticipo] = useState<'DEVOLVER' | 'RETENER'>('DEVOLVER');
   const [motivo, setMotivo] = useState<Motivo>('YA_NO');
+  const [anulando, setAnulando] = useState(false);
   const salidaRef = useRef<HTMLButtonElement>(null);
 
   // Las piezas hacen falta enteras: una venta de la lista viene sin líneas.
@@ -91,10 +93,21 @@ export const AnularEncargoModal: React.FC<AnularEncargoModalProps> = ({ venta, o
   const esperando = lineas.filter((l) => estadoPieza(l) === 'COMPRADA');
   const pagado = venta?.pagado_usd_cents || 0;
 
-  const confirmar = () => {
+  // Anular tarda (devuelve piezas, recalcula saldos): sin respuesta en
+  // pantalla se apretaba dos veces (ENC-23). Se queda abierta hasta que termina.
+  const confirmar = async () => {
+    if (anulando) return;
     const piezas: OpcionesAnulacion['piezas'] = {};
     for (const l of llegadas) piezas[l.id] = { destino: destinos[l.id] ?? 'BODEGA' };
-    onConfirmar({ anticipo, piezas, motivo: motivo === 'YA_NO' ? undefined : motivo });
+    const r = onConfirmar({ anticipo, piezas, motivo: motivo === 'YA_NO' ? undefined : motivo });
+    if (r instanceof Promise) {
+      setAnulando(true);
+      try {
+        await r;
+      } finally {
+        setAnulando(false);
+      }
+    }
     onCerrar();
   };
 
@@ -105,15 +118,16 @@ export const AnularEncargoModal: React.FC<AnularEncargoModalProps> = ({ venta, o
       rol="alertdialog"
       ancho="md"
       encima
+      ocupado={anulando}
       onCerrar={onCerrar}
       pie={
         <div className="flex items-center justify-end gap-2 w-full">
           {/* El foco arranca en la salida, no en la acción que destruye. */}
-          <Button ref={salidaRef} variant="secondary" onClick={onCerrar} autoFocus>
+          <Button ref={salidaRef} variant="secondary" onClick={onCerrar} autoFocus disabled={anulando}>
             No, dejarlo como está
           </Button>
-          <Button variant="danger" onClick={confirmar} disabled={!completa}>
-            Anular el encargo
+          <Button variant="danger" onClick={confirmar} disabled={!completa || anulando}>
+            {anulando ? 'Anulando…' : 'Anular el encargo'}
           </Button>
         </div>
       }

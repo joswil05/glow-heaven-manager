@@ -6,6 +6,7 @@ import { parsearACentavos } from '@core/numeros';
 import { hoyISO } from '@core/fechas';
 import { monedaPorDefecto, metodoPorDefecto } from '@core/preferencias';
 import { cn } from '../../lib/cn';
+import { useHayCambios } from '../../lib/useHayCambios';
 
 /**
  * "Aceptó": la clienta dijo que sí a la cotización. Es un paso propio desde
@@ -36,11 +37,14 @@ export const AceptarEncargoModal: React.FC<AceptarEncargoModalProps> = ({ venta,
   const [metodo, setMetodo] = useState<MetodoPago>('EFECTIVO');
   const [referencia, setReferencia] = useState('');
   const [fecha, setFecha] = useState(hoyISO());
+  /** Lo del monto, en su campo. */
   const [error, setError] = useState<string | null>(null);
+  /** Lo que responde el servidor (sin conexión…): arriba, aparte del monto (ENC-21). */
+  const [errorServidor, setErrorServidor] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
+  const [versionFormulario, setVersionFormulario] = useState(0);
   const montoRef = useRef<HTMLInputElement>(null);
   const noPagoRef = useRef<HTMLButtonElement>(null);
-  const [montoInicial, setMontoInicial] = useState('');
 
   // Lo que falta del anticipo: lo más probable es que pague eso.
   const falta = venta ? Math.max(0, venta.anticipo_esperado_usd_cents - venta.pagado_usd_cents) : 0;
@@ -54,15 +58,23 @@ export const AceptarEncargoModal: React.FC<AceptarEncargoModalProps> = ({ venta,
     const enMoneda = monedaInicial === 'COR' ? usdCentavosACorCentavos(falta, venta.tasa_cambio_cents) : falta;
     const texto = falta > 0 ? (enMoneda / 100).toFixed(2) : '';
     setMonto(texto);
-    setMontoInicial(texto);
     setMoneda(monedaInicial);
     setMetodo(metodoPorDefecto(parametros));
     setReferencia('');
     setFecha(hoyISO());
     setError(null);
+    setErrorServidor(null);
+    setVersionFormulario((n) => n + 1);
     // Se reinicia al abrir otro encargo, no cuando cambian los parámetros.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [venta]);
+
+  // Todo lo que se escribió cuenta, no sólo el monto (ENC-20): la referencia o
+  // el método se perdían con Escape sin preguntar.
+  const hayCambios = useHayCambios(
+    JSON.stringify([pago, monto, moneda, metodo, referencia.trim(), fecha]),
+    versionFormulario
+  );
 
   const elegirPago = (si: boolean) => {
     setPago(si);
@@ -86,6 +98,7 @@ export const AceptarEncargoModal: React.FC<AceptarEncargoModalProps> = ({ venta,
     }
     setGuardando(true);
     setError(null);
+    setErrorServidor(null);
     const r = await window.api.ventas.aceptar(
       venta.id,
       pago && centavos !== null
@@ -93,7 +106,7 @@ export const AceptarEncargoModal: React.FC<AceptarEncargoModalProps> = ({ venta,
         : undefined
     );
     setGuardando(false);
-    if (!r.success) return setError(r.error);
+    if (!r.success) return setErrorServidor(r.error);
     onAceptado(r.data.evento_grupo_id);
     onCerrar();
   };
@@ -110,17 +123,19 @@ export const AceptarEncargoModal: React.FC<AceptarEncargoModalProps> = ({ venta,
       titulo={venta ? `${venta.cliente_nombre ?? 'La clienta'} aceptó` : ''}
       ancho="md"
       encima
-      hayCambios={pago && monto !== montoInicial}
+      hayCambios={hayCambios}
+      ocupado={guardando}
       onCerrar={onCerrar}
       onEnviar={guardar}
-      pie={
+      // "Cancelar" pregunta, como Escape, si hay algo escrito.
+      pie={(cerrar) => (
         venta && (
           <>
             <span className="text-label text-texto-2 tabular">
               {venta.codigo} · {$(venta.total_usd_cents)}
             </span>
             <div className="flex items-center gap-2">
-              <Button variant="secondary" onClick={onCerrar} disabled={guardando}>
+              <Button variant="secondary" onClick={cerrar} disabled={guardando}>
                 Cancelar
               </Button>
               <Button variant="primary" onClick={guardar} disabled={guardando} className="min-w-[7.5rem]">
@@ -129,10 +144,15 @@ export const AceptarEncargoModal: React.FC<AceptarEncargoModalProps> = ({ venta,
             </div>
           </>
         )
-      }
+      )}
     >
       {venta && (
         <>
+          {errorServidor && (
+            <p role="alert" className="rounded-md border border-danger-200 bg-danger-50 p-3 text-label text-danger-800">
+              {errorServidor}
+            </p>
+          )}
           <p className="text-body text-texto-2">
             Pasa a <strong className="text-texto">por comprar</strong>. El anticipo es de{' '}
             <span className="tabular">{$(venta.anticipo_esperado_usd_cents)}</span>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useId } from 'react';
 import {
   X,
   Plus,
@@ -25,7 +25,10 @@ import type {
   TipoDescuento,
   VentaCompleta,
 } from '../../../../shared/types';
-import { Button, Field, Input, Select, Textarea, Badge, Money, Portal } from '../../components/ui';
+import { Button, Field, Input, Select, Textarea, Badge, Money, Ventana } from '../../components/ui';
+import { useHayCambios } from '../../lib/useHayCambios';
+import { useListaConTeclado } from '../../lib/useListaConTeclado';
+import { enfocarPrimerError } from '../../lib/enfocarPrimerError';
 import { parsearDecimal, parsearACentavos } from '@core/numeros';
 import { formatearMoneda, usdCentavosACorCentavos } from '@core/moneda';
 import { useToast } from '../../context/ToastContext';
@@ -161,12 +164,22 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
   const [lineaBuscando, setLineaBuscando] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * De qué campo es el error (`"<línea>:cantidad"`, `"anticipo"`…). Con
+   * campo, el mensaje va debajo de él y el foco salta ahí (VED-05); sin
+   * campo (lo que responde el servidor), arriba del paso.
+   */
+  const [errorCampo, setErrorCampo] = useState<string | null>(null);
+  const cuerpoRef = React.useRef<HTMLDivElement>(null);
 
   // --- Descuento ---
   const [descuentoAbierto, setDescuentoAbierto] = useState(false);
   const [descuentoTipo, setDescuentoTipo] = useState<TipoDescuento>('PORCENTAJE');
   const [descuentoValorTexto, setDescuentoValorTexto] = useState('');
   const [descuentoMotivo, setDescuentoMotivo] = useState('');
+  /** Sube cada vez que el formulario se reinicia: es la firma de partida. */
+  const [versionFormulario, setVersionFormulario] = useState(0);
+  const idTitulo = useId();
 
   useEffect(() => {
     setListaClientes(clientes);
@@ -228,21 +241,44 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
         setDescuentoMotivo(v.descuento_motivo ?? '');
       }
     }
+    setVersionFormulario((n) => n + 1);
     // `corrigiendo` entra por su id: la misma venta recargada no borra lo escrito.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [abierto, parametros, esEncargo, corrigiendoId]);
 
+  // Lo que se perdería al cerrar. El texto del buscador no cuenta: buscar sin
+  // elegir no es un dato.
+  const firma = JSON.stringify([
+      clienteId,
+      fecha,
+      lineas.map((l) => [l.producto_id, l.variante_id, l.descripcion, l.cantidad, l.precio, l.costo_estimado, l.tienda, l.peso]),
+      notas,
+      entregarAhora,
+      anticipoTexto,
+      formaCobro,
+      metodoPago,
+      monedaPago,
+      referenciaPago,
+      conCuotas,
+      cuotasCantidad,
+      cuotasCada,
+      descuentoTipo,
+      descuentoValorTexto,
+      descuentoMotivo,
+      ajustarAbono,
+      nuevoNombreCliente,
+      nuevoTelefonoCliente,
+      nuevaDireccionCliente,
+    ]);
+  const hayCambios = useHayCambios(firma, versionFormulario);
+
+  // Lo que se corrige deja de marcarse: un error que ya no es cierto confunde.
   useEffect(() => {
-    if (!abierto) return;
-    const alPresionar = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (lineaBuscando) setLineaBuscando(null);
-        else onCerrar();
-      }
-    };
-    window.addEventListener('keydown', alPresionar);
-    return () => window.removeEventListener('keydown', alPresionar);
-  }, [abierto, onCerrar, lineaBuscando]);
+    if (!errorCampo) return;
+    setErrorCampo(null);
+    setError(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firma]);
 
   const totales = useMemo(() => {
     const subtotal = lineas.reduce(
@@ -378,6 +414,15 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
       .slice(0, 8);
   }, [busquedaProducto, productos, esEncargo, devueltas]);
 
+  // Flechas y Enter en la lista de productos (VED-02).
+  const listaProductos = useListaConTeclado(
+    resultadosBusqueda.length,
+    (i) => {
+      if (lineaBuscando && resultadosBusqueda[i]) elegirProducto(lineaBuscando, resultadosBusqueda[i]);
+    },
+    `${lineaBuscando}:${busquedaProducto}`
+  );
+
   /**
    * Qué cambia al corregir, en palabras: lo que se saca, lo que se agrega y
    * lo que cambia de cantidad o de precio. Se compara por producto y talla, o
@@ -423,8 +468,6 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
     }
     return salida;
   }, [corrigiendo, lineas]);
-
-  if (!abierto) return null;
 
   const actualizarLinea = (clave: string, campo: keyof LineaBorrador, valor: unknown) =>
     setLineas((prev) => prev.map((l) => (l.clave === clave ? { ...l, [campo]: valor } : l)));
@@ -504,33 +547,36 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
   const esPedido = esEncargo && lineas.some((l) => !l.precio.trim());
 
   const validarPaso = (p: 1 | 2 | 3): boolean => {
+    // El error va a su campo; si el campo es de otro paso, se vuelve a ese paso.
+    const falla = (campo: string, mensaje: string) => {
+      setError(mensaje);
+      setErrorCampo(campo);
+      if (paso !== p) setPaso(p);
+      enfocarPrimerError(cuerpoRef.current);
+      return false;
+    };
     if (p === 1) {
       if (lineas.length === 0) {
-        setError('Agregá al menos un producto.');
-        return false;
+        return falla('lineas', 'Agregá al menos un producto.');
       }
       const sinNombre = lineas.find((l) => !l.producto_id && !l.descripcion.trim());
       if (sinNombre) {
-        setError('Cada línea necesita un producto o una descripción.');
-        return false;
+        return falla(`${sinNombre.clave}:producto`, 'Cada línea necesita un producto o una descripción.');
       }
       for (const l of lineas) {
         const cant = parsearDecimal(l.cantidad, { min: 1 });
         if (cant === null) {
-          setError('Cada cantidad tiene que ser un número entero, 1 o más.');
-          return false;
+          return falla(`${l.clave}:cantidad`, 'Tiene que ser un número entero, 1 o más.');
         }
         // En un encargo el precio puede quedar vacío: es un pedido.
         const precioCents = esEncargo && !l.precio.trim() ? 0 : parsearACentavos(l.precio, { min: 0.01 });
         if (precioCents === null) {
-          setError(esEncargo ? 'El precio tiene que ser mayor a $0, o quedar vacío.' : 'Cada producto necesita un precio mayor a $0.');
-          return false;
+          return falla(`${l.clave}:precio`, esEncargo ? 'Mayor a $0, o vacío.' : 'Tiene que ser mayor a $0.');
         }
         if (esEncargo && l.costo_estimado.trim()) {
           const costoCents = parsearACentavos(l.costo_estimado, { min: 0 });
           if (costoCents === null) {
-            setError('El costo estimado no es un monto válido.');
-            return false;
+            return falla(`${l.clave}:costo`, 'No es un monto válido.');
           }
         }
       }
@@ -539,54 +585,48 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
         if (!l.producto_id || esEncargo) continue;
         const pProd = productos.find((x) => x.id === l.producto_id);
         if (pProd && pProd.variantes.length > 1 && !l.variante_id) {
-          setError(`Elegí la talla o color de "${pProd.nombre}".`);
-          return false;
+          return falla(`${l.clave}:variante`, 'Elegí la talla o el tono.');
         }
       }
     }
 
     if (p === 2) {
       if (esEncargo && !clienteId) {
-        setError('Un encargo necesita una clienta asignada.');
-        return false;
+        return falla('clienta', 'Un encargo necesita una clienta.');
       }
       if (esEncargo) {
         const ant = parsearDecimal(anticipoTexto, { min: 0, max: 100 });
         if (ant === null) {
-          setError('El anticipo va de 0 a 100%.');
-          return false;
+          return falla('anticipo', 'Va de 0 a 100%.');
         }
       }
       if (!esEncargo && formaCobro === 'CREDITO' && conCuotas) {
         const cuotas = parsearDecimal(cuotasCantidad, { min: 2 });
         if (cuotas === null) {
-          setError('El número de cuotas debe ser al menos 2.');
-          return false;
+          return falla('cuotas', 'Al menos 2.');
         }
         const cada = parsearDecimal(cuotasCada, { min: 1 });
         if (cada === null) {
-          setError('Los días entre cuotas tienen que ser 1 o más.');
-          return false;
+          return falla('cada', '1 o más.');
         }
       }
       if (descuentoValorTexto.trim()) {
         if (descuentoTipo === 'PORCENTAJE') {
           const dv = parsearDecimal(descuentoValorTexto, { min: 0, max: 100 });
           if (dv === null) {
-            setError('El descuento va de 0 a 100%.');
-            return false;
+            return falla('descuento', 'Va de 0 a 100%.');
           }
         } else {
           const dv = parsearACentavos(descuentoValorTexto, { min: 0 });
           if (dv === null) {
-            setError('El descuento no es un monto válido.');
-            return false;
+            return falla('descuento', 'No es un monto válido.');
           }
         }
       }
     }
 
     setError(null);
+    setErrorCampo(null);
     return true;
   };
 
@@ -776,27 +816,31 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
   ];
 
   return (
-    <Portal>
-      <div
-        className="fixed inset-0 z-[100] flex items-center justify-center bg-velo/60 backdrop-blur-xs p-4 cursor-pointer"
-        role="dialog"
-        aria-modal="true"
-      aria-labelledby="titulo-venta"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onCerrar();
+    <Ventana
+      abierto={abierto}
+      onCerrar={onCerrar}
+      hayCambios={hayCambios}
+      ocupado={guardando}
+      idTitulo={idTitulo}
+      clasePanel="rounded-2xl max-w-3xl max-h-[92vh] overflow-hidden"
+      onKeyDownPanel={alPresionarEnter}
+      // Ctrl+Enter hace lo del botón principal: avanzar o, en el último paso, guardar.
+      onEnviar={() => (paso < 3 ? siguientePaso() : guardar())}
+      // Escape por capas: primero la lista de productos, después la venta.
+      alEscape={() => {
+        if (!lineaBuscando) return false;
+        setLineaBuscando(null);
+        return true;
       }}
     >
-      <div
-        onKeyDown={alPresionarEnter}
-        onClick={(e) => e.stopPropagation()}
-        className="bg-superficie rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden border border-borde/80 animate-modal-pop cursor-default"
-      >
+      {(cerrar) => (
+      <>
         {/* Cabecera */}
         <header className="flex items-center justify-between px-6 py-4 border-b border-borde shrink-0 bg-superficie">
-          <h3 id="titulo-venta" className="text-title text-texto font-semibold">
+          <h3 id={idTitulo} className="text-title text-texto font-semibold">
             {corrigiendo ? `Corregir ${corrigiendo.codigo}` : esEncargo ? 'Nuevo encargo' : 'Nueva venta'}
           </h3>
-          <Button variant="ghost" size="sm" onClick={onCerrar} aria-label="Cerrar">
+          <Button variant="ghost" size="sm" onClick={cerrar} aria-label="Cerrar">
             <X className="w-4 h-4" />
           </Button>
         </header>
@@ -848,9 +892,9 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
         </div>
 
         {/* Cuerpo del formulario con Scroll */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-5">
-          {error && (
-            <div className="flex items-start gap-2 rounded-md border border-danger-200 bg-danger-50 p-3">
+        <div ref={cuerpoRef} className="flex-1 overflow-y-auto p-6 space-y-5">
+          {error && (!errorCampo || errorCampo === 'lineas') && (
+            <div role="alert" className="flex items-start gap-2 rounded-md border border-danger-200 bg-danger-50 p-3">
               <AlertTriangle className="w-4 h-4 text-danger-600 shrink-0 mt-0.5" />
               <p className="text-label text-danger-800">{error}</p>
             </div>
@@ -908,16 +952,26 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                               value={busquedaProducto}
                               onChange={(e) => setBusquedaProducto(e.target.value)}
                               placeholder="Buscar por nombre o código"
+                              aria-label="Buscar producto"
+                              aria-invalid={errorCampo === `${l.clave}:producto` || undefined}
                               className="pl-9"
+                              {...listaProductos.propsCampo}
                             />
-                            <ul className="absolute z-20 mt-1 w-full max-h-56 overflow-y-auto rounded-lg border border-borde bg-superficie shadow-xl">
+                            <ul
+                              {...listaProductos.propsLista}
+                              className="absolute z-20 mt-1 w-full max-h-56 overflow-y-auto rounded-lg border border-borde bg-superficie shadow-xl"
+                            >
                               {resultadosBusqueda.length > 0 ? (
-                                resultadosBusqueda.map((p) => (
-                                  <li key={p.id}>
+                                resultadosBusqueda.map((p, i) => (
+                                  <li key={p.id} role="presentation">
                                     <button
                                       type="button"
                                       onClick={() => elegirProducto(l.clave, p)}
-                                      className="w-full text-left px-3 py-2.5 hover:bg-superficie-2 focus-visible:outline-none focus-visible:bg-superficie-2 flex items-center justify-between gap-2 border-b border-borde/40 last:border-b-0"
+                                      {...listaProductos.propsOpcion(i)}
+                                      className={cn(
+                                        'w-full text-left px-3 py-2.5 hover:bg-superficie-2 focus-visible:outline-none focus-visible:bg-superficie-2 flex items-center justify-between gap-2 border-b border-borde/40 last:border-b-0',
+                                        listaProductos.activo === i && 'bg-superficie-2'
+                                      )}
                                     >
                                       <div>
                                         <span className="text-body text-texto font-medium block">
@@ -939,11 +993,11 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                                   </li>
                                 ))
                               ) : (
-                                <li className="px-3 py-3 text-label text-texto-3">
+                                <li role="presentation" className="px-3 py-3 text-label text-texto-3">
                                   Ningún producto coincide.
                                 </li>
                               )}
-                              <li className="border-t border-borde bg-superficie-2">
+                              <li role="presentation" className="border-t border-borde bg-superficie-2">
                                 <button
                                   type="button"
                                   onClick={() => setLineaBuscando(null)}
@@ -971,6 +1025,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                               placeholder={
                                 esEncargo ? 'Ej: Vestido floral' : 'Producto fuera del inventario'
                               }
+                              aria-invalid={errorCampo === `${l.clave}:producto` || undefined}
                               className="flex-1"
                             />
                             <Button
@@ -1001,10 +1056,19 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                         )}
                       </div>
 
+                      {errorCampo === `${l.clave}:producto` && (
+                        <p role="alert" className="text-caption text-danger-700">
+                          {error}
+                        </p>
+                      )}
+
                       {/* Variantes, Cantidad, Precio y Subtotal */}
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
                         {producto && producto.variantes.length > 1 && !esEncargo ? (
-                          <Field label="Talla o tono">
+                          <Field
+                            label="Talla o tono"
+                            error={errorCampo === `${l.clave}:variante` ? (error ?? undefined) : undefined}
+                          >
                             <Select
                               value={l.variante_id ?? ''}
                               onChange={(e) =>
@@ -1028,7 +1092,16 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                           <div className="hidden sm:block" />
                         )}
 
-                        <Field label="Cantidad" error={excedeStock ? 'Hay menos en bodega' : undefined}>
+                        <Field
+                          label="Cantidad"
+                          error={
+                            errorCampo === `${l.clave}:cantidad`
+                              ? (error ?? undefined)
+                              : excedeStock
+                                ? 'Hay menos en bodega'
+                                : undefined
+                          }
+                        >
                           <Input
                             type="number"
                             min="1"
@@ -1038,7 +1111,10 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                           />
                         </Field>
 
-                        <Field label="Precio ($)">
+                        <Field
+                          label="Precio ($)"
+                          error={errorCampo === `${l.clave}:precio` ? (error ?? undefined) : undefined}
+                        >
                           <Input
                             value={l.precio}
                             onChange={(e) => actualizarLinea(l.clave, 'precio', e.target.value)}
@@ -1048,7 +1124,10 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                         </Field>
 
                         {esEncargo ? (
-                          <Field label="Costo estimado ($)">
+                          <Field
+                            label="Costo estimado ($)"
+                            error={errorCampo === `${l.clave}:costo` ? (error ?? undefined) : undefined}
+                          >
                             <Input
                               value={l.costo_estimado}
                               onChange={(e) =>
@@ -1273,8 +1352,15 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                             value={busquedaCliente}
                             onChange={(e) => setBusquedaCliente(e.target.value)}
                             placeholder="Buscar clienta por nombre o teléfono"
+                            aria-label="Buscar clienta"
+                            aria-invalid={errorCampo === 'clienta' || undefined}
                             className="pl-9"
                           />
+                          {errorCampo === 'clienta' && (
+                            <p role="alert" className="mt-1 text-caption text-danger-700">
+                              {error}
+                            </p>
+                          )}
                         </div>
                         <Button
                           type="button"
@@ -1396,7 +1482,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                   </p>
                 ) : esEncargo ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Field label="Anticipo (%)">
+                    <Field label="Anticipo (%)" error={errorCampo === 'anticipo' ? (error ?? undefined) : undefined}>
                       <Input
                         value={anticipoTexto}
                         onChange={(e) => setAnticipoTexto(e.target.value)}
@@ -1500,7 +1586,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
 
                         {conCuotas && (
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pl-6 pt-1">
-                            <Field label="Cuotas">
+                            <Field label="Cuotas" error={errorCampo === 'cuotas' ? (error ?? undefined) : undefined}>
                               <Input
                                 type="number"
                                 min="2"
@@ -1509,7 +1595,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                                 className="text-right"
                               />
                             </Field>
-                            <Field label="Cada (días)">
+                            <Field label="Cada (días)" error={errorCampo === 'cada' ? (error ?? undefined) : undefined}>
                               <Input
                                 type="number"
                                 min="1"
@@ -1608,7 +1694,10 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                           <option value="MONTO_FIJO">Monto fijo</option>
                         </Select>
                       </Field>
-                      <Field label={descuentoTipo === 'PORCENTAJE' ? 'Porcentaje (%)' : 'Monto ($)'}>
+                      <Field
+                        label={descuentoTipo === 'PORCENTAJE' ? 'Porcentaje (%)' : 'Monto ($)'}
+                        error={errorCampo === 'descuento' ? (error ?? undefined) : undefined}
+                      >
                         <Input
                           type="number"
                           min="0"
@@ -1929,7 +2018,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                 <span>Atrás</span>
               </Button>
             ) : (
-              <Button variant="secondary" onClick={onCerrar} disabled={guardando}>
+              <Button variant="secondary" onClick={cerrar} disabled={guardando}>
                 Cancelar
               </Button>
             )}
@@ -1973,8 +2062,8 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
             )}
           </div>
         </footer>
-      </div>
-    </div>
-    </Portal>
+      </>
+      )}
+    </Ventana>
   );
 };

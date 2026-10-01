@@ -380,6 +380,15 @@
 .animate-modal-salida {
   animation: modalSalida 0.12s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)) forwards;
 }
+/* El velo entra sólo con opacidad: `animate-fade-in` además sube 6 px, y
+   con el velo se movía el fondo oscuro entero. */
+@keyframes veloEntrada {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-velo-entrada {
+  animation: veloEntrada 0.18s ease-out forwards;
+}
 @keyframes veloSalida {
   from { opacity: 1; }
   to { opacity: 0; }

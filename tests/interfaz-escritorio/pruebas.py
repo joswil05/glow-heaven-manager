@@ -369,7 +369,7 @@ def caso_registrar_paquete(page: Page) -> list[str]:
     page.wait_for_selector("text=Qué vino adentro", timeout=8000)
 
     page.get_by_label("Buscar producto para agregar").fill("Crema Nivea")
-    resultado = page.get_by_role("button", name="Crema Nivea de prueba", exact=False).first
+    resultado = page.get_by_role("option", name="Crema Nivea de prueba", exact=False).first
     # Existir no alcanza: en la 2.13.0 el resultado estaba en la página pero
     # recortado por el recuadro, y la prueba lo tocaba igual.
     if not se_ve_de_verdad(resultado):
@@ -578,7 +578,9 @@ def caso_comprado_espera_paquete(page: Page) -> list[str]:
         nombres = [lineas.nth(i).get_attribute("aria-label") or "" for i in range(lineas.count())]
         if not any("Perfume espera" in n for n in nombres):
             fallas.append(f"'Agregarla' no puso la pieza en el paquete (líneas: {nombres})")
+    # Con una línea cargada, "Cancelar" pregunta antes de descartarla.
     page.get_by_role("button", name="Cancelar").click()
+    page.get_by_role("alertdialog").get_by_role("button", name="Descartar").click()
     page.wait_for_timeout(500)
     return fallas
 
@@ -597,7 +599,7 @@ def caso_pedido_sin_precio(page: Page) -> list[str]:
     nuevo = page.get_by_role("dialog")
     nuevo.get_by_label("Clienta").fill("Mar")
     page.wait_for_timeout(500)
-    nuevo.get_by_role("button", name=re.compile("^María López")).first.click()
+    nuevo.get_by_role("option", name=re.compile("^María López")).first.click()
     page.wait_for_timeout(300)
     nuevo.get_by_label("Qué quiere 1").fill("Pedido sin precio")
     if nuevo.get_by_text("Sin precio: se cotiza después").count() == 0:
@@ -648,7 +650,7 @@ def caso_encargo_por_fases(page: Page) -> list[str]:
     nuevo = page.get_by_role("dialog")
     nuevo.get_by_label("Clienta").fill("Mar")
     page.wait_for_timeout(400)
-    nuevo.get_by_role("button", name=re.compile("^María López")).first.click()
+    nuevo.get_by_role("option", name=re.compile("^María López")).first.click()
     nuevo.get_by_label("Qué quiere 1").fill("Bolso fases")
     nuevo.get_by_role("button", name="Otra pieza").click()
     nuevo.get_by_label("Qué quiere 2").fill("Perfume fases")
@@ -1369,6 +1371,552 @@ def caso_configuracion_sin_recalculo(page: Page) -> list[str]:
     abierta = page.get_by_role("dialog", name="Precios para revisar")
     if abierta.count() > 0:
         abierta.get_by_role("button", name="Ahora no").click()
+    return fallas
+
+
+# ---------------------------------------------------------------------------
+# Fase 1 de la auditoría: un solo marco de ventana
+# ---------------------------------------------------------------------------
+
+JS_SALE_ANIMADA = """() => new Promise((listo) => {
+  requestAnimationFrame(() => requestAnimationFrame(() =>
+    listo(document.querySelector('.animate-modal-salida') !== null)));
+})"""
+
+JS_FOCO_ADENTRO = """(el) => el.contains(document.activeElement)"""
+
+
+def ventana_abierta(page: Page):
+    """La ventana de más arriba que no sea una confirmación."""
+    return page.locator("[role='dialog'][aria-modal='true']").last
+
+
+def abrir_nueva_venta(page: Page):
+    ir_a(page, "Inicio")
+    ir_a(page, "Ventas")
+    boton = page.get_by_role("button", name="Nueva venta").first
+    boton.click()
+    dlg = page.get_by_role("dialog", name="Nueva venta")
+    dlg.wait_for(timeout=3000)
+    return boton, dlg
+
+
+def escribir_en_venta(page: Page, dlg) -> None:
+    p = producto_para_vender(page)
+    buscar = dlg.get_by_placeholder("Buscar por nombre o código")
+    if buscar.count() == 0:
+        dlg.get_by_role("button", name="Buscar en inventario").click()
+    buscar.fill(p["nombre"])
+    page.wait_for_timeout(300)
+    dlg.locator("ul button", has_text=p["nombre"]).first.click()
+    page.wait_for_timeout(200)
+
+
+def abrir_paquete(page: Page):
+    ir_a(page, "Inicio")
+    ir_a(page, "Inventario")
+    boton = page.get_by_role("button", name="Registrar paquete").first
+    boton.click()
+    page.wait_for_selector("text=Qué vino adentro", timeout=8000)
+    return boton, ventana_abierta(page)
+
+
+def abrir_producto(page: Page):
+    ir_a(page, "Inicio")
+    ir_a(page, "Inventario")
+    boton = page.get_by_role("button", name="Producto nuevo").first
+    boton.click()
+    dlg = page.get_by_role("dialog", name="Producto nuevo")
+    dlg.wait_for(timeout=3000)
+    return boton, dlg
+
+
+def abrir_clienta(page: Page):
+    ir_a(page, "Inicio")
+    ir_a(page, "Clientes")
+    boton = page.get_by_role("button", name="Agregar clienta").first
+    boton.click()
+    dlg = page.get_by_role("dialog", name="Agregar clienta")
+    dlg.wait_for(timeout=3000)
+    return boton, dlg
+
+
+def abrir_abono_de_cobros(page: Page):
+    ir_a(page, "Inicio")
+    ir_a(page, "Cobros")
+    boton = page.get_by_role("button", name="Registrar abono").first
+    boton.click()
+    dlg = page.get_by_role("dialog", name="Registrar abono")
+    dlg.wait_for(timeout=3000)
+    return boton, dlg
+
+
+def abrir_ajuste(page: Page):
+    ir_a(page, "Inicio")
+    ir_a(page, "Inventario")
+    nombre = producto_para_vender(page)["nombre"]
+    fila_de(page, nombre).click()
+    page.wait_for_timeout(500)
+    boton = page.locator("aside").get_by_role("button", name="Ajustar stock").first
+    boton.click()
+    dlg = page.get_by_role("dialog", name="Ajustar existencias")
+    dlg.wait_for(timeout=3000)
+    return boton, dlg
+
+
+def abrir_encargo(page: Page):
+    ir_a(page, "Inicio")
+    ir_a(page, "Encargos")
+    boton = page.get_by_role("button", name="Nuevo encargo").first
+    boton.click()
+    dlg = page.get_by_role("dialog", name="Nuevo encargo")
+    dlg.wait_for(timeout=3000)
+    return boton, dlg
+
+
+def abrir_factura(page: Page):
+    codigo = page.evaluate("""async () => {
+      const r = await window.api.ventas.crear({
+        fecha: new Date().toISOString().slice(0, 10), tipo: 'INVENTARIO',
+        lineas: [{ descripcion: 'Para ver la factura', cantidad: 1, precio_unitario_usd_cents: 1000 }],
+      });
+      return (await window.api.ventas.get(r.data.id)).data.codigo;
+    }""")
+    ir_a(page, "Inicio")
+    ir_a(page, "Ventas")
+    fila_de(page, codigo).click()
+    page.wait_for_timeout(600)
+    boton = page.get_by_role("button", name="Ver factura").first
+    boton.click()
+    dlg = page.get_by_role("dialog", name=re.compile("^Factura"))
+    dlg.wait_for(timeout=3000)
+    return boton, dlg
+
+
+VENTANAS = [
+    # (nombre, abrir, escribir o None si no tiene nada que escribir)
+    ("Nueva venta", abrir_nueva_venta, escribir_en_venta),
+    ("Registrar paquete", abrir_paquete,
+     lambda page, dlg: dlg.get_by_label("Flete pagado").fill("12.00")),
+    ("Producto nuevo", abrir_producto,
+     lambda page, dlg: dlg.get_by_label("Nombre").first.fill("Algo escrito")),
+    ("Agregar clienta", abrir_clienta,
+     lambda page, dlg: dlg.get_by_label("Nombre").first.fill("Algo escrito")),
+    ("Registrar abono de Cobros", abrir_abono_de_cobros,
+     lambda page, dlg: dlg.get_by_label(re.compile("^Monto")).fill("25")),
+    ("Ajustar existencias", abrir_ajuste,
+     lambda page, dlg: dlg.get_by_label("¿Cuántas hay?").fill("99")),
+    ("Nuevo encargo", abrir_encargo,
+     lambda page, dlg: dlg.get_by_label("Qué quiere 1").fill("Algo escrito")),
+    ("Factura", abrir_factura, None),
+]
+
+
+def probar_ventana(page: Page, nombre: str, abrir, escribir) -> list[str]:
+    fallas: list[str] = []
+    cerrar_ventanas(page)
+    try:
+        boton, dlg = abrir(page)
+    except Exception as err:
+        return [f"{nombre}: no se pudo abrir ({str(err)[:90]})"]
+    texto_boton = (boton.inner_text() or "").strip()
+
+    # El foco da la vuelta adentro: Tab nunca sale a la pantalla de atrás.
+    for _ in range(40):
+        page.keyboard.press("Tab")
+        if not dlg.evaluate(JS_FOCO_ADENTRO):
+            fallas.append(f"{nombre}: Tab sacó el foco de la ventana")
+            break
+
+    if escribir is not None:
+        escribir(page, dlg)
+        page.keyboard.press("Escape")
+        pregunta = page.get_by_role("alertdialog", name="¿Descartar lo que escribiste?")
+        try:
+            pregunta.wait_for(timeout=1500)
+            pregunta.get_by_role("button", name="Seguir editando").click()
+            page.wait_for_timeout(250)
+        except Exception:
+            fallas.append(f"{nombre}: con algo escrito, Escape cerró sin preguntar")
+            return fallas
+        if not dlg.is_visible():
+            return fallas + [f"{nombre}: 'Seguir editando' cerró la ventana"]
+
+        # Un clic en el velo, igual.
+        page.mouse.click(6, 6)
+        try:
+            pregunta.wait_for(timeout=1500)
+        except Exception:
+            fallas.append(f"{nombre}: con algo escrito, un clic afuera cerró sin preguntar")
+            return fallas
+        salida = pregunta.get_by_role("button", name="Descartar")
+        salida.click()
+        if not page.evaluate(JS_SALE_ANIMADA):
+            fallas.append(f"{nombre}: al descartar desaparece de golpe, sin salida")
+    else:
+        page.keyboard.press("Escape")
+        if not page.evaluate(JS_SALE_ANIMADA):
+            fallas.append(f"{nombre}: al cerrar desaparece de golpe, sin salida")
+
+    page.wait_for_timeout(400)
+    if dlg.count() > 0 and dlg.is_visible():
+        return fallas + [f"{nombre}: no se cerró"]
+    foco = page.evaluate("document.activeElement ? document.activeElement.innerText : ''") or ""
+    if texto_boton and texto_boton not in foco:
+        fallas.append(f"{nombre}: al cerrar, el foco no volvió a '{texto_boton}' (está en {foco.strip()[:40]!r})")
+
+    # Sin nada escrito, Escape cierra de una.
+    if escribir is not None:
+        _, dlg = abrir(page)
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(300)
+        if page.get_by_role("alertdialog").count() > 0:
+            fallas.append(f"{nombre}: sin nada escrito, Escape igual preguntó")
+        cerrar_ventanas(page)
+    return fallas
+
+
+@caso("TRA-01 · todas las ventanas se cierran igual: preguntan, salen animadas, retienen y devuelven el foco")
+def caso_un_solo_marco(page: Page) -> list[str]:
+    fallas: list[str] = []
+    for nombre, abrir, escribir in VENTANAS:
+        fallas += probar_ventana(page, nombre, abrir, escribir)
+    cerrar_ventanas(page)
+    return fallas
+
+
+@caso("VED-02 y PAQ-01 · Escape cierra primero la lista de sugerencias, y las flechas eligen")
+def caso_escape_por_capas(page: Page) -> list[str]:
+    fallas: list[str] = []
+    cerrar_ventanas(page)
+    p = producto_para_vender(page)
+
+    # Nueva venta: flechas y Enter eligen de la lista.
+    _, dlg = abrir_nueva_venta(page)
+    buscar = dlg.get_by_placeholder("Buscar por nombre o código")
+    buscar.fill(p["nombre"][:4])
+    page.wait_for_timeout(300)
+    page.keyboard.press("ArrowDown")
+    page.keyboard.press("Enter")
+    page.wait_for_timeout(300)
+    if dlg.get_by_placeholder("Buscar por nombre o código").count() > 0 and \
+            dlg.locator("ul button").count() > 0:
+        fallas.append("Nueva venta: flecha abajo y Enter no eligieron un producto de la lista")
+    cerrar_ventanas(page)
+
+    # Registrar paquete: Escape en la lista la cierra y el editor sigue.
+    abrir_paquete(page)
+    dlg = ventana_abierta(page)
+    campo = dlg.get_by_label("Buscar producto para agregar")
+    campo.fill(p["nombre"][:4])
+    page.wait_for_timeout(300)
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(300)
+    if page.get_by_role("alertdialog").count() > 0 or not dlg.is_visible():
+        fallas.append("Registrar paquete: Escape en la lista de sugerencias quiso cerrar el editor")
+    cerrar_ventanas(page)
+    abrir_paquete(page)
+    dlg = ventana_abierta(page)
+    campo = dlg.get_by_label("Buscar producto para agregar")
+    campo.fill(p["nombre"][:4])
+    page.wait_for_timeout(300)
+    opciones = dlg.locator("[role='option']")
+    if opciones.count() < 1:
+        fallas.append("Registrar paquete: las sugerencias no son opciones de una lista (role=option)")
+    else:
+        page.keyboard.press("ArrowDown")
+        page.wait_for_timeout(100)
+        marcada = dlg.locator("[role='option'][aria-selected='true']")
+        if marcada.count() != 1:
+            fallas.append("Registrar paquete: la flecha abajo no marca ninguna sugerencia")
+    cerrar_ventanas(page)
+
+    # Nuevo encargo: la lista de clientas, con flechas, Enter y Escape.
+    _, dlg = abrir_encargo(page)
+    clienta = dlg.get_by_label("Clienta")
+    clienta.fill("a")
+    page.wait_for_timeout(300)
+    page.keyboard.press("ArrowDown")
+    page.keyboard.press("Enter")
+    page.wait_for_timeout(300)
+    # Elegida, el buscador se reemplaza por su nombre.
+    if dlg.locator("input[aria-label='Clienta']").count() > 0:
+        fallas.append("Nuevo encargo: flecha abajo y Enter no eligieron una clienta")
+    # Y Escape en la lista la cierra sin cerrar la ventana.
+    dlg.get_by_role("button", name="Cambiar").first.click()
+    dlg.locator("input[aria-label='Clienta']").fill("a")
+    page.wait_for_timeout(300)
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(300)
+    if page.get_by_role("alertdialog").count() > 0 or not dlg.is_visible():
+        fallas.append("Nuevo encargo: Escape en la lista de clientas quiso cerrar la ventana")
+    elif dlg.locator("[role='listbox']").count() > 0:
+        fallas.append("Nuevo encargo: Escape no cerró la lista de clientas")
+    cerrar_ventanas(page)
+    return fallas
+
+
+@caso("BAS-07 · confirmar una anulación dice 'Anulando…' mientras corre y no deja apretar dos veces")
+def caso_confirmar_ocupado(page: Page) -> list[str]:
+    fallas: list[str] = []
+    cerrar_ventanas(page)
+    venta = page.evaluate("""async () => {
+      const p = (await window.api.productos.list()).data.find((x) => x.activo !== false && x.existencias >= 1 && x.variantes.length <= 1);
+      const r = await window.api.ventas.crear({
+        fecha: new Date().toISOString().slice(0, 10), tipo: 'INVENTARIO',
+        lineas: [{ producto_id: p.id, variante_id: p.variantes[0]?.id, cantidad: 1, precio_unitario_usd_cents: 1500 }],
+      });
+      const v = (await window.api.ventas.get(r.data.id)).data;
+      window.__anulaciones = 0;
+      const anular = window.api.ventas.cambiarEstado;
+      window.api.ventas.cambiarEstado = async (...a) => {
+        window.__anulaciones++;
+        await new Promise((r) => setTimeout(r, 1500));
+        return anular(...a);
+      };
+      return { id: v.id, codigo: v.codigo };
+    }""")
+    ir_a(page, "Inicio")
+    ir_a(page, "Ventas")
+    fila_de(page, venta["codigo"]).click()
+    page.wait_for_timeout(600)
+    page.get_by_role("button", name="Anular esta venta").first.click()
+    confirmar = page.get_by_role("alertdialog")
+    try:
+        confirmar.wait_for(timeout=2000)
+    except Exception:
+        return ["anular la venta no pidió confirmación"]
+    boton = confirmar.get_by_role("button", name=re.compile("^Sí"))
+    boton.click()
+    page.wait_for_timeout(250)
+    if confirmar.count() == 0 or not confirmar.is_visible():
+        fallas.append("la confirmación se cerró antes de que terminara de anular")
+    elif "Anulando" not in confirmar.inner_text():
+        fallas.append("mientras anula, el botón no dice 'Anulando…'")
+    try:
+        boton.click(timeout=500)
+    except Exception:
+        pass
+    page.wait_for_timeout(2200)
+    if page.evaluate("window.__anulaciones") != 1:
+        fallas.append(f"se anuló {page.evaluate('window.__anulaciones')} veces")
+    if page.get_by_role("alertdialog").count() > 0:
+        fallas.append("la confirmación no se cerró al terminar")
+    cerrar_ventanas(page)
+    return fallas
+
+
+JS_FOCO_INVALIDO = """() => {
+  const a = document.activeElement;
+  return a ? { invalido: a.getAttribute('aria-invalid') === 'true', etiqueta: a.getAttribute('aria-label') || a.id || a.tagName } : null;
+}"""
+
+
+def foco_en_campo_invalido(page: Page) -> bool:
+    page.wait_for_timeout(150)
+    r = page.evaluate(JS_FOCO_INVALIDO)
+    return bool(r and r["invalido"])
+
+
+@caso("TRA-10 · guardar con algo mal lleva el foco al campo y dice ahí qué falta; los botones principales no se apagan")
+def caso_errores_en_su_campo(page: Page) -> list[str]:
+    fallas: list[str] = []
+    cerrar_ventanas(page)
+
+    # Producto nuevo sin nombre.
+    _, dlg = abrir_producto(page)
+    dlg.get_by_role("button", name="Crear producto").click()
+    if not foco_en_campo_invalido(page):
+        fallas.append("Producto nuevo: sin nombre, el foco no fue al nombre marcado con error")
+    cerrar_ventanas(page)
+
+    # Clienta sin nombre.
+    _, dlg = abrir_clienta(page)
+    dlg.get_by_role("button", name="Guardar", exact=True).click()
+    if not foco_en_campo_invalido(page):
+        fallas.append("Agregar clienta: sin nombre, el foco no fue al nombre marcado con error")
+    cerrar_ventanas(page)
+
+    # Registrar paquete: sin líneas el botón está activo y dice qué falta.
+    abrir_paquete(page)
+    dlg = ventana_abierta(page)
+    pasar = dlg.get_by_role("button", name="Pasar al inventario")
+    if not pasar.is_enabled():
+        fallas.append("Registrar paquete: 'Pasar al inventario' está apagado sin líneas y no dice por qué")
+    # Una línea sin unidades: la fila se marca y el foco va a sus unidades.
+    p = producto_para_vender(page)
+    dlg.get_by_label("Buscar producto para agregar").fill(p["nombre"])
+    page.wait_for_timeout(300)
+    page.keyboard.press("Enter")
+    page.wait_for_timeout(300)
+    unidades = dlg.locator("input[aria-label^='Unidades de']").first
+    if unidades.count() == 0:
+        fallas.append("Registrar paquete: Enter en el buscador no agregó la línea")
+    else:
+        unidades.fill("")
+        pasar.click()
+        page.wait_for_timeout(200)
+        r = page.evaluate(JS_FOCO_INVALIDO)
+        if not r or not r["invalido"] or not str(r["etiqueta"]).startswith("Unidades de"):
+            fallas.append(f"Registrar paquete: sin unidades, el foco no fue a esa línea (está en {r})")
+        if dlg.locator("tr [role='alert']").count() == 0:
+            fallas.append("Registrar paquete: el mensaje no está junto a la línea")
+    cerrar_ventanas(page)
+
+    # Nueva venta: Siguiente sin producto.
+    _, dlg = abrir_nueva_venta(page)
+    dlg.get_by_role("button", name="Siguiente").click()
+    if not foco_en_campo_invalido(page):
+        fallas.append("Nueva venta: sin producto, el foco no fue a la línea marcada con error")
+    cerrar_ventanas(page)
+
+    # Configuración: una tasa que no es número.
+    ir_a(page, "Inicio")
+    ir_a(page, "Configuración")
+    page.get_by_label("Córdobas por dólar").fill("abc")
+    page.get_by_role("button", name=re.compile("^Guardar configuración")).click()
+    if not foco_en_campo_invalido(page):
+        fallas.append("Configuración: una tasa mal escrita no lleva el foco a la tasa")
+    if page.get_by_text("Tiene que ser mayor a cero.").count() == 0:
+        fallas.append("Configuración: el error de la tasa no está en su campo")
+    descartar = page.get_by_role("button", name="Descartar")
+    if descartar.count() > 0:
+        descartar.first.click()
+    else:
+        recargar_datos(page)
+    page.wait_for_timeout(300)
+    return fallas
+
+
+@caso("TRA-09 · Ctrl+Enter guarda en todas las ventanas, y Enter no guarda a medias")
+def caso_un_modelo_de_teclado(page: Page) -> list[str]:
+    fallas: list[str] = []
+    cerrar_ventanas(page)
+    nombre = "Clienta Teclado " + str(page.evaluate("Date.now() % 100000"))
+    _, dlg = abrir_clienta(page)
+    campo = dlg.get_by_label("Nombre").first
+    campo.fill(nombre)
+    page.keyboard.press("Enter")
+    page.wait_for_timeout(500)
+    if not dlg.is_visible():
+        fallas.append("Agregar clienta: Enter en el nombre guardó, con el resto sin llenar")
+    else:
+        page.keyboard.press("Control+Enter")
+        page.wait_for_timeout(700)
+        existe = page.evaluate("async (n) => (await window.api.clientes.list(n)).data.some((c) => c.nombre === n)", nombre)
+        if not existe:
+            fallas.append("Agregar clienta: Ctrl+Enter no guardó")
+    cerrar_ventanas(page)
+
+    _, dlg = abrir_producto(page)
+    dlg.get_by_label("Nombre").first.fill("Producto Teclado")
+    page.keyboard.press("Enter")
+    page.wait_for_timeout(500)
+    if not dlg.is_visible():
+        fallas.append("Producto nuevo: Enter en el nombre guardó, con el resto sin llenar")
+    cerrar_ventanas(page)
+
+    ir_a(page, "Inicio")
+    ir_a(page, "Configuración")
+    page.evaluate("""() => {
+      window.__guardados = 0;
+      const update = window.api.parametros.update;
+      window.api.parametros.update = async (v) => { window.__guardados++; return update(v); };
+    }""")
+    campo = page.get_by_label("Nombre del negocio")
+    original = campo.input_value()
+    campo.fill(original + " ")
+    page.keyboard.press("Enter")
+    page.wait_for_timeout(400)
+    if page.evaluate("window.__guardados") != 0:
+        fallas.append("Configuración: Enter en un campo guardó toda la página")
+    campo.fill(original)
+    page.wait_for_timeout(200)
+    return fallas
+
+
+@caso("CFG-02 y CFG-16 · Configuración dice lo que no se guardó, pregunta antes de salir y confirma con un 'Guardado'")
+def caso_configuracion_pendiente(page: Page) -> list[str]:
+    fallas: list[str] = []
+    cerrar_ventanas(page)
+    ir_a(page, "Inicio")
+    ir_a(page, "Configuración")
+    telefono = page.get_by_label("Teléfono").first
+    original = telefono.input_value()
+    telefono.fill("8888-1111")
+    page.wait_for_timeout(200)
+    if page.get_by_text("Hay cambios sin guardar").count() == 0:
+        fallas.append("con un cambio escrito, la página no dice que hay algo sin guardar")
+
+    page.get_by_role("button", name="Ventas", exact=False).first.click()
+    pregunta = page.get_by_role("alertdialog", name="¿Salir sin guardar?")
+    try:
+        pregunta.wait_for(timeout=1500)
+        pregunta.get_by_role("button", name="Seguir editando").click()
+        page.wait_for_timeout(300)
+        if page.get_by_label("Teléfono").first.input_value() != "8888-1111":
+            fallas.append("'Seguir editando' perdió lo escrito")
+    except Exception:
+        fallas.append("irse de Configuración con algo sin guardar no preguntó")
+        ir_a(page, "Configuración")
+
+    # Guardar: una sola confirmación, en el botón.
+    page.get_by_label("Teléfono").first.fill(original)
+    page.wait_for_timeout(100)
+    page.get_by_label("Teléfono").first.fill(original + "9")
+    page.get_by_role("button", name=re.compile("^Guardar configuración")).click()
+    page.wait_for_timeout(500)
+    if page.get_by_role("button", name=re.compile("^Guardado$")).count() == 0:
+        fallas.append("después de guardar, el botón no dice 'Guardado'")
+    if page.get_by_text("Configuración guardada con éxito").count() > 0:
+        fallas.append("guardar sigue mostrando además un aviso flotante")
+    # Dejarlo como estaba.
+    page.get_by_label("Teléfono").first.fill(original)
+    page.get_by_role("button", name=re.compile("^Guardar configuración")).click()
+    page.wait_for_timeout(500)
+    return fallas
+
+
+@caso("ENC-20 y ENC-21 · 'Aceptó' protege todo lo escrito, y un error del servidor no se pega al monto")
+def caso_acepto(page: Page) -> list[str]:
+    fallas: list[str] = []
+    cerrar_ventanas(page)
+    codigo = page.evaluate("""async () => {
+      const cliente = (await window.api.clientes.list('')).data[0];
+      const r = await window.api.ventas.crear({
+        cliente_id: cliente.id, fecha: new Date().toISOString().slice(0, 10), tipo: 'ENCARGO',
+        lineas: [{ descripcion: 'Bolso acepto', cantidad: 1, precio_unitario_usd_cents: 4000 }],
+      });
+      await window.api.ventas.marcarEnviada(r.data.id);
+      return (await window.api.ventas.get(r.data.id)).data.codigo;
+    }""")
+    ir_a(page, "Inicio")
+    ir_a(page, "Encargos")
+    abrir_detalle(page, codigo)
+    page.get_by_role("button", name="Aceptó", exact=True).click()
+    dlg = page.get_by_role("dialog", name=re.compile("aceptó$"))
+    dlg.wait_for(timeout=3000)
+    dlg.get_by_role("radio", name="Sí, pagó").click()
+    dlg.get_by_label("Referencia").fill("Transferencia 123")
+    page.keyboard.press("Escape")
+    try:
+        page.get_by_role("alertdialog", name="¿Descartar lo que escribiste?").wait_for(timeout=1500)
+        page.get_by_role("alertdialog").get_by_role("button", name="Seguir editando").click()
+    except Exception:
+        fallas.append("con la referencia escrita, Escape cerró 'Aceptó' sin preguntar")
+
+    page.evaluate("""() => {
+      window.api.ventas.aceptar = async () => ({ success: false, error: 'No hay conexión con la base.' });
+    }""")
+    dlg.get_by_role("button", name="Aceptó", exact=True).click()
+    page.wait_for_timeout(400)
+    monto = dlg.get_by_label("Cuánto pagó")
+    if monto.get_attribute("aria-invalid") == "true":
+        fallas.append("el error del servidor quedó pegado al monto, como si el monto estuviera mal")
+    if dlg.get_by_text("No hay conexión con la base.").count() == 0:
+        fallas.append("el error del servidor no se ve")
+    recargar_datos(page)
+    cerrar_ventanas(page)
     return fallas
 
 

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Button, Field, Input, Portal } from '../../components/ui';
+import React, { useState, useEffect, useRef, useId } from 'react';
+import { Button, Field, Input, Ventana } from '../../components/ui';
 import { cn } from '../../lib/cn';
 
 /**
@@ -52,6 +52,7 @@ export const AjustarStockModal: React.FC<Props> = ({
   const [texto, setTexto] = useState('');
   const [motivo, setMotivo] = useState('Conteo físico');
   const campoRef = useRef<HTMLInputElement>(null);
+  const idTitulo = useId();
 
   useEffect(() => {
     if (!ajuste) return;
@@ -59,60 +60,51 @@ export const AjustarStockModal: React.FC<Props> = ({
     requestAnimationFrame(() => campoRef.current?.select());
   }, [ajuste]);
 
-  useEffect(() => {
-    if (!ajuste) return;
-    const alPresionar = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCerrar();
-    };
-    window.addEventListener('keydown', alPresionar);
-    return () => window.removeEventListener('keydown', alPresionar);
-  }, [ajuste, onCerrar]);
-
-  if (!ajuste) return null;
-
+  const actual = ajuste?.actual ?? 0;
   const nuevas = Number.parseInt(texto, 10);
   const valido = Number.isFinite(nuevas) && nuevas >= 0;
-  const diferencia = valido ? nuevas - ajuste.actual : 0;
+  const diferencia = valido ? nuevas - actual : 0;
+  // Un conteo escrito y no guardado: cerrar pregunta antes de perderlo.
+  const hayCambios = ajuste !== null && texto.trim() !== String(actual);
 
   // Si el ajuste cambia de direccion, un motivo de la lista anterior puede
   // quedar fuera de la nueva: se vuelve al valor por defecto.
   const motivosVigentes = diferencia < 0 ? MOTIVOS_BAJA : MOTIVOS_ALTA;
   const motivoAEnviar = motivosVigentes.includes(motivo) ? motivo : 'Conteo físico';
 
-  const enviar = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!valido) return;
+  const aplicar = () => {
+    if (!ajuste || !valido) return;
     onConfirmar(ajuste, nuevas, motivoAEnviar);
     onCerrar();
   };
 
+  const enviar = (e: React.FormEvent) => {
+    e.preventDefault();
+    aplicar();
+  };
+
   return (
-    <Portal>
-      <div
-        className="fixed inset-0 z-[100] flex items-center justify-center bg-velo/60 backdrop-blur-xs p-4 animate-fade-in cursor-pointer"
-        role="dialog"
-      aria-modal="true"
-      aria-labelledby="titulo-ajuste"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onCerrar();
-      }}
+    <Ventana
+      abierto={ajuste !== null}
+      onCerrar={onCerrar}
+      hayCambios={hayCambios}
+      onEnviar={aplicar}
+      idTitulo={idTitulo}
+      clasePanel="rounded-2xl max-w-sm overflow-hidden"
     >
-      <form
-        onSubmit={enviar}
-        onClick={(e) => e.stopPropagation()}
-        className="bg-superficie rounded-2xl shadow-2xl w-full max-w-sm border border-borde animate-modal-pop overflow-hidden cursor-default"
-      >
+      {(cerrar) => (
+      <form onSubmit={enviar}>
         <div className="p-6 space-y-4">
           <div>
-            <h3 id="titulo-ajuste" className="text-title font-bold text-texto tracking-tight">
+            <h3 id={idTitulo} className="text-title font-bold text-texto tracking-tight">
               Ajustar existencias
             </h3>
-            <p className="mt-0.5 text-body text-texto-2 font-medium truncate">{ajuste.nombre}</p>
+            <p className="mt-0.5 text-body text-texto-2 font-medium truncate">{ajuste?.nombre}</p>
           </div>
 
           <Field
             label="¿Cuántas hay?"
-            hint={`Registradas: ${ajuste.actual}`}
+            hint={`Registradas: ${actual}`}
             error={texto.trim() && !valido ? 'Tiene que ser 0 o más.' : undefined}
           >
             <Input
@@ -187,7 +179,7 @@ export const AjustarStockModal: React.FC<Props> = ({
         </div>
 
         <footer className="flex items-center justify-end gap-2.5 px-6 py-4 border-t border-borde bg-superficie-2/40">
-          <Button type="button" variant="secondary" onClick={onCerrar} className="rounded-xl">
+          <Button type="button" variant="secondary" onClick={cerrar} className="rounded-xl">
             Cancelar
           </Button>
           <Button type="submit" variant="primary" disabled={!valido} className="rounded-xl font-semibold shadow-xs">
@@ -195,7 +187,7 @@ export const AjustarStockModal: React.FC<Props> = ({
           </Button>
         </footer>
       </form>
-    </div>
-    </Portal>
+      )}
+    </Ventana>
   );
 };
