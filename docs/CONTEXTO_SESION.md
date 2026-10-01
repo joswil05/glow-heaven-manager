@@ -9,7 +9,8 @@
 > (sección 3). Joswill las está probando él mismo. Los datos de producción se
 > migraron a lotes con `scripts/migrar-a-lotes.ts` (sección 3). El 29 se
 > auditó toda la interfaz ([AUDITORIA_UX_2026-09-29.md](AUDITORIA_UX_2026-09-29.md))
-> y el 30 se hizo su Fase 0, la `v2.16.3` (sección 3).
+> y el 30 se hicieron su Fase 0, la `v2.16.3`, y su Fase 1, la `v2.16.4`
+> (sección 3).
 > **Última actualización**: 30 de septiembre de 2026.
 
 Leé este archivo primero. Después:
@@ -367,6 +368,39 @@ upload` de los tres archivos y `gh release edit --draft=false --latest`.
 
 Joswill pidió seguir con el plan: la Fase 1 de la auditoría (un solo marco
 de ventana y formularios que no pierden lo escrito) es la siguiente.
+
+**Fase 1, hecha el 30 de septiembre: la `v2.16.4`.** Lo que hay que saber
+para no deshacerla:
+
+- **Toda ventana nueva va sobre `Dialogo` (formulario común) o `Ventana`
+  (interior propio)**, nunca un `fixed inset-0` a mano. Las dos pasan por
+  `MarcoModal`, que hace la capa, retiene y devuelve el foco, maneja Escape
+  por capas, Ctrl+Enter y la salida animada. Para que pregunte antes de
+  descartar, pasale `hayCambios` (`lib/useHayCambios.ts` lo calcula con una
+  firma). Con `ocupado` (guardando) nada la cierra. "Cancelar" tiene que
+  llamar a `cerrar` (el pie de `Dialogo` y el interior de `Ventana` lo
+  reciben), no a `onCerrar`.
+- **Una lista desplegable dentro de una ventana** cierra con Escape antes que
+  la ventana (`alEscape` del marco) y se maneja con flechas y Enter
+  (`lib/useListaConTeclado.ts`).
+- **Los errores de un formulario van en su campo** (`Field error`,
+  `aria-invalid`) y el foco salta al primero (`lib/enfocarPrimerError.ts`).
+  Arriba sólo va lo que responde el servidor. Los botones principales no se
+  apagan para decir que falta algo.
+- **Configuración** avisa lo que no se guardó y `App.irA` pregunta antes de
+  salir (`lib/guardiaDeSalida.ts`).
+- **Las hojas del celular** (`BottomSheet`) aceptan `hayCambios`; "atrás" de
+  Android las cierra con una sola entrada de guardia en el historial (React
+  monta dos veces en desarrollo: una entrada por hoja hacía que "atrás"
+  saliera de la app). Un componente que envuelve una hoja no tiene que
+  devolver `null` al cerrarse: se guarda lo último que mostró y deja que la
+  hoja baje animada.
+
+Verificado: `tsc` de las dos apps, 514 pruebas, 98 contra el emulador, 33
+casos de interfaz de escritorio y 18 de la PWA, las tres auditorías y el
+build del celular. Encontrado para la Fase 2: ClientesView y VentasView
+arman el enlace de WhatsApp anteponiendo "505" a mano, y eso rompe los
+números extranjeros (deberían usar `telefonoWhatsapp()` de `@core/telefono`).
 
 ### Hecho el 29 de septiembre, sobre producción: V-0007 borrada a mano
 

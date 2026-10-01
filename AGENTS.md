@@ -172,7 +172,15 @@ La ficha del producto es catálogo: no tiene costo, existencias ni paquete.
   del sistema no enumera consecuencias, no distingue "cerrar sin guardar" de
   "destruir un registro con dinero adentro" y devuelve texto sin validar. Usá
   `components/ui/Confirmar.tsx` (foco inicial en la salida, no en la acción
-  destructiva) o un diálogo propio como `AjustarStockModal`.
+  destructiva; si `onConfirmar` devuelve una promesa, dice `textoOcupado`
+  hasta que termine).
+- **Toda ventana va sobre `Dialogo` o `Ventana`** (desde la Fase 1 de la
+  auditoría de interfaz), nunca un `fixed inset-0` a mano: el marco común
+  pregunta antes de descartar (`hayCambios`), no se cierra guardando
+  (`ocupado`), cierra por capas con Escape, retiene el foco, sale animado y
+  guarda con Ctrl+Enter. Enter no guarda. Los errores van en su campo, con el
+  foco ahí (`enfocarPrimerError`). En el celular, lo mismo con `BottomSheet`
+  (`hayCambios`, y "atrás" de Android la cierra).
 
 ## Arquitectura
 

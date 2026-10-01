@@ -627,6 +627,16 @@ Reglas para todas las fases:
 
 **Objetivo**: toda ventana y toda hoja se cierra igual, pregunta antes de descartar, y dice los errores donde están.
 
+> **Estado al 30/9**: hecha y probada; sale como **2.16.4**. Los 37 hallazgos de la tabla quedaron resueltos. Cada A y cada M se vio fallar contra la 2.16.3 antes del arreglo: 8 casos nuevos en `tests/interfaz-escritorio/pruebas.py` y 2 en `tests/interfaz/pruebas.py`. Cómo quedó:
+>
+> - **Un solo marco, en tres pisos**: `MarcoModal` (capa, foco, teclado, salida), `Ventana` (más "¿Descartar lo que escribiste?") y `Dialogo` (más título, cuerpo y pie). Las nueve ventanas con marco propio usan `Ventana` o `Dialogo`. `useCerrarConEscape` se borró.
+> - **"Cancelar" también pregunta** si hay algo escrito, no sólo Escape y el clic afuera. Un clic que empieza en un campo y termina en el velo (seleccionar texto) ya no cierra.
+> - **En Configuración quedó un solo botón de guardar**, con "Hay cambios sin guardar", "Descartar" y la pregunta al irse a otra sección. No se pasó a guardar por sección. Las categorías siguen guardándose fila por fila, como antes. Quitar una cuenta bancaria queda pendiente a la vista, con "Descartar" para volverla (CFG-13).
+> - **Enter ya no guarda** en Clienta, Producto ni Configuración, ni pasa de campo en esas ventanas de varias columnas. Ctrl+Enter guarda en todas. Nueva venta conserva Enter para pasar de campo.
+> - **Escape por capas** también en la lista de clientas de Nuevo encargo y en "Agregar encargo" del paquete. Esas listas se cierran además con un clic afuera.
+> - **Las sugerencias son listas de verdad** (`role="listbox"`, `role="option"`): con lector de pantalla se oyen como opciones, no como botones sueltos.
+> - **Versión**: 2.16.4. La 2.17.0 queda para los encargos en el celular, como ya la tenía reservada `PLAN_ENCARGOS_Y_SIN_CONEXION.md`.
+
 | Qué | IDs | Cómo se comprueba |
 |---|---|---|
 | Las 9 ventanas con marco propio pasan a `Dialogo` (con ancho de pantalla para los editores grandes): salida animada, "¿Descartar lo que escribiste?", Ctrl+Enter. | TRA-01, VED-01, VED-10, PAQ-01, CLI-07, INV-31, PAQ-22, DOC-08 | Prueba de interfaz: Escape con cambios pregunta; sin cambios cierra. |
