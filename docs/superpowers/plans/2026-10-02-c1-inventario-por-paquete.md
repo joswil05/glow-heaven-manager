@@ -579,7 +579,7 @@ export function avanceDePaquetes(
 Run: `npx vitest run tests/c1-avance-paquete.test.ts`
 Esperado: PASS, 6 pruebas.
 
-- [ ] **Paso 7: el panel devuelve `paquetes` y deja las alertas de existencias**
+- [x] **Paso 7: el panel devuelve `paquetes` y deja las alertas de existencias**
 
 En `src/main/firebase/repositories/panel.repo.ts`:
 

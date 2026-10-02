@@ -4,6 +4,8 @@ import { getFirestoreDb } from '../client';
 import { ProductosRepoFirestore } from './productos.repo';
 import { type VentaDoc } from './ventas.repo';
 import { ClientesRepoFirestore } from './clientes.repo';
+import { ComprasRepoFirestore } from './compras.repo';
+import { avanceDePaquetes } from '../../../core/avance-paquete';
 import { formatearMoneda } from '../../../core/moneda';
 import { hoyISO, mesISO, haceDias } from '../../../core/fechas';
 import { ResumenesRepoFirestore } from './resumenes.repo';
@@ -20,6 +22,7 @@ import type {
   Alerta,
   ProductoConStock,
   ClienteDetalle,
+  Compra,
 } from '../../../shared/types';
 
 /**
@@ -38,6 +41,10 @@ interface Instantanea {
   /** Solo los ultimos 90 dias, en orden. Para rotacion y tendencia. */
   ventasRecientes: VentaDoc[];
   clientes: ClienteDetalle[];
+  /** Los paquetes, para el avance de cada uno (Fase C1). */
+  compras: Compra[];
+  /** Todos los productos, también los descatalogados: sus lotes cuentan en su paquete. */
+  todosLosProductos: ProductoConStock[];
 }
 
 function mesActual(): string {
@@ -101,9 +108,11 @@ async function tomarInstantanea(forzarRefresco = false): Promise<Instantanea> {
   // `ResumenesRepoFirestore` con resúmenes por mes.
   const desde90d = haceDias(90);
 
-  const [productos, recientesSnap, conSaldoSnap, encargosSnap, clientes] =
+  const [productos, recientesSnap, conSaldoSnap, encargosSnap, clientes, compras] =
     await Promise.all([
-      ProductosRepoFirestore.listar(),
+      // Con los descatalogados: un producto que se vendió todo y se sacó de
+      // la venta sigue contando en el avance de su paquete.
+      ProductosRepoFirestore.listar({ incluirInactivos: true }),
       getDocs(
         query(
           collection(db, 'ventas'),
@@ -125,6 +134,8 @@ async function tomarInstantanea(forzarRefresco = false): Promise<Instantanea> {
         query(collection(db, 'ventas'), where('activo', '==', true), where('tipo', '==', 'ENCARGO'))
       ),
       ClientesRepoFirestore.listar(),
+      // Los paquetes son pocos: una consulta chica, para su avance (Fase C1).
+      ComprasRepoFirestore.listar(),
       // Ya no se consultan los paquetes "en camino": ninguna pantalla crea
       // uno, así que la consulta siempre volvía vacía y costaba una lectura
       // por cada apertura del panel.
@@ -144,9 +155,11 @@ async function tomarInstantanea(forzarRefresco = false): Promise<Instantanea> {
 
   const datos: Instantanea = {
     productos: productos.filter((p) => p.activo !== false),
+    todosLosProductos: productos,
     ventas: [...porId.values()],
     ventasRecientes: recientes,
     clientes: clientes.filter((c) => c.activo !== false),
+    compras,
   };
 
   instantaneaCache = { data: datos, timestamp: ahora };
@@ -388,35 +401,11 @@ function calcularAlertas(s: Instantanea, parametros?: ParametrosSistema): Alerta
     }
   }
 
-  // 3. Productos agotados
-  const agotados = s.productos.filter((p) => p.stock_minimo > 0 && p.existencias === 0);
-  if (agotados.length > 0) {
-    alertas.push({
-      id: 'agotados',
-      severidad: 'atencion',
-      titulo: `${agotados.length} producto${agotados.length > 1 ? 's' : ''} agotado${agotados.length > 1 ? 's' : ''}`,
-      detalle:
-        agotados.slice(0, 3).map((a) => a.nombre).join(', ') +
-        (agotados.length > 3 ? ` y ${agotados.length - 3} más` : ''),
-      destino: { vista: 'inventario' },
-    });
-  }
+  // Desde la Fase C1 no hay alertas de existencias: un producto que se trajo
+  // una vez y se vendió no es un problema. Cómo va cada paquete lo dice
+  // `paquetes` (core/avance-paquete.ts).
 
-  // 4. Productos por acabarse
-  const porAcabarse = s.productos.filter(
-    (p) => p.stock_minimo > 0 && p.existencias > 0 && p.existencias <= p.stock_minimo
-  );
-  if (porAcabarse.length > 0) {
-    alertas.push({
-      id: 'bajo-stock',
-      severidad: 'info',
-      titulo: `${porAcabarse.length} producto${porAcabarse.length > 1 ? 's están' : ' está'} por acabarse`,
-      detalle: 'Llegaron al mínimo que configuraste.',
-      destino: { vista: 'inventario' },
-    });
-  }
-
-  // 5. Productos vendiéndose bajo costo
+  // 3. Productos vendiéndose bajo costo
   const bajoCosto = s.productos.filter(
     (p) =>
       (p.costo_unitario_usd_cents || 0) > 0 &&
@@ -478,6 +467,7 @@ export class PanelRepoFirestore {
         .sort((a, b) => b.existencias - a.existencias)
         .slice(0, 5),
       alertas: calcularAlertas(s, parametros),
+      paquetes: avanceDePaquetes(s.compras, s.todosLosProductos, s.ventas),
     };
   }
 
