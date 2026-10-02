@@ -506,6 +506,23 @@ export class ComprasRepoFirestore {
     });
   }
 
+  /**
+   * Ross cerró el resumen de un paquete que se vendió todo. Sólo esa fecha:
+   * no es una operación que se deshaga, y no deja evento.
+   */
+  static async marcarResumenVisto(compra_id: number): Promise<void> {
+    const previa = await leerDoc<CompraDoc>('compras', compra_id);
+    if (!previa || !previa.activo) throw new Error(`El paquete #${compra_id} no existe.`);
+    await aplicarLote([
+      {
+        coleccion: 'compras',
+        id: compra_id,
+        datos: { resumen_visto_el: new Date().toISOString() },
+        merge: true,
+      },
+    ]);
+  }
+
   static async getById(id: number): Promise<CompraCompleta | null> {
     const data = await leerDoc<CompraDoc>('compras', id);
     if (!data || !data.activo) return null;

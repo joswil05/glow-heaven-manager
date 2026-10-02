@@ -629,7 +629,7 @@ En `src/main/firebase/repositories/panel.repo.ts`:
 Run: `npx tsc --noEmit`. Esperado: sin errores salvo en `mock-api.ts`
 (`paquetes` falta en `armarPanel`), que se arregla en el paso 10.
 
-- [ ] **Paso 8: guardar que Ross cerró el resumen**
+- [x] **Paso 8: guardar que Ross cerró el resumen**
 
 En `src/main/firebase/repositories/compras.repo.ts`, dentro de
 `ComprasRepoFirestore`, después de `listar`:
