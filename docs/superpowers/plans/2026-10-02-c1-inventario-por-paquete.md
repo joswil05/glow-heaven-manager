@@ -1138,20 +1138,20 @@ arriba y las tarjetas de los paquetes en venta debajo, desde
 `panel.paquetes`. Textos según el glosario (CIN-09): "Paquetes", "quedan N en
 bodega".
 
-- [ ] **Paso 5: Inventario del celular**
+- [x] **Paso 5: Inventario del celular**
 
 En `mobile/src/views/InventoryQuickView.tsx`: la lista muestra por defecto
 sólo productos con `existencias > 0`. Al elegir un paquete en los chips, se ven
 también sus productos vendidos, en una sección "Vendidos" debajo, en gris y sin
 "Agotado" en rojo.
 
-- [ ] **Paso 6: ver que pasan y que la build aguanta**
+- [x] **Paso 6: ver que pasan y que la build aguanta**
 
 Run: `SOLO="C1 ·" PYTHONIOENCODING=utf-8 npm run test:interfaz`, después la
 suite entera, y `npm run build:mobile` (auditorías de colores y hooks).
 Esperado: todo pasa.
 
-- [ ] **Paso 7: commit**
+- [x] **Paso 7: commit**
 
 ```bash
 git add -- mobile/src/components/AvancePaqueteCard.tsx mobile/src/views/DashboardView.tsx mobile/src/views/InventoryQuickView.tsx tests/interfaz/sembrar.test.ts tests/interfaz/pruebas.py

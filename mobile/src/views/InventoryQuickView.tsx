@@ -101,11 +101,98 @@ export function InventoryQuickView() {
     return res;
   }, [productos, busqueda, categoriaActiva, paqueteActivo]);
 
+  // Fase C1: la lista abre con lo que hay a la venta. Lo que se vendió todo
+  // no es una alerta: se ve aparte, al elegir un paquete o al buscar, para
+  // saber que se vendió.
+  const aLaVenta = filtrados.filter((p) => p.existencias > 0);
+  const vendidos = filtrados.filter((p) => p.existencias <= 0);
+  const verVendidos = paqueteActivo !== null || busqueda.trim() !== '';
+  const quedaAlgoALaVenta = productos.some((p) => p.existencias > 0);
+  const sinFiltros = !busqueda.trim() && categoriaActiva === null && paqueteActivo === null;
+  /** No hay ninguna fila que mostrar. */
+  const listaVacia = aLaVenta.length === 0 && !(verVendidos && vendidos.length > 0);
+  /** Vacía porque se vendió todo, no porque un filtro no encuentre nada. */
+  const todoVendido = listaVacia && sinFiltros && productos.length > 0 && !quedaAlgoALaVenta;
+
   const scrollRevealRef = useScrollReveal<HTMLElement>({ deps: [filtrados] });
 
   function abrirFicha(p: ProductoConStock) {
     haptics.selection();
     setFichaAbierta(p);
+  }
+
+  /** Una fila del inventario: la fila entera abre la ficha. */
+  function filaProducto(p: ProductoConStock) {
+              const hayStock = p.existencias > 0;
+              const precioCordobas = Math.round((p.precio_venta_usd_cents * tasa) / 100);
+
+              return (
+                /* La fila entera es el botón. Antes el único elemento tocable
+                   era el ícono de WhatsApp: tocar el producto — el gesto más
+                   obvio — no hacía nada, y ese ícono le cobraba 48px de ancho
+                   a TODAS las filas para una acción que se usa de vez en
+                   cuando. El catálogo se recorre entero decenas de veces al
+                   día; manda el trabajo frecuente. */
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => abrirFicha(p)}
+                  className="scroll-reveal flex w-full items-center gap-3 rounded-2xl border border-borde bg-superficie p-3.5 text-left shadow-xs active:scale-[0.99] transition-transform cursor-pointer"
+                >
+                  <div className="relative flex h-[60px] w-[60px] shrink-0 items-center justify-center overflow-hidden rounded-xl border border-borde bg-superficie-2">
+                    {p.foto ? (
+                      <img src={p.foto} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="text-sm font-extrabold uppercase text-texto-3">
+                        {p.nombre.slice(0, 2)}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex min-w-0 flex-1 flex-col gap-1">
+                    <h2 className="text-body font-extrabold leading-snug text-texto line-clamp-2">
+                      {p.nombre}
+                    </h2>
+
+                    <div className="flex items-center gap-1.5 text-caption font-semibold text-texto-3">
+                      <span className="shrink-0">#{p.codigo}</span>
+                      {p.categoria_nombre && (
+                        <>
+                          <span className="shrink-0">·</span>
+                          <span className="truncate">{p.categoria_nombre}</span>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Los dos precios ya no compiten con una píldora con borde
+                        por el mismo renglón: por eso el de córdobas salía
+                        cortado ("C$366…"). El stock ahora pesa según urgencia
+                        — texto plano cuando todo está bien, píldora solo
+                        cuando hay que reaccionar. `tabular-nums` alinea las
+                        cifras entre filas para poder escanearlas de un golpe. */}
+                    <div className="mt-0.5 flex items-baseline justify-between gap-2">
+                      <div className="flex min-w-0 items-baseline gap-1.5">
+                        <span className="text-sm font-black tabular-nums text-texto">
+                          {formatearMoneda(p.precio_venta_usd_cents, 'USD')}
+                        </span>
+                        <span className="whitespace-nowrap text-[11px] font-semibold tabular-nums text-texto-3">
+                          {formatearMoneda(precioCordobas, 'COR')}
+                        </span>
+                      </div>
+
+                      {!hayStock ? (
+                        <span className="shrink-0 whitespace-nowrap text-caption font-semibold text-texto-3">
+                          Vendido
+                        </span>
+                      ) : (
+                        <span className="shrink-0 whitespace-nowrap text-caption font-bold tabular-nums text-texto-3">
+                          {p.existencias} disp.
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              );
   }
 
   return (
@@ -132,7 +219,8 @@ export function InventoryQuickView() {
               con el título largo de arriba y terminaba partiéndose en 2
               líneas también, doblando la altura del encabezado. */}
           <span className="shrink-0 whitespace-nowrap rounded-xl bg-superficie-2 text-texto-2 text-label font-bold px-3 py-1.5 border border-borde">
-            {productos.length} {productos.length === 1 ? 'producto' : 'productos'}
+            {/* Lo que hay a la venta, como la lista al abrir (Fase C1). */}
+            {productos.filter((p) => p.existencias > 0).length} a la venta
           </span>
         </div>
 
@@ -276,99 +364,41 @@ export function InventoryQuickView() {
             </div>
           )}
 
-          {!cargando &&
-            filtrados.map((p) => {
-              const hayStock = p.existencias > 0;
-              const stockBajo = p.existencias <= p.stock_minimo && hayStock;
-              const precioCordobas = Math.round((p.precio_venta_usd_cents * tasa) / 100);
+          {!cargando && aLaVenta.map((p) => filaProducto(p))}
 
-              return (
-                /* La fila entera es el botón. Antes el único elemento tocable
-                   era el ícono de WhatsApp: tocar el producto — el gesto más
-                   obvio — no hacía nada, y ese ícono le cobraba 48px de ancho
-                   a TODAS las filas para una acción que se usa de vez en
-                   cuando. El catálogo se recorre entero decenas de veces al
-                   día; manda el trabajo frecuente. */
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => abrirFicha(p)}
-                  className="scroll-reveal flex w-full items-center gap-3 rounded-2xl border border-borde bg-superficie p-3.5 text-left shadow-xs active:scale-[0.99] transition-transform cursor-pointer"
-                >
-                  <div className="relative flex h-[60px] w-[60px] shrink-0 items-center justify-center overflow-hidden rounded-xl border border-borde bg-superficie-2">
-                    {p.foto ? (
-                      <img src={p.foto} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <span className="text-sm font-extrabold uppercase text-texto-3">
-                        {p.nombre.slice(0, 2)}
-                      </span>
-                    )}
-                  </div>
+          {!cargando && verVendidos && vendidos.length > 0 && (
+            <section aria-label="Vendidos" className="flex flex-col gap-2 pt-1">
+              <h2 className="px-1 text-xs font-bold text-texto-3">Vendidos</h2>
+              {vendidos.map((p) => filaProducto(p))}
+            </section>
+          )}
 
-                  <div className="flex min-w-0 flex-1 flex-col gap-1">
-                    <h2 className="text-body font-extrabold leading-snug text-texto line-clamp-2">
-                      {p.nombre}
-                    </h2>
+          {!cargando && todoVendido && (
+            <div className="flex flex-col items-center justify-center py-16 text-center px-4">
+              <p className="text-sm font-bold text-texto-2">No queda nada a la venta</p>
+              <p className="text-xs text-texto-3 mt-1 max-w-xs">
+                Se vendió todo lo que trajiste. Elegí un paquete arriba para ver lo que se vendió.
+              </p>
+            </div>
+          )}
 
-                    <div className="flex items-center gap-1.5 text-caption font-semibold text-texto-3">
-                      <span className="shrink-0">#{p.codigo}</span>
-                      {p.categoria_nombre && (
-                        <>
-                          <span className="shrink-0">·</span>
-                          <span className="truncate">{p.categoria_nombre}</span>
-                        </>
-                      )}
-                    </div>
-
-                    {/* Los dos precios ya no compiten con una píldora con borde
-                        por el mismo renglón: por eso el de córdobas salía
-                        cortado ("C$366…"). El stock ahora pesa según urgencia
-                        — texto plano cuando todo está bien, píldora solo
-                        cuando hay que reaccionar. `tabular-nums` alinea las
-                        cifras entre filas para poder escanearlas de un golpe. */}
-                    <div className="mt-0.5 flex items-baseline justify-between gap-2">
-                      <div className="flex min-w-0 items-baseline gap-1.5">
-                        <span className="text-sm font-black tabular-nums text-texto">
-                          {formatearMoneda(p.precio_venta_usd_cents, 'USD')}
-                        </span>
-                        <span className="whitespace-nowrap text-[11px] font-semibold tabular-nums text-texto-3">
-                          {formatearMoneda(precioCordobas, 'COR')}
-                        </span>
-                      </div>
-
-                      {!hayStock ? (
-                        <span className="shrink-0 whitespace-nowrap rounded-full bg-peligro-suave px-2 py-0.5 text-caption font-bold text-peligro-fuerte">
-                          Agotado
-                        </span>
-                      ) : (
-                        <span
-                          className={`shrink-0 whitespace-nowrap text-caption font-bold tabular-nums ${
-                            stockBajo ? 'text-alerta' : 'text-texto-3'
-                          }`}
-                        >
-                          {p.existencias} disp.
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-
-          {!cargando && filtrados.length === 0 && (
+          {!cargando && listaVacia && !todoVendido && productos.length > 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-center px-4">
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-superficie-2 text-texto-3 mb-3">
                 <Search size={24} />
               </div>
               <p className="text-sm font-bold text-texto-2">Ningún producto coincide</p>
               <p className="text-xs text-texto-3 mt-1 max-w-xs">
-                No hay coincidencias para "{busqueda}" en la categoría "{nombreCategoriaActiva}".
+                {busqueda.trim()
+                  ? `No hay coincidencias para "${busqueda}" en "${nombreCategoriaActiva}".`
+                  : `No hay nada a la venta en "${nombreCategoriaActiva}".`}
               </p>
               <button
                 type="button"
                 onClick={() => {
                   setBusqueda('');
                   setCategoriaActiva(null);
+                  setPaqueteActivo(null);
                 }}
                 className="mt-3 rounded-full bg-superficie-2 hover:bg-superficie-3 px-4 py-1.5 text-xs font-bold text-texto-2 cursor-pointer"
               >
