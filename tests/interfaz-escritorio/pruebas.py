@@ -2413,6 +2413,60 @@ def caso_mandar_documentos(page: Page) -> list[str]:
     return fallas
 
 
+def sembrar_paquete_vendido(page: Page) -> dict:
+    """Un paquete de dos productos recibido; se vende todo uno y la mitad del otro."""
+    return page.evaluate("""async () => {
+      const sufijo = String(Date.now() % 100000);
+      const hoy = new Date().toISOString().slice(0, 10);
+      const r = await window.api.compras.guardar({
+        fecha: hoy, envio_total_usd_cents: 500,
+        lineas: [
+          { descripcion: 'Termo C1 ' + sufijo, cantidad: 1, precio_linea_usd_cents: 2000, peso_linea_mlb: 100, destino: 'INVENTARIO' },
+          { descripcion: 'Gloss C1 ' + sufijo, cantidad: 2, precio_linea_usd_cents: 1000, peso_linea_mlb: 100, destino: 'INVENTARIO' },
+        ],
+      });
+      await window.api.compras.recibir(r.data.id);
+      const compra = (await window.api.compras.get(r.data.id)).data;
+      const prods = (await window.api.productos.list({})).data;
+      const termo = prods.find((p) => p.nombre.startsWith('Termo C1 ' + sufijo));
+      await window.api.ventas.crear({ fecha: hoy, tipo: 'INVENTARIO',
+        lineas: [{ producto_id: termo.id, cantidad: 1, precio_unitario_usd_cents: 4000 }] });
+      return { codigo: compra.codigo, id: compra.id, termo: termo.nombre };
+    }""")
+
+
+@caso("C1 · Inicio no avisa de agotados: dice cómo va cada paquete")
+def caso_c1_inicio(page: Page) -> list[str]:
+    fallas: list[str] = []
+    cerrar_ventanas(page)
+    s = sembrar_paquete_vendido(page)
+    recargar_datos(page)
+    ir_a(page, "Inicio")
+    texto = page.locator("main").inner_text()
+    if re.search(r"agotad", texto, re.I):
+        fallas.append("Inicio sigue hablando de productos agotados")
+    if s["codigo"] not in texto:
+        fallas.append(f"Inicio no muestra el avance de {s['codigo']}")
+    if not re.search(r"1 de 3 vendid|1 de 3", texto):
+        fallas.append("la tarjeta del paquete no dice cuántas unidades se vendieron de cuántas")
+    return fallas
+
+
+@caso("C1 · el Inventario abre con lo que hay a la venta")
+def caso_c1_inventario(page: Page) -> list[str]:
+    fallas: list[str] = []
+    cerrar_ventanas(page)
+    s = sembrar_paquete_vendido(page)
+    recargar_datos(page)
+    ir_a(page, "Inventario")
+    if page.get_by_text(s["termo"]).count() > 0:
+        fallas.append("el Inventario abre mostrando un producto sin unidades")
+    activo = page.get_by_role("radio", name="A la venta")
+    if activo.count() == 0 or activo.first.get_attribute("aria-checked") != "true":
+        fallas.append("el filtro no arranca en 'A la venta'")
+    return fallas
+
+
 @caso("no quedan errores de consola")
 def caso_consola(page: Page) -> list[str]:
     return []  # lo evalúa el corredor al final

@@ -835,7 +835,7 @@ git commit -m "C1 · T1: el avance de cada paquete, calculado de sus lotes, y si
   `window.api.compras.marcarResumenVisto(id)`, `window.api.panel.cargar()`.
 - Produce: `AvancePaqueteTarjeta` y `ResumenPaqueteVendido` (Windows).
 
-- [ ] **Paso 1: escribir los casos que fallan**
+- [x] **Paso 1: escribir los casos que fallan**
 
 En `tests/interfaz-escritorio/pruebas.py`, antes de `@caso("no quedan errores de consola")`:
 
