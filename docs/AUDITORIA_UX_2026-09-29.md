@@ -599,6 +599,7 @@ Reglas para todas las fases:
 - Cada fase termina con las pruebas de siempre (`npm test`, el emulador, las dos suites de interfaz) más **casos nuevos que reproducen cada hallazgo de nivel A y M antes de arreglarlo**, y se publica en las dos apps sólo con tu visto bueno.
 - Primero lo que toca plata o datos; después lo que se arregla una vez en un componente y repara muchas pantallas; al final el pulido.
 - Las fases 3, 4 y 5 no dependen entre sí y se pueden reordenar. La 0 va primero siempre.
+- **Desde el 2 de octubre el orden es**: Fase 2, después las **fases del celular C1 a C4**, y después las fases 3 a 6. Decisión de Joswill: el celular es lo que más usa Ross. El diseño de las fases del celular está en [superpowers/specs/2026-10-02-fases-del-celular-design.md](superpowers/specs/2026-10-02-fases-del-celular-design.md).
 
 ### Fase 0 · Datos y plata (urgente, cambios chicos) · sugerida como 2.16.3
 
@@ -668,13 +669,28 @@ Reglas para todas las fases:
 | Celular: Deshacer en el aviso; los errores esperan a que se lean; los avisos de Windows se pausan al pasar el mouse. | CEL-03, CEL-04, BAS-03 | Prueba de interfaz. |
 | Abonos de la clienta en el celular: alcances que se puedan comparar; después de anular se pregunta antes de abrir otra hoja. | CCO-06, CCO-07 | Prueba de interfaz del celular. |
 
+### Fases del celular C1 a C4 · agregadas el 2 de octubre, van antes de la Fase 3
+
+**Objetivo**: que el celular, que es lo que más usa Ross, haga lo que hoy sólo hace la computadora (encargos, registrar mercadería, cambiar un precio) y funcione sin señal; y que el inventario deje de llenarse de alertas de agotados cuando un paquete se termina de vender. El diseño completo, con las decisiones de Joswill y cómo se reparte el trabajo entre Claude y Codex, está en [superpowers/specs/2026-10-02-fases-del-celular-design.md](superpowers/specs/2026-10-02-fases-del-celular-design.md). Todo lo nuevo sigue los criterios de Emil Kowalski de ese documento.
+
+| Fase | Qué | IDs que absorbe | Cómo se comprueba |
+|---|---|---|---|
+| **C1 · Inventario por paquete** | Sin alertas de agotados ni de "por acabarse"; "a la venta" es lo que tiene existencias; cada paquete muestra su avance, se cierra solo cuando vende su última unidad (y se reabre si se anula una venta) y muestra un resumen al cerrarse (invertido, vendido, cobrado, ganancia, lo que se vendió más rápido, quién debe). En el celular, "Llegó un paquete": registrar la mercadería cuando llega, en tres pasos. | CIN-01, CIN-02, CIN-03, CIN-07, CIN-09, INV-08, INV-10, PAQ-15, PAQ-16, PAQ-17, PAQ-18, PAQ-21 | Pruebas unitarias del resumen y del cierre; contra el emulador, cerrar y reabrir un paquete; interfaz de las dos apps; registrar un paquete completo desde el celular. |
+| **C2 · Inventario y encargos en el celular** | La pestaña "Catálogo" pasa a "Inventario" y abre con lo que hay; cambiar un precio con la ganancia a la vista y Deshacer. Encargos (como se decidió el 28/9): anotar, cotizar, mandar la cotización con el PDF y "Aceptó"; se abre desde una tarjeta de Inicio y desde "Anotar un pedido" en Vender, sin pestaña propia. | CCA-02, CCA-03, CCA-04, CCA-05 | Prueba corta del PDF en un celular real; interfaz del celular con el ciclo del encargo y el cambio de precio. |
+| **C3 · Sin internet: consultar** | Sólo en el celular: abre y muestra lo último que cargó, con "Sin conexión · datos de las 10:42"; los botones de escribir dicen por qué no se puede. | | Interfaz del celular con la red cortada. |
+| **C4 · Sin internet: operar** | Sólo en el celular: una venta, un abono o un pedido de encargo sin señal quedan "Pendiente de subir" y se suben solos, en orden y sin duplicarse (`operacion_id`); lo que no se puede subir queda en "No se pudo subir". | | Contra el emulador, una operación subida dos veces escribe una vez; interfaz del celular cortando y volviendo la red. |
+
+Los IDs de la tercera columna salieron de las fases 3 a 6: son de pantallas que estas fases rehacen, y no se tocan dos veces. Reemplazan las versiones 2.17, 2.18 y 2.19 de [PLAN_ENCARGOS_Y_SIN_CONEXION.md](PLAN_ENCARGOS_Y_SIN_CONEXION.md).
+
 ### Fase 3 · Color, contraste y tipografía · puede ir con la revisión de tipografía de la 2.20
 
 **Objetivo**: un solo sistema de color que la auditoría automática pueda vigilar, y la misma tipografía en las dos apps y en los documentos.
 
+> El 2/10, CIN-01 pasó a la Fase C1: la tarjeta que lo tenía se reemplaza.
+
 | Qué | IDs | Cómo se comprueba |
 |---|---|---|
-| Reglas nuevas en `auditar-colores.mjs`: "--x sobre --x-suave", clases que no existen, colores escritos a mano, `dark:` redundantes. Y corregir lo que encuentre. | COL-03, COL-04, COL-05, CIN-01, CCO-12, CCO-16, CLI-15, INV-12, INV-29, PAQ-11, CVE-18, CAJ-03, BAS-13 | La auditoría automática en `npm test`. |
+| Reglas nuevas en `auditar-colores.mjs`: "--x sobre --x-suave", clases que no existen, colores escritos a mano, `dark:` redundantes. Y corregir lo que encuentre. | COL-03, COL-04, COL-05, CCO-12, CCO-16, CLI-15, INV-12, INV-29, PAQ-11, CVE-18, CAJ-03, BAS-13 | La auditoría automática en `npm test`. |
 | Colores de significado: etapas de encargo, deuda siempre ámbar, leyendas que coinciden con sus gráficas, tokens por tema en las gráficas. | ENC-01, VED-12, CCO-09, INI-15, INI-16, INI-17, COB-16 | Capturas en los dos temas. |
 | Destellos y cosas invisibles: fondo de "Iniciando…" y de la entrada en oscuro, ventana que arranca blanca, punto de actualización, riel de descarga, "Ctrl+N", "Volver a intentar". | MAR-05, ACC-01, BAS-23, MAR-06, MAR-07, MAR-09, ACC-03 | Capturas en oscuro. |
 | Tamaños y mayúsculas: dock de 12 px, rótulos de 10 px, encabezados de tabla y meses sin MAYÚSCULAS, cifras tabulares de una sola fuente, sombras de token, `text-sm`/`text-xs` → tokens. | CEL-09, CCO-15, BAS-17, INI-23, INI-24, BAS-19, INV-15, CFG-17 | Revisión visual. |
@@ -684,10 +700,12 @@ Reglas para todas las fases:
 
 **Objetivo**: nada se anima si se hace decenas de veces al día o con el teclado; lo que se anima dura menos de 300 ms, usa la curva de salida de la casa y sale más rápido de lo que entra; nada late para siempre.
 
+> El 2/10, CIN-03 pasó a la Fase C1.
+
 | Qué | IDs | Cómo se comprueba |
 |---|---|---|
 | Gráficas de Inicio sin animación al volver (o una vez por sesión, ≤ 250 ms); barras con `scaleX`; Recharts respeta el movimiento reducido. | BAS-24, BAS-25, BAS-35, INI-21, INI-12 | Grabación de pantalla al entrar a Inicio. |
-| Sin bucles infinitos (brillo del logo, puntos que laten, urgentes) ni esperas decorativas (400 ms del PIN). | BAS-26, ACC-05, ACC-06, CIN-03, CAJ-03 | Revisión visual. |
+| Sin bucles infinitos (brillo del logo, puntos que laten, urgentes) ni esperas decorativas (400 ms del PIN). | BAS-26, ACC-05, ACC-06, CAJ-03 | Revisión visual. |
 | Nada animado por el teclado: cambio de pantalla con Ctrl+número, dígitos del PIN. | MAR-04, ACC-07 | Prueba manual. |
 | Presión de botones en 0,97 en todos lados; sin corrimientos ni giros decorativos al pasar el mouse; hover sólo con mouse. | BAS-28, BAS-29, MAR-10, MAR-11, MAR-14, VEN-09, CIN-05, CEL-11, BAS-21 | Revisión del CSS. |
 | Curvas y duraciones: `var(--ease-out)`, ≤ 250 ms, `transition` con propiedades explícitas, `will-change` sólo al animar, sin entradas triples al abrir una pantalla, barra lateral sin animar `width`. | BAS-27, BAS-30, BAS-31, BAS-32, BAS-33, COB-20, INV-18, MAR-15 | Revisión del CSS. |
@@ -698,44 +716,48 @@ Reglas para todas las fases:
 
 **Objetivo**: una palabra por cosa en las dos apps y en los documentos, en vos, sin jerga, sin festejos.
 
+> El 2/10, CIN-09 pasó a la Fase C1 y CCA-03, CCA-04 y CCA-05 a la C2. Ya decidido: a las clientas se les habla de tú (hecho en la Fase 2) y la sección de productos se llama "Inventario".
+
 | Qué | IDs | Cómo se comprueba |
 |---|---|---|
-| Glosario (anexo A) aplicado en las dos apps: secciones, verbos, stock bajo, monedas y métodos. | TXT-01, TXT-02, TXT-03, TXT-04, TXT-05, CHI-01, DOC-04, MAR-08, MAR-16, CIN-09, CCO-08, CCO-11, INV-05, INV-13, PAQ-10, CVE-06, VED-13 | Volver a correr el extractor de textos de esta auditoría y buscar las formas viejas. |
+| Glosario (anexo A) aplicado en las dos apps: secciones, verbos, stock bajo, monedas y métodos. | TXT-01, TXT-02, TXT-03, TXT-04, TXT-05, CHI-01, DOC-04, MAR-08, MAR-16, CCO-08, CCO-11, INV-05, INV-13, PAQ-10, CVE-06, VED-13 | Volver a correr el extractor de textos de esta auditoría y buscar las formas viejas. |
 | Mensajes: una frase por error, avisos que dicen qué pasó, "…", plurales reales, tildes en Excel, registro de vos, sin jerga. | TXT-06, TXT-07, TXT-08, TXT-09, TXT-10, TXT-11, TXT-12, TXT-13, TXT-14, BAS-10 | Búsqueda automática de `...`, `(s)`, "con éxito", formas en tú. |
-| Textos falsos o que prometen otra cosa. | INI-04, INI-05, ENC-07, ENC-18, COB-11, COB-12, INV-03, CVE-05, CVE-11, CHI-04, CCA-04 | Revisión con los casos de prueba. |
-| Textos por pantalla. | INI-07, INI-08, INI-09, INI-10, INI-13, VEN-08, VEN-11, VEN-12, VED-08, VED-09, VED-11, VED-14, VED-15, ENC-10, ENC-11, ENC-14, ENC-24, COB-18, COB-22, CLI-10, CLI-11, CLI-12, CLI-13, CLI-14, INV-09, INV-14, INV-16, INV-22, INV-24, INV-26, INV-27, INV-32, PAQ-12, PAQ-13, PAQ-19, PAQ-23, CFG-10, CFG-11, CFG-14, CFG-19, CFG-22, CFG-23, CFG-24, CFG-25, CFG-26, CFG-28, DOC-05, DOC-09, ACC-02, ACC-04, ACC-08, CEL-18, CIN-08, CCO-10, CCO-14, CHI-03, CHI-05, CCA-05, CCA-03 | Revisión de las capturas. |
+| Textos falsos o que prometen otra cosa. | INI-04, INI-05, ENC-07, ENC-18, COB-11, COB-12, INV-03, CVE-05, CVE-11, CHI-04 | Revisión con los casos de prueba. |
+| Textos por pantalla. | INI-07, INI-08, INI-09, INI-10, INI-13, VEN-08, VEN-11, VEN-12, VED-08, VED-09, VED-11, VED-14, VED-15, ENC-10, ENC-11, ENC-14, ENC-24, COB-18, COB-22, CLI-10, CLI-11, CLI-12, CLI-13, CLI-14, INV-09, INV-14, INV-16, INV-22, INV-24, INV-26, INV-27, INV-32, PAQ-12, PAQ-13, PAQ-19, PAQ-23, CFG-10, CFG-11, CFG-14, CFG-19, CFG-22, CFG-23, CFG-24, CFG-25, CFG-26, CFG-28, DOC-05, DOC-09, ACC-02, ACC-04, ACC-08, CEL-18, CIN-08, CCO-10, CCO-14, CHI-03, CHI-05 | Revisión de las capturas. |
 | Los compromisos de los documentos (plazos, cambios, reembolsos, ciudad) pasan a Configuración. | DOC-03 | Configuración y PDF. |
 
 ### Fase 6 · Coherencia de pantallas y fricción diaria
 
 **Objetivo**: las piezas repetidas se vuelven una, las listas no parpadean, los atajos y menús cumplen lo que prometen, y se cierran los detalles de cada pantalla.
 
+> El 2/10, CIN-02, CIN-07, INV-08, INV-10 y los PAQ-15 a 18 y 21 pasaron a la Fase C1, y CCA-02 a la C2.
+
 | Qué | IDs | Cómo se comprueba |
 |---|---|---|
 | Recargar sin vaciar la lista (datos a la vista + indicador chico). | TRA-06, INI-01, VEN-01, COB-10, CLI-06, INV-02, PAQ-14, CCO-13 | Prueba de interfaz: después de un abono la tabla no desaparece. |
 | Menús: atajos reales o sin etiqueta; anclados al botón; flechas. Atajos Ctrl+1…7 en el orden de la barra; confirmar antes de cerrar sesión. | TRA-07, MAR-17, MAR-18, BAS-22, MAR-03, MAR-02 | Prueba de interfaz con teclado. |
-| Un buscador, un segmentado, un ancho de panel, un "vacío". | TRA-12, VEN-10, ENC-08, ENC-09, COB-19, INV-10, INV-17, INV-30, PAQ-20, BAS-16 | Revisión visual. |
+| Un buscador, un segmentado, un ancho de panel, un "vacío". | TRA-12, VEN-10, ENC-08, ENC-09, COB-19, INV-17, INV-30, PAQ-20, BAS-16 | Revisión visual. |
 | Texto seleccionable; tablas y tarjetas que se abren con teclado; roles y nombres accesibles. | TRA-13, MAR-01, CEL-13, BAS-15, BAS-14, BAS-06, COB-21, INI-11, INI-25, CIN-06, CCO-18, CVE-19, CFG-18, CHI-07, CEL-07 | Prueba con teclado y lector de pantalla. |
 | Inicio: cobrar desde la lista de deudoras, destinos correctos, meta desde Configuración, signos, hueco de "Dónde está tu plata", tema con menú. | INI-03, INI-06, INI-14, INI-18, INI-19, INI-20, INI-22, ACC-09, ACC-10, MAR-12, MAR-13 | Revisión visual. |
 | Ventas y su editor: jerarquía del detalle, un "Nueva venta", tarjetas que no son botones, un porcentaje de ganancia, clienta rápida con aviso de duplicado, pasos, "Vender todo", orden de monedas, código muerto. | VEN-04, VEN-05, VEN-06, VEN-07, VED-06, VED-07, VED-16, VED-17, VED-18, VED-19 | Prueba de interfaz. |
 | Encargos: acciones de pieza con blanco táctil, etapa sin repetir, "Pagos" descubrible, clienta nueva sin fantasmas, rojo único, X más grande, costo manual respetado. | ENC-04, ENC-05, ENC-06, ENC-13, ENC-15, ENC-16, ENC-17 | Prueba de interfaz. |
 | Cobros y Clientes: métricas con período, filtro "Otro", columnas en orden, enlaces de fila, hovers que prometen, duplicados de clienta, adornos. | COB-08, COB-13, COB-14, COB-15, COB-17, CLI-09, CLI-16, CLI-17, CLI-18 | Prueba de interfaz. |
-| Inventario y Paquetes: botones que responden con error, duplicados, tachos permanentes, tarjetas-botón, aclaraciones visibles, categoría por defecto, tallas con unidades, números enteros, motivos de ajuste, casilla del impuesto, pack, peso estimado, quitar línea, tabla que no salta, impuesto histórico, criterio de moneda, doble señal. | INV-04, INV-06, INV-07, INV-08, INV-11, INV-20, INV-21, INV-23, INV-25, INV-28, PAQ-03, PAQ-04, PAQ-05, PAQ-06, PAQ-07, PAQ-15, PAQ-16, PAQ-17, PAQ-18, PAQ-21 | Prueba de interfaz y contra el emulador (INV-21, INV-25). |
+| Inventario y Paquetes: botones que responden con error, duplicados, tachos permanentes, tarjetas-botón, aclaraciones visibles, categoría por defecto, tallas con unidades, números enteros, motivos de ajuste, casilla del impuesto, pack, peso estimado, quitar línea, tabla que no salta, impuesto histórico, criterio de moneda, doble señal. | INV-04, INV-06, INV-07, INV-11, INV-20, INV-21, INV-23, INV-25, INV-28, PAQ-03, PAQ-04, PAQ-05, PAQ-06, PAQ-07 | Prueba de interfaz y contra el emulador (INV-21, INV-25). |
 | Configuración: la tasa arriba y con fecha, la nube al final, archivar categoría con confirmación, cuenta bancaria sin datos inventados, versión al pie, íconos, error de la nube. | CFG-06, CFG-07, CFG-08, CFG-12, CFG-20, CFG-21, CFG-27 | Revisión visual. |
-| Celular: blancos de 44 px, "−" consistente, tonos sin cerrar la hoja, fecha de la venta, pérdida con monto, búsqueda con espera, campos de 16 px, stock sin hueco, producto que lleva a su ficha, fecha legible, correcciones con resumen, documento con vista previa, consecuencias legibles, ícono del catálogo. | CVE-09, CVE-10, CVE-12, CVE-13, CVE-14, CVE-15, CVE-16, CIN-02, CIN-04, CIN-07, CIN-10, CHI-02, CHI-06, CHI-09, CCA-02 | Prueba en el teléfono. |
+| Celular: blancos de 44 px, "−" consistente, tonos sin cerrar la hoja, fecha de la venta, pérdida con monto, búsqueda con espera, campos de 16 px, stock sin hueco, producto que lleva a su ficha, fecha legible, correcciones con resumen, documento con vista previa, consecuencias legibles, ícono del catálogo. | CVE-09, CVE-10, CVE-12, CVE-13, CVE-14, CVE-15, CVE-16, CIN-04, CIN-10, CHI-02, CHI-06, CHI-09 | Prueba en el teléfono. |
 
 ### Decisiones que necesito antes de empezar (o durante)
 
 | Decisión | Afecta | Opciones |
 |---|---|---|
-| ¿Cómo les habla el negocio a las clientas en los mensajes? | TXT-01, Fase 2 y 5 | Tú (como hoy casi todos) o vos (como la app). |
-| ¿"Inventario" o "Catálogo" para la sección de productos? | TXT-03 | Uno para las dos apps. |
-| ¿Se les dice a las clientas cuántas unidades quedan? | CCA-01 | Sí / no. |
+| ¿Cómo les habla el negocio a las clientas en los mensajes? | TXT-01, Fase 2 y 5 | **Decidido el 1/10: tú.** |
+| ¿"Inventario" o "Catálogo" para la sección de productos? | TXT-03 | **Decidido el 2/10: Inventario**, en las dos apps (el celular cambia en la Fase C2). |
+| ¿Se les dice a las clientas cuántas unidades quedan? | CCA-01 | **Decidido el 1/10: no**, sólo qué tallas o tonos hay. |
 | Textos de compromiso de la proforma y la factura (plazos, cambios, reembolsos). | DOC-03 | Dejar los actuales como punto de partida editable, o cambiarlos. |
 | "Pure · Magic · Divine" en la pantalla del PIN: ¿es el lema de la marca? | ACC-08 | Conservar o sacar. |
 | ¿La meta de margen de la gráfica de Inicio existe? | INI-18 | Sacarla, o tomarla de Configuración. |
 | Tipografía común para las dos apps y los documentos. | BAS-34, DOC-06 | Plus Jakarta Sans en las dos (incluida en la app), o la del sistema. |
-| Orden de las fases 3, 4 y 5. | Plan | Como está, o por lo que Ross más note. |
+| Orden de las fases 3, 4 y 5. | Plan | **Decidido el 2/10**: primero las fases del celular C1 a C4, después 3, 4, 5 y 6. |
 
 ---
 
@@ -758,7 +780,7 @@ Reglas para todas las fases:
 | Concepto | Usar | No usar |
 |---|---|---|
 | Sección de deudas y abonos | Cobros | Cobranza, Cobranza y Abonos |
-| Sección de productos | Inventario *(o Catálogo en las dos apps: decisión pendiente)* | mezclar los dos |
+| Sección de productos | Inventario (decidido el 2/10, también en el celular) | Catálogo |
 | Persona que compra | clienta, Clientas | cliente, Clientes |
 | Dejar sin efecto una venta, un abono o un encargo (queda registro) | Anular, anulada | Cancelar, cancelada |
 | Borrar algo que no tiene historia (un borrador, una clienta sin ventas) | Eliminar | Archivar, Quitar |

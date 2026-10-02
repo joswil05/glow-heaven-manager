@@ -15,7 +15,8 @@
 > (`9ed2237`, sección 3), que pide desplegar `firestore.rules` antes que el
 > código, y la Fase 2 de la auditoría (`481d24a`, sección 3: un solo abono,
 > lo pagado en su moneda y un solo WhatsApp), probada y esperando el
-> "publicalo" de Joswill.
+> "publicalo" de Joswill. **Lo que sigue son las fases del celular C1 a C4**
+> (sección 3, "El plan desde el 2 de octubre"), antes de las fases 3 a 6.
 > **Última actualización**: 2 de octubre de 2026.
 
 Leé este archivo primero. Después:
@@ -607,7 +608,8 @@ saber para no deshacerlo:
    (sección 5), y después desde un worktree limpio y con push por SHA. El
    informe sugería 2.18.0 para esta fase; la versión la decide quien
    publique.
-3. **Las Fases 3 a 6 del informe esperan autorización**, una por una.
+3. **Lo que sigue son las fases del celular C1 a C4** (abajo), y después
+   las fases 3 a 6 del informe. Cada una espera autorización.
 4. Pendiente de antes: probar la vibración en el iPhone (la 2.16.5).
 
 **Archivos que tocó la fase** (todos en `481d24a`, ninguno a medio hacer):
@@ -625,6 +627,40 @@ vistas Cobranza, Historial y Vender; el canal de documentos (`main/ipc`,
 
 **El emulador quedó apagado** (lo había levantado esta sesión). Se vuelve a
 levantar con `npm run emulador` en otra terminal.
+
+### El plan desde el 2 de octubre: el celular primero
+
+Joswill pidió sumar al plan lo que le falta al celular, que es lo que más
+usa Ross, y resolver las alertas de agotados que llenan Inicio ahora que el
+primer paquete (PQ-0001) está casi vendido. Quedó acordado en
+[superpowers/specs/2026-10-02-fases-del-celular-design.md](superpowers/specs/2026-10-02-fases-del-celular-design.md)
+y metido en la sección 5 del informe de la auditoría, entre la Fase 2 y la
+Fase 3:
+
+1. **C1 · Inventario por paquete**: sin alertas de agotados; cada paquete
+   muestra su avance, se cierra solo cuando vende su última unidad y
+   muestra un resumen; "Llegó un paquete" en el celular.
+2. **C2 · Inventario y encargos en el celular**: la pestaña "Catálogo" pasa a
+   "Inventario"; cambiar un precio; encargos (anotar, cotizar, mandar con
+   PDF, "Aceptó"), sin pestaña propia.
+3. **C3 · Sin internet: consultar**, sólo celular.
+4. **C4 · Sin internet: operar**, sólo celular, con la cola y el
+   `operacion_id`.
+
+Las decisiones de Joswill están en la cabecera de ese documento. Las que
+importan para no equivocarse: la sección de productos se llama
+**Inventario** en las dos apps; en el celular **no** se editan fichas ni se
+ajustan existencias; el paquete se carga **cuando llega**, de una vez; sin
+internet es **sólo el celular**.
+
+**Para empezar C1 (3 de octubre)**: escribir primero el plan de
+implementación de C1 con sus tareas (T1 núcleo; después T2 Windows, T3 y T4
+celular, en paralelo), repartirlas con Codex como dice la sección "Cómo se
+reparte el trabajo" del diseño, y empezar por T1. Lo primero de T1 es
+comprobar en el código que cada línea de venta guarda de qué lote salió cada
+unidad, porque el resumen del paquete depende de eso. Codex tiene un
+worktree propio (`.codex/worktrees/coordinacion-agentes`) con su plan del
+puente de revisión, sin commitear.
 
 ### Hecho el 29 de septiembre, sobre producción: V-0007 borrada a mano
 

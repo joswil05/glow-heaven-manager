@@ -872,3 +872,25 @@ Fase 0 (lo que cambiaba datos o plata sin que nadie lo decidiera) es la
 de este documento: traen cada formulario con su hallazgo, y la tipografía de
 la factura sigue en la fase que allá se indica. Ninguna está autorizada
 todavía, y el orden entre esas fases y la 2.17 lo decide Joswill.
+
+## Estado al 2 de octubre
+
+**Las secciones 3 y 4 de este plan pasan a ser las fases del celular C1 a
+C4**, que Joswill puso antes de las fases 3 a 6 de la auditoría. El diseño
+está en
+[superpowers/specs/2026-10-02-fases-del-celular-design.md](superpowers/specs/2026-10-02-fases-del-celular-design.md).
+Lo que cambia respecto de este plan:
+
+- **Encargos en el celular (la 2.17) es la Fase C2**, con las mismas
+  decisiones del 28/9 (anotar, cotizar, mandar y "Aceptó"; lo demás en la
+  PC), pero **sin pestaña propia**: Ross es lo que menos usa. Se abre desde
+  una tarjeta de Inicio y desde "Anotar un pedido" en Vender.
+- **Sin conexión (la 2.18 y la 2.19) son las fases C3 y C4, sólo en el
+  celular.** La parte de la PC (la ventana oculta de Electron, la sesión que
+  vence en una hora) queda fuera. La sección 4.3 (la cola y el
+  `operacion_id`) sigue valiendo tal cual para el celular.
+- Antes de todo eso va la **Fase C1**, que este plan no tenía: el inventario
+  por paquete (sin alertas de agotados, cada paquete se cierra solo y
+  muestra su resumen) y registrar un paquete desde el celular.
+- Los números de versión de este plan ya no valen: cada fase se publica con
+  su versión, que se decide al publicar.
