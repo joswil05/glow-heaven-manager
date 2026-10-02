@@ -1006,7 +1006,7 @@ En `src/renderer/src/views/InventarioView.tsx`:
 4. INV-08: las tarjetas "Invertido" y "Ganancia potencial" dejan de ser
    botones (eran botones que sólo limpiaban filtros): `div` sin `onClick`.
 
-- [ ] **Paso 5: Paquetes (PAQ-15 a 18, 21)**
+- [x] **Paso 5: Paquetes (PAQ-15 a 18, 21)**
 
 En `src/renderer/src/views/PaquetesView.tsx`:
 
@@ -1023,14 +1023,14 @@ En `src/renderer/src/views/PaquetesView.tsx`:
 5. PAQ-18: "Total pagado" en dólares, como las filas (sin córdobas debajo).
 6. PAQ-21: el estado con el badge solo, sin el punto del mismo color.
 
-- [ ] **Paso 6: ver que pasan**
+- [x] **Paso 6: ver que pasan**
 
 Run: `SOLO="C1 ·" PYTHONIOENCODING=utf-8 npm run test:interfaz-escritorio`
 Esperado: PASS. Después la suite entera: `PYTHONIOENCODING=utf-8 npm run test:interfaz-escritorio`.
 Si un caso viejo buscaba "Agotados" o "productos agotados o bajos", cambiarlo a
 lo nuevo ("Vendidos", la sección "Paquetes") y anotarlo en el commit.
 
-- [ ] **Paso 7: commit**
+- [x] **Paso 7: commit**
 
 ```bash
 git add -- src/renderer/src/components/AvancePaquete.tsx src/renderer/src/views/PanelView.tsx src/renderer/src/views/InventarioView.tsx src/renderer/src/views/PaquetesView.tsx tests/interfaz-escritorio/pruebas.py

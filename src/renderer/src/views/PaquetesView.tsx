@@ -13,8 +13,8 @@ import {
   Wrench,
   FileSearch,
 } from 'lucide-react';
-import { cn } from '../lib/cn';
 import type {
+  AvancePaquete,
   Compra,
   CompraCompleta,
   Venta,
@@ -38,6 +38,7 @@ import { EmptyState } from '../components/shared/EmptyState';
 import { PaqueteEditor } from './paquetes/PaqueteEditor';
 import { ReconstruccionModal } from './paquetes/ReconstruccionModal';
 import { ResumenIngreso } from './paquetes/ResumenIngreso';
+import { AvancePaqueteTarjeta, ResumenPaqueteVendido } from '../components/AvancePaquete';
 import { useClickOutside } from '../lib/useClickOutside';
 import { useToast } from '../context/ToastContext';
 import { formatearMoneda, formatearPeso, formatearFecha } from '@core/moneda';
@@ -102,6 +103,8 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
   const { showToast, showUndoToast } = useToast();
 
   const [compras, setCompras] = useState<Compra[]>([]);
+  /** Cómo va cada paquete recibido (Fase C1), del panel: no cuesta lecturas nuevas. */
+  const [avances, setAvances] = useState<AvancePaquete[]>([]);
   const [encargos, setEncargos] = useState<Venta[]>([]);
   const [esperanPaquete, setEsperanPaquete] = useState(0);
   const [cargando, setCargando] = useState(true);
@@ -126,12 +129,14 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
   const cargar = useCallback(async () => {
     setCargando(true);
     try {
-      const [rc, re] = await Promise.all([
+      const [rc, re, rp] = await Promise.all([
         window.api.compras.list(),
         // Encargos que ya se pueden comprar: el anticipo está cubierto.
         window.api.ventas.list({ tipo: 'ENCARGO', estado: 'PENDIENTE' }),
+        window.api.panel.cargar(),
       ]);
       if (rc.success) setCompras(rc.data);
+      if (rp.success) setAvances(rp.data.paquetes ?? []);
       // Los que de verdad falta comprar: los que ya vienen en un paquete no.
       if (re.success) {
         setEncargos(re.data.filter((v) => etapaEncargo(v) === 'POR_COMPRAR'));
@@ -253,16 +258,11 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
       header: 'Estado',
       width: '130px',
       render: (c) => {
-        const e = estadoVisible(c);
+        // El badge solo: el punto del mismo color decía lo mismo dos veces (PAQ-21).
+        const { texto, tono } = etiquetaEstado(c);
         return (
-          <Badge tone={ESTADO_TONO[e]} className="gap-1.5 font-medium whitespace-nowrap">
-            <span
-              className={cn(
-                'w-1.5 h-1.5 rounded-full shrink-0',
-                e === 'EN_INVENTARIO' ? 'bg-acento' : e === 'CARGANDO' ? 'bg-alerta' : 'bg-texto-3'
-              )}
-            />
-            {ESTADO_TEXTO[e]}
+          <Badge tone={tono} className="font-medium whitespace-nowrap">
+            {texto}
           </Badge>
         );
       },
@@ -334,7 +334,8 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
             {e === 'EN_INVENTARIO' && (
               <Button
                 size="sm"
-                variant="ghost"
+                variant="secondary"
+                className="whitespace-nowrap"
                 onClick={(ev) => {
                   ev.stopPropagation();
                   abrirEditor(c.id);
@@ -347,7 +348,8 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
             {e === 'SIN_CONTENIDO' && (
               <Button
                 size="sm"
-                variant="outline"
+                variant="secondary"
+                className="whitespace-nowrap"
                 onClick={(ev) => {
                   ev.stopPropagation();
                   setReconstruyendo(c);
@@ -379,9 +381,19 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
   ];
 
   const estadoDetalle = detalle ? estadoVisible(detalle) : null;
+  const avanceDe = (id: number) => avances.find((a) => a.compra_id === id);
+  /** En inventario, el avance dice si todavía se vende o si se vendió todo. */
+  const etiquetaEstado = (c: Compra): { texto: string; tono: Tone } => {
+    const e = estadoVisible(c);
+    const a = e === 'EN_INVENTARIO' ? avanceDe(c.id) : undefined;
+    if (a?.estado === 'VENDIDO') return { texto: 'Se vendió todo', tono: 'neutral' };
+    if (a?.estado === 'EN_VENTA') return { texto: 'En venta', tono: 'success' };
+    return { texto: ESTADO_TEXTO[e], tono: ESTADO_TONO[e] };
+  };
+  const avanceDetalle = detalle ? avanceDe(detalle.id) : undefined;
 
   return (
-    <div className="flex-1 flex overflow-hidden">
+    <div className="flex-1 flex overflow-hidden relative">
       <div className="flex-1 overflow-y-auto p-4 md:px-6 md:py-4 animate-fade-in scroll-smooth">
         <div className="max-w-[1500px] w-full mx-auto space-y-4 stagger-children">
           <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -466,13 +478,9 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
             />
           ) : (
             <DataTable
-              // Con el detalle abierto la tabla no entraba y cortaba las
-              // acciones. El desglose ya está en el panel.
-              columns={
-                detalle
-                  ? columnas.filter((c) => !['peso', 'mercaderia', 'envio'].includes(String(c.key)))
-                  : columnas
-              }
+              // El detalle se abre encima: antes la tabla perdía tres columnas
+              // al abrirlo y todo saltaba de lugar (PAQ-16).
+              columns={columnas}
               rows={compras}
               rowKey={(c) => c.id}
               selectedKey={detalle?.id}
@@ -486,13 +494,13 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
       {detalle && estadoDetalle && (
         <aside
           ref={lateralRef}
-          className="w-[420px] border-l border-borde bg-superficie flex flex-col shrink-0 animate-drawer shadow-xl z-10"
+          className="absolute inset-y-0 right-0 w-[420px] max-w-full border-l border-borde bg-superficie flex flex-col animate-drawer shadow-xl z-10"
         >
           <div className="p-5 border-b border-borde bg-superficie-2/40 flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <h3 className="text-title font-semibold text-texto">{detalle.codigo}</h3>
-                <Badge tone={ESTADO_TONO[estadoDetalle]}>{ESTADO_TEXTO[estadoDetalle]}</Badge>
+                <Badge tone={etiquetaEstado(detalle).tono}>{etiquetaEstado(detalle).texto}</Badge>
               </div>
               <p className="text-caption text-texto-3 mt-0.5">
                 {formatearFecha(detalle.fecha)} · {formatearPeso(detalle.peso_total_mlb)} ·{' '}
@@ -511,6 +519,36 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
           </div>
 
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
+            {/* Cómo va (Fase C1): si se vendió todo, su resumen; si no, el
+                avance y lo que queda en bodega. */}
+            {avanceDetalle?.estado === 'VENDIDO' && <ResumenPaqueteVendido avance={avanceDetalle} />}
+            {avanceDetalle?.estado === 'EN_VENTA' && (
+              <div className="space-y-2">
+                <AvancePaqueteTarjeta avance={avanceDetalle} />
+                {avanceDetalle.quedan.length > 0 && (
+                  <div className="rounded-lg border border-borde">
+                    <div className="px-3.5 py-2 border-b border-borde text-label font-medium text-texto-2">
+                      Queda en bodega
+                    </div>
+                    <ul className="divide-y divide-borde/60">
+                      {avanceDetalle.quedan.map((q) => (
+                        <li
+                          key={`${q.producto_id}-${q.variante_id}`}
+                          className="px-3.5 py-2 flex items-center justify-between gap-2 text-label"
+                        >
+                          <span className="text-texto truncate">
+                            {q.nombre}
+                            {q.detalle && <span className="text-texto-3"> · {q.detalle}</span>}
+                          </span>
+                          <span className="text-texto-2 tabular shrink-0">{q.cantidad}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+
             {estadoDetalle === 'CARGANDO' && (
               <div className="px-3.5 py-2.5 rounded-xl bg-alerta-suave flex items-center justify-between gap-3">
                 <p className="text-label text-alerta-fuerte">Todavía no entró al inventario.</p>
@@ -538,14 +576,21 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
               </div>
               <CardContent className="p-4 space-y-2">
                 <Fila etiqueta="Precio de tienda" usd={detalle.subtotal_productos_usd_cents} />
-                <Fila etiqueta={`Impuesto (${(parametros?.tax_bp ?? 700) / 100}%)`} usd={detalle.tax_total_usd_cents} />
+                <Fila
+                  etiqueta={
+                    detalle.subtotal_productos_usd_cents > 0
+                      ? `Impuesto (${(Math.round((detalle.tax_total_usd_cents * 1000) / detalle.subtotal_productos_usd_cents) / 10).toFixed(1)}%)`
+                      : 'Impuesto'
+                  }
+                  usd={detalle.tax_total_usd_cents}
+                />
                 <Fila etiqueta="Flete del courier" usd={detalle.envio_total_usd_cents} />
                 {detalle.otros_costos_usd_cents > 0 && (
                   <Fila etiqueta="Otros gastos" usd={detalle.otros_costos_usd_cents} />
                 )}
                 <div className="pt-2 border-t border-borde flex items-center justify-between gap-2">
                   <span className="text-body font-bold text-texto">Total pagado</span>
-                  <Money usd_cents={detalle.total_usd_cents} size="md" />
+                  <Money usd_cents={detalle.total_usd_cents} size="md" soloUsd />
                 </div>
                 {detalle.criterio_flete && detalle.criterio_flete !== 'SIN_FLETE' && (
                   <p className="text-caption text-texto-3">
@@ -610,32 +655,6 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
                 </ul>
               )}
             </Card>
-
-            {/* Lo que dejó lo que se vendió de este paquete. Sólo las líneas
-                con lote propio (2.14 en adelante): las anteriores quedaron
-                dentro del saldo de su producto y no se sabe qué fue de cada una. */}
-            {(() => {
-              const propias = detalle.lineas.filter((l) => l.lote_propio);
-              const vendidas = propias.reduce((s, l) => s + (l.lote_vendidas ?? 0), 0);
-              if (propias.length === 0) return null;
-              const ingreso = propias.reduce((s, l) => s + (l.lote_ingreso_usd_cents ?? 0), 0);
-              const costo = propias.reduce((s, l) => s + (l.lote_costo_vendido_usd_cents ?? 0), 0);
-              return (
-                <Card className="rounded-xl border-borde/80 shadow-xs overflow-hidden">
-                  <CardContent className="p-4 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-body font-bold text-texto">Te dejó hasta hoy</span>
-                      <Money usd_cents={ingreso - costo} size="md" soloUsd colorearSigno />
-                    </div>
-                    <p className="text-caption text-texto-3 tabular">
-                      {vendidas === 0
-                        ? 'Todavía no se vendió nada de este paquete.'
-                        : `${vendidas} ${vendidas === 1 ? 'vendida' : 'vendidas'}: cobraste ${$(ingreso)}, te costaron ${$(costo)}.`}
-                    </p>
-                  </CardContent>
-                </Card>
-              );
-            })()}
 
             {detalle.resumen_ingreso && detalle.resumen_ingreso.length > 0 && (
               <div>
