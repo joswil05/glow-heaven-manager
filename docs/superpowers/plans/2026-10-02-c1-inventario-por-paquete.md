@@ -1,10 +1,11 @@
 # Fase C1 · Inventario por paquete: plan de implementación
 
-> **Para agentes:** este plan se ejecuta tarea por tarea. Codex coordina:
-> asigna cada tarea, revisa la entrega y le propone a Joswill integrarla.
-> Quien ejecuta (Claude u otro agente) sigue los pasos en orden, marca cada
-> casilla (`- [ ]` → `- [x]`) y entrega el commit con la salida de las pruebas.
-> Si un paso no coincide con el código, se detiene y lo dice: no improvisa.
+> **Para agentes:** Claude Code y Codex trabajan este plan **en relevo**, uno
+> a la vez ([docs/RELEVO.md](../../RELEVO.md)). El que está de turno sigue el
+> primer paso sin marcar, y en el commit de cada paso marca su casilla
+> (`- [ ]` → `- [x]`): los créditos se cortan sin aviso y el siguiente sigue
+> desde ahí. Si un paso no coincide con el código, se detiene, lo anota en la
+> bitácora y no improvisa.
 
 **Objetivo:** que el inventario deje de llenarse de alertas de agotados, que
 cada paquete muestre cómo va y se cierre solo con un resumen, y que Ross pueda
@@ -21,12 +22,12 @@ guarda es cuándo Ross cerró el resumen (`resumen_visto_el` en el paquete).
 PWA con Vite (celular), Vitest, Playwright (Python) para las suites de interfaz.
 
 **Diseño:** [docs/superpowers/specs/2026-10-02-fases-del-celular-design.md](../specs/2026-10-02-fases-del-celular-design.md)
+(sección "C1"). Leelo antes de empezar: este plan lo implementa.
 
 **Validado el 2/10**: el código de los pasos 2, 3, 5, 7 y 10 de T1 se aplicó
 tal cual en un worktree descartable sobre `b47d21f`: las 6 pruebas nuevas
 pasan, `tsc` de las dos apps queda limpio y `npm test` pasa entero salvo la
 prueba vieja del paso 12, que este plan ya cambia.
-(sección "C1"). Leelo antes de empezar: este plan lo implementa.
 
 ## Restricciones para todas las tareas
 
@@ -52,12 +53,14 @@ prueba vieja del paso 12, que este plan ya cambia.
 - **No borrar `bajo_stock`, `total_bajo_stock` ni `stock_minimo`** de los datos:
   las pantallas dejan de usarlos y quedan sin uso. Borrarlos es una migración
   que no compra nada.
-- **Git**: un worktree por tarea; `git add -- <rutas>` (nunca `-A`); nunca
-  `git stash` sin rutas; nada de push, `build:exe`, `deploy:mobile` ni
-  `firebase deploy`. Los commits terminan con la línea de coautor del agente.
-- **El emulador se usa de a uno**: `npm run emulador` en otra terminal; las
-  suites `test:emulador` y `test:interfaz` borran su base. Avisar a Codex
-  antes de tomarlo y al soltarlo.
+- **Git**: en el árbol principal sobre `master` (hay un solo agente a la
+  vez); un commit por paso con su casilla marcada, mensaje `C1 · T1 · paso N:
+  …`; `git add -- <rutas>` (nunca `-A`); nunca `git stash` sin rutas; nada de
+  push, `build:exe`, `deploy:mobile` ni `firebase deploy`. Los commits
+  terminan con la línea de coautor del agente. El commit del final de cada
+  tarea (el último paso) es el que lleva su lista de rutas completa.
+- **El emulador**: `npm run emulador` en otra terminal; las suites
+  `test:emulador` y `test:interfaz` borran su base. Apagarlo antes de parar.
 - **Comandos de verificación**:
   - `npx tsc --noEmit` y `npx tsc -p mobile/tsconfig.json --noEmit`
   - `npm test` (Vitest con Firestore falso)
@@ -76,8 +79,8 @@ T1 · Núcleo ──┬── T2 · Windows: Inicio, Inventario y Paquetes
               └── T4 · Celular: "Llegó un paquete"
 ```
 
-T1 va primero y se integra antes de empezar las demás. T2, T3 y T4 no tocan
-los mismos archivos y pueden ir en paralelo.
+T1 va primero. T2, T3 y T4 van después, de a una, en ese orden: se trabaja
+en relevo, un agente a la vez.
 
 ## Mapa de archivos
 
@@ -106,7 +109,7 @@ los mismos archivos y pueden ir en paralelo.
 | `tests/interfaz/pruebas.py` | T4 | Caso del celular. |
 
 T3 y T4 tocan los dos `InventoryQuickView.tsx` y `pruebas.py` del celular:
-**T4 empieza cuando T3 está integrada**, o Codex les reparte las líneas antes.
+por eso T4 va después de T3.
 
 ---
 
@@ -778,7 +781,7 @@ describe('Fase C1: el avance de cada paquete, contra el emulador', () => {
 });
 ```
 
-Run (con el emulador prendido y avisando a Codex):
+Run (con el emulador prendido):
 `FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 npx vitest run --config vitest.emulador.config.ts tests/motor-real/c1-avance-paquete.test.ts`
 Esperado: PASS. Para verlo fallar antes, correrlo con `git stash push -- src/main/firebase/repositories/panel.repo.ts` y devolverlo con `git stash pop` (falla en `panel.paquetes` indefinido).
 
@@ -1291,10 +1294,11 @@ git commit -m "C1 · T4: 'Llegó un paquete' registra la mercadería desde el ce
 
 ---
 
-## Al terminar C1 (lo hace Codex con Joswill)
+## Al terminar C1 (el agente de turno)
 
-1. Integrar T1 a T4 en `master`, en orden, y correr todas las suites.
+1. Correr todas las suites sobre `master` con T1 a T4.
 2. Actualizar `docs/CONTEXTO_SESION.md` (qué cambió de comportamiento) y la
-   nota de estado de C1 en `docs/AUDITORIA_UX_2026-09-29.md`.
+   nota de estado de C1 en `docs/AUDITORIA_UX_2026-09-29.md`; en
+   `docs/RELEVO.md`, el siguiente paso pasa a ser escribir el plan de C2.
 3. Publicar sólo con el "publicalo" de Joswill, desde un worktree limpio
    (`docs/CONTEXTO_SESION.md`, sección 5, "Publicar").

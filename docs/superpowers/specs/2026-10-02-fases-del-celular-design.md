@@ -259,24 +259,20 @@ Las reglas de Emil Kowalski, llevadas a estas pantallas:
 - **Los textos siguen el glosario** (anexo A de la auditoría): Inventario,
   clienta, anular, en bodega, abono.
 
-## Cómo se reparte el trabajo (Claude y Codex)
+## Cómo se reparte el trabajo (Claude y Codex, en relevo)
 
-- **Codex coordina; Claude ejecuta.** Codex parte cada fase en tareas (las
-  de abajo son el punto de partida), le asigna cada una a Claude con su
-  alcance, sus archivos y cómo se da por buena, y revisa lo que Claude
-  entrega antes de proponerle a Joswill integrarlo. Claude hace la tarea en
-  su worktree, con la prueba que falla primero, y entrega el commit con la
-  salida de las pruebas que corrió; si el plan tiene un problema, lo dice
-  antes de seguir. Joswill aprueba la integración y la publicación.
-- **Cada tarea tiene sus archivos** (dos tareas a la vez no tocan el mismo
-  archivo) y sus pruebas, y se escribe primero la prueba que falla.
-- **Un worktree por tarea**, commits sólo con rutas explícitas
-  (`git add -- <rutas>`). Nadie publica ni hace push: integra quien Joswill
-  diga, después de correr las suites completas.
-- **El emulador se usa de a uno**, avisando antes y después: las suites
-  borran su base.
-- **Lo que entrega Claude lo revisa Codex.** Si Codex implementa alguna
-  tarea él mismo, la revisa Claude.
+- **Un agente a la vez.** Joswill usa Claude Code hasta que se le acaban los
+  créditos, sigue con Codex, y vuelve. El que está de turno toma el primer
+  paso sin marcar del plan de la fase, lo hace y lo deja escrito. No hay
+  coordinador ni revisor. (Hasta la mañana del 2/10 se pensó en Codex como
+  coordinador; Joswill lo cambió.)
+- **[RELEVO.md](../../RELEVO.md)** es el punto de encuentro: qué hacer al
+  llegar, mientras se trabaja y antes de parar, el estado y la bitácora.
+- **Un commit por paso**, con la casilla del plan marcada en ese commit: los
+  créditos se cortan sin aviso, y el siguiente tiene que saber dónde quedó.
+- Se trabaja en el árbol principal sobre `master`, con rutas explícitas
+  (`git add -- <rutas>`). Primero la prueba que falla.
+- Nadie publica ni hace push sin el "publicalo" de Joswill.
 - **C1, por ejemplo**:
   - **T1 · Núcleo** (primero, las demás dependen de él): `resumenDelPaquete`,
     el estado abierto o cerrado, quitar las alertas de existencias en
@@ -285,7 +281,7 @@ Las reglas de Emil Kowalski, llevadas a estas pantallas:
   - **T2 · Windows**: Inicio, Inventario y Paquetes.
   - **T3 · Celular**: Inicio e Inventario.
   - **T4 · Celular**: "Llegó un paquete".
-  - T2, T3 y T4 van en paralelo una vez que T1 está integrada.
+  - T2, T3 y T4 van después de T1, de a una (un agente a la vez).
 
 ## Lo que queda abierto
 

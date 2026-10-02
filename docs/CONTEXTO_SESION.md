@@ -14,8 +14,9 @@
 > iPhone (sección 3). El 2 de octubre salió la **`v2.17.0`** en las dos apps:
 > la Fase 2 de la auditoría (un solo abono, lo pagado en su moneda y un solo
 > WhatsApp) y "Fue un error" (sección 3). **Lo que sigue es la Fase C1**, la
-> primera de las fases del celular, con su plan escrito y validado (sección
-> "Para seguir: Codex y los agentes", abajo).
+> primera de las fases del celular, con su plan escrito y validado. Claude
+> Code y Codex trabajan **en relevo**: dónde quedó cada uno está en
+> [RELEVO.md](RELEVO.md).
 > **Última actualización**: 2 de octubre de 2026.
 
 Leé este archivo primero. Después:
@@ -28,11 +29,14 @@ Leé este archivo primero. Después:
   así que la estructura sigue valiendo pero los números y el costeo que describe
   ya no. Para el costeo mandá lo que dice acá abajo.
 
-## Para seguir: Codex y los agentes
+## Para seguir: el relevo entre Claude Code y Codex
 
-Desde el 2 de octubre Joswill trabaja con **Codex como coordinador** y
-**Claude como ejecutor**; cuando se le acaban los créditos de uno sigue con el
-otro. Este apartado es lo mínimo para retomar sin preguntar nada.
+Desde el 2 de octubre Joswill trabaja con **un agente a la vez**: cuando se le
+acaban los créditos de Claude Code sigue con Codex, y al revés. No hay
+coordinador ni revisor: el que está de turno toma el siguiente paso del plan.
+**El estado del relevo (quién hizo qué, el paso que sigue, lo que quedó a
+medias) está en [RELEVO.md](RELEVO.md)**, que se lee al llegar y se actualiza
+antes de parar. Este apartado es el resto de lo mínimo para retomar.
 
 **Dónde está todo**:
 
@@ -49,18 +53,17 @@ otro. Este apartado es lo mínimo para retomar sin preguntar nada.
   El orden completo del trabajo, en la sección 5 de
   [AUDITORIA_UX_2026-09-29.md](AUDITORIA_UX_2026-09-29.md).
 
-**Cómo se trabaja** (detalle en la sección "Cómo se reparte el trabajo" del
-diseño):
+**Cómo se trabaja** (el detalle, en [RELEVO.md](RELEVO.md)):
 
-1. Codex asigna una tarea del plan (T1 primero; después T2, T3 y T4 en
-   paralelo) con sus archivos y cómo se da por buena.
-2. Quien ejecuta trabaja en un worktree propio, escribe primero la prueba
-   que falla, commitea sólo sus rutas (`git add -- <rutas>`) y entrega el
-   commit con la salida de las pruebas que corrió.
-3. Codex revisa y le propone a Joswill integrar. Joswill aprueba integrar y
-   **publicar**: nadie hace push, `build:exe`, `deploy:mobile` ni
-   `firebase deploy` sin su "publicalo".
-4. El emulador se usa de a uno: `npm run emulador`, y avisar antes y después.
+1. Al llegar: `git status`, `git log`, la última entrada de la bitácora y
+   las casillas del plan. El primer paso sin marcar es por donde se sigue.
+2. Un commit por paso del plan, con la casilla marcada en el mismo commit,
+   en el árbol principal sobre `master`, con rutas explícitas.
+3. Primero la prueba que falla, después el código.
+4. **Publicar** sólo con el "publicalo" de Joswill: nadie hace push,
+   `build:exe`, `deploy:mobile` ni `firebase deploy` sin él.
+5. Antes de parar: commitear, apagar el emulador si se prendió, y escribir
+   la entrada de la bitácora.
 
 **Las reglas que más se olvidan**: dinero en centavos enteros; la tasa de
 cambio de una venta existente es la de esa venta; textos en vos para Ross y
@@ -701,13 +704,12 @@ internet es **sólo el celular**.
 
 **Para empezar C1**: el plan está en
 [superpowers/plans/2026-10-02-c1-inventario-por-paquete.md](superpowers/plans/2026-10-02-c1-inventario-por-paquete.md), con T1 (núcleo) primero y T2
-(Windows), T3 y T4 (celular) en paralelo después. **Codex coordina y Claude
-ejecuta**: Codex asigna cada tarea y revisa la entrega antes de que Joswill
-la apruebe, y una sesión de Claude no empieza código de C1 sin una tarea
-asignada. El dato del que depende todo (cada lote sabe de qué paquete vino, y
-cada línea de venta de qué lotes salió) se comprobó sobre producción el 2/10.
-Codex tiene un worktree propio (`.codex/worktrees/coordinacion-agentes`) con
-su plan del puente de revisión, sin commitear.
+(Windows), T3 y T4 (celular) después, de a una. Lo hace el agente que esté
+de turno, en relevo ([RELEVO.md](RELEVO.md)). El dato del que depende todo
+(cada lote sabe de qué paquete vino, y cada línea de venta de qué lotes
+salió) se comprobó sobre producción el 2/10. Codex tiene un worktree propio
+(`.codex/worktrees/coordinacion-agentes`) con un puente de revisión sin
+commitear, de cuando iba a coordinar: con el relevo no se usa.
 
 ### Hecho el 29 de septiembre, sobre producción: V-0007 borrada a mano
 

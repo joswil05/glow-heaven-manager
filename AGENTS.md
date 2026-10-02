@@ -1,5 +1,11 @@
 # AGENTS.md — Glow Heaven Manager
 
+> **TRABAJO EN RELEVO (desde el 2/10/2026):** Claude Code y Codex se turnan;
+> trabaja uno a la vez. **Antes de tocar nada leé [docs/RELEVO.md](docs/RELEVO.md)**:
+> dónde quedó el otro, el paso del plan que sigue y cómo dejar el trabajo para
+> el siguiente. Commiteá y marcá el plan **a cada paso**, porque los créditos
+> se cortan sin aviso.
+>
 > **¿SESIÓN NUEVA? EMPEZÁ ACÁ:** [docs/CONTEXTO_SESION.md](docs/CONTEXTO_SESION.md).  
 > Estado vigente, el costeo como funciona de verdad, lo que está pendiente y las
 > trampas que ya cobraron su precio. Es el documento que se mantiene al día.
