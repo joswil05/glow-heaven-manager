@@ -898,7 +898,7 @@ Run: `SOLO="C1 ·" PYTHONIOENCODING=utf-8 npm run test:interfaz-escritorio`
 Esperado: los dos casos fallan (Inicio todavía dice "agotados o bajos";
 el filtro arranca en "Todos").
 
-- [ ] **Paso 2: el componente del paquete**
+- [x] **Paso 2: el componente del paquete**
 
 Crear `src/renderer/src/components/AvancePaquete.tsx` con dos componentes:
 
