@@ -65,7 +65,7 @@ se trabaja**.
   [superpowers/plans/2026-10-02-c1-inventario-por-paquete.md](superpowers/plans/2026-10-02-c1-inventario-por-paquete.md).
   T1 (núcleo) primero; después T2 (Windows), T3 (celular) y T4 (celular),
   en ese orden porque se hacen de a uno.
-- **Siguiente paso**: C1 · T2 · paso 1 (T1 terminada el 2/10).
+- **Siguiente paso**: C1 · T3 · paso 1 (T1 y T2 terminadas el 2/10).
 - **Después de C1**: C2 a C4, en el diseño
   [superpowers/specs/2026-10-02-fases-del-celular-design.md](superpowers/specs/2026-10-02-fases-del-celular-design.md)
   (al empezar cada una se escribe su plan, como el de C1); después las fases
@@ -88,6 +88,38 @@ Formato de cada entrada:
 - Sigue: el paso exacto del plan.
 - Para Joswill: lo que necesita decidir o probar (o "nada").
 ```
+
+### 2026-10-02 13:20 · Claude Code
+- Hizo: **C1 · T2 completa** (Windows). Inicio: la cuarta cifra es
+  "Recuperado de PQ-…" y la tarjeta "Stock crítico" pasó a "Paquetes en
+  venta"; el resumen de un paquete vendido aparece arriba hasta "Listo".
+  Inventario abre en "A la venta" (filtros A la venta, Vendidos,
+  Descatalogados, Todos). Paquetes: avance o resumen en el detalle, el
+  detalle encima de la tabla, impuesto del paquete.
+- Decisiones fuera del plan (para que no se deshagan):
+  - La barra del avance es quieta (`AvancePaquete.tsx`), no la `BarraProgreso`
+    de `ui`, que crece animada cada vez que aparece (criterios de Emil).
+  - Salió el contador de la barra lateral en Inventario: era la alerta de
+    agotados con otra forma (`App.tsx`, `Sidebar.tsx`).
+  - Tocar un paquete en Inicio abre su detalle: `paqueteInicialId` de
+    `App` a `InventarioView` a `PaquetesView`.
+  - El detalle del paquete ya no tiene "Te dejó hasta hoy": lo reemplaza el
+    avance.
+  - Con lo cobrado por encima de lo invertido, dice "Ya recuperaste lo que
+    costó ($X) y $Y más".
+  - Los totales y el selector de paquetes del Inventario salen siempre de
+    todos los productos; si no, al abrir en "A la venta" un paquete vendido
+    entero desaparecía del selector.
+- Commits: `ced3816` (paso 1), `f394698` (2), `190ab1a` (3), `c188728` (4),
+  `6e7c3d7` (5 a 7). No pusheados.
+- Pruebas: `test:interfaz-escritorio` 43 casos, aprobada (los 2 de C1
+  fallaban antes); `npm test` 592; `tsc` de las dos apps limpio; auditoría
+  de colores. Se miraron capturas de Inicio, Inventario y el detalle de un
+  paquete.
+- Quedó a medias: nada. No se usó el emulador.
+- Sigue: C1 · T3 · paso 1 (celular: Inicio e Inventario). Hasta que T3 esté,
+  el celular sigue mostrando "Stock crítico": no publicar C1 todavía.
+- Para Joswill: nada.
 
 ### 2026-10-02 12:49 · Claude Code
 - Hizo: **C1 · T1 completa** (el núcleo). `avanceDePaquetes()` en
