@@ -708,7 +708,7 @@ describe('panel', () => {
     expect(panel.ganancia_mes_actual!.ventas_count).toBe(1);
   });
 
-  it('avisa de productos por acabarse', async () => {
+  it('ya no avisa de existencias: cómo va cada paquete lo dice el panel (Fase C1)', async () => {
     await ProductosRepo.crear(
       {
         nombre: 'Crema',
@@ -719,7 +719,7 @@ describe('panel', () => {
     );
 
     const alertas = await PanelRepo.alertas();
-    expect(alertas.some((a) => a.id === 'bajo-stock')).toBe(true);
+    expect(alertas.some((a) => a.id === 'bajo-stock' || a.id === 'agotados')).toBe(false);
   });
 
   it('avisa si algo quedó por debajo del costo', async () => {

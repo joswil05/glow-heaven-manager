@@ -785,7 +785,7 @@ Run (con el emulador prendido):
 `FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 npx vitest run --config vitest.emulador.config.ts tests/motor-real/c1-avance-paquete.test.ts`
 Esperado: PASS. Para verlo fallar antes, correrlo con `git stash push -- src/main/firebase/repositories/panel.repo.ts` y devolverlo con `git stash pop` (falla en `panel.paquetes` indefinido).
 
-- [ ] **Paso 12: todo lo demás sigue pasando**
+- [x] **Paso 12: todo lo demás sigue pasando**
 
 En `tests/integracion.test.ts`, la prueba `'avisa de productos por acabarse'`
 esperaba la alerta que este cambio quita (comprobado al validar este plan: es
@@ -812,7 +812,7 @@ Esperado: todo pasa. Si un caso de interfaz de Windows contaba con la alerta
 "N productos agotados" o con "productos agotados o bajos" en Inicio, **no lo
 cambies acá**: anotalo para T2, que cambia esa pantalla.
 
-- [ ] **Paso 13: commit**
+- [x] **Paso 13: commit**
 
 ```bash
 git add -- src/shared/types.ts src/core/avance-paquete.ts tests/c1-avance-paquete.test.ts src/main/firebase/repositories/panel.repo.ts src/main/firebase/repositories/compras.repo.ts src/shared/ipc-channels.ts src/shared/ipc-contracts.ts src/preload/api.ts src/main/ipc/index.ts src/renderer/src/mock-api.ts tests/motor-real/c1-avance-paquete.test.ts tests/integracion.test.ts
