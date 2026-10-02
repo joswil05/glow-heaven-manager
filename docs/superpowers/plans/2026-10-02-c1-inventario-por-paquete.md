@@ -135,7 +135,7 @@ por eso T4 va después de T3.
   - `ComprasRepoFirestore.marcarResumenVisto(compra_id: number): Promise<void>`.
   - `window.api.compras.marcarResumenVisto(id: number): Promise<Resultado<null>>` (Windows).
 
-- [ ] **Paso 1: comprobar el dato del que depende todo**
+- [x] **Paso 1: comprobar el dato del que depende todo**
 
 Abrí `src/shared/types.ts` y confirmá que `Lote` tiene `compra_id`,
 `cantidad_inicial`, `cantidad`, `vendidas`, `bajas`, `valor_usd_cents`,
@@ -146,7 +146,7 @@ PQ-0001 traen `compra_id: 1`, entraron 45 unidades, quedan 7, se vendieron 38,
 y `valor + costo_vendido` suma los $370.16 del paquete. Si algo de esto no está,
 parar y avisar.
 
-- [ ] **Paso 2: los tipos**
+- [x] **Paso 2: los tipos**
 
 En `src/shared/types.ts`, agregar `resumen_visto_el` a `Compra` (después de
 `corregido_en`):
@@ -227,7 +227,7 @@ Y en `PanelData`, después de `total_bajo_stock`:
   paquetes: AvancePaquete[];
 ```
 
-- [ ] **Paso 3: escribir la prueba que falla**
+- [x] **Paso 3: escribir la prueba que falla**
 
 Crear `tests/c1-avance-paquete.test.ts`:
 
@@ -376,12 +376,12 @@ describe('el avance de un paquete', () => {
 });
 ```
 
-- [ ] **Paso 4: ver que falla**
+- [x] **Paso 4: ver que falla**
 
 Run: `npx vitest run tests/c1-avance-paquete.test.ts`
 Esperado: FAIL, "Failed to resolve import ../src/core/avance-paquete".
 
-- [ ] **Paso 5: implementar la cuenta**
+- [x] **Paso 5: implementar la cuenta**
 
 Crear `src/core/avance-paquete.ts`:
 
@@ -574,7 +574,7 @@ export function avanceDePaquetes(
 }
 ```
 
-- [ ] **Paso 6: ver que pasa**
+- [x] **Paso 6: ver que pasa**
 
 Run: `npx vitest run tests/c1-avance-paquete.test.ts`
 Esperado: PASS, 6 pruebas.

@@ -459,6 +459,12 @@ export interface Compra {
   /** La última vez que se corrigió después de estar en el inventario. */
   corregido_en?: string;
   /**
+   * Cuándo Ross cerró el resumen de "Se vendió todo" (ISO). Mientras no lo
+   * cierre, Inicio lo muestra. Lo único del avance que se guarda: el resto se
+   * calcula de los lotes (`core/avance-paquete.ts`).
+   */
+  resumen_visto_el?: string;
+  /**
    * El contenido se reconstruyó de los productos: es un paquete de antes de
    * que los paquetes guardaran lo que traían.
    */
@@ -717,6 +723,62 @@ export interface Alerta {
   destino?: { vista: string; id?: number };
 }
 
+/** Un paquete recibido: si todavía tiene unidades o ya se vendió todo. */
+export type EstadoVentaPaquete = 'EN_VENTA' | 'VENDIDO';
+
+/** Lo que queda en bodega de un paquete, por producto y talla o tono. */
+export interface PiezaQueQueda {
+  producto_id: number;
+  nombre: string;
+  variante_id: number;
+  /** "M", "Rojo", "M Rojo"; nada si el producto no tiene tallas ni tonos. */
+  detalle?: string;
+  cantidad: number;
+}
+
+/** Una venta que todavía debe algo de lo que salió de este paquete. */
+export interface DeudaDelPaquete {
+  venta_id: number;
+  codigo: string;
+  cliente_nombre: string;
+  /** La parte del saldo de la venta que corresponde a piezas de este paquete. */
+  pendiente_usd_cents: number;
+}
+
+/** Un producto del paquete que se terminó, y cuántos días tardó. */
+export interface VendidoRapido {
+  producto_id: number;
+  nombre: string;
+  dias: number;
+}
+
+/** Cómo va un paquete: lo calcula `avanceDePaquetes`, no se guarda. */
+export interface AvancePaquete {
+  compra_id: number;
+  codigo: string;
+  fecha: string;
+  estado: EstadoVentaPaquete;
+  unidades_recibidas: number;
+  unidades_vendidas: number;
+  unidades_bajas: number;
+  unidades_quedan: number;
+  /** Lo que costaron las unidades de inventario, con flete y 7%. */
+  invertido_usd_cents: number;
+  /** Lo que se cobró (o se debe) por las unidades vendidas. */
+  vendido_usd_cents: number;
+  costo_vendido_usd_cents: number;
+  ganancia_usd_cents: number;
+  por_cobrar_usd_cents: number;
+  cobrado_usd_cents: number;
+  quedan: PiezaQueQueda[];
+  deudas: DeudaDelPaquete[];
+  /** Hasta tres, el más rápido primero. Sólo productos que se terminaron. */
+  mas_rapidos: VendidoRapido[];
+  /** Días desde que entró hasta su última venta. Sólo si está VENDIDO y se sabe. */
+  dias_en_venderse?: number;
+  resumen_visto_el?: string;
+}
+
 export interface PanelData {
   resumen: ResumenFinanciero;
   ganancia_mes_actual: GananciaMes | null;
@@ -729,6 +791,8 @@ export interface PanelData {
   bajo_stock: FilaBajoStock[];
   /** Cuántos productos están en el mínimo. `bajo_stock` trae sólo diez. */
   total_bajo_stock: number;
+  /** Los paquetes recibidos, el más nuevo primero (desde la Fase C1). */
+  paquetes: AvancePaquete[];
   mas_vendidos: FilaRotacion[];
   sin_rotacion: FilaRotacion[];
   alertas: Alerta[];
