@@ -65,7 +65,7 @@ se trabaja**.
   [superpowers/plans/2026-10-02-c1-inventario-por-paquete.md](superpowers/plans/2026-10-02-c1-inventario-por-paquete.md).
   T1 (núcleo) primero; después T2 (Windows), T3 (celular) y T4 (celular),
   en ese orden porque se hacen de a uno.
-- **Siguiente paso**: C1 · T1 · paso 1.
+- **Siguiente paso**: C1 · T2 · paso 1 (T1 terminada el 2/10).
 - **Después de C1**: C2 a C4, en el diseño
   [superpowers/specs/2026-10-02-fases-del-celular-design.md](superpowers/specs/2026-10-02-fases-del-celular-design.md)
   (al empezar cada una se escribe su plan, como el de C1); después las fases
@@ -88,6 +88,28 @@ Formato de cada entrada:
 - Sigue: el paso exacto del plan.
 - Para Joswill: lo que necesita decidir o probar (o "nada").
 ```
+
+### 2026-10-02 12:49 · Claude Code
+- Hizo: **C1 · T1 completa** (el núcleo). `avanceDePaquetes()` en
+  `src/core/avance-paquete.ts` calcula de los lotes cómo va cada paquete
+  (vendidas, quedan, invertido, vendido, ganancia, cobrado, quién debe, lo
+  más rápido) y si está EN_VENTA o VENDIDO. El panel lo devuelve en
+  `paquetes` (las dos apps), ya no arma las alertas "agotados" ni "por
+  acabarse", y `marcarResumenVisto()` guarda cuándo Ross cerró el resumen
+  (también por el canal de Windows y en el simulador).
+- Commits: `f2132a1` (pasos 1 a 6), `817c579` (7), `5d63908` (8), `f3fd73a`
+  (9), `34f53c9` (10), `3393982` (11), `f6129d0` (12 y 13). No pusheados.
+- Pruebas: `npm test` 592; `npm run test:emulador` 104 (las 2 nuevas fallaron
+  con el panel de antes del paso 7); `test:interfaz-escritorio` 41 casos y
+  `test:interfaz` 24, aprobadas; `build:mobile` con sus auditorías; `tsc` de
+  las dos apps limpio.
+- Quedó a medias: nada. El emulador quedó apagado.
+- Ojo: las pantallas todavía muestran lo viejo. Inicio de Windows sigue con
+  la tarjeta "productos agotados o bajos" y el celular con "Stock crítico",
+  porque leen `bajo_stock` y `total_bajo_stock`, que se siguen calculando.
+  Eso lo cambian T2 y T3. No publicar C1 hasta tener T2 y T3.
+- Sigue: C1 · T2 · paso 1 (Windows: Inicio, Inventario y Paquetes).
+- Para Joswill: nada.
 
 ### 2026-10-02 12:30 · Claude Code
 - Hizo: pasó el trabajo a relevo (este archivo); el aviso está al principio
