@@ -18,6 +18,7 @@ from __future__ import annotations
 import os
 import re
 import sys
+import traceback
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -1309,7 +1310,8 @@ def caso_c1_llego_un_paquete(page: Page) -> list[str]:
     page.wait_for_timeout(800)
     campo_de(page, "Flete pagado").fill("10")
     visible(page, "button", "Seguir").click()
-    visible(page, "button", "Agregar pieza").click()
+    # Seguir guarda el borrador antes de abrir el siguiente paso.
+    page.get_by_role("button", name="Agregar pieza", exact=True).click()
     page.wait_for_timeout(500)
     en_hoja(page, "input[aria-label='Producto']").fill("Cartera Llegada")
     en_hoja(page, "button", "Nuevo: Cartera Llegada").click()
@@ -1317,6 +1319,20 @@ def caso_c1_llego_un_paquete(page: Page) -> list[str]:
     en_hoja(page, "input[aria-label='Pagó por unidad ($)']").fill("15")
     en_hoja(page, "button", "Agregar").click()
     cerrar_hojas(page)
+    # El diseño pide poder interrumpir y seguir: no alcanza con estado React.
+    borrador = next((c for c in listar_coleccion("compras") if c.get("estado") == "BORRADOR"
+                     and any(l.get("descripcion") == "Cartera Llegada" for l in c.get("lineas", []))), None)
+    if borrador is None:
+        return ["la pieza no quedó guardada en un borrador antes de recibir"]
+    if any(p.get("nombre") == "Cartera Llegada" for p in listar_coleccion("productos")):
+        fallas.append("el borrador creó mercadería antes de recibirla")
+    page.reload()
+    page.wait_for_timeout(2000)
+    ir_a(page, "Catálogo")
+    visible(page, "button", "Llegó un paquete").click()
+    page.wait_for_timeout(1000)
+    visible(page, "button", f"Continuar {borrador['codigo']}").click()
+    page.wait_for_timeout(800)
     visible(page, "button", "Seguir").click()
     page.wait_for_timeout(1500)
     # Las vistas permanecen montadas: usar la pantalla visible (relevo de T3).
@@ -1332,6 +1348,8 @@ def caso_c1_llego_un_paquete(page: Page) -> list[str]:
         fallas.append("el producto nuevo no se creó")
     elif sum(v.get("existencias", 0) for v in producto.get("variantes", [])) != 2:
         fallas.append("las dos piezas no entraron al inventario")
+    if visible(page, "button", "Listo") is not None:
+        visible(page, "button", "Listo").click()
     return fallas
 
 
@@ -1377,6 +1395,7 @@ def main() -> int:
             try:
                 fallas = fn(page)
             except Exception as err:
+                traceback.print_exc()
                 fallas = [f"la prueba se rompió: {str(err)[:200]}"]
 
             if fallas:

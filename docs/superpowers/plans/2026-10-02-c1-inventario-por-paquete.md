@@ -1252,7 +1252,7 @@ Crear `mobile/src/components/PiezaPaqueteSheet.tsx`, sobre `BottomSheet`
   `recibir` lo crea, como en la PC. (Un producto nuevo con tallas o tonos
   queda para la PC en C1: el celular crea productos de una sola talla.)
 
-- [ ] **Paso 3: la vista en tres pasos**
+- [x] **Paso 3: la vista en tres pasos**
 
 Crear `mobile/src/views/RegistrarPaqueteView.tsx`, pantalla completa, con un
 indicador "1 de 3" arriba y "Seguir" / "Atrás" abajo (sin animar el cambio de

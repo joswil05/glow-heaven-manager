@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Search, X } from 'lucide-react';
+import { Search, X, PackagePlus } from 'lucide-react';
 import type { ProductoConStock } from '@shared/types';
 import { PullToRefresh } from '../components/PullToRefresh';
 import { FichaProductoSheet } from '../components/FichaProductoSheet';
@@ -16,7 +16,7 @@ import { ComprasRepoFirestore } from '../../../src/main/firebase/repositories/co
  * por categoría — antes esta pantalla inventaba su propia lista de
  * categorías ("Labiales", "Bases y Polvos"...) adivinando por palabras
  * dentro del nombre del producto, así que nunca coincidía con lo real. */
-export function InventoryQuickView() {
+export function InventoryQuickView({ onRegistrarPaquete }: { onRegistrarPaquete: () => void }) {
   const { parametros, categorias, productos, cargandoProductos, recargarProductos } = useDatosNegocio();
 
   const { mostrar } = useSnackbar();
@@ -223,6 +223,11 @@ export function InventoryQuickView() {
             {productos.filter((p) => p.existencias > 0).length} a la venta
           </span>
         </div>
+
+        <button type="button" onClick={() => { haptics.selection(); onRegistrarPaquete(); }}
+          className="mb-3 mt-2 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-acento px-4 py-3 text-base font-bold text-acento-texto">
+          <PackagePlus size={20} />Llegó un paquete
+        </button>
 
         {/* Barra de búsqueda moderna */}
         <div className="relative flex items-center mt-1">

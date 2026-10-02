@@ -10,12 +10,13 @@ import { CobranzaView } from './views/CobranzaView';
 import { InventoryQuickView } from './views/InventoryQuickView';
 import { AjustesView } from './views/AjustesView';
 import { HistorialView } from './views/HistorialView';
+import { RegistrarPaqueteView } from './views/RegistrarPaqueteView';
 import { BottomNav } from './components/BottomNav';
 import { SnackbarProvider } from './components/Snackbar';
 
 // `ajustes` no esta en el dock: se toca cada varias semanas y el dock es
 // para lo de cada minuto. Se entra por el engranaje del Inicio.
-export type Vista = 'panel' | 'vender' | 'cobranza' | 'historial' | 'inventario' | 'ajustes';
+export type Vista = 'panel' | 'vender' | 'cobranza' | 'historial' | 'inventario' | 'ajustes' | 'registrar-paquete';
 
 import { ShieldAlert, WifiOff } from 'lucide-react';
 import { usandoEmuladorLocal } from './lib/firebase-mobile';
@@ -210,7 +211,7 @@ function Navegacion() {
               <CobranzaView />
             </div>
             <div className={`h-full w-full overflow-hidden ${vista === 'inventario' ? 'block animate-vista' : 'hidden'}`}>
-              <InventoryQuickView />
+              <InventoryQuickView onRegistrarPaquete={() => setVista('registrar-paquete')} />
             </div>
             <div className={`h-full w-full overflow-hidden ${vista === 'ajustes' ? 'block animate-vista' : 'hidden'}`}>
               <AjustesView onVolver={() => setVista('panel')} />
@@ -218,8 +219,9 @@ function Navegacion() {
             <div className={`h-full w-full overflow-hidden ${vista === 'historial' ? 'block animate-vista' : 'hidden'}`}>
               <HistorialView />
             </div>
+            {vista === 'registrar-paquete' && <RegistrarPaqueteView onVolver={() => setVista('inventario')} />}
           </div>
-          {vista !== 'ajustes' && <BottomNav actual={vista} onCambiar={setVista} />}
+          {vista !== 'ajustes' && vista !== 'registrar-paquete' && <BottomNav actual={vista} onCambiar={setVista} />}
         </div>
   );
 }

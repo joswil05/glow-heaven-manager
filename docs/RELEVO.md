@@ -65,7 +65,8 @@ se trabaja**.
   [superpowers/plans/2026-10-02-c1-inventario-por-paquete.md](superpowers/plans/2026-10-02-c1-inventario-por-paquete.md).
   T1 (núcleo) primero; después T2 (Windows), T3 (celular) y T4 (celular),
   en ese orden porque se hacen de a uno.
-- **Siguiente paso**: C1 · T4 · paso 3 (hoja de pieza creada; falta conectarla).
+- **Siguiente paso**: C1 · T4 · paso 4. Pasos 1 a 3 commiteados y el caso
+  de registro con recuperación del borrador aprobado; faltan las suites completas.
 - **Después de C1**: C2 a C4, en el diseño
   [superpowers/specs/2026-10-02-fases-del-celular-design.md](superpowers/specs/2026-10-02-fases-del-celular-design.md)
   (al empezar cada una se escribe su plan, como el de C1); después las fases
@@ -88,6 +89,61 @@ Formato de cada entrada:
 - Sigue: el paso exacto del plan.
 - Para Joswill: lo que necesita decidir o probar (o "nada").
 ```
+
+### 2026-10-02 16:32 · Codex
+- Hizo: C1 · T4 · paso 3. Vista de tres pasos y entrada desde Inventario,
+  borrador al avanzar y al agregar/quitar piezas, continuar un borrador
+  persistente, vista previa, recibir y refrescar el inventario. El precio
+  sugerido se consulta, no se edita (decisión del plan).
+- Commits: el del paso 3 con esta entrada; anteriores `1208854` y `e079985`.
+- Pruebas: TypeScript móvil sin errores; caso "Llegó un paquete" aprobado
+  con recarga de la app y comprobación de existencias; auditorías de colores
+  y hooks aprobadas. El fallo de `Agregar pieza` era una carrera en la
+  prueba: ahora Playwright espera el botón después del guardado asíncrono.
+- Detalles añadidos para cumplir el diseño: entrada a borradores guardados
+  desde la pantalla inicial, conservar campos de la PC al retomarlos,
+  quitar con confirmación y guardar la cabecera al volver al Inventario.
+  La prueba usa `pantalla(page)` como decidió T3 y comprueba que guardar
+  un borrador no crea mercadería antes de Recibir.
+- Quedó a medias: paso 4, revisión visual y suites completas pendientes.
+  El emulador está encendido para estas pruebas.
+- Sigue: C1 · T4 · paso 4, después 5 y "Al terminar C1". Luego plan de C2.
+- Para Joswill: nada. Sin push ni publicación.
+
+### 2026-10-02 14:08 · Codex
+- Hizo: paso 2 completo, `PiezaPaqueteSheet`: búsqueda con vendidos y
+  descatalogados, tallas/tonos, cantidades y montos validados en su campo,
+  `hayCambios`, haptics antes de guardar y hoja abierta/vacía al agregar.
+  Paso 3 **WIP**: `RegistrarPaqueteView` de tres pasos, entrada desde
+  Inventario, guardado de borradores, vista previa y recibir por el
+  repositorio compartido. Joswill pidió parar para conservar créditos.
+- Commits: `1208854` (paso 1), `e079985` (paso 2). El WIP del paso 3 no
+  llegó a commitearse al parar: se agotó el límite de la revisión automática
+  de permisos. Joswill pidió continuar, y Codex retomó esos mismos cambios.
+- Pruebas: `npm test` inicial 593 aprobadas; el caso nuevo se vio fallar
+  por falta del botón antes de implementar. `npx tsc -p mobile/tsconfig.json
+  --noEmit` pasa con la hoja y luego con la vista conectada. El caso de
+  interfaz **todavía falla** en `tests/interfaz/pruebas.py`, línea 1313:
+  `visible(page, "button", "Agregar pieza").click()` devuelve `None`,
+  inmediatamente después de tocar Seguir. No hay errores de consola.
+  **Hipótesis por comprobar**: se busca el botón antes de terminar el
+  guardado asíncrono del paso 1; revisar también si se muestra un error al
+  guardar. Se agregó `traceback.print_exc()` para que el corredor dé la
+  línea exacta. No se corrieron aún las suites completas ni build móvil.
+- Detalles para continuar: la prueba de T4 también recarga la app después
+  de agregar una pieza y busca `Continuar PQ-…`, para verificar el borrador
+  persistente exigido por el diseño. Comprueba que antes de Recibir no se
+  creó el producto y después entraron dos unidades. La vista permite
+  continuar borradores y conserva los campos de PC que no edita; revisar
+  ese recorrido antes de darlo por bueno. El precio se consulta con
+  `precioParaCosto`, respetando precio manual, margen y lotes existentes.
+- Quedó a medias: paso 3; no se marcaron 3, 4 ni 5. Falta terminar la
+  comprobación funcional, revisar visualmente los tres pasos y pasar las
+  suites del paso 4 y del cierre de C1. Todavía no hay plan de C2.
+- Sigue: C1 · T4 · paso 3. Resolver el fallo con evidencia; si aparece una
+  discrepancia real entre plan y código, anotarla y parar como pidió Joswill.
+- Para Joswill: nada. Se confirmó al retomar que el emulador se había
+  apagado; se vuelve a iniciar para seguir las pruebas. Sin publicación.
 
 ### 2026-10-02 13:53 · Codex
 - Hizo: C1 · T4 · paso 1, el caso de "Llegó un paquete". Usa
