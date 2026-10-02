@@ -78,9 +78,9 @@ verificó sembrando el error: las nueve hicieron fallar su prueba.
 
 ### Lo que queda para las fases de la auditoría
 
-- **WhatsApp con números extranjeros** (Fase 2, TRA-03): `ClientesView`
-  ("Enviar WhatsApp") y `VentasView` (`enviarCobroWhatsApp`) anteponen `505`
-  a mano y rompen `+1 504…`. Tienen que usar `telefonoWhatsapp`.
+- ~~**WhatsApp con números extranjeros** (Fase 2, TRA-03)~~: hecho en la
+  2.17.0. Todos los enlaces salen de `enlaceMensaje` (`core/mensajes.ts`),
+  con el código de país de Configuración.
 - **Dos módulos de formato**: `src/shared/formatoTexto.ts` (v2.2.12) da
   formato en los formularios de Windows mientras se escribe, y siempre fuerza
   mayúsculas ("Thank u" → "Thank U", "e.l.f." → "E.l.f."). Al tocar esos
@@ -94,7 +94,7 @@ verificó sembrando el error: las nueve hicieron fallar su prueba.
 
 ---
 
-## 3. "Fue un error": borrar sin dejar rastro (hecho en local, sin publicar)
+## 3. "Fue un error": borrar sin dejar rastro (publicado en la 2.17.0, el 2/10)
 
 ### Tres salidas, una sola puerta
 

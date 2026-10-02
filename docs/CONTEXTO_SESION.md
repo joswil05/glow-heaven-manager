@@ -11,12 +11,11 @@
 > auditó toda la interfaz ([AUDITORIA_UX_2026-09-29.md](AUDITORIA_UX_2026-09-29.md))
 > y el 30 se hicieron su Fase 0, la `v2.16.3`, y su Fase 1, la `v2.16.4`
 > (sección 3). El 1 de octubre salió la `v2.16.5`: la vibración vuelve en
-> iPhone (sección 3). Hecho en local y **sin publicar**: "Fue un error"
-> (`9ed2237`, sección 3), que pide desplegar `firestore.rules` antes que el
-> código, y la Fase 2 de la auditoría (`481d24a`, sección 3: un solo abono,
-> lo pagado en su moneda y un solo WhatsApp), probada y esperando el
-> "publicalo" de Joswill. **Lo que sigue son las fases del celular C1 a C4**
-> (sección 3, "El plan desde el 2 de octubre"), antes de las fases 3 a 6.
+> iPhone (sección 3). El 2 de octubre salió la **`v2.17.0`** en las dos apps:
+> la Fase 2 de la auditoría (un solo abono, lo pagado en su moneda y un solo
+> WhatsApp) y "Fue un error" (sección 3). **Lo que sigue es la Fase C1**, la
+> primera de las fases del celular, con su plan escrito y validado (sección
+> "Para seguir: Codex y los agentes", abajo).
 > **Última actualización**: 2 de octubre de 2026.
 
 Leé este archivo primero. Después:
@@ -28,6 +27,46 @@ Leé este archivo primero. Después:
   arquitectura: monorepo, `src/core/`, contrato IPC, vistas. Escrito en `v2.2.8`,
   así que la estructura sigue valiendo pero los números y el costeo que describe
   ya no. Para el costeo mandá lo que dice acá abajo.
+
+## Para seguir: Codex y los agentes
+
+Desde el 2 de octubre Joswill trabaja con **Codex como coordinador** y
+**Claude como ejecutor**; cuando se le acaban los créditos de uno sigue con el
+otro. Este apartado es lo mínimo para retomar sin preguntar nada.
+
+**Dónde está todo**:
+
+- `master` local y `origin/master` están en el mismo commit, publicado como
+  `v2.17.0` (`b47d21f`), más los commits de documentación que vengan después.
+  No hay cambios sin commitear de ninguna sesión.
+- **Lo próximo es la Fase C1 · Inventario por paquete.** El plan, tarea por
+  tarea y con el código, está en
+  [superpowers/plans/2026-10-02-c1-inventario-por-paquete.md](superpowers/plans/2026-10-02-c1-inventario-por-paquete.md). Se validó el 2/10 en un
+  worktree descartable: el código de T1 compila y sus pruebas pasan.
+- El diseño de las cuatro fases del celular (C1 a C4), con las decisiones de
+  Joswill, está en
+  [superpowers/specs/2026-10-02-fases-del-celular-design.md](superpowers/specs/2026-10-02-fases-del-celular-design.md).
+  El orden completo del trabajo, en la sección 5 de
+  [AUDITORIA_UX_2026-09-29.md](AUDITORIA_UX_2026-09-29.md).
+
+**Cómo se trabaja** (detalle en la sección "Cómo se reparte el trabajo" del
+diseño):
+
+1. Codex asigna una tarea del plan (T1 primero; después T2, T3 y T4 en
+   paralelo) con sus archivos y cómo se da por buena.
+2. Quien ejecuta trabaja en un worktree propio, escribe primero la prueba
+   que falla, commitea sólo sus rutas (`git add -- <rutas>`) y entrega el
+   commit con la salida de las pruebas que corrió.
+3. Codex revisa y le propone a Joswill integrar. Joswill aprueba integrar y
+   **publicar**: nadie hace push, `build:exe`, `deploy:mobile` ni
+   `firebase deploy` sin su "publicalo".
+4. El emulador se usa de a uno: `npm run emulador`, y avisar antes y después.
+
+**Las reglas que más se olvidan**: dinero en centavos enteros; la tasa de
+cambio de una venta existente es la de esa venta; textos en vos para Ross y
+de tú para las clientas; colores sólo por token; en el celular, `haptics.*`
+antes de cualquier `await` dentro de un toque; un hallazgo de nivel A o M se
+reproduce con una prueba que falla antes de arreglarlo.
 
 ---
 
@@ -470,7 +509,7 @@ que falta de WhatsApp con números extranjeros y la convivencia con
 `shared/formatoTexto.ts` están en
 [PLAN_EQUIVOCACIONES_Y_FORMATOS.md](PLAN_EQUIVOCACIONES_Y_FORMATOS.md).
 
-### "Fue un error": hecho en local, sin publicar (1 de octubre)
+### "Fue un error": publicado en la `v2.17.0` (2 de octubre)
 
 Pedido de Joswill: *"si fue un dato mal ingresado o erróneo por confusión me
 parece desordenado que se quede ahí guardada y de forma visible"*. Commit
@@ -498,13 +537,24 @@ duplicadas, "Ver anuladas"), está en el
 [PLAN_EQUIVOCACIONES_Y_FORMATOS.md](PLAN_EQUIVOCACIONES_Y_FORMATOS.md),
 sección 3.
 
-### Fase 2 de la auditoría: hecha en local, sin publicar (2 de octubre)
+### Fase 2 de la auditoría: publicada como `v2.17.0` (2 de octubre)
 
-**Punto de control**: el código está en `481d24a` ("Fase 2 de la auditoría:
-un solo abono, lo pagado en su moneda y un solo WhatsApp"), encima de
-`89969b0`. El master local va adelante de `origin/master` con "Fue un error"
-(`9ed2237`, `89969b0`), la Fase 2 y este documento. **Nada de esto está
-publicado ni pusheado**, y no hay cambios sin commitear de esta sesión.
+**Publicada el 2 de octubre**, a pedido de Joswill, junto con "Fue un error":
+
+- Primero las reglas: `npx firebase deploy --only firestore:rules`.
+- Versión `2.17.0` en `b47d21f`, compilada y probada (`tsc` de las dos apps
+  y `npm test`, 586) en un worktree limpio en ese commit. Las suites de
+  interfaz y del emulador habían pasado el día anterior sobre el mismo código.
+- Push por SHA (`2890444..b47d21f`).
+- Release `v2.17.0`, la "Latest": borrador sin archivos, el exe solo y
+  después el blockmap y `latest.yml`, y publicada. Lo que lee el actualizador
+  (`releases/latest/download/latest.yml`) dice 2.17.0, con el sha512 del exe
+  y 106.170.381 bytes, que es lo que pesa la descarga.
+- La PWA en los dos sitios (`glow-heaven-db-app` y `glow-heaven-movil`)
+  sirve el build nuevo (`assets/index-LQHtbUTA.js`).
+
+El código es `481d24a` ("Fase 2 de la auditoría: un solo abono, lo pagado en
+su moneda y un solo WhatsApp").
 
 **Qué quedó hecho** (todos los IDs de la Fase 2 del informe). Lo que hay que
 saber para no deshacerlo:
@@ -598,18 +648,14 @@ saber para no deshacerlo:
 
 **Lo que falta**:
 
-1. **Probar a mano antes de publicar**, en la app de verdad: en Windows, que
-   "Enviar WhatsApp" del menú de Clientes y el WhatsApp de la Factura abran
-   el chat (los dos llaman a `window.open` después de un `await`; en
-   Electron lo recibe `setWindowOpenHandler`, en las pruebas está espiado);
-   en el teléfono, Deshacer después de un abono y de una venta.
-2. **Publicar sólo con el "publicalo" de Joswill.** Saldría junto con "Fue un
-   error", así que primero `npx firebase deploy --only firestore:rules`
-   (sección 5), y después desde un worktree limpio y con push por SHA. El
-   informe sugería 2.18.0 para esta fase; la versión la decide quien
-   publique.
-3. **Lo que sigue son las fases del celular C1 a C4** (abajo), y después
-   las fases 3 a 6 del informe. Cada una espera autorización.
+1. **Probar a mano en la app de verdad** (no lo cubren las pruebas): en
+   Windows, que "Enviar WhatsApp" del menú de Clientes y el WhatsApp de la
+   Factura abran el chat (los dos llaman a `window.open` después de un
+   `await`; en Electron lo recibe `setWindowOpenHandler`); en el teléfono,
+   Deshacer después de un abono y de una venta.
+2. ~~Publicar~~: hecho, `v2.17.0`.
+3. **Lo que sigue es la Fase C1** (abajo y en el apartado "Para seguir"),
+   después C2 a C4 y después las fases 3 a 6 del informe.
 4. Pendiente de antes: probar la vibración en el iPhone (la 2.16.5).
 
 **Archivos que tocó la fase** (todos en `481d24a`, ninguno a medio hacer):
@@ -653,16 +699,15 @@ importan para no equivocarse: la sección de productos se llama
 ajustan existencias; el paquete se carga **cuando llega**, de una vez; sin
 internet es **sólo el celular**.
 
-**Para empezar C1 (3 de octubre)**: **Codex coordina y Claude ejecuta**
-(sección "Cómo se reparte el trabajo" del diseño). Codex parte C1 en tareas
-(el diseño propone T1 núcleo; después T2 Windows, T3 y T4 celular, en
-paralelo), se las asigna a Claude una por una y revisa cada entrega antes de
-que Joswill la apruebe. Una sesión de Claude no empieza código de C1 sin una
-tarea asignada. Lo primero de T1 es
-comprobar en el código que cada línea de venta guarda de qué lote salió cada
-unidad, porque el resumen del paquete depende de eso. Codex tiene un
-worktree propio (`.codex/worktrees/coordinacion-agentes`) con su plan del
-puente de revisión, sin commitear.
+**Para empezar C1**: el plan está en
+[superpowers/plans/2026-10-02-c1-inventario-por-paquete.md](superpowers/plans/2026-10-02-c1-inventario-por-paquete.md), con T1 (núcleo) primero y T2
+(Windows), T3 y T4 (celular) en paralelo después. **Codex coordina y Claude
+ejecuta**: Codex asigna cada tarea y revisa la entrega antes de que Joswill
+la apruebe, y una sesión de Claude no empieza código de C1 sin una tarea
+asignada. El dato del que depende todo (cada lote sabe de qué paquete vino, y
+cada línea de venta de qué lotes salió) se comprobó sobre producción el 2/10.
+Codex tiene un worktree propio (`.codex/worktrees/coordinacion-agentes`) con
+su plan del puente de revisión, sin commitear.
 
 ### Hecho el 29 de septiembre, sobre producción: V-0007 borrada a mano
 

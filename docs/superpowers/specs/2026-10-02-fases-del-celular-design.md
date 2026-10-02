@@ -44,7 +44,7 @@ avisan nada útil, y van a seguir ahí cuando llegue el próximo paquete.
 
 | Orden | Fase | Qué trae |
 |---|---|---|
-| 1 | Fase 2 (hecha, `481d24a`) | Publicarla con el "publicalo" de Joswill, junto con "Fue un error" (reglas de Firestore primero). |
+| 1 | Fase 2 (publicada como 2.17.0 el 2/10) | Hecho, junto con "Fue un error". |
 | 2 | **C1 · Inventario por paquete** | Sin alertas de agotados; avance, cierre y resumen de cada paquete; registrar un paquete desde el celular. |
 | 3 | **C2 · Inventario y encargos en el celular** | Inventario con lo que hay, cambiar un precio; encargos: anotar, cotizar, mandar con PDF, "Aceptó". |
 | 4 | **C3 · Sin internet: consultar** | Abrir y ver todo sin señal. |
@@ -57,6 +57,12 @@ Cada fase se publica por separado, con su versión, y sólo con el
 ---
 
 ## C1 · Inventario por paquete
+
+El plan de implementación, tarea por tarea y con el código, está en
+[../plans/2026-10-02-c1-inventario-por-paquete.md](../plans/2026-10-02-c1-inventario-por-paquete.md).
+Una diferencia con lo de abajo, decidida en el plan: en "Llegó un paquete" el
+precio sugerido se muestra pero no se edita, porque cambiar un precio desde
+el celular es de C2 y no conviene tener dos pantallas para lo mismo.
 
 ### Las reglas
 

@@ -653,7 +653,7 @@ Reglas para todas las fases:
 
 **Objetivo**: una forma de cobrar por app, que siempre hable en la moneda en que se pagó, con la tasa de la venta, y mensajes que digan lo mismo desde cualquier botón.
 
-> **Estado al 2/10**: hecha y probada en local (`481d24a`), **sin publicar**. Todos los IDs de la tabla quedaron resueltos; cada caso nuevo se vio fallar contra el código anterior. El detalle, las pruebas y lo que falta para publicar están en `CONTEXTO_SESION.md`, sección 3. Lo que salió distinto de lo planeado:
+> **Estado al 2/10**: hecha, probada y **publicada como 2.17.0** en las dos apps (`481d24a`; versión `b47d21f`), junto con "Fue un error". Todos los IDs de la tabla quedaron resueltos; cada caso nuevo se vio fallar contra el código anterior. El detalle, las pruebas y lo que falta para publicar están en `CONTEXTO_SESION.md`, sección 3. Lo que salió distinto de lo planeado:
 >
 > - **El reparto tenía un error de plata**: con dos ventas de tasas distintas, un abono en córdobas a la cuenta registraba más córdobas de los pagados. `core/reparto.ts` reparte en la moneda del abono, y la ventana lo muestra con la misma función con que se registra.
 > - **La hoja "Abonos" del celular** quedó de la venta (CCO-06): sus abonos y su saldo, no los de todas las ventas de la clienta.
@@ -680,7 +680,7 @@ Reglas para todas las fases:
 | **C3 · Sin internet: consultar** | Sólo en el celular: abre y muestra lo último que cargó, con "Sin conexión · datos de las 10:42"; los botones de escribir dicen por qué no se puede. | | Interfaz del celular con la red cortada. |
 | **C4 · Sin internet: operar** | Sólo en el celular: una venta, un abono o un pedido de encargo sin señal quedan "Pendiente de subir" y se suben solos, en orden y sin duplicarse (`operacion_id`); lo que no se puede subir queda en "No se pudo subir". | | Contra el emulador, una operación subida dos veces escribe una vez; interfaz del celular cortando y volviendo la red. |
 
-Los IDs de la tercera columna salieron de las fases 3 a 6: son de pantallas que estas fases rehacen, y no se tocan dos veces. Reemplazan las versiones 2.17, 2.18 y 2.19 de [PLAN_ENCARGOS_Y_SIN_CONEXION.md](PLAN_ENCARGOS_Y_SIN_CONEXION.md).
+Los IDs de la tercera columna salieron de las fases 3 a 6: son de pantallas que estas fases rehacen, y no se tocan dos veces. El plan de implementación de C1, tarea por tarea, está en [superpowers/plans/2026-10-02-c1-inventario-por-paquete.md](superpowers/plans/2026-10-02-c1-inventario-por-paquete.md). Reemplazan las versiones 2.17, 2.18 y 2.19 de [PLAN_ENCARGOS_Y_SIN_CONEXION.md](PLAN_ENCARGOS_Y_SIN_CONEXION.md).
 
 ### Fase 3 · Color, contraste y tipografía · puede ir con la revisión de tipografía de la 2.20
 
