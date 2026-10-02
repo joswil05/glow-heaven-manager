@@ -65,7 +65,8 @@ se trabaja**.
   [superpowers/plans/2026-10-02-c1-inventario-por-paquete.md](superpowers/plans/2026-10-02-c1-inventario-por-paquete.md).
   T1 (núcleo) primero; después T2 (Windows), T3 (celular) y T4 (celular),
   en ese orden porque se hacen de a uno.
-- **Siguiente paso**: C1 · T4 · paso 5; después, cierre de C1 con todas las suites.
+- **Siguiente paso**: "Al terminar C1": todas las suites y actualización
+  de contexto y auditoría. T4 completa; después escribir el plan de C2.
 - **Después de C1**: C2 a C4, en el diseño
   [superpowers/specs/2026-10-02-fases-del-celular-design.md](superpowers/specs/2026-10-02-fases-del-celular-design.md)
   (al empezar cada una se escribe su plan, como el de C1); después las fases
@@ -88,6 +89,15 @@ Formato de cada entrada:
 - Sigue: el paso exacto del plan.
 - Para Joswill: lo que necesita decidir o probar (o "nada").
 ```
+
+### 2026-10-02 16:46 · Codex
+- Hizo: C1 · T4 · paso 5; tarea completa y sus cinco casillas marcadas.
+- Commits: `1208854`, `e079985`, `b0e6468`, `0626f3d` y este cierre.
+  Incluyen vista, hoja de pieza, entrada desde Inventario, ruta en App y pruebas.
+- Pruebas: las del paso 4; sin cambios de código posteriores.
+- Quedó a medias: nada de T4; pendiente la verificación conjunta de C1.
+- Sigue: "Al terminar C1", luego escribir el plan de C2.
+- Para Joswill: nada; sin push ni publicación.
 
 ### 2026-10-02 16:45 · Codex
 - Hizo: C1 · T4 · paso 4. Revisión visual en claro y oscuro y regresión de

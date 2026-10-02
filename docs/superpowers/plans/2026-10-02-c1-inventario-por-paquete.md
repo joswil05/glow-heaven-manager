@@ -1285,7 +1285,7 @@ de la lista que la abre.
 Run: `SOLO="Llegó un paquete" PYTHONIOENCODING=utf-8 npm run test:interfaz`,
 después la suite entera y `npm run build:mobile`. Esperado: todo pasa.
 
-- [ ] **Paso 5: commit**
+- [x] **Paso 5: commit**
 
 ```bash
 git add -- mobile/src/views/RegistrarPaqueteView.tsx mobile/src/components/PiezaPaqueteSheet.tsx mobile/src/App.tsx mobile/src/views/InventoryQuickView.tsx tests/interfaz/pruebas.py
