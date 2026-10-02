@@ -25,7 +25,6 @@ export type NavTab =
   | 'config';
 
 export interface AvisosNav {
-  bajoStock?: number;
   porCobrar?: number;
   encargosPendientes?: number;
 }
@@ -87,7 +86,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   }[] = [
     { id: 'panel', icon: LayoutDashboard },
     // Paquetes es una pestaña de Inventario: la mercadería entra por ahí.
-    { id: 'inventario', icon: Boxes, badge: avisos.bajoStock, tono: 'warning' },
+    { id: 'inventario', icon: Boxes },
     { id: 'ventas', icon: ShoppingBag },
     { id: 'encargos', icon: ClipboardList, badge: avisos.encargosPendientes, tono: 'warning' },
     { id: 'cobranza', icon: HandCoins, badge: avisos.porCobrar, tono: 'danger' },

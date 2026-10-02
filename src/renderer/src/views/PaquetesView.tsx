@@ -56,6 +56,8 @@ interface PaquetesViewProps {
   abrirEditorAlEntrar?: boolean;
   /** Un producto recién creado: se agrega al paquete que se esté cargando, o a uno nuevo. */
   productoParaAgregar?: number;
+  /** Se abre su detalle al entrar (desde la tarjeta del paquete en Inicio). */
+  paqueteInicialId?: number;
   onCambio: () => void;
 }
 
@@ -94,6 +96,7 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
   categorias,
   abrirEditorAlEntrar = false,
   productoParaAgregar,
+  paqueteInicialId,
   onCambio,
 }) => {
   const { showToast, showUndoToast } = useToast();
@@ -191,6 +194,18 @@ export const PaquetesView: React.FC<PaquetesViewProps> = ({
     const r = await window.api.compras.get(id);
     if (r.success && r.data) setDetalle(r.data);
   };
+
+  // Desde Inicio: tocar un paquete abre su detalle, no la lista sola.
+  useEffect(() => {
+    if (paqueteInicialId === undefined) return;
+    let vivo = true;
+    window.api.compras.get(paqueteInicialId).then((r) => {
+      if (vivo && r.success && r.data) setDetalle(r.data);
+    });
+    return () => {
+      vivo = false;
+    };
+  }, [paqueteInicialId]);
 
   const borrar = async (c: Compra) => {
     const r = await window.api.compras.archivar(c.id);

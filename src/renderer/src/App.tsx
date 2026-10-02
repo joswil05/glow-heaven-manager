@@ -50,6 +50,8 @@ export const App: React.FC = () => {
 
   // Selección que viaja entre vistas al hacer clic en una alerta.
   const [productoSeleccionado, setProductoSeleccionado] = useState<number | undefined>();
+  /** El paquete que se abre al llegar a Paquetes (desde Inicio). */
+  const [paqueteSeleccionado, setPaqueteSeleccionado] = useState<number | undefined>();
   /** Un producto recién creado que hay que meter en un paquete al abrirlo. */
   const [productoParaPaquete, setProductoParaPaquete] = useState<number | undefined>();
   const [ventaSeleccionada, setVentaSeleccionada] = useState<number | undefined>();
@@ -253,6 +255,7 @@ export const App: React.FC = () => {
       return;
     }
     setProductoSeleccionado(destino === 'inventario' ? id : undefined);
+    setPaqueteSeleccionado(destino === 'paquetes' ? id : undefined);
     setVentaSeleccionada(destino === 'ventas' || destino === 'encargos' ? id : undefined);
     setClienteSeleccionado(destino === 'clientes' ? id : undefined);
     setAbrirEditor(abrirNuevo ? destino : null);
@@ -271,7 +274,8 @@ export const App: React.FC = () => {
 
   const avisos = useMemo(
     () => ({
-      bajoStock: panel?.total_bajo_stock ?? 0,
+      // Sin contador de existencias en Inventario desde la Fase C1: era la
+      // alerta de agotados con otra forma.
       porCobrar: panel?.por_cobrar.filter((p) => p.cuotas_vencidas > 0).length ?? 0,
       encargosPendientes:
         panel?.alertas.filter((a) => a.id.startsWith('encargo-')).length ?? 0,
@@ -384,6 +388,7 @@ export const App: React.FC = () => {
                   categorias={categorias}
                   parametros={parametros}
                   productoInicialId={productoSeleccionado}
+                  paqueteInicialId={paqueteSeleccionado}
                   pestana={tab === 'paquetes' ? 'paquetes' : 'productos'}
                   abrirEditorPaquete={abrirEditor === 'paquetes'}
                   productoParaPaquete={productoParaPaquete}

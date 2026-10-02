@@ -65,6 +65,8 @@ interface InventarioViewProps {
   categorias: Categoria[];
   parametros: ParametrosSistema | null;
   productoInicialId?: number;
+  /** El paquete que se abre al llegar a la pestaña Paquetes. */
+  paqueteInicialId?: number;
   pestana: PestanaInventario;
   /** Abre el editor de paquete al entrar a la pestaña Paquetes. */
   abrirEditorPaquete?: boolean;
@@ -119,6 +121,7 @@ export const InventarioView: React.FC<InventarioViewProps> = (props) => {
           categorias={categorias}
           abrirEditorAlEntrar={abrirEditorPaquete}
           productoParaAgregar={productoParaPaquete}
+          paqueteInicialId={props.paqueteInicialId}
           onCambio={onCambio}
         />
       ) : (

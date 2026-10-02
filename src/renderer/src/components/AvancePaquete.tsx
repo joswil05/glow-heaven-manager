@@ -19,6 +19,12 @@ const $ = (c: number) => formatearMoneda(c, 'USD');
 export const textoAvance = (a: AvancePaquete): string =>
   `${a.unidades_vendidas} de ${a.unidades_recibidas} vendidas · quedan ${a.unidades_quedan}`;
 
+/** "Recuperaste $12.00 de $37.10", o, si ya se cobró más de lo que costó, eso. */
+export const textoRecuperado = (a: AvancePaquete): string =>
+  a.cobrado_usd_cents >= a.invertido_usd_cents
+    ? `Ya recuperaste lo que costó (${$(a.invertido_usd_cents)}) y ${$(a.cobrado_usd_cents - a.invertido_usd_cents)} más`
+    : `Recuperaste ${$(a.cobrado_usd_cents)} de ${$(a.invertido_usd_cents)}`;
+
 /**
  * Una barra quieta. La de `ui` crece animada cada vez que aparece, y esto se
  * ve en Inicio, que se abre muchas veces al día: el movimiento no dice nada.
@@ -63,7 +69,7 @@ export const AvancePaqueteTarjeta: React.FC<{
         etiqueta={`Vendido de ${avance.codigo}`}
       />
       <p className="text-label text-texto-3 tabular">
-        Recuperaste {$(avance.cobrado_usd_cents)} de {$(avance.invertido_usd_cents)}
+        {textoRecuperado(avance)}
         {avance.por_cobrar_usd_cents > 0 && ` · te deben ${$(avance.por_cobrar_usd_cents)}`}
       </p>
     </>

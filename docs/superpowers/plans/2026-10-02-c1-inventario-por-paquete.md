@@ -972,7 +972,7 @@ Si `auditar-colores.mjs` rechaza algún par (`text-success-800` sobre
 `bg-success-50`), usar el par que use `PagoModal.tsx` para "queda saldada",
 que ya pasa la auditoría.
 
-- [ ] **Paso 3: Inicio**
+- [x] **Paso 3: Inicio**
 
 En `src/renderer/src/views/PanelView.tsx`:
 

@@ -6,7 +6,6 @@ import {
   TrendingUp,
   Wallet,
   Users,
-  PackageX,
   CheckCircle2,
   Boxes,
   Award,
@@ -41,6 +40,8 @@ import {
 } from '../components/ui';
 import { useToast } from '../context/ToastContext';
 import { cn } from '../lib/cn';
+import { AvancePaqueteTarjeta, ResumenPaqueteVendido } from '../components/AvancePaquete';
+import { formatearMoneda } from '@core/moneda';
 import { useScrollReveal } from '../lib/useScrollReveal';
 
 export type DestinoPanel = 'inventario' | 'paquetes' | 'ventas' | 'encargos' | 'clientes' | 'cobranza';
@@ -186,11 +187,13 @@ export const PanelView: React.FC<PanelViewProps> = ({
   const IconoActual = infoGraficaActual.icono;
 
   const { showToast } = useToast();
+  /** Resúmenes que Ross cerró recién: se esconden sin esperar a recargar. */
+  const [resumenesVistos, setResumenesVistos] = useState<number[]>([]);
   const scrollRevealRef = useScrollReveal<HTMLDivElement>({ threshold: 0.05, staggerMs: 30 });
   const [menuContextual, setMenuContextual] = useState<{
     x: number;
     y: number;
-    tipo: 'deudor' | 'stock' | 'vendido' | 'fondo';
+    tipo: 'deudor' | 'vendido' | 'fondo';
     item?: any;
   } | null>(null);
 
@@ -255,10 +258,21 @@ export const PanelView: React.FC<PanelViewProps> = ({
   }));
 
   const urgentes = alertas.filter((a) => a.severidad === 'urgente');
-  // Alertas operativas no urgentes que no dupliquen lo que ya muestra la tarjeta de stock
-  const avisosOperativos = alertas.filter(
-    (a) => a.severidad !== 'urgente' && a.id !== 'agotados' && a.id !== 'bajo-stock'
+  const avisosOperativos = alertas.filter((a) => a.severidad !== 'urgente');
+
+  // Cómo va cada paquete (Fase C1): reemplaza a "Stock crítico". El más nuevo
+  // en venta va en la cuarta tarjeta; los que se vendieron todo muestran su
+  // resumen una vez, hasta que Ross toca "Listo".
+  const paquetes = data.paquetes ?? [];
+  const enVenta = paquetes.filter((p) => p.estado === 'EN_VENTA');
+  const resumenesPorVer = paquetes.filter(
+    (p) => p.estado === 'VENDIDO' && !p.resumen_visto_el && !resumenesVistos.includes(p.compra_id)
   );
+  const cerrarResumen = async (compra_id: number) => {
+    setResumenesVistos((v) => [...v, compra_id]);
+    const r = await window.api.compras.marcarResumenVisto(compra_id);
+    if (!r.success) showToast({ message: r.error, type: 'error' });
+  };
 
   const sinDatos =
     inversionTotal === 0 &&
@@ -368,22 +382,33 @@ export const PanelView: React.FC<PanelViewProps> = ({
               onClick={() => onNavegar('ventas')}
             />
 
-            {/* 4. POR ACABARSE (STOCK CRÍTICO) */}
-            <StatTile
-              label="Stock crítico"
-              value={data.total_bajo_stock}
-              size="lg"
-              tone={data.total_bajo_stock > 0 ? 'danger' : 'success'}
-              icon={PackageX}
-              hint={
-                data.total_bajo_stock === 0
-                  ? undefined
-                  : data.total_bajo_stock === 1
-                    ? '1 producto agotado o bajo'
-                    : `${data.total_bajo_stock} productos agotados o bajos`
-              }
-              onClick={() => onNavegar('inventario')}
-            />
+            {/* 4. EL PAQUETE EN VENTA: si ya se recuperó lo que costó */}
+            {enVenta.length > 0 ? (
+              <StatTile
+                label={`Recuperado de ${enVenta[0].codigo}`}
+                usd_cents={enVenta[0].cobrado_usd_cents}
+                soloUsd
+                size="lg"
+                tone={enVenta[0].cobrado_usd_cents >= enVenta[0].invertido_usd_cents ? 'success' : 'neutral'}
+                icon={Package}
+                hint={
+                  enVenta[0].cobrado_usd_cents >= enVenta[0].invertido_usd_cents
+                    ? `Ya cubrió los ${formatearMoneda(enVenta[0].invertido_usd_cents, 'USD')} que costó · quedan ${enVenta[0].unidades_quedan} en bodega`
+                    : `de ${formatearMoneda(enVenta[0].invertido_usd_cents, 'USD')} · quedan ${enVenta[0].unidades_quedan} en bodega`
+                }
+                onClick={() => onNavegar('paquetes', enVenta[0].compra_id)}
+              />
+            ) : (
+              <StatTile
+                label="Paquete en venta"
+                value="Ninguno"
+                size="lg"
+                tone="neutral"
+                icon={Package}
+                hint={paquetes.length > 0 ? 'Se vendió todo: registrá el próximo' : 'Registrá el primero cuando llegue'}
+                onClick={onNuevoPaquete}
+              />
+            )}
           </div>
         )}
 
@@ -411,6 +436,11 @@ export const PanelView: React.FC<PanelViewProps> = ({
             </div>
           </div>
         )}
+
+        {/* Un paquete que se vendió todo: su resumen, hasta que Ross lo cierre. */}
+        {resumenesPorVer.map((p) => (
+          <ResumenPaqueteVendido key={p.compra_id} avance={p} onListo={() => void cerrarResumen(p.compra_id)} />
+        ))}
 
         {/* Nivel 3: Gráfica interactiva animada + Dónde está la plata */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-2.5 shrink-0">
@@ -685,72 +715,44 @@ export const PanelView: React.FC<PanelViewProps> = ({
             </div>
           </Card>
 
-          {/* 2. STOCK POR AGOTARSE */}
+          {/* 2. PAQUETES EN VENTA (Fase C1: reemplaza a "Stock crítico") */}
           <Card className="shadow-xs flex flex-col justify-between rounded-2xl border border-borde/70 bg-superficie overflow-hidden">
             <div>
               <CardHeader className="px-4 py-2.5 border-b border-borde/40 shrink-0">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
-                    <PackageX className="w-4 h-4 text-texto-3 shrink-0" aria-hidden="true" />
-                    <h3 className="text-body font-bold text-texto truncate">Stock crítico</h3>
-                    {data.total_bajo_stock > 0 ? (
-                      <Badge tone="danger">{data.total_bajo_stock}</Badge>
-                    ) : (
-                      <Badge tone="success">Óptimo</Badge>
-                    )}
+                    <Package className="w-4 h-4 text-texto-3 shrink-0" aria-hidden="true" />
+                    <h3 className="text-body font-bold text-texto truncate">Paquetes en venta</h3>
+                    {enVenta.length > 0 && <Badge tone="neutral">{enVenta.length}</Badge>}
                   </div>
                   <button
                     type="button"
-                    onClick={() => onNavegar('inventario')}
+                    onClick={() => onNavegar('paquetes')}
                     className="inline-flex items-center gap-1 text-caption text-texto-3 hover:text-acento font-medium transition-colors cursor-pointer group shrink-0"
                   >
-                    <span>Ver todo</span>
+                    <span>Ver todos</span>
                     <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
                   </button>
                 </div>
               </CardHeader>
-              <CardContent className="p-0">
-                {data.total_bajo_stock > 0 ? (
-                  <ul className="divide-y divide-borde/40">
-                    {data.bajo_stock.slice(0, 4).map((p) => (
-                      <li key={p.producto_id}>
-                        <button
-                          onClick={() => onNavegar('inventario', p.producto_id)}
-                          onContextMenu={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setMenuContextual({ x: e.clientX, y: e.clientY, tipo: 'stock', item: p });
-                          }}
-                          className="w-full text-left px-4 py-2 hover:bg-superficie-2/70 transition-colors flex items-center justify-between gap-3 group"
-                        >
-                          <div className="min-w-0 flex-1">
-                            <span className="text-body font-semibold text-texto truncate block group-hover:text-acento transition-colors">
-                              {p.nombre}
-                            </span>
-                            <span className="text-caption text-texto-3">
-                              Mínimo: {p.stock_minimo} unid.
-                            </span>
-                          </div>
-                          <span
-                            className={cn(
-                              'text-[11px] font-bold px-2 py-0.5 rounded-md border shrink-0',
-                              p.existencias === 0
-                                ? 'bg-peligro-suave text-peligro-fuerte border-peligro-suave'
-                                : 'bg-alerta-suave text-alerta-fuerte border-alerta-suave'
-                            )}
-                          >
-                            {p.existencias === 0 ? 'Agotado (0)' : `${p.existencias} en stock`}
-                          </span>
-                        </button>
-                      </li>
+              <CardContent className="p-3">
+                {enVenta.length > 0 ? (
+                  <div className="space-y-2">
+                    {enVenta.slice(0, 3).map((p) => (
+                      <AvancePaqueteTarjeta
+                        key={p.compra_id}
+                        avance={p}
+                        onAbrir={() => onNavegar('paquetes', p.compra_id)}
+                      />
                     ))}
-                  </ul>
+                  </div>
                 ) : (
-                  <div className="py-6 px-4 flex flex-col items-center justify-center text-center gap-1.5">
-                    <div className="w-7 h-7 rounded-full bg-acento/10 text-acento flex items-center justify-center">
-                      <CheckCircle2 className="w-4 h-4" />
-                    </div>
-                    <span className="text-body text-texto-2">Nada por acabarse</span>
+                  <div className="py-4 px-2 flex flex-col items-center justify-center text-center gap-2">
+                    <span className="text-body text-texto-2">No hay ningún paquete en venta</span>
+                    <Button variant="secondary" size="sm" onClick={onNuevoPaquete}>
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Registrar un paquete</span>
+                    </Button>
                   </div>
                 )}
               </CardContent>
@@ -888,27 +890,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
                     },
                   },
                 ]
-              : menuContextual.tipo === 'stock'
-                ? [
-                    {
-                      id: 'ver-inventario',
-                      label: `Ver en inventario (${menuContextual.item.nombre})`,
-                      icon: <Eye className="w-4 h-4" />,
-                      shortcut: 'Espacio',
-                      onClick: () => onNavegar('inventario', menuContextual.item.producto_id),
-                    },
-                    'separator' as const,
-                    {
-                      id: 'copiar-nombre',
-                      label: 'Copiar nombre del producto',
-                      icon: <Copy className="w-4 h-4" />,
-                      onClick: () => {
-                        navigator.clipboard.writeText(menuContextual.item.nombre);
-                        showToast({ message: 'Nombre del producto copiado', type: 'info' });
-                      },
-                    },
-                  ]
-                : menuContextual.tipo === 'vendido'
+              : menuContextual.tipo === 'vendido'
                   ? [
                       {
                         id: 'ver-inventario',
