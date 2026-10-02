@@ -1110,7 +1110,7 @@ def caso_c1_inventario_celular(page: Page) -> list[str]:
 Run: `SOLO="C1 ·" PYTHONIOENCODING=utf-8 npm run test:interfaz` (con el emulador).
 Esperado: los dos fallan.
 
-- [ ] **Paso 3: la tarjeta y el resumen**
+- [x] **Paso 3: la tarjeta y el resumen**
 
 Crear `mobile/src/components/AvancePaqueteCard.tsx`:
 
@@ -1129,7 +1129,7 @@ Crear `mobile/src/components/AvancePaqueteCard.tsx`:
   `border-borde`, `bg-acento-suave` con `text-acento-fuerte`); nada de
   `animate-pulse` (CIN-03); textos de 12 px o más (CIN-01).
 
-- [ ] **Paso 4: Inicio del celular**
+- [x] **Paso 4: Inicio del celular**
 
 En `mobile/src/views/DashboardView.tsx`: borrar la tarjeta "Stock crítico"
 (líneas ~397-575, con su hueco vacío, CIN-02) y el contador "N bajo" (líneas

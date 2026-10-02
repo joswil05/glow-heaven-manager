@@ -24,6 +24,30 @@ import type {
   VentaLinea,
 } from '../shared/types';
 import { diasEntre } from './fechas';
+import { formatearMoneda } from './moneda';
+
+/** "18 de 22 vendidas · quedan 4": lo dicen igual las dos apps. */
+export const textoAvance = (a: Pick<AvancePaquete, 'unidades_vendidas' | 'unidades_recibidas' | 'unidades_quedan'>): string =>
+  `${a.unidades_vendidas} de ${a.unidades_recibidas} vendidas · quedan ${a.unidades_quedan}`;
+
+/** "el mismo día", "1 día", "13 días": no "0 días". */
+export const textoDias = (dias: number): string =>
+  dias === 0 ? 'el mismo día' : `${dias} ${dias === 1 ? 'día' : 'días'}`;
+
+/** "PQ-0001: se vendió todo en 13 días", o "…el mismo día". */
+export function textoVendidoTodo(a: Pick<AvancePaquete, 'codigo' | 'dias_en_venderse'>): string {
+  const d = a.dias_en_venderse;
+  const cuando = d === undefined ? '' : d === 0 ? ' el mismo día' : ` en ${textoDias(d)}`;
+  return `${a.codigo}: se vendió todo${cuando}`;
+}
+
+/** "Recuperaste $12.00 de $37.10", o, si ya se cobró más de lo que costó, eso. */
+export function textoRecuperado(a: Pick<AvancePaquete, 'cobrado_usd_cents' | 'invertido_usd_cents'>): string {
+  const $ = (c: number) => formatearMoneda(c, 'USD');
+  return a.cobrado_usd_cents >= a.invertido_usd_cents
+    ? `Ya recuperaste lo que costó (${$(a.invertido_usd_cents)}) y ${$(a.cobrado_usd_cents - a.invertido_usd_cents)} más`
+    : `Recuperaste ${$(a.cobrado_usd_cents)} de ${$(a.invertido_usd_cents)}`;
+}
 
 export type CompraParaAvance = Pick<Compra, 'id' | 'codigo' | 'fecha' | 'estado' | 'activo'> &
   Partial<Pick<Compra, 'cerrado_en' | 'resumen_visto_el'>>;

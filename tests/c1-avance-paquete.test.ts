@@ -8,7 +8,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import type { Lote, Consumo } from '../src/shared/types';
-import { avanceDePaquetes, type CompraParaAvance, type ProductoParaAvance, type VentaParaAvance } from '../src/core/avance-paquete';
+import { avanceDePaquetes, textoAvance, textoRecuperado, textoDias, textoVendidoTodo, type CompraParaAvance, type ProductoParaAvance, type VentaParaAvance } from '../src/core/avance-paquete';
 
 function lote(extra: Partial<Lote> & Pick<Lote, 'id' | 'compra_id' | 'cantidad_inicial' | 'cantidad'>): Lote {
   const vendidas = extra.vendidas ?? extra.cantidad_inicial - extra.cantidad;
@@ -125,6 +125,19 @@ describe('el avance de un paquete', () => {
     );
     expect(avance.map((a) => a.codigo)).toEqual(['PQ-0001']);
     expect(avance[0].deudas).toEqual([]);
+  });
+
+  it('los textos que comparten las dos apps', () => {
+    expect(textoAvance({ unidades_vendidas: 18, unidades_recibidas: 22, unidades_quedan: 4 })).toBe(
+      '18 de 22 vendidas · quedan 4'
+    );
+    expect(textoRecuperado({ cobrado_usd_cents: 1200, invertido_usd_cents: 3710 })).toBe('Recuperaste $12.00 de $37.10');
+    expect(textoRecuperado({ cobrado_usd_cents: 4000, invertido_usd_cents: 3710 })).toBe(
+      'Ya recuperaste lo que costó ($37.10) y $2.90 más'
+    );
+    expect([textoDias(0), textoDias(1), textoDias(13)]).toEqual(['el mismo día', '1 día', '13 días']);
+    expect(textoVendidoTodo({ codigo: 'PQ-0002', dias_en_venderse: 0 })).toBe('PQ-0002: se vendió todo el mismo día');
+    expect(textoVendidoTodo({ codigo: 'PQ-0001', dias_en_venderse: 13 })).toBe('PQ-0001: se vendió todo en 13 días');
   });
 
   it('las bajas cuentan en lo invertido y no como vendidas', () => {

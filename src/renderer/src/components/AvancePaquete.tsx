@@ -3,6 +3,7 @@ import { Package, CheckCircle2 } from 'lucide-react';
 import type { AvancePaquete } from '../../../shared/types';
 import { Button } from './ui';
 import { formatearMoneda } from '@core/moneda';
+import { textoAvance, textoRecuperado, textoDias, textoVendidoTodo } from '@core/avance-paquete';
 import { cn } from '../lib/cn';
 
 /**
@@ -15,15 +16,6 @@ import { cn } from '../lib/cn';
  */
 
 const $ = (c: number) => formatearMoneda(c, 'USD');
-
-export const textoAvance = (a: AvancePaquete): string =>
-  `${a.unidades_vendidas} de ${a.unidades_recibidas} vendidas · quedan ${a.unidades_quedan}`;
-
-/** "Recuperaste $12.00 de $37.10", o, si ya se cobró más de lo que costó, eso. */
-export const textoRecuperado = (a: AvancePaquete): string =>
-  a.cobrado_usd_cents >= a.invertido_usd_cents
-    ? `Ya recuperaste lo que costó (${$(a.invertido_usd_cents)}) y ${$(a.cobrado_usd_cents - a.invertido_usd_cents)} más`
-    : `Recuperaste ${$(a.cobrado_usd_cents)} de ${$(a.invertido_usd_cents)}`;
 
 /**
  * Una barra quieta. La de `ui` crece animada cada vez que aparece, y esto se
@@ -114,11 +106,7 @@ export const ResumenPaqueteVendido: React.FC<{ avance: AvancePaquete; onListo?: 
     <div className="flex items-start justify-between gap-3">
       <h3 className="flex items-center gap-2 text-body font-semibold text-success-800">
         <CheckCircle2 className="w-5 h-5 shrink-0" aria-hidden="true" />
-        <span>
-          {avance.codigo}: se vendió todo
-          {avance.dias_en_venderse !== undefined &&
-            ` en ${avance.dias_en_venderse} ${avance.dias_en_venderse === 1 ? 'día' : 'días'}`}
-        </span>
+        <span>{textoVendidoTodo(avance)}</span>
       </h3>
       {onListo && (
         <Button variant="secondary" size="sm" onClick={onListo}>
@@ -138,7 +126,7 @@ export const ResumenPaqueteVendido: React.FC<{ avance: AvancePaquete; onListo?: 
       <p className="text-label text-texto-2">
         Lo que más rápido se vendió:{' '}
         {avance.mas_rapidos
-          .map((r) => `${r.nombre} (${r.dias} ${r.dias === 1 ? 'día' : 'días'})`)
+          .map((r) => `${r.nombre} (${textoDias(r.dias)})`)
           .join(', ')}
         .
       </p>

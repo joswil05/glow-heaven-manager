@@ -1,24 +1,28 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   RefreshCw,
-  PackageX,
   Settings,
   TrendingUp,
   PlusCircle,
   ChevronRight,
   HandCoins,
-  CheckCircle2,
 } from 'lucide-react';
-import type { PanelData } from '@shared/types';
+import type { AvancePaquete, PanelData, ProductoConStock } from '@shared/types';
+import { textoAvance } from '@core/avance-paquete';
+import { ComprasRepoFirestore } from '@repos/compras.repo';
 import { formatearMoneda } from '@core/moneda';
 import {
   obtenerDatosDashboard,
   cacheDashboardGlobal,
+  invalidarCacheDashboard,
   type DiaVentas,
   type ResumenHoy,
 } from '../lib/panel-movil';
 import { MoneyDual } from '../components/MoneyDual';
 import { BottomSheet } from '../components/BottomSheet';
+import { AvancePaqueteCard, ResumenPaqueteCard } from '../components/AvancePaqueteCard';
+import { FichaProductoSheet } from '../components/FichaProductoSheet';
+import { useSnackbar } from '../components/Snackbar';
 import { useAuth } from '../context/AuthContext';
 import { useDatosNegocio } from '../context/DataContext';
 import { PullToRefresh } from '../components/PullToRefresh';
@@ -45,7 +49,8 @@ export function DashboardView({
   onIrAInventario?: () => void;
 }) {
   const { usuario } = useAuth();
-  const { version } = useDatosNegocio();
+  const { version, productos, parametros } = useDatosNegocio();
+  const { mostrar } = useSnackbar();
 
   const [panel, setPanel] = useState<PanelData | null>(cacheDashboardGlobal.panel);
   const [serie, setSerie] = useState<DiaVentas[]>(cacheDashboardGlobal.serie);
@@ -55,8 +60,15 @@ export function DashboardView({
 
   // Día seleccionado en el gráfico para ver el detalle
   const [diaSeleccionado, setDiaSeleccionado] = useState<DiaVentas | null>(null);
-  // Cajón deslizable (Bottom Sheet) de stock crítico
-  const [mostrarStockSheet, setMostrarStockSheet] = useState(false);
+  // Fase C1: el paquete cuya bodega se está mirando, y la ficha de un producto.
+  const [paqueteAbierto, setPaqueteAbierto] = useState<AvancePaquete | null>(null);
+  // Cerrada la hoja, se sigue mostrando lo último mientras baja.
+  const ultimoPaquete = useRef<AvancePaquete | null>(null);
+  if (paqueteAbierto) ultimoPaquete.current = paqueteAbierto;
+  const paqueteVisto = paqueteAbierto ?? ultimoPaquete.current;
+  const [fichaProducto, setFichaProducto] = useState<ProductoConStock | null>(null);
+  /** Resúmenes que Ross cerró recién: se esconden sin esperar a recargar. */
+  const [resumenesVistos, setResumenesVistos] = useState<number[]>([]);
 
   const cargar = useCallback(async (forzar = false) => {
     if (!cacheDashboardGlobal.panel) {
@@ -84,6 +96,24 @@ export function DashboardView({
   useEffect(() => {
     cargar(version > 0);
   }, [cargar, version]);
+
+  // Cómo va cada paquete (Fase C1): reemplaza a "Stock crítico".
+  const paquetes = panel?.paquetes ?? [];
+  const enVenta = paquetes.filter((p) => p.estado === 'EN_VENTA');
+  const resumenesPorVer = paquetes.filter(
+    (p) => p.estado === 'VENDIDO' && !p.resumen_visto_el && !resumenesVistos.includes(p.compra_id)
+  );
+  async function cerrarResumen(compra_id: number) {
+    setResumenesVistos((v) => [...v, compra_id]);
+    try {
+      await ComprasRepoFirestore.marcarResumenVisto(compra_id);
+      invalidarCacheDashboard();
+    } catch (err) {
+      console.error('[DashboardView] No se pudo guardar el resumen visto:', err);
+      mostrar('No se pudo guardar. Probá de nuevo.', 'error');
+      setResumenesVistos((v) => v.filter((x) => x !== compra_id));
+    }
+  }
 
   const cuentasPorCobrar = panel?.por_cobrar ?? [];
   const cuotasVencidas = cuentasPorCobrar.filter((f) => f.cuotas_vencidas > 0);
@@ -298,12 +328,6 @@ export function DashboardView({
                     <span className="h-2 w-2 rounded-full bg-texto-3 shrink-0" />
                     <p className="text-caption sm:text-label font-semibold text-texto-3 truncate">Inventario</p>
                   </div>
-                  {(panel?.total_bajo_stock ?? 0) > 0 && (
-                    <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-alerta-suave text-alerta-fuerte border border-alerta-suave shrink-0 flex items-center gap-0.5">
-                      <PackageX size={10} />
-                      {panel!.total_bajo_stock} bajo
-                    </span>
-                  )}
                 </div>
                 <MoneyDual usdCents={panel?.resumen.inversion_inventario_usd_cents ?? 0} size="md" soloUsd />
               </div>
@@ -393,189 +417,78 @@ export function DashboardView({
             </div>
           </section>
 
-          {/* Banner de Estado Operativo / Stock Crítico (Altura fija compacta, cero layout shift) */}
-          <section
-            onClick={() => {
-              if (panel?.bajo_stock && panel.total_bajo_stock > 0) {
-                haptics.impact('light');
-                setMostrarStockSheet(true);
-              } else {
-                haptics.impact('light');
-                onIrAInventario?.();
-              }
-            }}
-            /* `flex-1` y no `shrink-0`: las otras tres secciones tienen alto
-               propio, así que todo el espacio sobrante se acumulaba como un
-               hueco muerto entre esta tarjeta y el dock. Ahora la tarjeta se
-               estira para ocuparlo y reparte su contenido dentro. Sin lista y
-               sin scroll a propósito: el detalle vive en el cajón que se abre
-               al tocarla. El `pb` del <main> ya reserva la altura del dock. */
-            className={`m3-card p-3 sm:p-3.5 flex-1 min-h-[76px] flex flex-col border transition-colors cursor-pointer active:scale-[0.985] ${
-              (panel?.bajo_stock?.length ?? 0) > 0
-                ? 'bg-peligro-suave border-peligro-suave hover:border-peligro-suave'
-                : 'bg-acento-suave border-acento-suave'
-            }`}
-          >
-            {/* El contenido se reparte con `justify-between`: la información
-                arriba y la acción abajo. Antes era una sola fila centrada, así
-                que en una tarjeta alta quedaban dos franjas vacías arriba y
-                abajo que se leían como un error de maquetación en vez de una
-                decisión. Repartir en vez de centrar se adapta a cualquier
-                sobrante sin números fijos, y de paso el área táctil crece. */}
-            {(panel?.bajo_stock?.length ?? 0) > 0 ? (
-              <div className="flex flex-col justify-between h-full w-full gap-3 min-w-0">
-                <div className="flex items-start gap-2.5 min-w-0">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-peligro-suave text-peligro-fuerte shrink-0 border border-peligro-suave">
-                    <PackageX size={20} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-label sm:text-body font-bold text-peligro-fuerte truncate leading-tight">
-                        Stock crítico ({panel!.total_bajo_stock})
-                      </span>
-                      {panel!.bajo_stock.some((i) => i.existencias === 0) && (
-                        <span className="h-2 w-2 rounded-full bg-peligro animate-pulse shrink-0" />
-                      )}
-                    </div>
-                    <p className="text-caption text-peligro-fuerte font-medium truncate mt-0.5 leading-tight">
-                      {panel!.total_bajo_stock === 1
-                        ? panel!.bajo_stock[0].nombre
-                        : `${panel!.bajo_stock.filter((i) => i.existencias === 0).length} agotados`}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex w-full items-center justify-center gap-1.5 text-label font-bold text-peligro-fuerte bg-peligro-suave px-3 py-2.5 rounded-xl border border-peligro-suave shrink-0">
-                  <span>Revisar inventario</span>
-                  <ChevronRight size={15} />
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col justify-between h-full w-full gap-3 min-w-0">
-                <div className="flex items-start gap-2.5 min-w-0">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-acento-suave text-acento-fuerte shrink-0 border border-acento-suave">
-                    <CheckCircle2 size={20} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <span className="text-label sm:text-body font-bold text-acento-fuerte block leading-tight">
-                      Inventario en orden
-                    </span>
-                    <span className="text-caption text-texto-3 block mt-0.5 leading-tight">
-                      Existencias óptimas en todos los artículos
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex w-full items-center justify-center gap-1.5 text-label font-bold text-acento-fuerte bg-acento-suave px-3 py-2.5 rounded-xl border border-acento-suave shrink-0">
-                  <span>Ver inventario</span>
-                  <ChevronRight size={15} />
-                </div>
-              </div>
+          {/* Paquetes (Fase C1): reemplaza a "Stock crítico". El resumen de uno
+              que se vendió todo, hasta que Ross toca "Listo"; y cómo va cada
+              uno en venta. Alto según el contenido: la tarjeta de antes se
+              estiraba y dejaba un hueco en el medio (CIN-02). */}
+          <section aria-label="Paquetes" className="flex flex-col gap-2.5 shrink-0">
+            {resumenesPorVer.map((p) => (
+              <ResumenPaqueteCard key={p.compra_id} avance={p} onListo={() => void cerrarResumen(p.compra_id)} />
+            ))}
+            {enVenta.slice(0, 2).map((p) => (
+              <AvancePaqueteCard key={p.compra_id} avance={p} onAbrir={() => setPaqueteAbierto(p)} />
+            ))}
+            {enVenta.length === 0 && resumenesPorVer.length === 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  haptics.impact('light');
+                  onIrAInventario?.();
+                }}
+                className="tocable m3-card w-full p-3.5 flex items-center justify-between gap-2 text-left cursor-pointer"
+              >
+                <span className="text-sm text-texto-2">No hay ningún paquete en venta</span>
+                <span className="flex items-center gap-1 text-xs font-bold text-texto-2">
+                  Ver inventario
+                  <ChevronRight size={14} />
+                </span>
+              </button>
             )}
           </section>
         </main>
       </PullToRefresh>
 
-      {/* Bottom Sheet de Stock Crítico (Solución Emil Kowalski: holgura nativa sin layout shift) */}
+      {/* Lo que queda en bodega de un paquete. Tocar un producto abre su
+          ficha, no el inventario en general (CIN-07). */}
       <BottomSheet
-        abierto={mostrarStockSheet}
-        onCerrar={() => setMostrarStockSheet(false)}
-        titulo="Stock crítico"
-        subtitulo={
-          panel?.bajo_stock && panel.total_bajo_stock > 0
-            ? `${panel.total_bajo_stock} producto${panel.total_bajo_stock === 1 ? '' : 's'} que requiere${panel.total_bajo_stock === 1 ? '' : 'n'} atención`
-            : undefined
-        }
+        abierto={Boolean(paqueteAbierto)}
+        onCerrar={() => setPaqueteAbierto(null)}
+        titulo={paqueteVisto ? `${paqueteVisto.codigo}: queda en bodega` : 'Queda en bodega'}
+        subtitulo={paqueteVisto ? textoAvance(paqueteVisto) : undefined}
         maxHeight="85vh"
-        footer={
-          <div className="flex gap-2.5">
-            <button
-              type="button"
-              onClick={() => setMostrarStockSheet(false)}
-              className="m3-press flex-1 rounded-xl bg-superficie-2 py-3 text-label font-bold text-texto-2 cursor-pointer"
-            >
-              Cerrar
-            </button>
-            {onIrAInventario && (
-              <button
-                type="button"
-                onClick={() => {
-                  haptics.impact('medium');
-                  setMostrarStockSheet(false);
-                  onIrAInventario();
-                }}
-                className="m3-press flex-1 rounded-xl bg-acento hover:bg-acento py-3 text-label font-bold text-acento-texto shadow-md shadow-m3-2 cursor-pointer flex items-center justify-center gap-1.5"
-              >
-                <span>Ver catálogo</span>
-                <ChevronRight size={16} />
-              </button>
-            )}
-          </div>
-        }
       >
         <div className="flex flex-col gap-2 py-1">
-          {panel?.bajo_stock && panel.total_bajo_stock > 0 ? (
-            panel.bajo_stock.map((item) => {
-              const estaAgotado = item.existencias === 0;
-              return (
-                <div
-                  key={item.producto_id}
-                  onClick={() => {
-                    if (onIrAInventario) {
-                      haptics.selection();
-                      setMostrarStockSheet(false);
-                      onIrAInventario();
-                    }
-                  }}
-                  className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-superficie-2 border border-borde active:scale-[0.985] transition-all cursor-pointer"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                    <span
-                      className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                        estaAgotado ? 'bg-peligro animate-pulse' : 'bg-alerta'
-                      }`}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold text-texto truncate leading-tight">
-                        {item.nombre}
-                      </p>
-                      <p className="text-xs text-texto-3 font-medium truncate mt-0.5">
-                        {item.codigo ? `#${item.codigo}` : 'Sin código'} · Mínimo sugerido: {item.stock_minimo} unid.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end shrink-0 gap-1">
-                    <span
-                      className={`text-xs font-extrabold px-2.5 py-1 rounded-lg tabular-nums ${
-                        estaAgotado
-                          ? 'bg-peligro-suave text-peligro-fuerte'
-                          : 'bg-alerta-suave text-alerta-fuerte'
-                      }`}
-                    >
-                      {estaAgotado ? 'Agotado (0)' : `Quedan ${item.existencias}`}
-                    </span>
-                    {item.precio_venta_usd_cents > 0 && (
-                      <span className="text-[11px] font-semibold text-texto-3 tabular-nums">
-                        {formatearMoneda(item.precio_venta_usd_cents, 'USD')}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              );
-            })
-          ) : (
-            <div className="py-8 text-center text-texto-3">
-              <CheckCircle2 size={36} className="mx-auto text-acento mb-2" />
-              <p className="text-sm font-bold text-texto-2">
-                Todo el inventario está en orden
-              </p>
-              <p className="text-xs text-texto-3 mt-1">
-                No hay productos agotados ni por debajo del stock mínimo.
-              </p>
-            </div>
-          )}
+          {(paqueteVisto?.quedan ?? []).map((q) => (
+            <button
+              key={`${q.producto_id}-${q.variante_id}`}
+              type="button"
+              onClick={() => {
+                haptics.selection();
+                const p = productos.find((x) => x.id === q.producto_id);
+                if (!p) return;
+                setPaqueteAbierto(null);
+                setFichaProducto(p);
+              }}
+              className="tocable flex items-center justify-between gap-3 p-3 rounded-2xl bg-superficie-2 border border-borde text-left cursor-pointer"
+            >
+              <span className="min-w-0">
+                <span className="block text-sm font-bold text-texto truncate">{q.nombre}</span>
+                {q.detalle && <span className="block text-xs text-texto-3 truncate">{q.detalle}</span>}
+              </span>
+              <span className="flex items-center gap-1 text-xs font-semibold text-texto-2 tabular-nums shrink-0">
+                {q.cantidad} en bodega
+                <ChevronRight size={14} className="text-texto-3" />
+              </span>
+            </button>
+          ))}
         </div>
       </BottomSheet>
+
+      <FichaProductoSheet
+        producto={fichaProducto}
+        tasaCambioCents={parametros?.tasa_cambio_cents ?? 3662}
+        onCerrar={() => setFichaProducto(null)}
+      />
 
       {/* Confirmación de cierre de sesión: es la única acción destructiva de
           esta pantalla y merece un paso extra, sin usar window.confirm. */}
