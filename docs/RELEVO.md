@@ -65,7 +65,7 @@ se trabaja**.
   [superpowers/plans/2026-10-02-c1-inventario-por-paquete.md](superpowers/plans/2026-10-02-c1-inventario-por-paquete.md).
   T1 (núcleo) primero; después T2 (Windows), T3 (celular) y T4 (celular),
   en ese orden porque se hacen de a uno.
-- **Siguiente paso**: C1 · T3 · paso 1 (T1 y T2 terminadas el 2/10).
+- **Siguiente paso**: C1 · T4 · paso 1 (T1, T2 y T3 terminadas el 2/10).
 - **Después de C1**: C2 a C4, en el diseño
   [superpowers/specs/2026-10-02-fases-del-celular-design.md](superpowers/specs/2026-10-02-fases-del-celular-design.md)
   (al empezar cada una se escribe su plan, como el de C1); después las fases
@@ -88,6 +88,34 @@ Formato de cada entrada:
 - Sigue: el paso exacto del plan.
 - Para Joswill: lo que necesita decidir o probar (o "nada").
 ```
+
+### 2026-10-02 13:42 · Claude Code
+- Hizo: **C1 · T3 completa** (celular). Inicio: sale "Stock crítico", su
+  hoja y el contador "N bajo"; el resumen de un paquete vendido con "Listo"
+  y la tarjeta de cada paquete en venta, que muestra lo que queda en bodega
+  y abre la ficha de cada producto. Inventario: abre con lo que hay; lo
+  vendido aparece en "Vendidos" al elegir un paquete o al buscar.
+- Decisiones fuera del plan:
+  - La siembra de los paquetes va **después** de la venta de Ana, para que
+    ella siga siendo V-0001 (muchos casos la buscan así).
+  - Los casos del celular leen la pantalla visible con `pantalla(page)`:
+    `locator("main")` encuentra seis (las vistas están montadas a la vez).
+  - Los textos que comparten las dos apps pasaron al núcleo
+    (`textoAvance`, `textoRecuperado`, `textoDias`, `textoVendidoTodo` en
+    `core/avance-paquete.ts`): "se vendió todo el mismo día", no "en 0 días".
+  - El Inventario del celular también muestra "Vendidos" al buscar, y arriba
+    cuenta lo que hay a la venta.
+- Commits: `1a787b0` (paso 1), `6d6c7db` (2), `8c95011` (3 y 4), `b15e61f`
+  (5 a 7). No pusheados.
+- Pruebas: `test:interfaz` 26 casos, aprobada (los 2 de C1 fallaban
+  antes); `npm test` 593; `build:mobile` con sus auditorías; `tsc` de las dos
+  apps limpio. Se miraron capturas de Inicio, la hoja del paquete y el
+  Inventario del celular.
+- Quedó a medias: nada. El emulador quedó apagado.
+- Ahora las dos apps ya no muestran alertas de agotados: C1 sin T4 se podría
+  publicar si Joswill quiere (T4 es una función nueva, independiente).
+- Sigue: C1 · T4 · paso 1 ("Llegó un paquete" en el celular).
+- Para Joswill: decidir si publica T1 a T3 ya o espera a T4.
 
 ### 2026-10-02 13:20 · Claude Code
 - Hizo: **C1 · T2 completa** (Windows). Inicio: la cuarta cifra es
