@@ -4,6 +4,8 @@ import type { ProductoConStock } from '@shared/types';
 import { formatearMoneda } from '@core/moneda';
 import { BottomSheet } from './BottomSheet';
 import { haptics } from '../lib/haptics';
+import { mensajeCompartirProducto, enlaceMensaje } from '@core/mensajes';
+import { useDatosNegocio } from '../context/DataContext';
 
 interface FichaProductoSheetProps {
   producto: ProductoConStock | null;
@@ -23,6 +25,7 @@ interface FichaProductoSheetProps {
 export function FichaProductoSheet({ producto, tasaCambioCents, onCerrar }: FichaProductoSheetProps) {
   // Cerrada, se sigue mostrando lo último mientras la hoja baja: sin esto el
   // componente desaparecía antes de que la hoja pudiera animar su salida.
+  const { parametros } = useDatosNegocio();
   const ultimo = useRef(producto);
   if (producto) ultimo.current = producto;
   const visto = producto ?? ultimo.current;
@@ -33,19 +36,20 @@ export function FichaProductoSheet({ producto, tasaCambioCents, onCerrar }: Fich
   const stockBajo = hayStock && p.existencias <= p.stock_minimo;
   const variantesConStock = p.variantes.filter((v) => v.existencias > 0);
 
+  // Qué tallas o tonos hay, sin cuántas unidades quedan (decisión de Joswill,
+  // 1/10): el mensaje es para la clienta y no expone el inventario (CCA-01).
   function compartirPorWhatsApp() {
-    const tonosTexto = variantesConStock
-      .map((v) => `${[v.talla, v.color].filter(Boolean).join(' ') || 'Único'} (${v.existencias} disp.)`)
-      .join(', ');
-
-    const texto =
-      `*${p.nombre}* — Glow Heaven\n` +
-      `Precio: ${formatearMoneda(precioCordobas, 'COR')} / ${formatearMoneda(p.precio_venta_usd_cents, 'USD')}\n` +
-      (tonosTexto ? `Tonos disponibles: ${tonosTexto}\n` : `Existencias: ${p.existencias} unidades\n`) +
-      `\nDisponible para entrega inmediata. Contáctanos para apartarlo.`;
-
+    const disponibles = variantesConStock
+      .map((v) => [v.talla, v.color].filter(Boolean).join(' '))
+      .filter(Boolean);
+    const texto = mensajeCompartirProducto({
+      nombre: p.nombre,
+      precio_usd_cents: p.precio_venta_usd_cents,
+      tasa_cambio_cents: tasaCambioCents,
+      disponibles,
+    });
     haptics.impact('medium');
-    window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
+    window.open(enlaceMensaje(undefined, texto, parametros), '_blank');
   }
 
   return (

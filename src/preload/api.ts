@@ -115,7 +115,7 @@ export const api: ApiPuente = {
     imprimir: (html: string) => ipcRenderer.invoke(IPC.DOCUMENTOS_IMPRIMIR, html),
     guardarPdf: (input: { html: string; nombreSugerido: string }) =>
       ipcRenderer.invoke(IPC.DOCUMENTOS_GUARDAR_PDF, input),
-    prepararCotizacion: (input: { codigo: string; html: string }) =>
+    prepararCotizacion: (input: { codigo: string; html: string; carpeta?: 'Cotizaciones' | 'Facturas' }) =>
       ipcRenderer.invoke(IPC.DOCUMENTOS_PREPARAR_COTIZACION, input),
   },
   actualizador: {

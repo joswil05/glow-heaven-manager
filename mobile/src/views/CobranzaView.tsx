@@ -24,6 +24,7 @@ import { DetalleCobroSheet } from '../components/DetalleCobroSheet';
 import { haptics } from '../lib/haptics';
 import { useScrollReveal } from '../lib/useScrollReveal';
 import { algunoContiene } from '@core/texto';
+import { cordobasQueSeDeben } from '@core/mensajes';
 
 export function CobranzaView() {
   const { parametros, version, marcarCambio } = useDatosNegocio();
@@ -70,7 +71,8 @@ export function CobranzaView() {
     () => cuentas.reduce((acc, c) => acc + (c.saldo_usd_cents || 0), 0),
     [cuentas]
   );
-  const totalPorCobrarCor = Math.round((totalPorCobrarUsd * tasa) / 100);
+  // Cada deuda con la tasa de su venta, como el detalle de cada una (TRA-04).
+  const totalPorCobrarCor = cordobasQueSeDeben(cuentas, tasa);
 
   const cuentasVencidas = useMemo(
     () => cuentas.filter((c) => c.cuotas_vencidas > 0),
@@ -277,7 +279,7 @@ export function CobranzaView() {
                   {formatearMoneda(totalPorCobrarUsd, 'USD')}
                 </p>
                 <span className="text-xs font-semibold tabular-nums text-texto-3">
-                  {formatearMoneda(totalPorCobrarCor, 'COR')}
+                  ≈ {formatearMoneda(totalPorCobrarCor, 'COR')}
                 </span>
               </div>
 

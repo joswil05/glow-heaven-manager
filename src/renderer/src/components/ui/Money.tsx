@@ -25,6 +25,12 @@ export interface MoneyProps {
   size?: MoneySize;
   /** Oculta el equivalente en córdobas aunque esté activado globalmente. */
   soloUsd?: boolean;
+  /**
+   * La tasa de la venta, si el monto es de una venta que ya existe. Sin ella,
+   * la de hoy: sirve para lo nuevo, pero en una deuda de hace un mes dice
+   * otros córdobas que los que ella cobró (TRA-04).
+   */
+  tasa_cambio_cents?: number | null;
   /** Pinta en rojo un monto negativo y en verde uno positivo. */
   colorearSigno?: boolean;
   /** Disposición del contravalor en córdobas. 'inline' por defecto, 'stacked' apilado vertical, 'badge' en pastilla. */
@@ -36,6 +42,7 @@ export const Money: React.FC<MoneyProps> = ({
   usd_cents,
   size = 'md',
   soloUsd = false,
+  tasa_cambio_cents: tasaDeLaVenta,
   colorearSigno = false,
   layout = 'inline',
   className,
@@ -43,7 +50,7 @@ export const Money: React.FC<MoneyProps> = ({
   const { tasa_cambio_cents, mostrar_cordobas } = useMoneda();
 
   const mostrarCor = mostrar_cordobas && !soloUsd;
-  const cor = mostrarCor ? usdCentavosACorCentavos(usd_cents, tasa_cambio_cents) : 0;
+  const cor = mostrarCor ? usdCentavosACorCentavos(usd_cents, tasaDeLaVenta || tasa_cambio_cents) : 0;
 
   const colorPrincipal = colorearSigno
     ? usd_cents < 0
@@ -88,9 +95,10 @@ export const Money: React.FC<MoneyProps> = ({
       <span className={cn(PRIMARIO[size], colorPrincipal)}>
         {formatearMoneda(usd_cents, 'USD')}
       </span>
+      {/* "≈" como en los otros formatos: es una conversión (BAS-18). */}
       {mostrarCor && (
         <span className={cn(SECUNDARIO[size], 'text-texto-3')}>
-          {formatearMoneda(cor, 'COR')}
+          ≈ {formatearMoneda(cor, 'COR')}
         </span>
       )}
     </span>

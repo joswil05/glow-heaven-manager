@@ -2,10 +2,12 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { MetodoPago, MonedaPago, ParametrosSistema, VentaCompleta } from '../../../../shared/types';
 import { Button, Dialogo, Field, Input, Select } from '../../components/ui';
 import { formatearMoneda, usdCentavosACorCentavos } from '@core/moneda';
+import { textoPagadoDeVenta } from '@core/abonos';
 import { parsearACentavos } from '@core/numeros';
 import { hoyISO } from '@core/fechas';
 import { monedaPorDefecto, metodoPorDefecto } from '@core/preferencias';
 import { cn } from '../../lib/cn';
+import { TarjetasMoneda, etiquetaMonto, montoSugerido } from '../../components/TarjetasMoneda';
 import { useHayCambios } from '../../lib/useHayCambios';
 
 /**
@@ -55,9 +57,7 @@ export const AceptarEncargoModal: React.FC<AceptarEncargoModalProps> = ({ venta,
     // El anticipo está en dólares: si arranca en córdobas, se convierte con
     // la tasa del encargo, o "47.50" se leería como C$47.50.
     const monedaInicial = monedaPorDefecto(parametros);
-    const enMoneda = monedaInicial === 'COR' ? usdCentavosACorCentavos(falta, venta.tasa_cambio_cents) : falta;
-    const texto = falta > 0 ? (enMoneda / 100).toFixed(2) : '';
-    setMonto(texto);
+    setMonto(montoSugerido(falta, monedaInicial, venta.tasa_cambio_cents));
     setMoneda(monedaInicial);
     setMetodo(metodoPorDefecto(parametros));
     setReferencia('');
@@ -75,6 +75,15 @@ export const AceptarEncargoModal: React.FC<AceptarEncargoModalProps> = ({ venta,
     JSON.stringify([pago, monto, moneda, metodo, referencia.trim(), fecha]),
     versionFormulario
   );
+
+  // Si el monto sigue siendo lo que falta del anticipo, se escribe en la
+  // moneda nueva: "47.50" dólares no son C$47.50 (PAG-02).
+  const cambiarMoneda = (m: MonedaPago) => {
+    if (venta && monto === montoSugerido(falta, moneda, venta.tasa_cambio_cents)) {
+      setMonto(montoSugerido(falta, m, venta.tasa_cambio_cents));
+    }
+    setMoneda(m);
+  };
 
   const elegirPago = (si: boolean) => {
     setPago(si);
@@ -159,7 +168,7 @@ export const AceptarEncargoModal: React.FC<AceptarEncargoModalProps> = ({ venta,
             {venta.pagado_usd_cents > 0 && (
               <>
                 {' '}
-                y ya pagó <span className="tabular">{$(venta.pagado_usd_cents)}</span>
+                y ya pagó <span className="tabular">{textoPagadoDeVenta(venta)}</span>
               </>
             )}
             .
@@ -179,8 +188,10 @@ export const AceptarEncargoModal: React.FC<AceptarEncargoModalProps> = ({ venta,
 
           {pago && (
             <div className="space-y-3 animate-fila-nueva">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <Field label="Cuánto pagó" error={error ?? undefined}>
+              {/* Las tarjetas de Registrar y Corregir abono (PAG-01). */}
+              <TarjetasMoneda valor={moneda} onCambiar={cambiarMoneda} />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Field label={etiquetaMonto(moneda)} error={error ?? undefined}>
                   <Input
                     ref={montoRef}
                     value={monto}
@@ -192,16 +203,21 @@ export const AceptarEncargoModal: React.FC<AceptarEncargoModalProps> = ({ venta,
                     onFocus={(e) => e.currentTarget.select()}
                   />
                 </Field>
-                <Field label="Moneda">
-                  <Select value={moneda} onChange={(e) => setMoneda(e.target.value as MonedaPago)}>
-                    <option value="USD">Dólares</option>
-                    <option value="COR">Córdobas</option>
-                  </Select>
-                </Field>
                 <Field label="Fecha">
                   <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
                 </Field>
               </div>
+              {/* La equivalencia, como en Registrar abono: acá no había (PAG-02). */}
+              {centavos !== null && (
+                <p className="text-caption text-texto-3 tabular">
+                  {formatearMoneda(centavos, moneda)} a la tasa de este encargo (
+                  {formatearMoneda(venta.tasa_cambio_cents, 'COR')}) son{' '}
+                  {moneda === 'COR'
+                    ? $(enUsd)
+                    : formatearMoneda(usdCentavosACorCentavos(centavos, venta.tasa_cambio_cents), 'COR')}
+                  .
+                </p>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Cómo pagó">
                   <Select value={metodo} onChange={(e) => setMetodo(e.target.value as MetodoPago)}>

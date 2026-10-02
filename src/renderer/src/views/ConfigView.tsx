@@ -43,9 +43,10 @@ import { NubeSection } from './config/NubeSection';
 import { Confirmar } from '../components/ui/Confirmar';
 import { formatearMoneda } from '@core/moneda';
 import { hoyISO, mesISO } from '@core/fechas';
-import { generarCSV, dinero, nombreArchivo, type Columna } from '@core/exportar';
+import { generarCSV, dinero, nombreArchivo, columnasVentas, columnasAbonos, type Columna } from '@core/exportar';
 import { plantillaProforma as plantillaProformaVigente } from '@core/documentos/mensajes';
 import { preciosParaRevisar, type PrecioParaRevisar } from '@core/revisar-precios';
+import { plantillaCobro as plantillaCobroVigente } from '@core/mensajes';
 import { RevisarPreciosModal } from './inventario/RevisarPreciosModal';
 
 interface ConfigViewProps {
@@ -65,8 +66,8 @@ const PASOS = [
 
 const num = (t: string): number => parsearDecimal(t) ?? 0;
 
-const PLANTILLA_COBRO_DEFECTO =
-  'Hola {cliente}, te saludamos de Glow Heaven ✨ Te recordamos que tienes un saldo pendiente de {saldo_usd} ({saldo_cs}). Si ya realizaste tu abono, por favor compártenos el comprobante. ¡Muchas gracias!';
+// El recordatorio de cobro por defecto vive en `@core/mensajes`, con el de
+// todos los botones: si estuviera acá, Configuración mostraría otro.
 const PLANTILLA_FACTURA_DEFECTO =
   '¡Hola {cliente}! ✨ Muchas gracias por tu compra en Glow Heaven 🛍️\n\n📄 Factura: {codigo}\n💵 Total: {total_usd} (≈ {total_cs})\n{estado_pago}\n\n{cuentas_bancarias}\n¡Esperamos que disfrutes tus prendas! 💖';
 
@@ -85,7 +86,8 @@ function formularioDe(p: ParametrosSistema) {
     telefono: p.telefono_negocio,
     pinSeguridad: p.pin_seguridad ?? '',
     confirmarPin: p.pin_seguridad ?? '',
-    plantillaCobro: p.plantilla_cobro_whatsapp ?? PLANTILLA_COBRO_DEFECTO,
+    // La vigente: la de antes sin "≈", guardada tal cual, es la de siempre.
+    plantillaCobro: plantillaCobroVigente(p),
     plantillaFactura: p.plantilla_factura_whatsapp ?? PLANTILLA_FACTURA_DEFECTO,
     // La vigente, no la guardada a ciegas: la de antes de la 2.16 decía "50%"
     // escrito a mano y está guardada en la base como si fuera propia.
@@ -501,35 +503,15 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ parametros, categorias, 
       if (que === 'ventas') {
         const r = await window.api.ventas.list({ desde: desdeExp, hasta: hastaExp });
         if (!r.success) throw new Error(r.error);
-        const cols: Columna<(typeof r.data)[number]>[] = [
-          { titulo: 'Venta', valor: (v) => v.codigo },
-          { titulo: 'Fecha', valor: (v) => v.fecha },
-          { titulo: 'Tipo', valor: (v) => (v.tipo === 'ENCARGO' ? 'Encargo' : 'De inventario') },
-          { titulo: 'Clienta', valor: (v) => v.cliente_nombre ?? 'Mostrador' },
-          { titulo: 'Estado', valor: (v) => v.estado },
-          { titulo: 'Total (USD)', valor: (v) => dinero(v.total_usd_cents) },
-          { titulo: 'Pagado (USD)', valor: (v) => dinero(v.pagado_usd_cents) },
-          { titulo: 'Debe (USD)', valor: (v) => dinero(v.saldo_usd_cents) },
-          { titulo: 'Costo (USD)', valor: (v) => dinero(v.costo_total_usd_cents) },
-          { titulo: 'Ganancia (USD)', valor: (v) => dinero(v.ganancia_usd_cents) },
-        ];
-        bajarArchivo(generarCSV(cols, r.data), nombreArchivo('Ventas', desdeExp, hastaExp));
+        bajarArchivo(generarCSV(columnasVentas, r.data), nombreArchivo('Ventas', desdeExp, hastaExp));
         showToast({ message: r.data.length + ' ventas exportadas', type: 'success' });
         return;
       }
 
       const r = await window.api.pagos.enRango(desdeExp, hastaExp);
       if (!r.success) throw new Error(r.error);
-      const cols: Columna<(typeof r.data)[number]>[] = [
-        { titulo: 'Fecha', valor: (p) => p.fecha },
-        { titulo: 'Venta', valor: (p) => p.venta_codigo ?? '' },
-        { titulo: 'Clienta', valor: (p) => p.cliente_nombre ?? '' },
-        { titulo: 'Metodo', valor: (p) => p.metodo },
-        { titulo: 'Monto (USD)', valor: (p) => dinero(p.monto_usd_cents) },
-        { titulo: 'Referencia', valor: (p) => p.referencia ?? '' },
-        { titulo: 'Notas', valor: (p) => p.notas ?? '' },
-      ];
-      bajarArchivo(generarCSV(cols, r.data), nombreArchivo('Abonos', desdeExp, hastaExp));
+      // Cada abono en su moneda, con la tasa y quién lo registró (CFG-05).
+      bajarArchivo(generarCSV(columnasAbonos, r.data), nombreArchivo('Abonos', desdeExp, hastaExp));
       showToast({ message: r.data.length + ' abonos exportados', type: 'success' });
     } catch (err) {
       showToast({ message: 'No se pudo exportar: ' + String(err), type: 'error' });

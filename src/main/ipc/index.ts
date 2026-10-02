@@ -513,8 +513,10 @@ export function registrarHandlers(): void {
   // Mandar una cotización: el PDF queda en una carpeta fija, sin preguntar
   // dónde, y la carpeta se abre con el archivo seleccionado para arrastrarlo
   // al chat de WhatsApp. El mensaje lo abre la pantalla.
-  manejar(IPC.DOCUMENTOS_PREPARAR_COTIZACION, async (input: { codigo: string; html: string }) => {
-    const carpeta = path.join(app.getPath('documents'), 'Glow Heaven', 'Cotizaciones');
+  manejar(IPC.DOCUMENTOS_PREPARAR_COTIZACION, async (input: { codigo: string; html: string; carpeta?: string }) => {
+    // Una de las dos, nunca lo que venga: es una ruta.
+    const sub = input.carpeta === 'Facturas' ? 'Facturas' : 'Cotizaciones';
+    const carpeta = path.join(app.getPath('documents'), 'Glow Heaven', sub);
     await fs.mkdir(carpeta, { recursive: true });
     // El código viene de la base, pero es un nombre de archivo: sólo lo que no
     // puede salir de la carpeta.

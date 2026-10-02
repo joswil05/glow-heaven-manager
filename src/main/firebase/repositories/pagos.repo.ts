@@ -17,6 +17,7 @@ import type { Pago, PagoCompleto, MetodoPago, MonedaPago } from '../../../shared
 import { formatearMoneda } from '../../../core/moneda';
 import { pagoAcepta } from '../../../core/cobranza';
 import { repartirEnCuotas } from '../../../core/cuotas';
+import { repartirAbono } from '../../../core/reparto';
 import type { CorregirPagoInput } from '../../../shared/ipc-contracts';
 
 export interface RegistrarPagoInput {
@@ -493,28 +494,28 @@ export class PagosRepoFirestore {
   }
 
   /**
-   * Registra un abono directo al cliente.
-   * Si se especifica venta_id, se aplica a esa venta.
-   * Si no se especifica, amortiza por orden de antigüedad (FIFO) entre las ventas con saldo.
+   * Un abono a la cuenta de la clienta. Con `venta_id`, a esa venta. Sin ella,
+   * a sus ventas con saldo por antigüedad, con `repartirAbono`: la misma
+   * función con que la ventana muestra antes a qué ventas va.
    */
   static async registrarAbonoCliente(
     input: AbonoClienteInput,
     evento_grupo_id: string
   ): Promise<ResultadoPago> {
-    if (input.venta_id) {
-      return this.registrar(
+    const abono = (venta_id: number, monto_cents: number, notas: string | undefined) =>
+      this.registrar(
         {
-          venta_id: input.venta_id,
+          venta_id,
           fecha: input.fecha,
-          monto_cents: input.monto_cents,
+          monto_cents,
           moneda: input.moneda,
           metodo: input.metodo,
           referencia: input.referencia,
-          notas: input.notas,
+          notas,
         },
         evento_grupo_id
       );
-    }
+    if (input.venta_id) return abono(input.venta_id, input.monto_cents, input.notas);
 
     const db = getFirestoreDb();
     const ventasSnap = await getDocs(
@@ -524,68 +525,23 @@ export class PagosRepoFirestore {
         where('activo', '==', true)
       )
     );
-
-    const ventasConSaldo = ventasSnap.docs
-      .map((d) => d.data() as VentaDoc)
-      .filter((v) => (v.saldo_usd_cents || 0) > 0 && v.estado !== 'CANCELADA')
-      .sort((a, b) => {
-        const cmp = (a.fecha || '').localeCompare(b.fecha || '');
-        return cmp !== 0 ? cmp : a.id - b.id;
-      });
-
-    if (ventasConSaldo.length === 0) {
+    const partes = repartirAbono(
+      ventasSnap.docs.map((d) => d.data() as VentaDoc),
+      input.monto_cents,
+      input.moneda
+    );
+    if (partes.length === 0) {
       throw new Error('Esa clienta no tiene ventas ni encargos con saldo pendiente.');
     }
 
-    // Si solo hay una venta con saldo, o el monto cabe en la primera venta
-    const tasa = ventasConSaldo[0].tasa_cambio_cents || 3662;
-    const montoTotalUsd = input.moneda === 'COR'
-      ? Math.round((input.monto_cents * 100) / tasa)
-      : input.monto_cents;
+    // Cada parte dice de qué abono salió: en la venta se ve un abono de
+    // C$700, y sin esto no se sabe que fue parte de uno de C$2,500.
+    const deUnAbono =
+      partes.length > 1 ? `Parte de un abono de ${formatearMoneda(input.monto_cents, input.moneda)}` : undefined;
+    const notas = [input.notas?.trim(), deUnAbono].filter(Boolean).join(' · ') || undefined;
 
-    if (ventasConSaldo.length === 1 || montoTotalUsd <= ventasConSaldo[0].saldo_usd_cents) {
-      return this.registrar(
-        {
-          venta_id: ventasConSaldo[0].id,
-          fecha: input.fecha,
-          monto_cents: input.monto_cents,
-          moneda: input.moneda,
-          metodo: input.metodo,
-          referencia: input.referencia,
-          notas: input.notas,
-        },
-        evento_grupo_id
-      );
-    }
-
-    // Amortizar en cascada FIFO
-    let remanenteUsd = montoTotalUsd;
-    let ultimoResultado: ResultadoPago | null = null;
-
-    for (let i = 0; i < ventasConSaldo.length && remanenteUsd > 0; i++) {
-      const v = ventasConSaldo[i];
-      const esUltima = i === ventasConSaldo.length - 1;
-      const aplicarUsd = esUltima ? remanenteUsd : Math.min(remanenteUsd, v.saldo_usd_cents);
-      const aplicarMontoInput = input.moneda === 'COR'
-        ? Math.round((aplicarUsd * (v.tasa_cambio_cents || tasa)) / 100)
-        : aplicarUsd;
-
-      ultimoResultado = await this.registrar(
-        {
-          venta_id: v.id,
-          fecha: input.fecha,
-          monto_cents: aplicarMontoInput,
-          moneda: input.moneda,
-          metodo: input.metodo,
-          referencia: input.referencia,
-          notas: input.notas ? `${input.notas} (Abono múltiple ${v.codigo})` : undefined,
-        },
-        evento_grupo_id
-      );
-
-      remanenteUsd -= aplicarUsd;
-    }
-
-    return ultimoResultado!;
+    let ultimo: ResultadoPago | null = null;
+    for (const parte of partes) ultimo = await abono(parte.venta_id, parte.monto_cents, notas);
+    return ultimo!;
   }
 }

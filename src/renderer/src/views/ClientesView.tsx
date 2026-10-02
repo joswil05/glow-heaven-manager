@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useId, useRef } from 'react';
-import { Users, Plus, Search, Trash2, X, MessageCircle, MapPin, Wallet, ShoppingBag, Copy, FileEdit, Eye, CreditCard, Clock, ChevronDown, MoreVertical } from 'lucide-react';
-import type { ClienteDetalle, Venta, ParametrosSistema, PagoCompleto, MetodoPago, MonedaPago } from '../../../shared/types';
-import type { AbonoClienteInput } from '../../../shared/ipc-contracts';
+import { Users, Plus, Search, Trash2, X, MessageCircle, MapPin, Wallet, ShoppingBag, Copy, FileEdit, Eye, CreditCard, Clock, MoreVertical } from 'lucide-react';
+import type { ClienteDetalle, Venta, ParametrosSistema, PagoCompleto } from '../../../shared/types';
 import {
   Button,
   Badge,
@@ -21,17 +20,16 @@ import { useClickOutside } from '../lib/useClickOutside';
 import { useHayCambios } from '../lib/useHayCambios';
 import { useToast } from '../context/ToastContext';
 import { formatearMoneda, formatearFecha } from '@core/moneda';
-import { parsearACentavos } from '@core/numeros';
-import { cn } from '../lib/cn';
 import { formatearNombreEntidad } from '@shared/formatoTexto';
-import { hoyISO } from '@core/fechas';
 // Una copia de esta función vivía acá abajo. Duplicada, se le podía
 // corregir a una y no a la otra: ahora las dos pantallas usan la misma.
-import { enlaceWhatsApp } from '../lib/whatsapp';
+import { enlaceCobro } from '../lib/whatsapp';
+import { cordobasQueSeDeben } from '@core/mensajes';
 import { textoQuien } from '@core/abonos';
 import { MontoAbono } from '../components/MontoAbono';
 import { CorregirPagoModal } from '../components/CorregirPagoModal';
 import { AnularOBorrarAbono } from '../components/AnularOBorrar';
+import { PagoModal } from '../components/PagoModal';
 
 interface ClientesViewProps {
   parametros?: ParametrosSistema | null;
@@ -67,13 +65,8 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 
   // --- Kardex / Abono ---
   const [pagosCliente, setPagosCliente] = useState<PagoCompleto[]>([]);
-  const [abonoAbierto, setAbonoAbierto] = useState(false);
-  const [abonoGuardando, setAbonoGuardando] = useState(false);
-  const [abonoMontoTexto, setAbonoMontoTexto] = useState('');
-  const [abonoMetodo, setAbonoMetodo] = useState<MetodoPago>('EFECTIVO');
-  const [abonoMoneda, setAbonoMoneda] = useState<MonedaPago>('COR');
-  const [abonoFecha, setAbonoFecha] = useState(() => hoyISO());
-  const [abonoReferencia, setAbonoReferencia] = useState('');
+  /** "Registrar abono" de la ficha: la ventana única, a la cuenta de ella. */
+  const [abonando, setAbonando] = useState(false);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -94,8 +87,6 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
     if (!detalle) {
       setVentasCliente([]);
       setPagosCliente([]);
-      setAbonoAbierto(false);
-      setAbonoMontoTexto('');
       return;
     }
     window.api.ventas.list({ cliente_id: detalle.id }).then((r) => {
@@ -133,7 +124,8 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
     if (!pagoAnulando) return;
     const r = await window.api.pagos.anular(pagoAnulando.id);
     if (r.success) {
-      showToast({ message: 'Abono anulado con éxito', type: 'success' });
+      // Con Deshacer, como en Cobros y en Registrar abono (CLI-02).
+      showUndoToast('Abono anulado', refrescarDetalle, r.data.evento_grupo_id);
       setPagoAnulando(null);
       await refrescarDetalle();
     } else {
@@ -160,49 +152,23 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
     onCambio();
   };
 
-  const registrarAbono = async () => {
-    if (!detalle) return;
-    const montoCents = parsearACentavos(abonoMontoTexto, { min: 0.01 });
-    if (montoCents === null) {
-      showToast({ message: 'Ingresá un monto válido mayor a cero.', type: 'error' });
-      return;
-    }
-    setAbonoGuardando(true);
-    try {
-      const input: AbonoClienteInput = {
-        cliente_id: detalle.id,
-        fecha: abonoFecha,
-        monto_cents: montoCents,
-        moneda: abonoMoneda,
-        metodo: abonoMetodo,
-        referencia: abonoReferencia.trim() || undefined,
-      };
-      const r = await window.api.pagos.registrarAbonoCliente(input);
-      if (!r.success) {
-        showToast({ message: r.error, type: 'error' });
-        return;
-      }
-      showToast({ message: `Abono de ${abonoMoneda === 'USD' ? '$' : 'C$'}${(montoCents / 100).toFixed(2)} registrado`, type: 'success' });
-      setAbonoMontoTexto('');
-      setAbonoReferencia('');
-      setAbonoAbierto(false);
-      // Recargar kardex y clientes
-      const [vr, pr, cr] = await Promise.all([
-        window.api.ventas.list({ cliente_id: detalle.id }),
-        window.api.pagos.listarPorCliente(detalle.id),
-        window.api.clientes.get(detalle.id),
-      ]);
-      if (vr.success) setVentasCliente(vr.data);
-      if (pr.success) setPagosCliente(pr.data);
-      if (cr.success && cr.data) setDetalle(cr.data);
-      onCambio();
-    } finally {
-      setAbonoGuardando(false);
-    }
-  };
 
   const totalDeuda = clientes.reduce((a, c) => a + c.saldo_pendiente_usd_cents, 0);
   const conDeuda = clientes.filter((c) => c.saldo_pendiente_usd_cents > 0).length;
+
+  // El WhatsApp de la ficha: lo que debe, en córdobas venta por venta con la
+  // tasa de cada una (TRA-04). Los tres botones de la ficha abren éste.
+  const whatsappDeLaFicha = detalle
+    ? enlaceCobro(
+        {
+          telefono: detalle.telefono,
+          cliente: detalle.nombre,
+          saldo_usd_cents: detalle.saldo_pendiente_usd_cents,
+          saldo_cor_cents: cordobasQueSeDeben(ventasCliente, parametros?.tasa_cambio_cents ?? 3662),
+        },
+        parametros
+      )
+    : undefined;
 
   const columnas: Column<ClienteDetalle>[] = [
     {
@@ -415,12 +381,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
                 )}
                 {detalle.telefono && (
                   <a
-                    href={enlaceWhatsApp(
-                      detalle.telefono,
-                      detalle.nombre,
-                      detalle.saldo_pendiente_usd_cents,
-                      parametros
-                    )}
+                    href={whatsappDeLaFicha}
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex items-center gap-1.5 text-caption font-semibold text-acento-fuerte bg-acento-suave hover:bg-acento-suave dark:hover:bg-acento-suave px-2 py-0.5 rounded-full border border-acento-suave transition-colors mt-1"
@@ -482,12 +443,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
             {detalle.saldo_pendiente_usd_cents > 0 && detalle.telefono && (
               <div className="pt-1">
                 <a
-                  href={enlaceWhatsApp(
-                    detalle.telefono,
-                    detalle.nombre,
-                    detalle.saldo_pendiente_usd_cents,
-                    parametros
-                  )}
+                  href={whatsappDeLaFicha}
                   target="_blank"
                   rel="noreferrer"
                   className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-medium text-caption text-acento bg-acento/15 border border-acento/30 hover:bg-acento/25 transition-[background-color,border-color,color,box-shadow,transform,opacity] shadow-2xs active:scale-[0.98]"
@@ -505,106 +461,21 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
               </div>
             )}
 
-            {/* Botón Registrar Abono (colapsable) */}
+            {/* Abre la ventana de abono, la misma de Cobros (CLI-01). Era un
+                formulario desplegable que guardaba con Enter desde cualquier
+                campo y se perdía con un clic fuera de la ficha. */}
             {detalle.saldo_pendiente_usd_cents > 0 && (
-              <div className="rounded-xl border border-borde bg-superficie overflow-hidden shadow-xs">
-                <button
-                  type="button"
-                  onClick={() => setAbonoAbierto((v) => !v)}
-                  className={cn(
-                    'w-full flex items-center justify-between px-4 py-3 text-left transition-colors',
-                    abonoAbierto ? 'bg-acento/10' : 'hover:bg-superficie-2'
-                  )}
-                >
-                  <div className="flex items-center gap-2">
-                    <CreditCard className="w-4 h-4 text-acento" />
-                    <span className="text-label font-semibold text-texto">Registrar abono</span>
-                    <Badge tone="warning">
-                      Debe {formatearMoneda(detalle.saldo_pendiente_usd_cents, 'USD')}
-                    </Badge>
-                  </div>
-                  <ChevronDown className={cn('w-4 h-4 text-texto-3 transition-transform', abonoAbierto && 'rotate-180')} />
-                </button>
-
-                {abonoAbierto && (
-                  <div
-                    className="px-4 pb-4 pt-3 space-y-3 border-t border-borde/60 animate-fade-in"
-                    // Ctrl+Enter registra, como en todas las ventanas (TRA-09). Con
-                    // Enter solo, registraba desde cualquier campo, también desde
-                    // la referencia a medio escribir.
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !abonoGuardando && abonoMontoTexto) {
-                        e.preventDefault();
-                        registrarAbono();
-                      }
-                    }}
-                  >
-                    <div className="grid grid-cols-2 gap-2">
-                      <Field label="Moneda" className="mb-0">
-                        <select
-                          value={abonoMoneda}
-                          onChange={(e) => setAbonoMoneda(e.target.value as MonedaPago)}
-                          className="w-full rounded-lg border border-borde bg-superficie-2 px-3 py-2 text-label text-texto focus:outline-none focus:ring-2 focus:ring-acento/50"
-                        >
-                          <option value="COR">Córdobas</option>
-                          <option value="USD">Dólares</option>
-                        </select>
-                      </Field>
-                      <Field label="Método" className="mb-0">
-                        <select
-                          value={abonoMetodo}
-                          onChange={(e) => setAbonoMetodo(e.target.value as MetodoPago)}
-                          className="w-full rounded-lg border border-borde bg-superficie-2 px-3 py-2 text-label text-texto focus:outline-none focus:ring-2 focus:ring-acento/50"
-                        >
-                          <option value="EFECTIVO">Efectivo</option>
-                          <option value="TRANSFERENCIA">Transferencia</option>
-                          <option value="OTRO">Otro</option>
-                        </select>
-                      </Field>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Field label={`Monto (${abonoMoneda === 'USD' ? 'USD' : 'C$'})`} className="mb-0">
-                        <Input
-                          // Texto, no `type="number"`: el navegador convierte "1,500"
-                          // en "1.500" antes de que la aplicación lo vea, y eso se lee
-                          // como uno con medio. El parser de `@core/numeros` sí sabe
-                          // distinguir miles de decimales, pero necesita el texto crudo.
-                          // `inputMode` mantiene el teclado numérico en el celular.
-                          type="text"
-                          value={abonoMontoTexto}
-                          onChange={(e) => setAbonoMontoTexto(e.target.value)}
-                          placeholder="0.00"
-                          className="text-right"
-                          autoFocus
-                        />
-                      </Field>
-                      <Field label="Fecha" className="mb-0">
-                        <Input
-                          type="date"
-                          value={abonoFecha}
-                          onChange={(e) => setAbonoFecha(e.target.value)}
-                        />
-                      </Field>
-                    </div>
-                    <Field label="Referencia" className="mb-0">
-                      <Input
-                        value={abonoReferencia}
-                        onChange={(e) => setAbonoReferencia(e.target.value)}
-                        placeholder="Opcional"
-                      />
-                    </Field>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={registrarAbono}
-                      disabled={abonoGuardando || !abonoMontoTexto}
-                      className="w-full"
-                    >
-                      {abonoGuardando ? 'Guardando...' : 'Registrar abono'}
-                    </Button>
-                  </div>
-                )}
-              </div>
+              <button
+                type="button"
+                onClick={() => setAbonando(true)}
+                className="w-full rounded-xl border border-borde bg-superficie shadow-xs flex items-center justify-between gap-2 px-4 py-3 text-left transition-colors hover:bg-superficie-2"
+              >
+                <span className="flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-acento" />
+                  <span className="text-label font-semibold text-texto">Registrar abono</span>
+                </span>
+                <Badge tone="warning">Debe {formatearMoneda(detalle.saldo_pendiente_usd_cents, 'USD')}</Badge>
+              </button>
             )}
 
             {/* Historial de compras */}
@@ -684,15 +555,17 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
                         >
                           Corregir
                         </Button>
-                        <button
-                          type="button"
+                        {/* "Anular", como en Cobros y en Registrar abono: el
+                            tacho decía "borrar", y anular no borra (CLI-04). */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => setPagoAnulando(p)}
                           aria-label={`Anular el abono del ${formatearFecha(p.fecha)}`}
-                          title="Anular este abono"
-                          className="text-texto-3 hover:text-danger-600 p-1 rounded transition-colors"
+                          className="text-texto-3 hover:text-danger-700"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                          Anular
+                        </Button>
                       </div>
                     </li>
                   ))}
@@ -739,9 +612,18 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
       <CorregirPagoModal
         abierto={pagoCorrigiendo !== null}
         pago={pagoCorrigiendo}
+        venta={ventasCliente.find((v) => v.id === pagoCorrigiendo?.venta_id) ?? null}
         codigo={pagoCorrigiendo?.venta_codigo}
         onCerrar={() => setPagoCorrigiendo(null)}
         onCorregido={refrescarDetalle}
+      />
+
+      <PagoModal
+        abierto={abonando && detalle !== null}
+        cuenta={detalle ? { clienteId: detalle.id, clientas: [detalle] } : null}
+        parametros={parametros}
+        onCerrar={() => setAbonando(false)}
+        onRegistrado={refrescarDetalle}
       />
 
       <Confirmar
@@ -793,14 +675,30 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
                     label: 'Enviar WhatsApp',
                     icon: <MessageCircle className="w-4 h-4" />,
                     tone: 'success' as const,
-                    onClick: () => {
-                      const tel = (menuContextual.cliente.telefono || '').replace(/\D/g, '');
-                      if (tel) {
-                        const url = tel.startsWith('505')
-                          ? `https://wa.me/${tel}`
-                          : `https://wa.me/505${tel}`;
-                        window.open(url, '_blank');
-                      }
+                    // El mismo de la ficha, con el código de país de Configuración:
+                    // antes pegaba "505" a mano y rompía los números de otro país,
+                    // y abría el chat sin mensaje (CLI-05).
+                    // Los córdobas, venta por venta con la tasa de cada una, como
+                    // en la ficha (TRA-04): hacen falta sus ventas.
+                    onClick: async () => {
+                      const c = menuContextual.cliente;
+                      const ventas =
+                        c.saldo_pendiente_usd_cents > 0 ? await window.api.ventas.list({ cliente_id: c.id }) : null;
+                      window.open(
+                        enlaceCobro(
+                          {
+                            telefono: c.telefono,
+                            cliente: c.nombre,
+                            saldo_usd_cents: c.saldo_pendiente_usd_cents,
+                            saldo_cor_cents: cordobasQueSeDeben(
+                              ventas?.success ? ventas.data : [{ saldo_usd_cents: c.saldo_pendiente_usd_cents }],
+                              parametros?.tasa_cambio_cents ?? 3662
+                            ),
+                          },
+                          parametros
+                        ),
+                        '_blank'
+                      );
                     },
                   },
                 ]

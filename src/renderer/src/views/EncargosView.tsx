@@ -42,9 +42,9 @@ import {
 import { formatearMoneda, formatearFecha } from '@core/moneda';
 import { hoyISO } from '@core/fechas';
 import { esDeuda } from '@core/cobranza';
-import { textoPagado, textoQuien } from '@core/abonos';
+import { textoPagado, textoQuien, textoPagadoDeVenta, textoTotalEn, monedaDeLosAbonos } from '@core/abonos';
 import { algunoContiene } from '@core/texto';
-import { enlaceWhatsApp } from '../lib/whatsapp';
+import { enlaceCobro } from '../lib/whatsapp';
 import { useToast } from '../context/ToastContext';
 import { useClickOutside } from '../lib/useClickOutside';
 import { cn } from '../lib/cn';
@@ -400,7 +400,16 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
         label: 'WhatsApp',
         onClick: () =>
           window.open(
-            enlaceWhatsApp(telefono, v.cliente_nombre ?? '', v.estado === 'CANCELADA' ? 0 : v.saldo_usd_cents, parametros),
+            enlaceCobro(
+              {
+                telefono,
+                cliente: v.cliente_nombre ?? '',
+                saldo_usd_cents: v.estado === 'CANCELADA' ? 0 : v.saldo_usd_cents,
+                saldo_cor_cents: Math.round((v.saldo_usd_cents * (v.tasa_cambio_cents || (parametros?.tasa_cambio_cents ?? 3662))) / 100),
+                codigo: v.codigo,
+              },
+              parametros
+            ),
             '_blank'
           ),
       });
@@ -819,7 +828,7 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
                   Total <strong className="text-texto">{$(detalle.total_usd_cents)}</strong>
                 </span>
                 <span className="text-texto-2">
-                  Pagó <strong className="text-texto">{$(detalle.pagado_usd_cents)}</strong>
+                  Pagó <strong className="text-texto">{textoPagadoDeVenta(detalle)}</strong>
                 </span>
                 {detalle.estado === 'COTIZADA' ? (
                   <span className="text-texto-2">
@@ -930,7 +939,8 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
       <MandarCotizacionModal
         venta={mandando}
         parametros={parametros}
-        telefono={mandando ? clientes.find((c) => c.id === mandando.cliente_id)?.telefono : undefined}
+        cliente={mandando ? clientes.find((c) => c.id === mandando.cliente_id) : undefined}
+        onClienteCambiado={onCambio}
         onMandada={(grupo) => {
           const v = mandando;
           showUndoToast(`${v?.codigo ?? ''}: cotización mandada`, () => refrescar(v?.id), grupo);
@@ -965,7 +975,11 @@ export const EncargosView: React.FC<EncargosViewProps> = ({
           comprando
             ? [
                 comprando.venta.pagado_usd_cents > 0
-                  ? `${comprando.venta.cliente_nombre ?? 'La clienta'} pagó ${$(comprando.venta.pagado_usd_cents)} de un anticipo de ${$(comprando.venta.anticipo_esperado_usd_cents)}.`
+                  ? `${comprando.venta.cliente_nombre ?? 'La clienta'} pagó ${textoPagadoDeVenta(comprando.venta)} de un anticipo de ${textoTotalEn(
+                      monedaDeLosAbonos(comprando.venta.pagos),
+                      comprando.venta.anticipo_esperado_usd_cents,
+                      comprando.venta.tasa_cambio_cents
+                    )}.`
                   : `${comprando.venta.cliente_nombre ?? 'La clienta'} todavía no pagó el anticipo de ${$(comprando.venta.anticipo_esperado_usd_cents)}.`,
                 'Si después no lo quiere, la pieza queda para tu bodega.',
               ]

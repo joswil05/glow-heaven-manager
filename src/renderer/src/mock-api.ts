@@ -43,6 +43,7 @@ import { esDeuda, esCotizacion, estadoInicialEncargo, pagoAcepta } from '@core/c
 import { hoyISO, sumarDiasAFecha } from '@core/fechas';
 import { porQueNoSeBorraAbono, porQueNoSeBorraVenta } from '@core/borrado';
 import { formatearMoneda } from '@core/moneda';
+import { repartirAbono } from '@core/reparto';
 import { abonoQueSigueAlTotal, monedaDeLosAbonos, textoLoPagado, textoTotalEn } from '@core/abonos';
 import type { Autor } from '../../shared/types';
 
@@ -317,9 +318,11 @@ function armarPanel(): PanelData {
         estado: v.estado,
         cliente_id: v.cliente_id,
         cliente_nombre: v.cliente_nombre ?? 'Mostrador',
+        cliente_telefono: db.clientes.find((c) => c.id === v.cliente_id)?.telefono,
         total_usd_cents: v.total_usd_cents,
         pagado_usd_cents: v.pagado_usd_cents,
         saldo_usd_cents: v.saldo_usd_cents,
+        tasa_cambio_cents: v.tasa_cambio_cents,
         cuotas_vencidas: 0,
       })) ?? [],
     bajo_stock: bajoStock.slice(0, 10),
@@ -1594,39 +1597,32 @@ const api: ApiPuente = {
         anticipo_cubierto: cubierto,
       });
     },
-    registrarAbonoCliente: (input) => {
-      let targetVentaId = input.venta_id;
-      if (!targetVentaId) {
-        const ventaConSaldo = db.ventas
-          .filter((v) => v.cliente_id === input.cliente_id && v.saldo_usd_cents > 0 && v.estado !== 'CANCELADA')
-          .sort((a, b) => a.fecha.localeCompare(b.fecha))[0];
-        targetVentaId = ventaConSaldo?.id ?? 0;
-      }
-      const venta = db.ventas.find((v) => v.id === targetVentaId);
-      if (!venta) return ok({ ...grupo(), pago_id: 0, pagado_usd_cents: 0, saldo_usd_cents: 0, excedente_usd_cents: 0, anticipo_cubierto: false });
-      const montoUsd = input.moneda === 'COR'
-        ? Math.round((input.monto_cents * 100) / venta.tasa_cambio_cents)
-        : input.monto_cents;
-      const pago: Pago = {
-        id: db.siguienteId++,
-        venta_id: venta.id,
-        cliente_id: venta.cliente_id,
-        fecha: input.fecha,
-        monto_usd_cents: montoUsd,
-        monto_cor_cents: input.moneda === 'COR' ? input.monto_cents : Math.round((montoUsd * venta.tasa_cambio_cents) / 100),
-        moneda: input.moneda,
-        tasa_cambio_cents: venta.tasa_cambio_cents,
-        metodo: input.metodo,
-        referencia: input.referencia,
-        es_anticipo: false,
-        activo: true,
-        creado_en: ahora(),
-        registrado_por: AUTOR,
-      };
-      venta.pagos.push(pago);
-      venta.pagado_usd_cents += montoUsd;
-      venta.saldo_usd_cents = venta.total_usd_cents - venta.pagado_usd_cents;
-      return ok({ ...grupo(), pago_id: pago.id, pagado_usd_cents: venta.pagado_usd_cents, saldo_usd_cents: venta.saldo_usd_cents, excedente_usd_cents: Math.max(0, -venta.saldo_usd_cents), anticipo_cubierto: false });
+    // Como el repositorio: a esa venta, o repartido por antigüedad con
+    // `repartirAbono`, que es lo que la ventana muestra antes.
+    registrarAbonoCliente: async (input) => {
+      const abono = (venta_id: number, monto_cents: number, notas: string | undefined) =>
+        api.pagos.registrar({
+          venta_id,
+          fecha: input.fecha,
+          monto_cents,
+          moneda: input.moneda,
+          metodo: input.metodo,
+          referencia: input.referencia,
+          notas,
+        });
+      if (input.venta_id) return abono(input.venta_id, input.monto_cents, input.notas);
+      const partes = repartirAbono(
+        db.ventas.filter((v) => v.cliente_id === input.cliente_id),
+        input.monto_cents,
+        input.moneda
+      );
+      if (partes.length === 0) throw new Error('Esa clienta no tiene ventas ni encargos con saldo pendiente.');
+      const deUnAbono =
+        partes.length > 1 ? `Parte de un abono de ${formatearMoneda(input.monto_cents, input.moneda)}` : undefined;
+      const notas = [input.notas?.trim(), deUnAbono].filter(Boolean).join(' · ') || undefined;
+      let ultimo = await abono(partes[0].venta_id, partes[0].monto_cents, notas);
+      for (const parte of partes.slice(1)) ultimo = await abono(parte.venta_id, parte.monto_cents, notas);
+      return ultimo;
     },
     listarPorCliente: (cliente_id) => {
       const todos = db.ventas
@@ -1727,7 +1723,8 @@ const api: ApiPuente = {
               cliente_nombre: db.clientes.find((c) => c.id === v.cliente_id)?.nombre || 'Cliente',
             }))
           )
-          .filter((p) => (p.fecha || '') >= desde && (p.fecha || '') <= hasta)
+          // Como el repositorio: sólo los vigentes.
+          .filter((p) => p.activo !== false && (p.fecha || '') >= desde && (p.fecha || '') <= hasta)
           .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '') || b.id - a.id)
       ),
   },
@@ -1813,8 +1810,8 @@ const api: ApiPuente = {
       window.print();
       return ok({ guardado: true });
     },
-    prepararCotizacion: async ({ codigo }) =>
-      ok({ ruta: `C:\\Users\\Ross\\Documents\\Glow Heaven\\Cotizaciones\\${codigo}.pdf` }),
+    prepararCotizacion: async ({ codigo, carpeta }) =>
+      ok({ ruta: `C:\\Users\\Ross\\Documents\\Glow Heaven\\${carpeta ?? 'Cotizaciones'}\\${codigo}.pdf` }),
   },
 };
 

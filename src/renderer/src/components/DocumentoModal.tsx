@@ -1,5 +1,6 @@
 import React, { useId, useMemo, useState } from 'react';
-import { enlaceWhatsappDocumento } from '../../../core/documentos/mensajes';
+import { mensajeWhatsappDocumento } from '../../../core/documentos/mensajes';
+import { mandarDocumento } from '../lib/mandarDocumento';
 import { X, Printer, MessageCircle, FileText, Download, Loader2 } from 'lucide-react';
 import type { VentaCompleta, ParametrosSistema } from '../../../shared/types';
 import { Button, Ventana } from './ui';
@@ -27,6 +28,7 @@ export const DocumentoModal: React.FC<DocumentoModalProps> = ({
   const { showToast } = useToast();
   const [guardandoPdf, setGuardandoPdf] = useState(false);
   const [imprimiendo, setImprimiendo] = useState(false);
+  const [mandando, setMandando] = useState(false);
   const idTitulo = useId();
 
   // OJO: todos los hooks van ANTES de cualquier `return` condicional.
@@ -89,11 +91,26 @@ export const DocumentoModal: React.FC<DocumentoModalProps> = ({
     }
   };
 
-  const handleEnviarWhatsApp = () => {
-    if (!venta) return;
-    // El armado del mensaje vive en @core/documentos/mensajes: el celular
-    // manda el mismo, y respeta las plantillas que se editan en Configuracion.
-    window.open(enlaceWhatsappDocumento(venta, parametros ?? null), '_blank');
+  const handleEnviarWhatsApp = async () => {
+    if (!venta || mandando) return;
+    // El mismo camino que "Mandar la cotización" (DOC-07): el PDF en su
+    // carpeta, para arrastrarlo al chat, y el chat con el mensaje. El mensaje
+    // vive en @core/documentos/mensajes: el celular manda el mismo, y respeta
+    // las plantillas que se editan en Configuración.
+    setMandando(true);
+    try {
+      const error = await mandarDocumento({
+        codigo: venta.codigo,
+        html,
+        carpeta: esEncargo ? 'Cotizaciones' : 'Facturas',
+        telefono: venta.cliente?.telefono,
+        mensaje: mensajeWhatsappDocumento(venta, parametros ?? null),
+        parametros,
+      });
+      if (error) showToast({ message: error, type: 'error' });
+    } finally {
+      setMandando(false);
+    }
   };
 
   return (
@@ -127,10 +144,11 @@ export const DocumentoModal: React.FC<DocumentoModalProps> = ({
               variant="outline"
               size="sm"
               onClick={handleEnviarWhatsApp}
+              disabled={mandando}
               className="text-acento bg-acento/10 border-acento/30 hover:bg-acento/20"
             >
-              <MessageCircle className="w-4 h-4 mr-1.5" />
-              <span>WhatsApp</span>
+              {mandando ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <MessageCircle className="w-4 h-4 mr-1.5" />}
+              <span>{mandando ? 'Preparando…' : 'WhatsApp'}</span>
             </Button>
 
             <Button

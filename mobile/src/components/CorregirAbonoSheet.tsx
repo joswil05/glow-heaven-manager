@@ -28,7 +28,7 @@ export function CorregirAbonoSheet({
   onCerrar: () => void;
 }) {
   const { marcarCambio } = useDatosNegocio();
-  const { mostrar } = useSnackbar();
+  const { mostrar, mostrarDeshacer } = useSnackbar();
   const [montoTexto, setMontoTexto] = useState('');
   const [moneda, setMoneda] = useState<MonedaPago>('COR');
   const [metodo, setMetodo] = useState<MetodoPago>('EFECTIVO');
@@ -63,13 +63,15 @@ export function CorregirAbonoSheet({
     }
     setGuardando(true);
     try {
+      const grupo = nuevoGrupoEvento();
       await PagosRepoFirestore.corregir(
         pago.id,
         { fecha, monto_cents: montoCents, moneda, metodo, referencia: pago.referencia, notas: pago.notas },
-        nuevoGrupoEvento()
+        grupo
       );
       haptics.impact('medium');
-      mostrar('Abono corregido', 'success');
+      // Con Deshacer, como en Windows (CEL-03).
+      mostrarDeshacer('Abono corregido', grupo, marcarCambio);
       marcarCambio();
       onCerrar();
     } catch (err) {

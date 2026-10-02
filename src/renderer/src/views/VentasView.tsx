@@ -49,9 +49,10 @@ import { useClickOutside } from '../lib/useClickOutside';
 import { useToast } from '../context/ToastContext';
 import { cn } from '../lib/cn';
 import { formatearMoneda, formatearFecha } from '@core/moneda';
+import { enlaceCobro } from '../lib/whatsapp';
 import { mesISO } from '@core/fechas';
 import { algunoContiene } from '@core/texto';
-import { textoQuien } from '@core/abonos';
+import { textoQuien, textoPagadoDeVenta } from '@core/abonos';
 import { MontoAbono } from '../components/MontoAbono';
 
 /**
@@ -246,6 +247,16 @@ export const VentasView: React.FC<VentasViewProps> = ({
     if (ventaInicialId) abrirDetalle(ventaInicialId);
   }, [ventaInicialId, abrirDetalle]);
 
+  /**
+   * Anular o borrar desde el menú de la fila. La venta de la lista no trae sus
+   * abonos: sin ellos, lo pagado salía en dólares aunque hubiera pagado en
+   * córdobas (VEN-03), y no se sabía si tenía un abono de otro día.
+   */
+  const abrirAnular = async (v: Venta) => {
+    const r = await window.api.ventas.get(v.id);
+    setAnulando(r.success && r.data ? r.data : v);
+  };
+
   // El recorte por período ya lo hizo el servidor: acá sólo queda darle
   // nombre a lo que llegó. Antes esto filtraba en memoria una lista que ya
   // se había pagado entera.
@@ -338,36 +349,24 @@ export const VentasView: React.FC<VentasViewProps> = ({
     };
   }, [ventasPeriodo]);
 
+  // El recordatorio de cobro de la venta: el mismo de todos los botones, con la
+  // tasa de esa venta y el código de país de Configuración (VEN-02). Antes era
+  // una tercera versión armada acá, con la tasa de hoy y "+505" pegado a mano.
   const enviarCobroWhatsApp = (v: Venta | VentaCompleta) => {
     const cliente = clientes.find((c) => c.id === v.cliente_id);
-    const telefonoRaw = cliente?.telefono ?? '';
-    const telefono = telefonoRaw.replace(/\D/g, '');
-    const saldoUsd = formatearMoneda(v.saldo_usd_cents, 'USD');
-    const tasa = (parametros?.tasa_cambio_cents ?? 3662) / 100;
-    const saldoCs = formatearMoneda(Math.round(v.saldo_usd_cents * tasa), 'COR');
-
-    const cuentasTxt =
-      (parametros?.cuentas_bancarias ?? []).length > 0
-        ? (parametros?.cuentas_bancarias ?? [])
-            .map((c) => `${c.banco} (${c.moneda}): ${c.numero}${c.titular ? ' - ' + c.titular : ''}`)
-            .join('\n')
-        : '';
-
-    let plantilla =
-      parametros?.plantilla_cobro_whatsapp ||
-      'Hola {cliente}, te saludamos de Glow Heaven ✨ Te recordamos que tienes un saldo pendiente de {saldo_usd} ({saldo_cs}). Si ya realizaste tu abono, por favor compártenos el comprobante. ¡Muchas gracias!';
-
-    let mensaje = plantilla
-      .replace(/\{cliente\}/g, v.cliente_nombre ?? 'Estimada clienta')
-      .replace(/\{saldo_usd\}/g, saldoUsd)
-      .replace(/\{saldo_cs\}/g, saldoCs)
-      .replace(/\{cuentas_bancarias\}/g, cuentasTxt ? `\nCuentas bancarias:\n${cuentasTxt}` : '');
-
-    const url = telefono
-      ? `https://wa.me/505${telefono.startsWith('505') ? telefono.slice(3) : telefono}?text=${encodeURIComponent(mensaje)}`
-      : `https://wa.me/?text=${encodeURIComponent(mensaje)}`;
-
-    window.open(url, '_blank');
+    window.open(
+      enlaceCobro(
+        {
+          telefono: cliente?.telefono,
+          cliente: v.cliente_nombre ?? '',
+          saldo_usd_cents: v.saldo_usd_cents,
+          saldo_cor_cents: Math.round((v.saldo_usd_cents * (v.tasa_cambio_cents || (parametros?.tasa_cambio_cents ?? 3662))) / 100),
+          codigo: v.codigo,
+        },
+        parametros
+      ),
+      '_blank'
+    );
   };
 
   const cambiarEstado = async (v: Venta, estado: EstadoVenta, opciones?: OpcionesAnulacion) => {
@@ -813,11 +812,11 @@ export const VentasView: React.FC<VentasViewProps> = ({
                 <span className="text-label text-texto-2 font-medium">
                   {(ventaDetalle.descuento_usd_cents ?? 0) > 0 ? 'Total con descuento' : 'Total'}
                 </span>
-                <Money usd_cents={ventaDetalle.total_usd_cents} size="sm" />
+                <Money usd_cents={ventaDetalle.total_usd_cents} size="sm" tasa_cambio_cents={ventaDetalle.tasa_cambio_cents} />
               </div>
               <div className="flex justify-between items-center gap-2">
                 <span className="text-label text-texto-2 font-medium">Pagado</span>
-                <Money usd_cents={ventaDetalle.pagado_usd_cents} size="sm" soloUsd />
+                <span className="text-label text-texto tabular">{textoPagadoDeVenta(ventaDetalle)}</span>
               </div>
               <div className="flex justify-between items-center gap-2 pt-2 border-t border-borde/70">
                 <span className="text-body font-bold text-texto">Debe</span>
@@ -1043,7 +1042,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
           consecuencias: [
             ...(anulando && anulando.tipo === 'INVENTARIO' ? ['Las unidades vuelven a tu inventario.'] : []),
             ...(anulando && anulando.pagado_usd_cents > 0
-              ? [`Los ${formatearMoneda(anulando.pagado_usd_cents, 'USD')} ya abonados quedan sin efecto.`]
+              ? [`Los ${textoPagadoDeVenta(anulando)} ya abonados quedan sin efecto.`]
               : []),
             'Deja de contar en tus ganancias.',
           ],
@@ -1054,7 +1053,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
           detalle: 'Nunca pasó: se cargó dos veces, o por error. Se borra sin dejar rastro.',
           consecuencias: [
             anulando && anulando.pagado_usd_cents > 0
-              ? `Se borran ${anulando.codigo} y sus abonos (${formatearMoneda(anulando.pagado_usd_cents, 'USD')}).`
+              ? `Se borran ${anulando.codigo} y sus abonos (${textoPagadoDeVenta(anulando)}).`
               : `Se borra ${anulando?.codigo ?? 'la venta'}.`,
             ...(anulando && anulando.tipo === 'INVENTARIO' && anulando.estado !== 'CANCELADA'
               ? ['Las unidades vuelven a su lote, como si nunca hubieran salido.']
@@ -1185,7 +1184,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
                     label: 'Anular venta...',
                     icon: <XCircle className="w-4 h-4" />,
                     tone: 'danger' as const,
-                    onClick: () => setAnulando(menuContextual.venta),
+                    onClick: () => void abrirAnular(menuContextual.venta),
                   },
                 ]
               : [
@@ -1194,7 +1193,7 @@ export const VentasView: React.FC<VentasViewProps> = ({
                     label: 'Fue un error: borrarla...',
                     icon: <XCircle className="w-4 h-4" />,
                     tone: 'danger' as const,
-                    onClick: () => setAnulando(menuContextual.venta),
+                    onClick: () => void abrirAnular(menuContextual.venta),
                   },
                 ]),
           ]}

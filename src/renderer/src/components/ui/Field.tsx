@@ -61,10 +61,11 @@ export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttribute
   }
 );
 
-export const Select: React.FC<React.SelectHTMLAttributes<HTMLSelectElement>> = ({
-  className,
-  ...rest
-}) => <select className={cn(CONTROL, className)} {...rest} />;
+export const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<HTMLSelectElement>>(
+  function Select({ className, ...rest }, ref) {
+    return <select ref={ref} className={cn(CONTROL, className)} {...rest} />;
+  }
+);
 
 export const Textarea: React.FC<React.TextareaHTMLAttributes<HTMLTextAreaElement>> = ({
   className,

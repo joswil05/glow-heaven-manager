@@ -50,7 +50,7 @@ export function CorregirVentaSheet({
   onCerrar: () => void;
 }) {
   const { productos, recargarProductos, marcarCambio } = useDatosNegocio();
-  const { mostrar } = useSnackbar();
+  const { mostrar, mostrarDeshacer } = useSnackbar();
 
   const [venta, setVenta] = useState<VentaCompleta | null>(null);
   const [lineas, setLineas] = useState<Linea[]>([]);
@@ -203,6 +203,7 @@ export function CorregirVentaSheet({
     if (!venta || lineas.length === 0 || guardando) return;
     setGuardando(true);
     try {
+      const grupo = nuevoGrupoEvento();
       await VentasRepoFirestore.corregir(
         venta.id,
         {
@@ -221,10 +222,14 @@ export function CorregirVentaSheet({
             precio_unitario_usd_cents: l.precio,
           })),
         },
-        nuevoGrupoEvento()
+        grupo
       );
       haptics.impact('medium');
-      mostrar(`${venta.codigo} corregida`, 'success');
+      // Con Deshacer, como en Windows (CEL-03).
+      mostrarDeshacer(`${venta.codigo} corregida`, grupo, () => {
+        marcarCambio();
+        void recargarProductos(true);
+      });
       marcarCambio();
       void recargarProductos(true);
       onCerrar();

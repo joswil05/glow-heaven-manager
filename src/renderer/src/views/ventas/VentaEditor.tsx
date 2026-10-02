@@ -1814,7 +1814,7 @@ export const VentaEditor: React.FC<VentaEditorProps> = ({
                     <span className="text-caption text-texto-3 block">
                       {totales.descuentoCents > 0 ? 'Subtotal' : 'Total'}
                     </span>
-                    <Money usd_cents={totales.subtotal} size="md" />
+                    <Money usd_cents={totales.subtotal} size="md" tasa_cambio_cents={corrigiendo?.tasa_cambio_cents} />
                   </div>
                   <div className="rounded-lg bg-superficie-2 p-3">
                     <span className="text-caption text-texto-3 block">Costo</span>

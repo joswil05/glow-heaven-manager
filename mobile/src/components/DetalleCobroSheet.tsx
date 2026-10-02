@@ -3,7 +3,8 @@ import { MessageCircle, Clock3, DollarSign, AlertTriangle } from 'lucide-react';
 import type { FilaPorCobrar } from '@shared/types';
 import { formatearMoneda } from '@core/moneda';
 import { BottomSheet } from './BottomSheet';
-import { linkWhatsapp } from '../lib/util';
+import { mensajeCobro, enlaceMensaje } from '@core/mensajes';
+import { useDatosNegocio } from '../context/DataContext';
 import { haptics } from '../lib/haptics';
 
 interface DetalleCobroSheetProps {
@@ -35,6 +36,7 @@ export function DetalleCobroSheet({
 }: DetalleCobroSheetProps) {
   // Cerrada, se sigue mostrando lo último mientras la hoja baja: sin esto el
   // componente desaparecía antes de que la hoja pudiera animar su salida.
+  const { parametros } = useDatosNegocio();
   const ultima = useRef(fila);
   if (fila) ultima.current = fila;
   const visto = fila ?? ultima.current;
@@ -46,11 +48,16 @@ export function DetalleCobroSheet({
   const porcentaje = Math.min(100, Math.max(0, Math.round((pagado / total) * 100)));
   const vencida = f.cuotas_vencidas > 0;
 
-  const mensaje =
-    `Hola ${f.cliente_nombre}, te escribo de Glow Heaven por tu saldo pendiente de ` +
-    `${formatearMoneda(f.saldo_usd_cents, 'USD')} (${formatearMoneda(saldoCor, 'COR')}) ` +
-    `de la venta ${f.codigo}. ¿Cuándo podés completar el pago? Muchas gracias.`;
-  const urlWhatsapp = linkWhatsapp(f.cliente_telefono, mensaje);
+  // El recordatorio de todos los botones, con la plantilla de Configuración y
+  // la tasa de esta venta. Antes era otro texto, y le hablaba de vos a la clienta.
+  const urlWhatsapp = enlaceMensaje(
+    f.cliente_telefono,
+    mensajeCobro(
+      { cliente: f.cliente_nombre, saldo_usd_cents: f.saldo_usd_cents, saldo_cor_cents: saldoCor, codigo: f.codigo },
+      parametros
+    ),
+    parametros
+  );
 
   return (
     <BottomSheet
@@ -122,7 +129,7 @@ export function DetalleCobroSheet({
             onClick={() => haptics.impact('light')}
             target="_blank"
             rel="noreferrer"
-            aria-label={`Escribir a ${f.cliente_nombre} por WhatsApp`}
+            aria-label={f.cliente_telefono ? `Escribir a ${f.cliente_nombre} por WhatsApp` : 'Sin teléfono en su ficha'}
             className={`m3-press tocable flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-label font-bold transition-transform ${
               f.cliente_telefono
                 ? 'border-borde bg-superficie-2 text-texto-2 active:scale-[0.98]'
@@ -130,7 +137,8 @@ export function DetalleCobroSheet({
             }`}
           >
             <MessageCircle size={15} />
-            WhatsApp
+            {/* Sin teléfono no se apaga en silencio: dice por qué (CCO-17). */}
+            {f.cliente_telefono ? 'WhatsApp' : 'Sin teléfono'}
           </a>
 
           <button

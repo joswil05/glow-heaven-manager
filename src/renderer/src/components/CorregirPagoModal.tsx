@@ -6,7 +6,7 @@ import { parsearDecimal } from '@core/numeros';
 import { formatearMoneda, formatearFecha } from '@core/moneda';
 import { textoPagado, textoQuien } from '@core/abonos';
 import { useToast } from '../context/ToastContext';
-import { cn } from '../lib/cn';
+import { TarjetasMoneda, etiquetaMonto } from './TarjetasMoneda';
 
 interface CorregirPagoModalProps {
   abierto: boolean;
@@ -157,32 +157,10 @@ export const CorregirPagoModal: React.FC<CorregirPagoModalProps> = ({
 
         {/* La moneda va primero y a la vista: el monto se lee en ella. La
             original queda marcada, para que cambiarla sea una decisión. */}
-        <div>
-          <span id="moneda-abono" className="block text-label text-texto-2 mb-1">
-            Moneda en que pagó
-          </span>
-          <div role="radiogroup" aria-labelledby="moneda-abono" className="grid grid-cols-2 gap-2">
-            {(['COR', 'USD'] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                role="radio"
-                aria-checked={moneda === m}
-                onClick={() => setMoneda(m)}
-                className={cn(
-                  'rounded-lg border-2 px-3 py-2 text-left transition-[background-color,border-color,color] duration-150',
-                  moneda === m ? 'border-acento bg-acento-suave/30 text-texto' : 'border-borde text-texto-2 hover:bg-superficie-2'
-                )}
-              >
-                <span className="block text-label font-semibold">{m === 'COR' ? 'Córdobas (C$)' : 'Dólares ($)'}</span>
-                {pago.moneda === m && <span className="block text-caption text-texto-3">como se registró</span>}
-              </button>
-            ))}
-          </div>
-        </div>
+        <TarjetasMoneda valor={moneda} onCambiar={setMoneda} original={pago.moneda} />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Field label={`Cuánto pagó (${moneda === 'COR' ? 'C$' : '$'})`} error={errorMonto}>
+          <Field label={etiquetaMonto(moneda)} error={errorMonto}>
             <Input
               value={montoTexto}
               onChange={(e) => {

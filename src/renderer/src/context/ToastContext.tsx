@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
 import { CheckCircle2, AlertCircle, Info, RotateCcw, X } from 'lucide-react';
 import { Button } from '../components/ui';
 
@@ -12,7 +12,8 @@ export interface ToastOptions {
 
 interface ToastItem extends ToastOptions {
   id: string;
-  remainingSeconds: number;
+  /** Lo que le queda a la vista. Sólo corre mientras se puede leer. */
+  restanteMs: number;
 }
 
 interface ToastContextType {
@@ -32,16 +33,39 @@ function enUnCampo(el: Element | null): boolean {
   return !['checkbox', 'radio', 'button', 'submit', 'reset', 'range', 'color', 'file'].includes(tipo);
 }
 
+const PASO_MS = 250;
+
 export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
-  const intervalos = useRef(new Map<string, ReturnType<typeof setInterval>>());
+  /**
+   * El tiempo de un aviso es para leerlo, no para correr (BAS-03): se para
+   * con el mouse encima y mientras la ventana está oculta. "Deshacer (10s)"
+   * se consumía mientras Ross miraba otra cosa.
+   */
+  const [sobreAvisos, setSobreAvisos] = useState(false);
+  const [oculta, setOculta] = useState(() => document.visibilityState === 'hidden');
+
+  useEffect(() => {
+    const alCambiar = () => setOculta(document.visibilityState === 'hidden');
+    document.addEventListener('visibilitychange', alCambiar);
+    return () => document.removeEventListener('visibilitychange', alCambiar);
+  }, []);
+
+  const hay = toasts.length > 0;
+  useEffect(() => {
+    if (!hay || sobreAvisos || oculta) return;
+    const t = setInterval(() => {
+      setToasts((prev) =>
+        prev.map((x) => ({ ...x, restanteMs: x.restanteMs - PASO_MS })).filter((x) => x.restanteMs > 0)
+      );
+    }, PASO_MS);
+    return () => clearInterval(t);
+  }, [hay, sobreAvisos, oculta]);
 
   const removeToast = useCallback((id: string) => {
-    const intervalo = intervalos.current.get(id);
-    if (intervalo) {
-      clearInterval(intervalo);
-      intervalos.current.delete(id);
-    }
+    // Cerrado con su X, el mouse ya no está sobre él: si no, los demás
+    // quedaban parados hasta volver a pasar por encima.
+    setSobreAvisos(false);
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
@@ -49,21 +73,9 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // Un error se lee más despacio que un "listo": dice qué pasó y qué hacer.
     ({ message, type = 'info', duration = type === 'error' ? 8000 : 4000 }: ToastOptions) => {
       const id = Math.random().toString(36).substring(2, 9);
-      const newToast: ToastItem = {
-        id,
-        message,
-        type,
-        duration,
-        remainingSeconds: Math.ceil(duration / 1000),
-      };
-
-      setToasts((prev) => [...prev, newToast]);
-
-      setTimeout(() => {
-        removeToast(id);
-      }, duration);
+      setToasts((prev) => [...prev, { id, message, type, duration, restanteMs: duration }]);
     },
-    [removeToast]
+    []
   );
 
   const showUndoToast = useCallback(
@@ -93,38 +105,10 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       };
 
-      const newToast: ToastItem = {
-        id,
-        message,
-        type: 'success',
-        duration,
-        undoable: true,
-        onUndo: handleUndo,
-        remainingSeconds: 10,
-      };
-
-      setToasts((prev) => [...prev, newToast]);
-
-      // Timer para cuenta regresiva
-      const interval = setInterval(() => {
-        setToasts((prev) =>
-          prev
-            .map((t) =>
-              t.id === id ? { ...t, remainingSeconds: t.remainingSeconds - 1 } : t
-            )
-            .filter((t) => t.remainingSeconds > 0)
-        );
-      }, 1000);
-      intervalos.current.set(id, interval);
-
-      setTimeout(() => {
-        const i = intervalos.current.get(id);
-        if (i) {
-          clearInterval(i);
-          intervalos.current.delete(id);
-        }
-        removeToast(id);
-      }, duration);
+      setToasts((prev) => [
+        ...prev,
+        { id, message, type: 'success', duration, undoable: true, onUndo: handleUndo, restanteMs: duration },
+      ]);
     },
     [removeToast, showToast]
   );
@@ -161,6 +145,8 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         {toasts.map((toast) => (
           <div
             key={toast.id}
+            onMouseEnter={() => setSobreAvisos(true)}
+            onMouseLeave={() => setSobreAvisos(false)}
             className="pointer-events-auto bg-inverso text-inverso-texto px-4 py-3 rounded-xl shadow-2xl flex items-center justify-between gap-3 border border-inverso-2 animate-fade-in"
           >
             <div className="flex items-center gap-2.5 min-w-0">
@@ -178,7 +164,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               {toast.undoable && toast.onUndo && (
                 <Button variant="primary" size="sm" onClick={toast.onUndo}>
                   <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Deshacer ({toast.remainingSeconds}s)</span>
+                  <span>Deshacer ({Math.ceil(toast.restanteMs / 1000)}s)</span>
                 </Button>
               )}
               <button

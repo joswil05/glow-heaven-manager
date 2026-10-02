@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { enfocarPrimerError } from '../lib/enfocarPrimerError';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Search,
   DollarSign,
@@ -20,24 +19,18 @@ import type {
   PagoCompleto,
   ClienteDetalle,
   ParametrosSistema,
-  MetodoPago,
-  MonedaPago,
   FilaPorCobrar,
 } from '../../../shared/types';
-import type { AbonoClienteInput } from '../../../shared/ipc-contracts';
 import {
   Button,
-  Field,
   Input,
   Badge,
   DataTable,
   Column,
   StatTile,
-  Dialogo,
 } from '../components/ui';
 import { formatearMoneda } from '@core/moneda';
-import { parsearACentavos } from '@core/numeros';
-import { enlaceWhatsApp } from '../lib/whatsapp';
+import { enlaceCobro } from '../lib/whatsapp';
 import { useToast } from '../context/ToastContext';
 import { cn } from '../lib/cn';
 import { hoyISO } from '@core/fechas';
@@ -78,22 +71,9 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
   const [filtroMetodo, setFiltroMetodo] = useState<FiltroMetodo>('TODOS');
   const [filtroCuentas, setFiltroCuentas] = useState<'TODAS' | 'VENCIDAS' | 'AL_DIA'>('TODAS');
 
-  // Modal registrar abono
-  const [modalAbonoAbierto, setModalAbonoAbierto] = useState(false);
-  const [clienteSeleccionadoId, setClienteSeleccionadoId] = useState<number | undefined>();
-  const [abonoMontoTexto, setAbonoMontoTexto] = useState('');
-  const [abonoMoneda, setAbonoMoneda] = useState<MonedaPago>('COR');
-  const [abonoMetodo, setAbonoMetodo] = useState<MetodoPago>('EFECTIVO');
-  const [abonoFecha, setAbonoFecha] = useState(() => hoyISO());
-  const [abonoReferencia, setAbonoReferencia] = useState('');
-  const [abonoNotas, setAbonoNotas] = useState('');
-  const [abonoGuardando, setAbonoGuardando] = useState(false);
-  /** Cada error en su campo (TRA-10): el aviso flotante se cortaba y se iba. */
-  const [abonoErrores, setAbonoErrores] = useState<{ clienta?: string; monto?: string }>({});
-  const abonoCuerpoRef = useRef<HTMLDivElement>(null);
-  const abonoHayCambios = Boolean(
-    clienteSeleccionadoId || abonoMontoTexto.trim() || abonoReferencia.trim() || abonoNotas.trim()
-  );
+  // "Registrar abono" de la cabecera: la ventana única, a la cuenta de la
+  // clienta que se elija (TRA-02, COB-03). Tenía su propio formulario.
+  const [abonoACuenta, setAbonoACuenta] = useState(false);
 
   // El abono a una venta puntual (el botón "Abonar" de cada fila)
   const [ventaAbonando, setVentaAbonando] = useState<VentaCompleta | null>(null);
@@ -101,6 +81,19 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
   // Anular o corregir un abono
   const [pagoAnulando, setPagoAnulando] = useState<PagoCompleto | null>(null);
   const [pagoCorrigiendo, setPagoCorrigiendo] = useState<PagoCompleto | null>(null);
+  /** La venta del abono que se corrige, para decir cómo queda (COB-23). */
+  const [ventaDelAbono, setVentaDelAbono] = useState<VentaCompleta | null>(null);
+  useEffect(() => {
+    setVentaDelAbono(null);
+    if (!pagoCorrigiendo) return;
+    let vigente = true;
+    window.api.ventas.get(pagoCorrigiendo.venta_id).then((r) => {
+      if (vigente && r.success && r.data) setVentaDelAbono(r.data);
+    });
+    return () => {
+      vigente = false;
+    };
+  }, [pagoCorrigiendo]);
 
   const tasa = parametros?.tasa_cambio_cents ?? 3662;
 
@@ -214,51 +207,6 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
     else showToast({ message: r.success ? 'No se encontró la venta.' : r.error, type: 'error' });
   };
 
-  // Registrar abono
-  const guardarAbono = async () => {
-    if (abonoGuardando) return;
-    const montoCents = parsearACentavos(abonoMontoTexto, { min: 0.01 });
-    const errores = {
-      clienta: clienteSeleccionadoId ? undefined : 'Elegí a qué clienta es el abono.',
-      monto: montoCents === null ? 'Escribí cuánto pagó: tiene que ser mayor a cero.' : undefined,
-    };
-    setAbonoErrores(errores);
-    if (errores.clienta || errores.monto || !clienteSeleccionadoId || montoCents === null) {
-      enfocarPrimerError(abonoCuerpoRef.current);
-      return;
-    }
-
-    setAbonoGuardando(true);
-    try {
-      const input: AbonoClienteInput = {
-        cliente_id: clienteSeleccionadoId,
-        fecha: abonoFecha,
-        monto_cents: montoCents,
-        moneda: abonoMoneda,
-        metodo: abonoMetodo,
-        referencia: abonoReferencia.trim() || undefined,
-        notas: abonoNotas.trim() || undefined,
-      };
-
-      const r = await window.api.pagos.registrarAbonoCliente(input);
-      if (r.success) {
-        showToast({
-          message: `Abono de ${abonoMoneda === 'USD' ? '$' : 'C$'}${(montoCents / 100).toFixed(2)} registrado con éxito`,
-          type: 'success',
-        });
-        setModalAbonoAbierto(false);
-        setAbonoMontoTexto('');
-        setAbonoReferencia('');
-        setAbonoNotas('');
-        await cargar();
-        onCambio();
-      } else {
-        showToast({ message: r.error, type: 'error' });
-      }
-    } finally {
-      setAbonoGuardando(false);
-    }
-  };
 
   // Anular abono
   const confirmarAnularPago = async () => {
@@ -472,16 +420,9 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
                 variant="primary"
                 size="sm"
                 className="rounded-xl shadow-xs flex items-center gap-1.5"
-                onClick={() => {
-                  // Sin clienta elegida: arrancar con la primera de la lista
-                  // registraba el abono a otra persona si se tipeaba rápido.
-                  setClienteSeleccionadoId(undefined);
-                  setAbonoMontoTexto('');
-                  setAbonoReferencia('');
-                  setAbonoNotas('');
-                  setAbonoErrores({});
-                  setModalAbonoAbierto(true);
-                }}
+                // Sin clienta elegida: arrancar con la primera de la lista
+                // registraba el abono a otra persona si se tipeaba rápido.
+                onClick={() => setAbonoACuenta(true)}
               >
                 <DollarSign className="w-4 h-4" />
                 <span>Registrar abono</span>
@@ -615,7 +556,8 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
                   {cuentasFiltradas.length > 0 ? (
                     <div className="divide-y divide-borde/50">
                   {cuentasFiltradas.map((c) => {
-                    const saldoCor = Math.round((c.saldo_usd_cents * tasa) / 100);
+                    // Con la tasa de esa venta (COB-09): es lo que cierra la cuenta.
+                    const saldoCor = Math.round((c.saldo_usd_cents * (c.tasa_cambio_cents || tasa)) / 100);
                     return (
                       <div
                         key={c.venta_id}
@@ -665,10 +607,14 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
                           <div className="flex items-center gap-2">
                             {c.cliente_telefono && (
                               <a
-                                href={enlaceWhatsApp(
-                                  c.cliente_telefono,
-                                  c.cliente_nombre,
-                                  c.saldo_usd_cents,
+                                href={enlaceCobro(
+                                  {
+                                    telefono: c.cliente_telefono,
+                                    cliente: c.cliente_nombre,
+                                    saldo_usd_cents: c.saldo_usd_cents,
+                                    saldo_cor_cents: saldoCor,
+                                    codigo: c.codigo,
+                                  },
                                   parametros
                                 )}
                                 target="_blank"
@@ -713,115 +659,16 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
     </div>
       </div>
 
-      {/* Modal para Registrar Abono */}
-      <Dialogo
-        abierto={modalAbonoAbierto}
-        titulo="Registrar abono"
-        ancho="sm"
-        hayCambios={abonoHayCambios}
-        ocupado={abonoGuardando}
-        onCerrar={() => setModalAbonoAbierto(false)}
-        onEnviar={guardarAbono}
-        pie={(cerrar) => (
-          <div className="flex items-center justify-end gap-2 w-full">
-            <Button variant="secondary" onClick={cerrar} disabled={abonoGuardando}>
-              Cancelar
-            </Button>
-            {/* Siempre activo: sin monto, dice qué falta en el campo (TRA-10). */}
-            <Button variant="primary" onClick={guardarAbono} disabled={abonoGuardando}>
-              {abonoGuardando ? 'Guardando…' : 'Registrar abono'}
-            </Button>
-          </div>
-        )}
-      >
-            <div ref={abonoCuerpoRef} className="space-y-3">
-              <Field label="Clienta" className="mb-0" error={abonoErrores.clienta}>
-                <select
-                  value={clienteSeleccionadoId ?? ''}
-                  onChange={(e) => {
-                    setClienteSeleccionadoId(e.target.value ? Number(e.target.value) : undefined);
-                    setAbonoErrores((x) => ({ ...x, clienta: undefined }));
-                  }}
-                  className="w-full rounded-lg border border-borde bg-superficie-2 px-3 py-2 text-label text-texto focus:outline-none focus:ring-2 focus:ring-acento/50"
-                >
-                  <option value="">Elegí la clienta</option>
-                  {clientasParaAbonar.map((cli) => (
-                    <option key={cli.id} value={cli.id}>
-                      {cli.nombre}{cli.saldo_pendiente_usd_cents > 0 ? ` · debe ${formatearMoneda(cli.saldo_pendiente_usd_cents, 'USD')}` : ''}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-
-              <div className="grid grid-cols-2 gap-2">
-                <Field label="Moneda" className="mb-0">
-                  <select
-                    value={abonoMoneda}
-                    onChange={(e) => setAbonoMoneda(e.target.value as MonedaPago)}
-                    className="w-full rounded-lg border border-borde bg-superficie-2 px-3 py-2 text-label text-texto focus:outline-none focus:ring-2 focus:ring-acento/50"
-                  >
-                    <option value="COR">Córdobas</option>
-                    <option value="USD">Dólares</option>
-                  </select>
-                </Field>
-                <Field label="Método" className="mb-0">
-                  <select
-                    value={abonoMetodo}
-                    onChange={(e) => setAbonoMetodo(e.target.value as MetodoPago)}
-                    className="w-full rounded-lg border border-borde bg-superficie-2 px-3 py-2 text-label text-texto focus:outline-none focus:ring-2 focus:ring-acento/50"
-                  >
-                    <option value="EFECTIVO">Efectivo</option>
-                    <option value="TRANSFERENCIA">Transferencia</option>
-                    <option value="OTRO">Otro</option>
-                  </select>
-                </Field>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <Field label={`Monto (${abonoMoneda === 'USD' ? 'USD' : 'C$'})`} className="mb-0" error={abonoErrores.monto}>
-                  <Input
-                    // Texto, no `type="number"`: el navegador convierte "1,500"
-                    // en "1.500" antes de que la aplicación lo vea, y eso se lee
-                    // como uno con medio. El parser de `@core/numeros` sí sabe
-                    // distinguir miles de decimales, pero necesita el texto crudo.
-                    // `inputMode` mantiene el teclado numérico en el celular.
-                    type="text"
-                    value={abonoMontoTexto}
-                    onChange={(e) => {
-                      setAbonoMontoTexto(e.target.value);
-                      setAbonoErrores((x) => ({ ...x, monto: undefined }));
-                    }}
-                    placeholder="0.00"
-                    className="text-right tabular"
-                    autoFocus
-                  />
-                </Field>
-                <Field label="Fecha" className="mb-0">
-                  <Input
-                    type="date"
-                    value={abonoFecha}
-                    onChange={(e) => setAbonoFecha(e.target.value)}
-                  />
-                </Field>
-              </div>
-
-              <Field label="Referencia" className="mb-0">
-                <Input
-                  value={abonoReferencia}
-                  onChange={(e) => setAbonoReferencia(e.target.value)}
-                  placeholder="Opcional"
-                />
-              </Field>
-
-              <Field label="Notas" className="mb-0">
-                <Input
-                  value={abonoNotas}
-                  onChange={(e) => setAbonoNotas(e.target.value)}
-                  placeholder="Opcional"
-                />
-              </Field>
-            </div>
-      </Dialogo>
+      <PagoModal
+        abierto={abonoACuenta}
+        cuenta={{ clientas: clientasParaAbonar }}
+        parametros={parametros}
+        onCerrar={() => setAbonoACuenta(false)}
+        onRegistrado={async () => {
+          await cargar();
+          onCambio();
+        }}
+      />
 
       {/* Anular o borrar un abono: pregunta qué pasó. */}
       <AnularOBorrarAbono
@@ -852,6 +699,7 @@ export const CobranzaView: React.FC<CobranzaViewProps> = ({
       <CorregirPagoModal
         abierto={pagoCorrigiendo !== null}
         pago={pagoCorrigiendo}
+        venta={ventaDelAbono}
         codigo={pagoCorrigiendo?.venta_codigo}
         onCerrar={() => setPagoCorrigiendo(null)}
         onCorregido={async () => {

@@ -7,6 +7,7 @@ import { haptics } from '../lib/haptics';
 import type { FilaPorCobrar } from '@shared/types';
 import type { VentaCobroItem } from './AbonoModalSheet';
 import { algunoContiene } from '@core/texto';
+import { cordobasQueSeDeben } from '@core/mensajes';
 
 interface AbonoSelectorSheetProps {
   abierto: boolean;
@@ -30,7 +31,8 @@ export function AbonoSelectorSheet({
     [cuentasPorCobrar]
   );
 
-  const totalPendienteCor = Math.round((totalPendienteUsd * tasa) / 100);
+  // La suma de lo que dice cada fila de abajo, cada una con la tasa de su venta.
+  const totalPendienteCor = cordobasQueSeDeben(cuentasPorCobrar, tasa);
 
   const filtradas = useMemo(() => {
     if (!busqueda.trim()) return cuentasPorCobrar;

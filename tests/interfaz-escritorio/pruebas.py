@@ -1195,8 +1195,8 @@ def caso_abonar_en_esa_venta(page: Page) -> list[str]:
     except Exception:
         page.keyboard.press("Escape")
         return [f"'Abonar' en {datos['codigoNueva']} no abrió el abono de esa venta"]
-    ventana.get_by_label("Moneda").select_option("USD")
-    ventana.get_by_label("Cuánto pagó").fill("5.00")
+    ventana.get_by_role("radio", name=re.compile("Dólares")).click()
+    ventana.get_by_label(re.compile("^Cuánto pagó")).fill("5.00")
     ventana.get_by_role("button", name="Registrar abono").click()
     page.wait_for_timeout(900)
     pagado = page.evaluate("""async (d) => ({
@@ -1503,7 +1503,7 @@ VENTANAS = [
     ("Agregar clienta", abrir_clienta,
      lambda page, dlg: dlg.get_by_label("Nombre").first.fill("Algo escrito")),
     ("Registrar abono de Cobros", abrir_abono_de_cobros,
-     lambda page, dlg: dlg.get_by_label(re.compile("^Monto")).fill("25")),
+     lambda page, dlg: dlg.get_by_label(re.compile("^Cuánto pagó")).fill("25")),
     ("Ajustar existencias", abrir_ajuste,
      lambda page, dlg: dlg.get_by_label("¿Cuántas hay?").fill("99")),
     ("Nuevo encargo", abrir_encargo,
@@ -1967,6 +1967,448 @@ def caso_fue_un_error(page: Page) -> list[str]:
         fallas.append("la venta sigue existiendo")
     if page.locator("tr", has_text=venta["codigo"]).count() > 0:
         fallas.append("la venta sigue en la lista")
+    cerrar_ventanas(page)
+    return fallas
+
+
+# ---------------------------------------------------------------------------
+# Fase 2 de la auditoría: un solo abono, la moneda en que pagó y un WhatsApp
+# ---------------------------------------------------------------------------
+
+def sembrar_deuda_extranjera(page: Page) -> dict:
+    """
+    Una clienta con teléfono de otro país y una venta fiada de $100. Después
+    de venderle, la tasa de hoy sube un córdoba: lo que se le cobre tiene que
+    salir con la tasa de la venta.
+    """
+    return page.evaluate("""async () => {
+      const hoy = new Date().toISOString().slice(0, 10);
+      const sufijo = String(Date.now() % 100000);
+      const nombre = 'Extranjera ' + sufijo;
+      const c = await window.api.clientes.guardar({ nombre, telefono: '+1 504 463 6250' });
+      const r = await window.api.ventas.crear({
+        cliente_id: c.data.id, fecha: hoy, tipo: 'INVENTARIO',
+        lineas: [{ descripcion: 'Bolso WhatsApp ' + sufijo, cantidad: 1, precio_unitario_usd_cents: 10000 }],
+      });
+      const v = (await window.api.ventas.get(r.data.id)).data;
+      // La plantilla de siempre: otra prueba deja una propia, sin córdobas.
+      await window.api.parametros.update({ tasa_cambio_cents: v.tasa_cambio_cents + 100, plantilla_cobro_whatsapp: '' });
+      window.__abiertos = [];
+      window.open = (u) => { window.__abiertos.push(String(u)); return null; };
+      return { codigo: v.codigo, nombre, tasa: v.tasa_cambio_cents };
+    }""")
+
+
+def ultimo_abierto(page: Page) -> str:
+    from urllib.parse import unquote
+    abiertos = page.evaluate("window.__abiertos || []")
+    return unquote(abiertos[-1]) if abiertos else ""
+
+
+@caso("TRA-03 · cada botón de WhatsApp manda su mensaje, con la tasa de la venta y el código de país")
+def caso_whatsapp_unico(page: Page) -> list[str]:
+    fallas: list[str] = []
+    cerrar_ventanas(page)
+    s = sembrar_deuda_extranjera(page)
+    numero = "https://wa.me/15044636250?text="
+    # $100 con la tasa de la venta: los córdobas son la tasa misma.
+    cordobas = f"C${s['tasa'] / 100 * 100:,.2f}"
+    recargar_datos(page)
+
+    # Ventas: "Cobrar por WhatsApp" del menú de la venta.
+    ir_a(page, "Inicio")
+    ir_a(page, "Ventas")
+    fila_de(page, s["codigo"]).click(button="right")
+    page.get_by_role("menuitem", name="Cobrar por WhatsApp").click()
+    page.wait_for_timeout(300)
+    url = ultimo_abierto(page)
+    if not url.startswith(numero):
+        fallas.append(f"Ventas: el recordatorio no va al número de la clienta con su código de país ({url[:40]!r})")
+    if cordobas not in url:
+        fallas.append(f"Ventas: el recordatorio no dice {cordobas}, con la tasa de la venta")
+
+    # Inicio: "Cobrar por WhatsApp" de lo que se debe.
+    ir_a(page, "Inicio")
+    page.wait_for_timeout(500)
+    fila = page.get_by_text(s["nombre"]).first
+    if fila.count() == 0:
+        fallas.append("Inicio: la deuda de la clienta no aparece para cobrarla")
+    else:
+        fila.click(button="right")
+        page.get_by_role("menuitem", name="Cobrar por WhatsApp").click()
+        page.wait_for_timeout(300)
+        url = ultimo_abierto(page)
+        if not url.startswith(numero):
+            fallas.append(f"Inicio: 'Cobrar por WhatsApp' no abre el chat de la clienta ({url[:40]!r})")
+        if cordobas not in url:
+            fallas.append(f"Inicio: el recordatorio no dice {cordobas}")
+
+    # Clientes: "Enviar WhatsApp" del menú.
+    ir_a(page, "Clientes")
+    page.get_by_text(s["nombre"]).first.click(button="right")
+    page.get_by_role("menuitem", name="Enviar WhatsApp").click()
+    page.wait_for_timeout(600)
+    url = ultimo_abierto(page)
+    if not url.startswith(numero):
+        fallas.append(f"Clientes: 'Enviar WhatsApp' no usa el código de país de la clienta ({url[:40]!r})")
+    if cordobas not in url:
+        fallas.append(f"Clientes: 'Enviar WhatsApp' no dice {cordobas}, con la tasa de la venta")
+
+    # Cobros: el WhatsApp de la fila de la venta.
+    ir_a(page, "Cobros")
+    enlace = page.locator("a[href^='https://wa.me/']", has=page.locator("xpath=.")).first
+    filas = page.locator("tr, li, div").filter(has_text=s["codigo"])
+    href = ""
+    for i in range(filas.count()):
+        a = filas.nth(i).locator("a[href^='https://wa.me/']")
+        if a.count() == 1:
+            from urllib.parse import unquote
+            href = unquote(a.first.get_attribute("href") or "")
+            break
+    if not href:
+        fallas.append("Cobros: la fila de la venta no tiene WhatsApp")
+    else:
+        if not href.startswith(numero):
+            fallas.append(f"Cobros: el WhatsApp no va al número de la clienta ({href[:40]!r})")
+        if cordobas not in href:
+            fallas.append(f"Cobros: el recordatorio no dice {cordobas}, con la tasa de la venta")
+    cerrar_ventanas(page)
+    return fallas
+
+
+@caso("TRA-05 · lo pagado en córdobas se dice en córdobas: el panel, anular y Registrar abono")
+def caso_pagado_en_su_moneda(page: Page) -> list[str]:
+    """
+    Una venta de $50 con un abono de C$600. La lista de abonos lo decía en
+    córdobas y el resto de la app en dólares ("Ya pagó $16.38 de $50.00", "Los
+    $16.38 ya abonados quedan sin efecto"): parecían dos cosas distintas.
+    """
+    fallas: list[str] = []
+    cerrar_ventanas(page)
+    s = page.evaluate("""async () => {
+      const hoy = new Date().toISOString().slice(0, 10);
+      const sufijo = String(Date.now() % 100000);
+      const c = await window.api.clientes.guardar({ nombre: 'Cordobera ' + sufijo, telefono: '8888 7777' });
+      const r = await window.api.ventas.crear({
+        cliente_id: c.data.id, fecha: hoy, tipo: 'INVENTARIO',
+        lineas: [{ descripcion: 'Bolso córdobas ' + sufijo, cantidad: 1, precio_unitario_usd_cents: 5000 }],
+      });
+      await window.api.pagos.registrar({
+        venta_id: r.data.id, fecha: hoy, monto_cents: 60000, moneda: 'COR', metodo: 'EFECTIVO',
+      });
+      const v = (await window.api.ventas.get(r.data.id)).data;
+      return { codigo: v.codigo, usd: v.pagado_usd_cents };
+    }""")
+    cordobas = "C$600.00"
+    dolares = f"${s['usd'] / 100:,.2f}"
+    recargar_datos(page)
+
+    # Ventas: el panel de la venta.
+    ir_a(page, "Inicio")
+    ir_a(page, "Ventas")
+    fila_de(page, s["codigo"]).click()
+    page.wait_for_timeout(700)
+    panel = page.locator("aside").filter(has_text=s["codigo"]).last
+    texto = panel.inner_text() if panel.count() else ""
+    # La fila "Pagado" del panel; la lista de abonos de abajo ya decía C$.
+    if not re.search(r"Pagado\s+" + re.escape(cordobas), texto):
+        fallas.append(f"Ventas: la fila 'Pagado' del panel no dice {cordobas}")
+
+    # Ventas: anular desde el menú de la fila.
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(300)
+    fila_de(page, s["codigo"]).click(button="right")
+    page.get_by_role("menuitem", name="Anular venta...").click()
+    dlg = page.locator("[role=dialog], [role=alertdialog]").filter(has_text="Se devolvió o se reembolsó")
+    try:
+        dlg.wait_for(timeout=3000)
+        dlg.get_by_text("Se devolvió o se reembolsó").click()
+        page.wait_for_timeout(300)
+        texto = dlg.inner_text()
+        if f"Los {cordobas} ya abonados" not in texto:
+            fallas.append(f"anular la venta dice lo abonado en dólares ({dolares}), no en {cordobas}")
+    except Exception as e:
+        fallas.append(f"no se abrió anular la venta: {e}")
+    cerrar_ventanas(page)
+
+    # Cobros: Registrar abono de esa venta.
+    ir_a(page, "Cobros")
+    fila = page.locator("div.p-4", has=page.get_by_text(s["codigo"], exact=True)).last
+    fila.get_by_role("button", name="Abonar").click()
+    ventana = page.get_by_role("dialog", name=re.compile(re.escape(s["codigo"])))
+    try:
+        ventana.wait_for(timeout=3000)
+        texto = ventana.inner_text()
+        if f"Ya pagó {cordobas} de C$" not in texto:
+            fallas.append(f"Registrar abono dice lo pagado en dólares, no 'Ya pagó {cordobas} de C$…'")
+    except Exception:
+        fallas.append("'Abonar' no abrió el abono de la venta")
+    cerrar_ventanas(page)
+    return fallas
+
+
+def sembrar_dos_tasas(page: Page, moneda_defecto: str = "USD") -> dict:
+    """
+    Una clienta con dos ventas fiadas de $50: una del 1/9 a 36.00 y otra de
+    hoy a 37.00. La moneda de Configuración queda en `moneda_defecto`.
+    """
+    return page.evaluate("""async (moneda) => {
+      const hoy = new Date().toISOString().slice(0, 10);
+      const sufijo = String(Date.now() % 100000);
+      const nombre = 'Dos Tasas ' + sufijo;
+      const c = await window.api.clientes.guardar({ nombre, telefono: '8888 1111' });
+      const fiada = async (fecha) => {
+        const r = await window.api.ventas.crear({
+          cliente_id: c.data.id, fecha, tipo: 'INVENTARIO',
+          lineas: [{ descripcion: 'Bolso ' + fecha + ' ' + sufijo, cantidad: 1, precio_unitario_usd_cents: 5000 }],
+        });
+        return (await window.api.ventas.get(r.data.id)).data;
+      };
+      await window.api.parametros.update({ tasa_cambio_cents: 3600 });
+      const vieja = await fiada('2026-09-01');
+      await window.api.parametros.update({ tasa_cambio_cents: 3700, moneda_defecto_venta: moneda });
+      const nueva = await fiada(hoy);
+      return { nombre, cliente_id: c.data.id, vieja: vieja.id, nueva: nueva.id,
+               codigoVieja: vieja.codigo, codigoNueva: nueva.codigo };
+    }""", moneda_defecto)
+
+
+@caso("TRA-02 · Registrar abono de Cobros dice antes a qué ventas va, y registra eso")
+def caso_abono_a_la_cuenta(page: Page) -> list[str]:
+    """
+    El abono de Cobros era otro formulario: no decía a qué ventas iba la
+    plata, no tenía equivalencia, ni "cómo queda", ni Deshacer; y arrancaba en
+    córdobas aunque Configuración dijera dólares (TRA-11).
+    """
+    fallas: list[str] = []
+    cerrar_ventanas(page)
+    s = sembrar_dos_tasas(page, "USD")
+    recargar_datos(page)
+    ir_a(page, "Inicio")
+    ir_a(page, "Cobros")
+    page.get_by_role("button", name="Registrar abono").first.click()
+    dlg = page.get_by_role("dialog", name="Registrar abono")
+    try:
+        dlg.wait_for(timeout=3000)
+    except Exception:
+        return ["Registrar abono de Cobros no abrió la ventana"]
+
+    if dlg.get_by_role("radio", name=re.compile("Dólares")).get_attribute("aria-checked") != "true":
+        fallas.append("no arranca en dólares, la moneda de Configuración (TRA-11)")
+
+    dlg.get_by_label("Clienta").select_option(str(s["cliente_id"]))
+    dlg.get_by_role("radio", name=re.compile("Córdobas")).click()
+    dlg.get_by_label(re.compile("^Cuánto pagó")).fill("2500")
+    page.wait_for_timeout(600)
+    texto = dlg.inner_text()
+    # C$1,800 saldan la de 36.00; C$700 a 37.00 son $18.92 y dejan $31.08.
+    if "A qué va el abono" not in texto:
+        fallas.append("no dice a qué ventas va el abono antes de registrarlo")
+    if not re.search(re.escape(s["codigoVieja"]) + r"[\s\S]*C\$1,800\.00 · queda saldada", texto):
+        fallas.append(f"no dice que {s['codigoVieja']} recibe C$1,800.00 y queda saldada")
+    if not re.search(re.escape(s["codigoNueva"]) + r"[\s\S]*C\$700\.00 · queda \$31\.08", texto):
+        fallas.append(f"no dice que {s['codigoNueva']} recibe C$700.00 y queda en $31.08")
+    if "con la tasa de cada venta" not in texto:
+        fallas.append("no dice la equivalencia del abono")
+
+    dlg.get_by_role("button", name="Registrar abono").click()
+    page.wait_for_timeout(1000)
+    saldos = page.evaluate("""async (s) => [
+      (await window.api.ventas.get(s.vieja)).data.saldo_usd_cents,
+      (await window.api.ventas.get(s.nueva)).data.saldo_usd_cents,
+    ]""", s)
+    if saldos != [0, 3108]:
+        fallas.append(f"lo registrado no es lo que mostró: saldos {saldos}, se esperaba [0, 3108]")
+    if page.get_by_role("button", name="Deshacer").count() == 0:
+        fallas.append("después de registrar no ofrece Deshacer")
+    cerrar_ventanas(page)
+    return fallas
+
+
+@caso("CLI-01 · la ficha de la clienta abre la misma ventana de abono, a su cuenta")
+def caso_abono_desde_la_ficha(page: Page) -> list[str]:
+    fallas: list[str] = []
+    cerrar_ventanas(page)
+    s = sembrar_dos_tasas(page, "NIO")
+    recargar_datos(page)
+    ir_a(page, "Inicio")
+    ir_a(page, "Clientes")
+    page.get_by_text(s["nombre"]).first.click()
+    page.wait_for_timeout(700)
+    page.locator("aside").get_by_role("button", name=re.compile("Registrar abono")).click()
+    dlg = page.get_by_role("dialog", name="Registrar abono")
+    try:
+        dlg.wait_for(timeout=3000)
+    except Exception:
+        return ["'Registrar abono' de la ficha no abre la ventana de abono"]
+    texto = dlg.inner_text()
+    if f"A la cuenta de {s['nombre']}" not in texto:
+        fallas.append("la ventana no dice que el abono va a la cuenta de la clienta")
+    if dlg.get_by_role("radio", name=re.compile("Córdobas")).get_attribute("aria-checked") != "true":
+        fallas.append("no arranca en córdobas, la moneda de Configuración (TRA-11)")
+    if s["codigoVieja"] not in texto or s["codigoNueva"] not in texto:
+        fallas.append("no muestra lo que debe, venta por venta")
+    cerrar_ventanas(page)
+    return fallas
+
+
+@caso("PAG-02 · cambiar la moneda convierte el monto sugerido, con la tasa de la venta")
+def caso_sugerido_convertido(page: Page) -> list[str]:
+    fallas: list[str] = []
+    cerrar_ventanas(page)
+    s = sembrar_dos_tasas(page, "USD")
+    recargar_datos(page)
+    ir_a(page, "Inicio")
+    ir_a(page, "Cobros")
+    fila = page.locator("div.p-4", has=page.get_by_text(s["codigoNueva"], exact=True)).last
+    fila.get_by_role("button", name="Abonar").click()
+    dlg = page.get_by_role("dialog", name=re.compile(re.escape(s["codigoNueva"])))
+    try:
+        dlg.wait_for(timeout=3000)
+    except Exception:
+        return ["'Abonar' no abrió el abono de la venta"]
+    monto = dlg.get_by_label(re.compile("^Cuánto pagó"))
+    if monto.input_value() != "50.00":
+        fallas.append(f"en dólares sugiere {monto.input_value()!r}, no 50.00")
+    dlg.get_by_role("radio", name=re.compile("Córdobas")).click()
+    if monto.input_value() != "1850.00":
+        fallas.append(f"al pasar a córdobas el sugerido queda {monto.input_value()!r}, no 1850.00 (a 37.00)")
+    monto.fill("1000")
+    dlg.get_by_role("radio", name=re.compile("Dólares")).click()
+    if monto.input_value() != "1000":
+        fallas.append("lo que ella escribió se cambió al cambiar la moneda")
+    cerrar_ventanas(page)
+    return fallas
+
+
+@caso("BAS-03 · 'Deshacer (10s)' no corre con el mouse encima ni con la ventana oculta")
+def caso_avisos_se_pausan(page: Page) -> list[str]:
+    fallas: list[str] = []
+    cerrar_ventanas(page)
+    s = sembrar_dos_tasas(page, "USD")
+    recargar_datos(page)
+    ir_a(page, "Inicio")
+    ir_a(page, "Cobros")
+    fila = page.locator("div.p-4", has=page.get_by_text(s["codigoNueva"], exact=True)).last
+    fila.get_by_role("button", name="Abonar").click()
+    dlg = page.get_by_role("dialog", name=re.compile(re.escape(s["codigoNueva"])))
+    dlg.wait_for(timeout=3000)
+    dlg.get_by_role("button", name="Registrar abono").click()
+    deshacer = page.get_by_role("button", name=re.compile(r"Deshacer \(\d+s\)"))
+    try:
+        deshacer.wait_for(timeout=3000)
+    except Exception:
+        return ["registrar el abono no ofreció Deshacer"]
+
+    def segundos() -> int:
+        m = re.search(r"\((\d+)s\)", deshacer.inner_text())
+        return int(m.group(1)) if m else -1
+
+    deshacer.hover()
+    antes = segundos()
+    page.wait_for_timeout(3000)
+    if segundos() != antes:
+        fallas.append(f"con el mouse encima siguió corriendo: de {antes}s a {segundos()}s")
+
+    page.mouse.move(5, 5)
+    page.evaluate("""() => {
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+      document.dispatchEvent(new Event('visibilitychange'));
+    }""")
+    antes = segundos()
+    page.wait_for_timeout(3000)
+    if segundos() != antes:
+        fallas.append(f"con la ventana oculta siguió corriendo: de {antes}s a {segundos()}s")
+    page.evaluate("""() => {
+      delete document.visibilityState;
+      document.dispatchEvent(new Event('visibilitychange'));
+    }""")
+
+    antes = segundos()
+    page.wait_for_timeout(2600)
+    if segundos() >= antes:
+        fallas.append("a la vista y sin el mouse encima, el tiempo no corre")
+    return fallas
+
+
+def espiar_envios(page: Page) -> None:
+    """Anota lo que se abre en WhatsApp y los PDF que se preparan."""
+    page.evaluate("""() => {
+      window.__abiertos = [];
+      window.open = (u) => { window.__abiertos.push(String(u)); return null; };
+      window.__pdfs = [];
+      const preparar = window.api.documentos.prepararCotizacion;
+      window.api.documentos.prepararCotizacion = async (input) => {
+        window.__pdfs.push({ codigo: input.codigo, carpeta: input.carpeta ?? null });
+        return preparar(input);
+      };
+    }""")
+
+
+@caso("ENC-22 y DOC-07 · sin teléfono se agrega ahí mismo, y la factura se manda como la cotización")
+def caso_mandar_documentos(page: Page) -> list[str]:
+    """
+    Sin teléfono, "Abrir WhatsApp" quedaba gris y decía "Agregalo" sin decir
+    dónde (ENC-22). Y el botón WhatsApp de la factura abría el chat sólo con
+    el texto, sin el PDF que "Mandar la cotización" sí prepara (DOC-07).
+    """
+    fallas: list[str] = []
+    cerrar_ventanas(page)
+    s = page.evaluate("""async () => {
+      const sufijo = String(Date.now() % 100000);
+      const nombre = 'Sin Telefono ' + sufijo;
+      const c = await window.api.clientes.guardar({ nombre });
+      const pieza = 'Cartera cotizada ' + sufijo;
+      await window.api.ventas.crear({
+        cliente_id: c.data.id, fecha: new Date().toISOString().slice(0, 10), tipo: 'ENCARGO',
+        lineas: [{ descripcion: pieza, cantidad: 1, precio_unitario_usd_cents: 4000 }],
+      });
+      return { cliente_id: c.data.id, nombre, pieza };
+    }""")
+    recargar_datos(page)
+    espiar_envios(page)
+    ir_a(page, "Inicio")
+    ir_a(page, "Encargos")
+    abrir_detalle(page, s["pieza"])
+    page.get_by_role("button", name="Mandar cotización").click()
+    mandar = page.get_by_role("dialog")
+    try:
+        mandar.wait_for(timeout=3000)
+        campo = mandar.get_by_label(re.compile("^Teléfono de"))
+        if campo.count() == 0:
+            fallas.append("sin teléfono, la ventana no deja escribirlo")
+        else:
+            campo.fill("8601 2442")
+        boton = mandar.get_by_role("button", name="Abrir WhatsApp")
+        if not boton.is_enabled():
+            fallas.append("'Abrir WhatsApp' sigue gris")
+        else:
+            boton.click()
+            page.wait_for_timeout(1200)
+            abiertos = page.evaluate("window.__abiertos")
+            if not abiertos or not abiertos[-1].startswith("https://wa.me/50586012442"):
+                fallas.append(f"no abrió el chat del teléfono escrito ({(abiertos or [''])[-1][:40]!r})")
+            guardado = page.evaluate("async (id) => (await window.api.clientes.get(id)).data.telefono", s["cliente_id"])
+            if not guardado or "86012442" not in guardado.replace(" ", ""):
+                fallas.append(f"el teléfono no quedó en su ficha ({guardado!r})")
+    except Exception as e:
+        fallas.append(f"no se pudo mandar la cotización: {e}")
+    cerrar_ventanas(page)
+
+    # La factura: el mismo camino, con el PDF en su carpeta.
+    espiar_envios(page)
+    try:
+        _, dlg = abrir_factura(page)
+        espiar_envios(page)
+        dlg.get_by_role("button", name="WhatsApp").click()
+        page.wait_for_timeout(1200)
+        pdfs = page.evaluate("window.__pdfs")
+        if not pdfs or pdfs[-1]["carpeta"] != "Facturas":
+            fallas.append(f"WhatsApp de la factura no guarda el PDF en Facturas ({pdfs!r})")
+        if not page.evaluate("window.__abiertos"):
+            fallas.append("WhatsApp de la factura no abrió el chat")
+    except Exception as e:
+        fallas.append(f"no se pudo mandar la factura: {e}")
     cerrar_ventanas(page)
     return fallas
 

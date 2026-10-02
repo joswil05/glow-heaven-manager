@@ -501,10 +501,15 @@ export interface ApiPuente {
       nombreSugerido: string;
     }): Promise<Resultado<{ guardado: boolean; ruta?: string }>>;
     /**
-     * Guarda la proforma en PDF en `Documentos/Glow Heaven/Cotizaciones` y abre
-     * esa carpeta con el archivo seleccionado, para arrastrarlo al chat.
+     * Guarda el documento en PDF en `Documentos/Glow Heaven/Cotizaciones` (o
+     * `Facturas`) y abre esa carpeta con el archivo seleccionado, para
+     * arrastrarlo al chat.
      */
-    prepararCotizacion(input: { codigo: string; html: string }): Promise<Resultado<{ ruta: string }>>;
+    prepararCotizacion(input: {
+      codigo: string;
+      html: string;
+      carpeta?: 'Cotizaciones' | 'Facturas';
+    }): Promise<Resultado<{ ruta: string }>>;
   };
   actualizador?: {
     onUpdateChecking(cb: () => void): () => void;

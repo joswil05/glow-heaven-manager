@@ -245,7 +245,7 @@ export const AnularOBorrar: React.FC<AnularOBorrarProps> = ({
  * la ventana de abonos de una venta, con los mismos textos en las tres.
  */
 export const AnularOBorrarAbono: React.FC<{
-  abono: (Pago & { cliente_nombre?: string }) | null;
+  abono: (Pago & { cliente_nombre?: string; venta_codigo?: string }) | null;
   pedirPin: boolean;
   /** Anula. Si devuelve un mensaje, es un error y la ventana sigue abierta. */
   onAnular: (abono: Pago) => Promise<string | null>;
@@ -255,7 +255,11 @@ export const AnularOBorrarAbono: React.FC<{
 }> = ({ abono, pedirPin, onAnular, onBorrado, onCerrar }) => {
   const { showToast } = useToast();
   const monto = abono ? textoPagado(abono) : '';
-  const de = abono?.cliente_nombre ? ` de ${abono.cliente_nombre}` : '';
+  // De quién y de qué venta: desde la ficha de una clienta, el abono no
+  // decía a cuál de sus ventas iba (CLI-03).
+  const de =
+    (abono?.cliente_nombre ? ` de ${abono.cliente_nombre}` : '') +
+    (abono?.venta_codigo ? ` (${abono.venta_codigo})` : '');
 
   return (
     <AnularOBorrar

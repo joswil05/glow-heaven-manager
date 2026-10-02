@@ -17,9 +17,11 @@ import { porQueNoSeBorraAbono } from '@core/borrado';
 import { AnularOBorrarPanel } from './AnularOBorrarPanel';
 import { formatearMoneda, formatearFecha } from '@core/moneda';
 import { textoEquivalente, textoPagado, textoQuien } from '@core/abonos';
-import { linkWhatsapp, nuevoGrupoEvento } from '../lib/util';
+import { nuevoGrupoEvento } from '../lib/util';
+import { mensajeEstadoCuenta, enlaceMensaje } from '@core/mensajes';
 import { useDatosNegocio } from '../context/DataContext';
 import { haptics } from '../lib/haptics';
+import { useSnackbar } from './Snackbar';
 import { Ban, Pencil } from 'lucide-react';
 import { CorregirAbonoSheet } from './CorregirAbonoSheet';
 import type { PagoCompleto } from '@shared/types';
@@ -75,6 +77,19 @@ export function KardexClienteSheet({
   const [pagoCorrigiendo, setPagoCorrigiendo] = useState<PagoCompleto | null>(null);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { mostrarDeshacer } = useSnackbar();
+  /**
+   * Lo anulado desde que se abrió: el saldo que llegó con la hoja ya no lo
+   * cuenta. Vuelve a cero al abrirla.
+   */
+  const [anuladoUsd, setAnuladoUsd] = useState(0);
+  /** Después de anular, la pregunta de si cargar el abono correcto (CCO-07). */
+  const [ofrecerCorrecto, setOfrecerCorrecto] = useState(false);
+  useEffect(() => {
+    if (!abierto) return;
+    setAnuladoUsd(0);
+    setOfrecerCorrecto(false);
+  }, [abierto, clienteAbierto?.venta_id]);
 
   const tasa = cliente?.tasa_cambio_cents || parametros?.tasa_cambio_cents || 3662;
 
@@ -90,11 +105,14 @@ export function KardexClienteSheet({
       setCargando(true);
       setError(null);
       try {
+        // Los de la venta, si la hoja es de una venta: el saldo de arriba es
+        // el de esa venta, y "Total abonado" sumaba todas las de la clienta,
+        // dos números que no se podían comparar (CCO-06).
         let resultados: PagoCompleto[] = [];
-        if (cliente!.cliente_id) {
-          resultados = await PagosRepoFirestore.listarPorCliente(cliente!.cliente_id);
-        } else if (cliente!.venta_id) {
+        if (cliente!.venta_id) {
           resultados = await PagosRepoFirestore.listarPorVenta(cliente!.venta_id);
+        } else if (cliente!.cliente_id) {
+          resultados = await PagosRepoFirestore.listarPorCliente(cliente!.cliente_id);
         }
         if (!cancelado) {
           setPagos(resultados);
@@ -118,25 +136,25 @@ export function KardexClienteSheet({
 
   if (!cliente) return null;
 
-  const saldoUsd = cliente.saldo_usd_cents ?? 0;
+  const saldoUsd = (cliente.saldo_usd_cents ?? 0) + anuladoUsd;
+  const deLaVenta = Boolean(cliente.venta_id);
   const saldoCor = Math.round((saldoUsd * tasa) / 100);
   async function anularAbono(p: PagoCompleto) {
     try {
-      await PagosRepoFirestore.anular(p.id, nuevoGrupoEvento());
+      const grupo = nuevoGrupoEvento();
+      await PagosRepoFirestore.anular(p.id, grupo);
       setPagoAAnular(null);
+      setAnuladoUsd((x) => x + p.monto_usd_cents);
       onCambio?.();
-      // Tras anular se ofrece cargar el abono correcto, que es a lo que la
-      // persona vino. Son DOS asientos en el historial, no una edicion.
-      if (cliente?.venta_id) {
-        onAbonar({
-          venta_id: cliente.venta_id,
-          codigo: cliente.codigo ?? '',
-          cliente_nombre: cliente.cliente_nombre,
-          cliente_telefono: cliente.cliente_telefono,
-          saldo_usd_cents: (cliente.saldo_usd_cents ?? 0) + p.monto_usd_cents,
-          tasa_cambio_cents: cliente.tasa_cambio_cents,
-        });
-      }
+      // Con Deshacer, como en Windows (CEL-03).
+      mostrarDeshacer(`Abono de ${textoPagado(p)} anulado.`, grupo, () => {
+        setAnuladoUsd((x) => x - p.monto_usd_cents);
+        setOfrecerCorrecto(false);
+        onCambio?.();
+      });
+      // Antes se abría sola la hoja de "Registrar abono": ahora se pregunta
+      // (CCO-07). Anular y cargar el correcto son dos asientos, no uno.
+      if (cliente?.venta_id) setOfrecerCorrecto(true);
     } catch (err) {
       console.error('[KardexClienteSheet] Error anulando el abono:', err);
       setError('No se pudo anular el abono. Probá de nuevo.');
@@ -157,6 +175,20 @@ export function KardexClienteSheet({
 
   const totalAbonadoUsd = pagos.reduce((acc, p) => acc + (p.monto_usd_cents || 0), 0);
 
+  function abonar() {
+    haptics.impact('medium');
+    setOfrecerCorrecto(false);
+    onAbonar({
+      venta_id: cliente!.venta_id || pagos[0]?.venta_id || 0,
+      codigo: cliente!.codigo || pagos[0]?.venta_codigo || `C-${cliente!.cliente_id}`,
+      cliente_nombre: cliente!.cliente_nombre,
+      cliente_telefono: cliente!.cliente_telefono,
+      saldo_usd_cents: saldoUsd,
+      tasa_cambio_cents: cliente!.tasa_cambio_cents,
+    });
+    onCerrar();
+  }
+
   return (
     <>
     <CorregirAbonoSheet
@@ -171,7 +203,7 @@ export function KardexClienteSheet({
         onCerrar();
       }}
       titulo="Abonos"
-      subtitulo={cliente.cliente_nombre}
+      subtitulo={deLaVenta && cliente.codigo ? `${cliente.cliente_nombre} · ${cliente.codigo}` : cliente.cliente_nombre}
     >
       <div className="flex flex-col gap-3 pb-3">
         {/* Resumen de Cuenta del Cliente */}
@@ -191,15 +223,16 @@ export function KardexClienteSheet({
             {/* Acceso WhatsApp */}
             {cliente.cliente_telefono && (
               <a
-                href={
-                  linkWhatsapp(
-                    cliente.cliente_telefono,
-                    `Hola ${cliente.cliente_nombre}, te saludamos de Glow Heaven ✨ Te compartimos el estado de tus abonos y saldo pendiente: ${formatearMoneda(
-                      saldoUsd,
-                      'USD'
-                    )} (≈ ${formatearMoneda(saldoCor, 'COR')}). ¡Muchas gracias por tu preferencia!`
-                  ) ?? undefined
-                }
+                href={enlaceMensaje(
+                  cliente.cliente_telefono,
+                  mensajeEstadoCuenta({
+                    cliente: cliente.cliente_nombre,
+                    saldo_usd_cents: saldoUsd,
+                    saldo_cor_cents: saldoCor,
+                    abonos: pagos.map((p) => ({ fecha: p.fecha, pagado: textoPagado(p) })),
+                  }),
+                  parametros
+                )}
                 onClick={() => haptics.impact('light')}
                 target="_blank"
                 rel="noreferrer"
@@ -214,7 +247,7 @@ export function KardexClienteSheet({
           <div className="grid grid-cols-2 gap-2 pt-2 border-t border-borde">
             <div className="flex flex-col">
               <span className="text-caption font-bold uppercase tracking-wider text-texto-3">
-                Saldo pendiente
+                {deLaVenta && cliente.codigo ? `Debe de ${cliente.codigo}` : 'Saldo pendiente'}
               </span>
               <p
                 className={`text-sm font-black tabular-nums ${
@@ -232,7 +265,7 @@ export function KardexClienteSheet({
 
             <div className="flex flex-col text-right">
               <span className="text-caption font-bold uppercase tracking-wider text-texto-3">
-                Total abonado
+                {deLaVenta && cliente.codigo ? `Abonado a ${cliente.codigo}` : 'Total abonado'}
               </span>
               <p className="text-sm font-black text-texto tabular-nums">
                 {formatearMoneda(totalAbonadoUsd, 'USD')}
@@ -244,21 +277,35 @@ export function KardexClienteSheet({
           </div>
         </div>
 
+        {ofrecerCorrecto && (
+          <div role="status" className="rounded-2xl border border-borde bg-superficie p-3.5 flex flex-col gap-2.5">
+            <p className="text-xs font-semibold text-texto">¿Cargar el abono correcto?</p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  haptics.impact('light');
+                  setOfrecerCorrecto(false);
+                }}
+                className="tocable h-10 rounded-xl bg-superficie-2 border border-borde text-xs font-bold text-texto-2"
+              >
+                No
+              </button>
+              <button
+                type="button"
+                onClick={abonar}
+                className="tocable h-10 rounded-xl bg-acento text-xs font-bold text-acento-texto"
+              >
+                Sí, cargarlo
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Botón de Abonar directo */}
         <button
           type="button"
-          onClick={() => {
-            haptics.impact('medium');
-            onAbonar({
-              venta_id: cliente.venta_id || pagos[0]?.venta_id || 0,
-              codigo: cliente.codigo || pagos[0]?.venta_codigo || `C-${cliente.cliente_id}`,
-              cliente_nombre: cliente.cliente_nombre,
-              cliente_telefono: cliente.cliente_telefono,
-              saldo_usd_cents: saldoUsd,
-              tasa_cambio_cents: cliente.tasa_cambio_cents,
-            });
-            onCerrar();
-          }}
+          onClick={abonar}
           className={`flex items-center justify-center gap-2 h-11 px-4 rounded-xl font-extrabold text-xs shadow-xs transition-all active:scale-[0.98] cursor-pointer ${
             saldoUsd > 0
               ? 'bg-acento hover:bg-acento text-acento-texto shadow-m3-2'

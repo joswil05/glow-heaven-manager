@@ -4,6 +4,7 @@ import { Button, Dialogo, Field, Input } from '../../components/ui';
 import { estadoPieza, etapaEncargo } from '@core/encargos';
 import { porQueNoSeBorraVenta } from '@core/borrado';
 import { formatearMoneda, formatearFecha } from '@core/moneda';
+import { textoPagadoDeVenta } from '@core/abonos';
 import { cn } from '../../lib/cn';
 
 /**
@@ -304,7 +305,7 @@ export const AnularEncargoModal: React.FC<AnularEncargoModalProps> = ({
 
           {!borrando && pagado > 0 && (
             <div className="flex items-center justify-between gap-3 flex-wrap border-t border-borde pt-4">
-              <p className="text-body text-texto">Pagó {formatearMoneda(pagado, 'USD')}</p>
+              <p className="text-body text-texto">Pagó {textoPagadoDeVenta(completa ?? { pagado_usd_cents: pagado })}</p>
               <div className="inline-flex rounded-lg bg-superficie-2 p-0.5" role="radiogroup" aria-label="Qué pasa con lo que pagó">
                 <Opcion activa={anticipo === 'DEVOLVER'} onClick={() => setAnticipo('DEVOLVER')}>
                   Devolvérselo

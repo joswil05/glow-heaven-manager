@@ -375,6 +375,7 @@ export const App: React.FC = () => {
                   onNavegar={navegarDesdePanel}
                   onNuevaVenta={() => irA('ventas', undefined, true)}
                   onNuevoPaquete={() => irA('paquetes', undefined, true)}
+                  parametros={parametros}
                 />
               )}
 

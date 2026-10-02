@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
-import type { ParametrosSistema, VentaCompleta } from '../../../../shared/types';
-import { Button, Dialogo, Field, Textarea } from '../../components/ui';
+import type { ClienteDetalle, ParametrosSistema, VentaCompleta } from '../../../../shared/types';
+import { Button, Dialogo, Field, Input, Textarea } from '../../components/ui';
 import { mensajeWhatsappDocumento } from '@core/documentos/mensajes';
 import { generarHtmlProforma } from '@core/documentos/plantillas';
-import { enlaceWhatsapp } from '@core/telefono';
 import { formatearMoneda } from '@core/moneda';
+import { mandarDocumento } from '../../lib/mandarDocumento';
 import { cn } from '../../lib/cn';
 
 /**
@@ -19,23 +19,33 @@ import { cn } from '../../lib/cn';
  *
  * El mensaje sale de la plantilla de Configuración y se puede cambiar para
  * este envío; la plantilla no cambia.
+ *
+ * Si la clienta no tiene teléfono, se puede escribir acá y queda en su ficha
+ * (ENC-22): antes el botón quedaba gris y el texto decía "Agregalo" sin decir
+ * dónde. Sin teléfono, WhatsApp se abre para elegir el chat.
  */
 interface MandarCotizacionModalProps {
   venta: VentaCompleta | null;
   parametros: ParametrosSistema | null;
-  /** El teléfono de la clienta, de su ficha. */
-  telefono?: string;
+  /** La clienta: su teléfono, y su ficha para guardarle uno si no tiene. */
+  cliente?: ClienteDetalle | null;
   onMandada: (evento_grupo_id: string) => void;
+  /** Después de guardarle un teléfono a la clienta. */
+  onClienteCambiado?: () => void;
   onCerrar: () => void;
 }
 
 export const MandarCotizacionModal: React.FC<MandarCotizacionModalProps> = ({
   venta,
   parametros,
-  telefono,
+  cliente,
   onMandada,
+  onClienteCambiado,
   onCerrar,
 }) => {
+  const telefono = cliente?.telefono;
+  const [telefonoNuevo, setTelefonoNuevo] = useState('');
+  const [errorTelefono, setErrorTelefono] = useState<string | null>(null);
   const inicial = useMemo(() => (venta ? mensajeWhatsappDocumento(venta, parametros) : ''), [venta, parametros]);
   const [mensaje, setMensaje] = useState(inicial);
   const [verProforma, setVerProforma] = useState(false);
@@ -48,6 +58,8 @@ export const MandarCotizacionModal: React.FC<MandarCotizacionModalProps> = ({
     setMensaje(inicial);
     setVerProforma(false);
     setError(null);
+    setTelefonoNuevo('');
+    setErrorTelefono(null);
   }, [venta, inicial]);
 
   const html = useMemo(() => (venta && parametros ? generarHtmlProforma(venta, parametros) : ''), [venta, parametros]);
@@ -64,16 +76,43 @@ export const MandarCotizacionModal: React.FC<MandarCotizacionModalProps> = ({
   };
 
   const abrirWhatsApp = async () => {
-    if (!venta || guardando || !telefono) return;
+    if (!venta || guardando) return;
     setGuardando(true);
     setError(null);
+    setErrorTelefono(null);
     try {
-      const pdf = await window.api.documentos?.prepararCotizacion({ codigo: venta.codigo, html });
-      if (pdf && !pdf.success) {
-        setError(pdf.error);
+      // El teléfono escrito acá queda en su ficha, con el formato de siempre.
+      let numero = telefono;
+      if (!numero && cliente && telefonoNuevo.trim()) {
+        const r = await window.api.clientes.guardar({
+          id: cliente.id,
+          nombre: cliente.nombre,
+          alias: cliente.alias,
+          telefono: telefonoNuevo,
+          direccion: cliente.direccion,
+          ciudad: cliente.ciudad,
+          notas: cliente.notas,
+        });
+        if (!r.success) {
+          setErrorTelefono(r.error);
+          return;
+        }
+        numero = telefonoNuevo;
+        onClienteCambiado?.();
+      }
+      // El mismo camino que la ventana de la proforma (DOC-07).
+      const fallo = await mandarDocumento({
+        codigo: venta.codigo,
+        html,
+        carpeta: 'Cotizaciones',
+        telefono: numero,
+        mensaje,
+        parametros,
+      });
+      if (fallo) {
+        setError(fallo);
         return;
       }
-      window.open(enlaceWhatsapp(telefono, mensaje, parametros?.codigo_pais_whatsapp), '_blank');
       if (await marcar()) onCerrar();
     } finally {
       setGuardando(false);
@@ -95,7 +134,7 @@ export const MandarCotizacionModal: React.FC<MandarCotizacionModalProps> = ({
       abierto={Boolean(venta)}
       titulo={venta ? `Mandar la cotización ${venta.codigo}` : ''}
       ancho="lg"
-      hayCambios={mensaje !== inicial}
+      hayCambios={mensaje !== inicial || telefonoNuevo.trim() !== ''}
       onCerrar={onCerrar}
       onEnviar={abrirWhatsApp}
       // "Cancelar" pregunta, como Escape, si hay algo escrito.
@@ -118,7 +157,7 @@ export const MandarCotizacionModal: React.FC<MandarCotizacionModalProps> = ({
                 ref={abrirRef}
                 variant="primary"
                 onClick={abrirWhatsApp}
-                disabled={guardando || !telefono}
+                disabled={guardando}
                 className="min-w-[9rem]"
                 autoFocus
               >
@@ -133,12 +172,27 @@ export const MandarCotizacionModal: React.FC<MandarCotizacionModalProps> = ({
         <>
           <p className="text-body text-texto-2">
             Para <strong className="text-texto">{venta.cliente_nombre ?? 'la clienta'}</strong>
-            {telefono ? (
-              <span className="tabular"> · {telefono}</span>
-            ) : (
-              <span>: no tiene teléfono en su ficha. Agregalo para abrir el chat, o mandala por otro lado.</span>
-            )}
+            {telefono && <span className="tabular"> · {telefono}</span>}
           </p>
+
+          {!telefono && cliente && (
+            <Field
+              label={`Teléfono de ${cliente.nombre}`}
+              hint="Queda en su ficha. Sin teléfono, WhatsApp se abre para elegir el chat."
+              error={errorTelefono ?? undefined}
+            >
+              <Input
+                type="tel"
+                value={telefonoNuevo}
+                onChange={(e) => {
+                  setTelefonoNuevo(e.target.value);
+                  if (errorTelefono) setErrorTelefono(null);
+                }}
+                placeholder="8888 7777"
+                className="tabular"
+              />
+            </Field>
+          )}
 
           <Field label="Mensaje">
             <Textarea

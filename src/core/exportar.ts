@@ -16,6 +16,9 @@
  *     del catálogo. No lo cambio: es lo que funciona en su computadora.
  */
 
+import type { EstadoVenta, MetodoPago, PagoCompleto, Venta } from '../shared/types';
+import { nombreCorto } from './abonos';
+
 /** Una columna de la planilla: su título y cómo sacar el valor de cada fila. */
 export interface Columna<T> {
   titulo: string;
@@ -60,3 +63,58 @@ export function nombreArchivo(que: string, desde?: string, hasta?: string): stri
   const periodo = desde && hasta ? `_${desde}_a_${hasta}` : desde ? `_desde_${desde}` : '';
   return `Glow_Heaven_${que}${periodo}.csv`;
 }
+
+// ---------------------------------------------------------------------------
+// Las planillas de ventas y de abonos
+//
+// Son las que se le dan a la contadora (CFG-05 de la auditoría de interfaz).
+// Antes un abono de C$600 salía como 16.38, sin decir en qué moneda entró, a
+// qué tasa ni quién lo registró; y los estados y métodos salían como los
+// guarda la base ("CANCELADA", "EFECTIVO").
+// ---------------------------------------------------------------------------
+
+/** Los estados como se leen en la pantalla de Ventas. */
+export const ESTADO_VENTA_TEXTO: Record<EstadoVenta, string> = {
+  COTIZADA: 'Cotizado',
+  PENDIENTE: 'Pendiente',
+  ENTREGADA: 'Entregada',
+  CANCELADA: 'Anulada',
+};
+
+export const METODO_TEXTO: Record<MetodoPago, string> = {
+  EFECTIVO: 'Efectivo',
+  TRANSFERENCIA: 'Transferencia',
+  OTRO: 'Otro',
+};
+
+export const columnasVentas: Columna<Venta>[] = [
+  { titulo: 'Venta', valor: (v) => v.codigo },
+  { titulo: 'Fecha', valor: (v) => v.fecha },
+  { titulo: 'Tipo', valor: (v) => (v.tipo === 'ENCARGO' ? 'Encargo' : 'De inventario') },
+  { titulo: 'Clienta', valor: (v) => v.cliente_nombre ?? 'Mostrador' },
+  { titulo: 'Estado', valor: (v) => ESTADO_VENTA_TEXTO[v.estado] ?? v.estado },
+  { titulo: 'Total (USD)', valor: (v) => dinero(v.total_usd_cents) },
+  { titulo: 'Pagado (USD)', valor: (v) => dinero(v.pagado_usd_cents) },
+  { titulo: 'Debe (USD)', valor: (v) => dinero(v.saldo_usd_cents) },
+  { titulo: 'Tasa', valor: (v) => dinero(v.tasa_cambio_cents) },
+  { titulo: 'Costo (USD)', valor: (v) => dinero(v.costo_total_usd_cents) },
+  { titulo: 'Ganancia (USD)', valor: (v) => dinero(v.ganancia_usd_cents) },
+];
+
+/**
+ * Un abono por fila: lo que entró en la moneda en que entró, y su equivalente
+ * en dólares con la tasa de ese día, que es como se suma en las ventas.
+ */
+export const columnasAbonos: Columna<PagoCompleto>[] = [
+  { titulo: 'Fecha', valor: (p) => p.fecha },
+  { titulo: 'Venta', valor: (p) => p.venta_codigo ?? '' },
+  { titulo: 'Clienta', valor: (p) => p.cliente_nombre ?? '' },
+  { titulo: 'Método', valor: (p) => METODO_TEXTO[p.metodo] ?? p.metodo },
+  { titulo: 'Moneda', valor: (p) => (p.moneda === 'COR' ? 'Córdobas' : 'Dólares') },
+  { titulo: 'Monto pagado', valor: (p) => dinero(p.moneda === 'COR' ? p.monto_cor_cents : p.monto_usd_cents) },
+  { titulo: 'Equivale (USD)', valor: (p) => dinero(p.monto_usd_cents) },
+  { titulo: 'Tasa', valor: (p) => dinero(p.tasa_cambio_cents) },
+  { titulo: 'Registró', valor: (p) => nombreCorto(p.registrado_por) ?? '' },
+  { titulo: 'Referencia', valor: (p) => p.referencia ?? '' },
+  { titulo: 'Notas', valor: (p) => p.notas ?? '' },
+];

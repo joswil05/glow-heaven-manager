@@ -1,6 +1,8 @@
 import type { VentaCompleta, ParametrosSistema, CuentaBancaria } from '../../shared/types';
 import { formatearMoneda, formatearPorcentaje } from '../moneda';
 import { anticipoBpDe, noConseguidas } from '../encargos';
+// Lo abonado, en la moneda en que lo pagó: "C$600.00", no "$16.38" (DOC-02).
+import { textoPagadoDeVenta } from '../abonos';
 
 /**
  * Escapa caracteres especiales para evitar inyección de HTML en documentos generados.
@@ -431,7 +433,7 @@ export function generarHtmlFactura(venta: VentaCompleta, parametros: ParametrosS
       </tr>
       <tr>
         <td class="label">Abonado:</td>
-        <td class="value">${formatearMoneda(venta.pagado_usd_cents, 'USD')}</td>
+        <td class="value">${textoPagadoDeVenta(venta)}</td>
       </tr>
       ${venta.saldo_usd_cents > 0 ? `
       <tr style="color: #1a1a1a; font-weight: 700;">
@@ -868,7 +870,7 @@ export function generarHtmlProforma(venta: VentaCompleta, parametros: Parametros
     </tr>
     <tr>
       <td class="label">Anticipo Abonado:</td>
-      <td class="value">${formatearMoneda(venta.pagado_usd_cents, 'USD')}</td>
+      <td class="value">${textoPagadoDeVenta(venta)}</td>
     </tr>
     <tr style="color: #1a1a1a; font-weight: 700;">
       <td class="label" style="color: #1a1a1a;">Saldo Pendiente:</td>

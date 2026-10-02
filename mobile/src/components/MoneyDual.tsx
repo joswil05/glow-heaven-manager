@@ -34,7 +34,7 @@ export function MoneyDual({
       </span>
       {mostrarCor && (
         <span className="text-caption text-texto-3 tabular-nums">
-          {formatearMoneda(corCents, 'COR')}
+          ≈ {formatearMoneda(corCents, 'COR')}
         </span>
       )}
     </span>

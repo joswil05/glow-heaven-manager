@@ -57,7 +57,7 @@ const TANDA = 50;
 
 export function HistorialView() {
   const { version, marcarCambio, recargarProductos, parametros } = useDatosNegocio();
-  const { mostrar } = useSnackbar();
+  const { mostrar, mostrarDeshacer } = useSnackbar();
 
   const [ventas, setVentas] = useState<Venta[]>([]);
   const [pagos, setPagos] = useState<PagoCompleto[]>([]);
@@ -148,12 +148,18 @@ export function HistorialView() {
   // El panel de "¿Qué pasó?" muestra "Cancelando…" mientras esto corre.
   async function anular(item: Item) {
     try {
+      // Con Deshacer, como en Windows (CEL-03).
+      const grupo = nuevoGrupoEvento();
+      const alDeshacer = () => {
+        marcarCambio();
+        void recargarProductos(true);
+      };
       if (item.tipo === 'abono' && item.pago) {
-        await PagosRepoFirestore.anular(item.pago.id, nuevoGrupoEvento());
-        mostrar('Abono anulado. El saldo volvió a subir.', 'success');
+        await PagosRepoFirestore.anular(item.pago.id, grupo);
+        mostrarDeshacer('Abono anulado. El saldo volvió a subir.', grupo, alDeshacer);
       } else if (item.tipo === 'venta' && item.venta) {
-        await VentasRepoFirestore.cambiarEstado(item.venta.id, 'CANCELADA', nuevoGrupoEvento());
-        mostrar('Venta cancelada. Se devolvieron las existencias.', 'success');
+        await VentasRepoFirestore.cambiarEstado(item.venta.id, 'CANCELADA', grupo);
+        mostrarDeshacer('Venta anulada. Se devolvieron las existencias.', grupo, alDeshacer);
         // Las unidades volvieron a la bodega: Catálogo y Vender tienen que
         // verlas. `marcarCambio` sólo refresca los totales; los productos
         // tienen su propia caché. Lo encontró la fase de pruebas de la 2.16.1.

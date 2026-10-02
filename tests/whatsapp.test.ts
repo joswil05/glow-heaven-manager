@@ -12,7 +12,7 @@ import { describe, it, expect } from 'vitest';
 import type { VentaCompleta, ParametrosSistema } from '../src/shared/types';
 import { enlaceWhatsappDocumento, mensajeWhatsappDocumento } from '../src/core/documentos/mensajes';
 import { telefonoWhatsapp, linkWhatsapp } from '../mobile/src/lib/util';
-import { enlaceWhatsApp } from '../src/renderer/src/lib/whatsapp';
+import { enlaceCobro } from '../src/renderer/src/lib/whatsapp';
 
 const PARAMETROS = {
   tasa_cambio_cents: 3662,
@@ -72,7 +72,7 @@ describe('el número al que se manda el mensaje', () => {
 
     expect(numeroDe(linkWhatsapp(telefono, 'hola')!), 'móvil: linkWhatsapp').toBe(esperado);
     expect(
-      numeroDe(enlaceWhatsApp(telefono, 'Ana', 5000, PARAMETROS)),
+      numeroDe(enlaceCobro({ telefono, cliente: 'Ana', saldo_usd_cents: 5000, saldo_cor_cents: 183100 }, PARAMETROS)),
       'escritorio: cobro'
     ).toBe(esperado);
     expect(

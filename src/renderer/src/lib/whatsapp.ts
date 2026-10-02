@@ -1,43 +1,31 @@
 import type { ParametrosSistema } from '../../../shared/types';
-import { formatearMoneda } from '@core/moneda';
-import { telefonoWhatsapp } from '@core/telefono';
+import { mensajeCobro, mensajeSaludo, enlaceMensaje } from '@core/mensajes';
 
 /**
- * Genera el enlace directo a WhatsApp con mensaje pre-rellenado para cobro de saldos pendientes
- * o saludo a clientes, usando la plantilla configurada en parámetros del sistema.
+ * El WhatsApp de cobro de una venta o de la cuenta de una clienta.
+ *
+ * El mensaje sale de `@core/mensajes`, el mismo de todos los botones de las
+ * dos apps; acá sólo se elige entre recordar lo que debe o saludar si no debe
+ * nada. Los córdobas los calcula quien llama, con la tasa de cada venta: con
+ * la de hoy, pagar exactamente lo del mensaje no cerraba la cuenta.
  */
-export function enlaceWhatsApp(
-  telefono: string,
-  nombre: string,
-  saldoUsdCents: number,
-  parametros?: ParametrosSistema | null
+export function enlaceCobro(
+  c: {
+    telefono?: string | null;
+    cliente: string;
+    saldo_usd_cents: number;
+    /** El saldo en córdobas con la tasa de su venta (o la suma, venta por venta). */
+    saldo_cor_cents: number;
+    codigo?: string;
+  },
+  parametros: ParametrosSistema | null | undefined
 ): string {
-  const numero = telefonoWhatsapp(telefono, parametros?.codigo_pais_whatsapp) ?? '';
-
-  if (saldoUsdCents <= 0) {
-    return `https://wa.me/${numero}?text=${encodeURIComponent(`Hola ${nombre.split(' ')[0]}!`)}`;
-  }
-
-  const saldoUsd = formatearMoneda(saldoUsdCents, 'USD');
-  const tasa = (parametros?.tasa_cambio_cents ?? 3662) / 100;
-  const saldoCs = formatearMoneda(Math.round(saldoUsdCents * tasa), 'COR');
-
-  const cuentasTxt =
-    (parametros?.cuentas_bancarias ?? []).length > 0
-      ? (parametros?.cuentas_bancarias ?? [])
-          .map((cta) => `${cta.banco} (${cta.moneda}): ${cta.numero}${cta.titular ? ' - ' + cta.titular : ''}`)
-          .join('\n')
-      : '';
-
-  const plantilla =
-    parametros?.plantilla_cobro_whatsapp ||
-    'Hola {cliente}, te saludamos de Glow Heaven ✨ Te recordamos que tienes un saldo pendiente de {saldo_usd} ({saldo_cs}). Si ya realizaste tu abono, por favor compártenos el comprobante. ¡Muchas gracias!';
-
-  const mensaje = plantilla
-    .replace(/\{cliente\}/g, nombre)
-    .replace(/\{saldo_usd\}/g, saldoUsd)
-    .replace(/\{saldo_cs\}/g, saldoCs)
-    .replace(/\{cuentas_bancarias\}/g, cuentasTxt ? `\nCuentas bancarias:\n${cuentasTxt}` : '');
-
-  return `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`;
+  const mensaje =
+    c.saldo_usd_cents > 0
+      ? mensajeCobro(
+          { cliente: c.cliente, saldo_usd_cents: c.saldo_usd_cents, saldo_cor_cents: c.saldo_cor_cents, codigo: c.codigo },
+          parametros
+        )
+      : mensajeSaludo(c.cliente);
+  return enlaceMensaje(c.telefono, mensaje, parametros);
 }

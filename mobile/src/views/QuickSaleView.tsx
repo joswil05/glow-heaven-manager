@@ -13,9 +13,12 @@ import {
   ShoppingCart,
   ChevronRight,
   Tag,
+  RotateCcw,
 } from 'lucide-react';
 import { ClientesRepoFirestore } from '@repos/clientes.repo';
 import { VentasRepoFirestore } from '@repos/ventas.repo';
+import { EventosRepoFirestore } from '@repos/eventos.repo';
+import { monedaPorDefecto, metodoPorDefecto } from '@core/preferencias';
 import type {
   ProductoConStock,
   ProductoVariante,
@@ -27,8 +30,9 @@ import type {
 } from '@shared/types';
 import { formatearMoneda } from '@core/moneda';
 import { codigoDeVenta } from '@core/codigos';
+import { enlaceWhatsappDocumento } from '@core/documentos/mensajes';
 import { parsearACentavos, parsearDecimal } from '@core/numeros';
-import { nuevoGrupoEvento, hoyISO, linkWhatsapp } from '../lib/util';
+import { nuevoGrupoEvento, hoyISO } from '../lib/util';
 import { useDatosNegocio } from '../context/DataContext';
 import { BottomSheet } from '../components/BottomSheet';
 import { useSnackbar } from '../components/Snackbar';
@@ -48,7 +52,15 @@ function etiquetaVariante(v: ProductoVariante): string {
 }
 
 export function QuickSaleView() {
-  const { parametros, categorias, productos: todosProductos, cargandoProductos, actualizarStockLocal, marcarCambio } = useDatosNegocio();
+  const {
+    parametros,
+    categorias,
+    productos: todosProductos,
+    cargandoProductos,
+    actualizarStockLocal,
+    marcarCambio,
+    recargarProductos,
+  } = useDatosNegocio();
   const { mostrar } = useSnackbar();
   const tasa = parametros?.tasa_cambio_cents ?? 3662;
 
@@ -219,9 +231,16 @@ export function QuickSaleView() {
 
   // --- Cobro -----------------------------------------------------------------
   const [esCredito, setEsCredito] = useState(false);
-  const [metodo, setMetodo] = useState<MetodoPago>('EFECTIVO');
-  const [moneda, setMoneda] = useState<MonedaPago>('COR');
+  // La moneda y el método que ella eligió en Configuración (CVE-07): arrancaban
+  // fijos en córdobas y efectivo.
+  const [metodo, setMetodo] = useState<MetodoPago>(() => metodoPorDefecto(parametros));
+  const [moneda, setMoneda] = useState<MonedaPago>(() => monedaPorDefecto(parametros));
   const [montoAbonoTexto, setMontoAbonoTexto] = useState('');
+  // Los parámetros llegan después del primer dibujo, o cambian en Ajustes.
+  useEffect(() => {
+    setMoneda(monedaPorDefecto(parametros));
+    setMetodo(metodoPorDefecto(parametros));
+  }, [parametros?.moneda_defecto_venta, parametros?.metodo_pago_defecto]);
 
   const totalEnMonedaElegida =
     moneda === 'COR' ? Math.round((totalUsdCents * tasa) / 100) : totalUsdCents;
@@ -229,12 +248,20 @@ export function QuickSaleView() {
   // --- Confirmar Venta -------------------------------------------------------
   const [guardandoVenta, setGuardandoVenta] = useState(false);
   const [ventaHecha, setVentaHecha] = useState<VentaCompleta | null>(null);
+  /** Con qué se hizo la venta: deshacerla vuelve a esto (CEL-03). */
+  const [vendida, setVendida] = useState<{
+    grupo: string;
+    carrito: LineaCarrito[];
+    cliente: ClienteDetalle | null;
+  } | null>(null);
+  const [deshaciendo, setDeshaciendo] = useState(false);
 
   async function confirmarVenta() {
     if (carrito.length === 0) return;
     setGuardandoVenta(true);
 
     try {
+      const grupo = nuevoGrupoEvento();
       const montoAbonoCents = esCredito ? parsearACentavos(montoAbonoTexto || '0', { min: 0 }) : null;
       if (esCredito && montoAbonoCents === null) {
         throw new Error('Escribí un monto válido, o dejalo en 0 si es fiado.');
@@ -267,7 +294,7 @@ export function QuickSaleView() {
             monto_cents: esCredito ? (montoAbonoCents ?? 0) : undefined,
           },
         },
-        nuevoGrupoEvento()
+        grupo
       );
 
       // Descontar existencias inmediatamente en el estado global
@@ -347,10 +374,12 @@ export function QuickSaleView() {
         cuotas: [],
       };
 
+      setVendida({ grupo, carrito, cliente: clienteSeleccionado });
       setVentaHecha(ventaInmediata);
       setCarrito([]);
       setSheetCarritoAbierto(false);
-      mostrar('Venta registrada', 'success');
+      // La confirmación es la pantalla de "Venta registrada": el aviso de
+      // arriba decía lo mismo otra vez.
     } catch (err: any) {
       console.error('[QuickSaleView] Error guardando venta:', err);
       mostrar(err?.message || 'No se pudo guardar la venta.', 'error');
@@ -361,15 +390,54 @@ export function QuickSaleView() {
 
   function nuevaVenta() {
     setVentaHecha(null);
+    setVendida(null);
     setClienteSeleccionado(null);
     setEsCredito(false);
     setMontoAbonoTexto('');
     setDescValorTexto('');
     setDescTipo('PORCENTAJE');
+    setMoneda(monedaPorDefecto(parametros));
+    setMetodo(metodoPorDefecto(parametros));
+  }
+
+  /**
+   * Deshacer la venta recién hecha (CEL-03): vuelven las unidades y el cobro,
+   * y el carrito queda como estaba, para corregirlo y volver a cobrar.
+   */
+  async function deshacerVenta() {
+    if (!vendida || deshaciendo) return;
+    // La vibración antes de esperar: en iPhone sólo vibra dentro del toque.
+    haptics.impact('medium');
+    setDeshaciendo(true);
+    try {
+      const r = await EventosRepoFirestore.deshacerGrupo(vendida.grupo);
+      if (!r.revertido) {
+        mostrar(r.descripcion, 'error');
+        return;
+      }
+      setCarrito(vendida.carrito);
+      setClienteSeleccionado(vendida.cliente);
+      setVentaHecha(null);
+      setVendida(null);
+      marcarCambio();
+      void recargarProductos(true);
+      mostrar('Venta deshecha. El carrito quedó como estaba.', 'info');
+    } catch (err: any) {
+      mostrar(err?.message || 'No se pudo deshacer la venta.', 'error');
+    } finally {
+      setDeshaciendo(false);
+    }
   }
 
   if (ventaHecha) {
-    return <PantallaExito venta={ventaHecha} onNuevaVenta={nuevaVenta} />;
+    return (
+      <PantallaExito
+        venta={ventaHecha}
+        onNuevaVenta={nuevaVenta}
+        onDeshacer={vendida ? () => void deshacerVenta() : undefined}
+        deshaciendo={deshaciendo}
+      />
+    );
   }
 
   return (
@@ -1131,41 +1199,28 @@ export function QuickSaleView() {
   );
 }
 
-function PantallaExito({ venta, onNuevaVenta }: { venta: VentaCompleta; onNuevaVenta: () => void }) {
+function PantallaExito({
+  venta,
+  onNuevaVenta,
+  onDeshacer,
+  deshaciendo,
+}: {
+  venta: VentaCompleta;
+  onNuevaVenta: () => void;
+  onDeshacer?: () => void;
+  deshaciendo?: boolean;
+}) {
   const { parametros } = useDatosNegocio();
-  const nombreNegocio = parametros?.nombre_negocio || 'Glow Heaven';
 
   const subtotalLineas = venta.lineas.reduce((s, l) => s + l.subtotal_usd_cents, 0);
   const tieneDescuento = Boolean(
     venta.descuento_valor && subtotalLineas > venta.total_usd_cents
   );
-  const descTxt = tieneDescuento
-    ? `Descuento: -${formatearMoneda(subtotalLineas - venta.total_usd_cents, 'USD')} (${
-        venta.descuento_tipo === 'PORCENTAJE'
-          ? `${venta.descuento_valor}%`
-          : `$${venta.descuento_valor}`
-      })`
-    : '';
-
-  const lineasTexto = venta.lineas
-    .map((l) => `• ${l.cantidad} × ${l.producto_nombre ?? l.descripcion}${l.talla || l.color ? ` (${[l.talla, l.color].filter(Boolean).join(' ')})` : ''}`)
-    .join('\n');
-
-  const mensaje = [
-    `Gracias por tu compra en ${nombreNegocio}.`,
-    `Comprobante: ${venta.codigo}`,
-    '',
-    lineasTexto,
-    '',
-    ...(tieneDescuento ? [`Subtotal: ${formatearMoneda(subtotalLineas, 'USD')}`, descTxt] : []),
-    `Total: ${formatearMoneda(venta.total_usd_cents, 'USD')}`,
-    `Pagado: ${formatearMoneda(venta.pagado_usd_cents, 'USD')}`,
-    venta.saldo_usd_cents > 0
-      ? `Saldo pendiente: ${formatearMoneda(venta.saldo_usd_cents, 'USD')}`
-      : 'Venta pagada por completo.',
-  ].join('\n');
-
-  const link = linkWhatsapp(venta.cliente?.telefono, mensaje);
+  // El mismo mensaje con que Windows manda la factura, con su plantilla de
+  // Configuración (CVE-03). Antes era otro, armado acá, que decía "Pagado
+  // $16.38" aunque hubiera pagado en córdobas. Sin teléfono (Mostrador), abre
+  // WhatsApp para elegir el chat (CVE-04).
+  const link = enlaceWhatsappDocumento(venta, parametros);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-5 bg-fondo px-6 pb-safe-b pt-safe-t text-center animate-m3-fade">
@@ -1216,7 +1271,8 @@ function PantallaExito({ venta, onNuevaVenta }: { venta: VentaCompleta; onNuevaV
 
         <div className="flex items-center justify-between pt-3">
           <span className="text-xs font-bold text-texto-2">
-            {tieneDescuento ? 'Total con descuento:' : 'Total cobrado:'}
+            {/* "Cobrado" sólo si se cobró entera: fiada, no (CVE-03). */}
+            {tieneDescuento ? 'Total con descuento:' : venta.saldo_usd_cents > 0 ? 'Total de la venta:' : 'Total cobrado:'}
           </span>
           <span className="text-lg font-black text-acento tabular-nums">
             {formatearMoneda(venta.total_usd_cents, 'USD')}
@@ -1248,6 +1304,18 @@ function PantallaExito({ venta, onNuevaVenta }: { venta: VentaCompleta; onNuevaV
         >
           Nueva venta rápida
         </button>
+
+        {onDeshacer && (
+          <button
+            type="button"
+            onClick={onDeshacer}
+            disabled={deshaciendo}
+            className="tocable flex w-full items-center justify-center gap-1.5 rounded-2xl px-5 py-2.5 text-sm font-semibold text-texto-3 active:scale-[0.98] transition-transform disabled:opacity-50"
+          >
+            {deshaciendo ? <Loader2 size={15} className="animate-spin" /> : <RotateCcw size={15} />}
+            {deshaciendo ? 'Deshaciendo…' : 'Deshacer la venta'}
+          </button>
+        )}
       </div>
     </div>
   );

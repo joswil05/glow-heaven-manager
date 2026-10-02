@@ -19,7 +19,8 @@ import {
   Percent,
   Layers,
 } from 'lucide-react';
-import type { PanelData, Alerta, SeveridadAlerta } from '../../../shared/types';
+import type { PanelData, Alerta, SeveridadAlerta, FilaPorCobrar, ParametrosSistema } from '../../../shared/types';
+import { enlaceCobro } from '../lib/whatsapp';
 import {
   Card,
   CardHeader,
@@ -91,6 +92,8 @@ interface PanelViewProps {
   onNavegar: (destino: DestinoPanel, id?: number) => void;
   onNuevaVenta: () => void;
   onNuevoPaquete: () => void;
+  /** Para los mensajes: plantilla, cuentas, código de país y tasa. */
+  parametros?: ParametrosSistema | null;
 }
 
 const MESES = [
@@ -117,6 +120,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
   onNavegar,
   onNuevaVenta,
   onNuevoPaquete,
+  parametros,
 }) => {
   // Un fallo de carga NO puede verse igual que "todavía cargando". Antes los
   // dos casos caían en el mismo spinner y la pantalla giraba para siempre sin
@@ -190,10 +194,24 @@ export const PanelView: React.FC<PanelViewProps> = ({
     item?: any;
   } | null>(null);
 
-  const enviarCobroWhatsApp = (deudor: { cliente_nombre: string; saldo_usd_cents: number; codigo: string }) => {
-    const texto = `Hola ${deudor.cliente_nombre}, te saludamos de Glow Heaven. Te escribimos para recordarte tu saldo pendiente de $${(deudor.saldo_usd_cents / 100).toFixed(2)} correspondiente a la compra ${deudor.codigo}. ¡Muchas gracias!`;
-    const url = `https://wa.me/?text=${encodeURIComponent(texto)}`;
-    window.open(url, '_blank');
+  // El mismo recordatorio de Ventas y Cobros, al chat de la clienta (INI-02):
+  // antes era otro texto, abría WhatsApp sin número y escribía "$1234.50".
+  const enviarCobroWhatsApp = (deudor: FilaPorCobrar) => {
+    window.open(
+      enlaceCobro(
+        {
+          telefono: deudor.cliente_telefono,
+          cliente: deudor.cliente_nombre,
+          saldo_usd_cents: deudor.saldo_usd_cents,
+          saldo_cor_cents: Math.round(
+            (deudor.saldo_usd_cents * (deudor.tasa_cambio_cents || (parametros?.tasa_cambio_cents ?? 3662))) / 100
+          ),
+          codigo: deudor.codigo,
+        },
+        parametros
+      ),
+      '_blank'
+    );
   };
 
   const gananciaActual = ganancia_mes_actual?.ganancia_usd_cents ?? 0;

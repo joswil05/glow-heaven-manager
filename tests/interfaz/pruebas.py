@@ -676,6 +676,257 @@ def caso_doble_toque(page: Page) -> list[str]:
     return fallas
 
 
+def href_decodificado(loc) -> str:
+    from urllib.parse import unquote
+    return unquote(loc.get_attribute("href") or "") if loc is not None else ""
+
+
+@caso("TRA-03 · los WhatsApp del celular salen del mismo módulo: recordatorio, recibo y estado de cuenta")
+def caso_whatsapp_movil(page: Page) -> list[str]:
+    """
+    Cada hoja armaba su mensaje a mano, mezclando "tú" y "vos" ("¿Cuándo
+    podés completar el pago?"), con la tasa de hoy y sin la plantilla de
+    Configuración (CCO-05, TRA-03).
+    """
+    fallas = []
+    venta = next(v for v in listar_coleccion("ventas") if v.get("codigo") == "V-0001")
+    tasa = venta["tasa_cambio_cents"]
+
+    # El recordatorio del detalle de la deuda.
+    ir_a(page, "Cobros")
+    fila = visible(page, "button", "Ana Prueba")
+    if fila is None:
+        return ["no encontré la fila de Ana en Cobros"]
+    fila.click()
+    page.wait_for_timeout(900)
+    enlace = en_hoja(page, "a", "WhatsApp")
+    texto = href_decodificado(enlace)
+    if "te saludamos de Glow Heaven" not in texto:
+        fallas.append(f"el recordatorio del detalle no sale de la plantilla de cobro ({texto[30:90]!r})")
+    if "podés" in texto:
+        fallas.append("el recordatorio del detalle le habla de vos a la clienta")
+    saldo_cs = f"C${round(venta['saldo_usd_cents'] * tasa / 100) / 100:,.2f}"
+    if saldo_cs not in texto:
+        fallas.append(f"el recordatorio no dice {saldo_cs}, con la tasa de la venta")
+    cerrar_hojas(page)
+
+    # El recibo de un abono de $5.
+    problema = abrir_hoja_de_abono(page)
+    if problema:
+        return fallas + [problema]
+    dolares = en_hoja(page, "button", "Dólares")
+    if dolares is not None:
+        dolares.click()
+        page.wait_for_timeout(200)
+    en_hoja(page, "input[inputmode='decimal']").fill("5")
+    en_hoja(page, "button", "Registrar abono").click()
+    page.wait_for_timeout(2500)
+    recibo = en_hoja(page, "a", "recibo")
+    texto = href_decodificado(recibo)
+    if not texto:
+        fallas.append("después de registrar el abono no hay recibo para mandar")
+    elif "Recibimos tu abono de $5.00" not in texto or "(≈ C$" not in texto:
+        fallas.append(f"el recibo del abono no es el del módulo ({texto[30:110]!r})")
+    cerrar_hojas(page)
+    listo = visible(page, "button", "Listo")
+    if listo is not None:
+        listo.click()
+        page.wait_for_timeout(400)
+    return fallas
+
+
+@caso("CCA-01 · compartir un producto dice qué tallas o tonos hay, sin cuántas unidades")
+def caso_compartir_producto(page: Page) -> list[str]:
+    fallas = []
+    ir_a(page, "Catálogo")
+    page.evaluate("""() => {
+      window.__abiertos = [];
+      window.open = (u) => { window.__abiertos.push(String(u)); return null; };
+    }""")
+    ficha = visible(page, "main button", "Labial Mate Rojo")
+    if ficha is None:
+        return ["el catálogo no deja abrir la ficha del labial"]
+    ficha.click()
+    page.wait_for_timeout(900)
+    compartir = en_hoja(page, "button", "Compartir")
+    if compartir is None:
+        cerrar_hojas(page)
+        return ["la ficha no ofrece compartir por WhatsApp"]
+    compartir.click()
+    page.wait_for_timeout(300)
+    from urllib.parse import unquote
+    abiertos = page.evaluate("window.__abiertos")
+    texto = unquote(abiertos[-1]) if abiertos else ""
+    if "disp." in texto or "unidades" in texto:
+        fallas.append("el mensaje para la clienta dice cuántas unidades quedan")
+    if "—" in texto:
+        fallas.append("el mensaje lleva una raya larga")
+    if "Contáctanos" in texto and "Escríbenos" not in texto and "Tallas o tonos" not in texto:
+        fallas.append("el mensaje no es el del módulo")
+    cerrar_hojas(page)
+    return fallas
+
+
+def poner_parametros(campos: dict) -> None:
+    """Cambia campos de texto de los parámetros en el emulador, como Ajustes."""
+    mascara = "&".join(f"updateMask.fieldPaths={k}" for k in campos)
+    url = (
+        f"http://{arnes.HOST_FIRESTORE}/v1/projects/{arnes.PROYECTO}"
+        f"/databases/(default)/documents/parametros/sistema?{mascara}"
+    )
+    cuerpo = {"fields": {k: {"stringValue": v} for k, v in campos.items()}}
+    arnes._peticion(url, metodo="PATCH", cuerpo=cuerpo, cabeceras={"Authorization": "Bearer owner"})
+
+
+def abrir_la_app_de_nuevo(page: Page) -> None:
+    """Vuelve a leer los parámetros: la app los lee al abrir."""
+    page.reload()
+    page.wait_for_timeout(3000)
+
+
+def pagos_activos(venta_id: int) -> int:
+    return sum(1 for p in listar_coleccion("pagos") if p.get("venta_id") == venta_id and p.get("activo") is not False)
+
+
+@caso("CCO-02 a CCO-04 · la hoja de abono arranca con la moneda de Configuración, dice cómo queda, y confirma una vez")
+def caso_hoja_de_abono(page: Page) -> list[str]:
+    """
+    La hoja arrancaba en córdobas y efectivo aunque Configuración dijera otra
+    cosa; no tenía fecha, ni equivalencia, ni "cómo queda"; cambiar la moneda
+    después de "Pagar todo" no convertía el número; los errores iban en un
+    aviso que se iba, y al registrar había dos confirmaciones y ningún
+    Deshacer (CEL-03).
+    """
+    fallas = []
+    antes = leer_doc("parametros", "sistema")
+    poner_parametros({"moneda_defecto_venta": "USD", "metodo_pago_defecto": "TRANSFERENCIA"})
+    abrir_la_app_de_nuevo(page)
+    venta = next(v for v in listar_coleccion("ventas") if v.get("codigo") == "V-0001")
+    try:
+        problema = abrir_hoja_de_abono(page)
+        if problema:
+            return [problema]
+        hoja = page.locator("[role='dialog']").last
+        dolares = hoja.get_by_role("radio", name=re.compile("Dólares"))
+        if dolares.count() == 0 or dolares.get_attribute("aria-checked") != "true":
+            fallas.append("no arranca en dólares, la moneda de Configuración")
+        if hoja.get_by_label("Cómo pagó").input_value() != "TRANSFERENCIA":
+            fallas.append("no arranca con transferencia, el método de Configuración")
+        if hoja.locator("input[type='date']").count() == 0:
+            fallas.append("no tiene fecha")
+
+        # "Pagar todo" en dólares y después córdobas: el número se convierte.
+        campo = en_hoja(page, "input[inputmode='decimal']")
+        en_hoja(page, "button", "Pagar todo").click()
+        page.wait_for_timeout(200)
+        saldo = venta["saldo_usd_cents"]
+        hoja.get_by_role("radio", name=re.compile("Córdobas")).click()
+        page.wait_for_timeout(200)
+        esperado = f"{round(saldo * venta['tasa_cambio_cents'] / 100) / 100:.2f}"
+        if campo.input_value() != esperado:
+            fallas.append(f"después de 'Pagar todo', pasar a córdobas deja {campo.input_value()!r}, no {esperado}")
+
+        # Vacío: el error en el campo, no en un aviso flotante.
+        campo.fill("")
+        en_hoja(page, "button", "Registrar abono").click()
+        page.wait_for_timeout(400)
+        if "Escribí cuánto pagó" not in hoja.inner_text():
+            fallas.append("sin monto, el error no aparece en la hoja")
+
+        hoja.get_by_role("radio", name=re.compile("Dólares")).click()
+        campo.fill("5")
+        page.wait_for_timeout(300)
+        texto = hoja.inner_text()
+        if "son C$" not in texto:
+            fallas.append("no dice la equivalencia del abono")
+        if "va a deber" not in texto:
+            fallas.append("no dice cómo queda la venta")
+
+        cuantos = pagos_activos(venta["id"])
+        en_hoja(page, "button", "Registrar abono").click()
+        page.wait_for_timeout(2500)
+        if "registrado con éxito" in page.locator("body").inner_text():
+            fallas.append("además de la pantalla de éxito, sale un aviso que dice lo mismo")
+        if pagos_activos(venta["id"]) != cuantos + 1:
+            fallas.append("el abono no se registró")
+        deshacer = en_hoja(page, "button", "Deshacer el abono")
+        if deshacer is None:
+            fallas.append("después de registrar no se puede deshacer")
+        else:
+            deshacer.click()
+            page.wait_for_timeout(2500)
+            if pagos_activos(venta["id"]) != cuantos:
+                fallas.append("'Deshacer el abono' no lo deshizo")
+    finally:
+        cerrar_hojas(page)
+        poner_parametros({
+            "moneda_defecto_venta": antes.get("moneda_defecto_venta") or "NIO",
+            "metodo_pago_defecto": antes.get("metodo_pago_defecto") or "EFECTIVO",
+        })
+        abrir_la_app_de_nuevo(page)
+    return fallas
+
+
+@caso("CCO-06 y CCO-07 · los abonos de una venta son de esa venta, y anular pregunta antes de abrir otra hoja")
+def caso_anular_y_preguntar(page: Page) -> list[str]:
+    fallas = []
+    venta = next(v for v in listar_coleccion("ventas") if v.get("codigo") == "V-0001")
+    # Un abono de $1 para anular, aunque los casos de antes no hayan corrido.
+    problema = abrir_hoja_de_abono(page)
+    if problema:
+        return [problema]
+    en_hoja(page, "[role='radio']", "Dólares").click()
+    en_hoja(page, "input[inputmode='decimal']").fill("1")
+    en_hoja(page, "button", "Registrar abono").click()
+    page.wait_for_timeout(2500)
+    cerrar_hojas(page)
+
+    ir_a(page, "Cobros")
+    fila = visible(page, "button", "Ana Prueba")
+    if fila is None:
+        return ["no encontré la fila de Ana en Cobros"]
+    fila.click()
+    page.wait_for_timeout(900)
+    historial = en_hoja(page, "button", "Historial")
+    if historial is None:
+        cerrar_hojas(page)
+        return ["el detalle de la deuda no ofrece ver sus abonos"]
+    historial.click()
+    page.wait_for_timeout(1500)
+    hoja = page.locator("[role='dialog']").last
+    texto = hoja.inner_text()
+    if "abonado a v-0001" not in texto.lower():
+        fallas.append("la tarjeta no dice que lo abonado es de V-0001")
+
+    cuantos = pagos_activos(venta["id"])
+    anular = hoja.get_by_role("button", name=re.compile("^Anular el abono")).first
+    if anular.count() == 0:
+        cerrar_hojas(page)
+        return fallas + ["V-0001 no tiene abonos para anular"]
+    anular.click()
+    page.wait_for_timeout(400)
+    hoja.get_by_role("radio", name=re.compile("La plata se devolvió")).click()
+    hoja.get_by_role("button", name="Sí, anular el abono").click()
+    page.wait_for_timeout(2500)
+    if pagos_activos(venta["id"]) != cuantos - 1:
+        fallas.append("el abono no se anuló")
+    titulo = page.locator("[role='dialog']").last.inner_text()
+    if "Cuánto pagó" in titulo:
+        fallas.append("después de anular se abrió sola la hoja de 'Registrar abono'")
+    if "¿Cargar el abono correcto?" not in titulo:
+        fallas.append("después de anular no pregunta si cargar el abono correcto")
+    deshacer = visible(page, "button", "Deshacer")
+    if deshacer is None:
+        fallas.append("después de anular no ofrece Deshacer")
+    else:
+        deshacer.click()
+        page.wait_for_timeout(2500)
+        if pagos_activos(venta["id"]) != cuantos:
+            fallas.append("Deshacer no devolvió el abono anulado")
+    cerrar_hojas(page)
+    return fallas
+
+
 @caso("la fecha que propone el formulario es la de hoy en Nicaragua")
 def caso_fecha(page: Page) -> list[str]:
     from datetime import datetime, timedelta, timezone

@@ -49,6 +49,19 @@ export function textoLoPagado(pagos: readonly (MontosDeAbono & Pick<Pago, 'activ
     : formatearMoneda(activos.reduce((s, p) => s + p.monto_usd_cents, 0), 'USD');
 }
 
+/**
+ * Lo pagado de una venta, para quien la tiene con sus abonos: la factura, la
+ * ventana de abono, anular. Sin los abonos a mano (una venta vieja, o una de
+ * la lista), en dólares, que es lo que se sabe.
+ */
+export function textoPagadoDeVenta(v: {
+  pagado_usd_cents: number;
+  pagos?: readonly (MontosDeAbono & Pick<Pago, 'activo'>)[];
+}): string {
+  const activos = (v.pagos ?? []).filter((p) => p.activo !== false);
+  return activos.length > 0 ? textoLoPagado(activos) : formatearMoneda(v.pagado_usd_cents, 'USD');
+}
+
 /** En qué moneda se pagó una venta: córdobas si todos sus abonos lo fueron. */
 export function monedaDeLosAbonos(pagos: readonly (Pick<Pago, 'moneda'> & Partial<Pick<Pago, 'activo'>>)[]): Moneda {
   const activos = pagos.filter((p) => p.activo !== false);
