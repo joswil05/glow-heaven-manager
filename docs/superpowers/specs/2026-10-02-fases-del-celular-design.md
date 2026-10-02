@@ -255,15 +255,22 @@ Las reglas de Emil Kowalski, llevadas a estas pantallas:
 
 ## Cómo se reparte el trabajo (Claude y Codex)
 
-- **Cada fase se parte en tareas.** Cada tarea tiene un dueño, sus archivos
-  (dos tareas a la vez no tocan el mismo archivo) y sus pruebas, y se
-  escribe primero la prueba que falla.
+- **Codex coordina; Claude ejecuta.** Codex parte cada fase en tareas (las
+  de abajo son el punto de partida), le asigna cada una a Claude con su
+  alcance, sus archivos y cómo se da por buena, y revisa lo que Claude
+  entrega antes de proponerle a Joswill integrarlo. Claude hace la tarea en
+  su worktree, con la prueba que falla primero, y entrega el commit con la
+  salida de las pruebas que corrió; si el plan tiene un problema, lo dice
+  antes de seguir. Joswill aprueba la integración y la publicación.
+- **Cada tarea tiene sus archivos** (dos tareas a la vez no tocan el mismo
+  archivo) y sus pruebas, y se escribe primero la prueba que falla.
 - **Un worktree por tarea**, commits sólo con rutas explícitas
   (`git add -- <rutas>`). Nadie publica ni hace push: integra quien Joswill
   diga, después de correr las suites completas.
 - **El emulador se usa de a uno**, avisando antes y después: las suites
   borran su base.
-- **Cada tarea la revisa el otro**: lo de Claude lo revisa Codex y al revés.
+- **Lo que entrega Claude lo revisa Codex.** Si Codex implementa alguna
+  tarea él mismo, la revisa Claude.
 - **C1, por ejemplo**:
   - **T1 · Núcleo** (primero, las demás dependen de él): `resumenDelPaquete`,
     el estado abierto o cerrado, quitar las alertas de existencias en

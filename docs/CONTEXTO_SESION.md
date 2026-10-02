@@ -653,10 +653,12 @@ importan para no equivocarse: la sección de productos se llama
 ajustan existencias; el paquete se carga **cuando llega**, de una vez; sin
 internet es **sólo el celular**.
 
-**Para empezar C1 (3 de octubre)**: escribir primero el plan de
-implementación de C1 con sus tareas (T1 núcleo; después T2 Windows, T3 y T4
-celular, en paralelo), repartirlas con Codex como dice la sección "Cómo se
-reparte el trabajo" del diseño, y empezar por T1. Lo primero de T1 es
+**Para empezar C1 (3 de octubre)**: **Codex coordina y Claude ejecuta**
+(sección "Cómo se reparte el trabajo" del diseño). Codex parte C1 en tareas
+(el diseño propone T1 núcleo; después T2 Windows, T3 y T4 celular, en
+paralelo), se las asigna a Claude una por una y revisa cada entrega antes de
+que Joswill la apruebe. Una sesión de Claude no empieza código de C1 sin una
+tarea asignada. Lo primero de T1 es
 comprobar en el código que cada línea de venta guarda de qué lote salió cada
 unidad, porque el resumen del paquete depende de eso. Codex tiene un
 worktree propio (`.codex/worktrees/coordinacion-agentes`) con su plan del
