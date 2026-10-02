@@ -65,8 +65,7 @@ se trabaja**.
   [superpowers/plans/2026-10-02-c1-inventario-por-paquete.md](superpowers/plans/2026-10-02-c1-inventario-por-paquete.md).
   T1 (núcleo) primero; después T2 (Windows), T3 (celular) y T4 (celular),
   en ese orden porque se hacen de a uno.
-- **Siguiente paso**: C1 · T4 · paso 4. Pasos 1 a 3 commiteados y el caso
-  de registro con recuperación del borrador aprobado; faltan las suites completas.
+- **Siguiente paso**: C1 · T4 · paso 5; después, cierre de C1 con todas las suites.
 - **Después de C1**: C2 a C4, en el diseño
   [superpowers/specs/2026-10-02-fases-del-celular-design.md](superpowers/specs/2026-10-02-fases-del-celular-design.md)
   (al empezar cada una se escribe su plan, como el de C1); después las fases
@@ -89,6 +88,20 @@ Formato de cada entrada:
 - Sigue: el paso exacto del plan.
 - Para Joswill: lo que necesita decidir o probar (o "nada").
 ```
+
+### 2026-10-02 16:45 · Codex
+- Hizo: C1 · T4 · paso 4. Revisión visual en claro y oscuro y regresión de
+  errores por campo, descarte de la hoja y quitar una pieza del borrador.
+  La prueba encontró que el error seguía al corregir el valor; ahora se
+  limpia al editar ese campo. Se dejó espacio bajo el botón sin safe area.
+- Commits: el del paso 4 con esta entrada; paso 3 en `b0e6468`.
+- Pruebas: caso de registro aprobado, regresión de validación vista en rojo
+  y luego en verde, suite móvil completa 28 casos aprobados; build móvil y
+  auditorías aprobados. Persisten avisos de Vite por tamaño de chunk e
+  importaciones estáticas/dinámicas, sin errores de compilación.
+- Quedó a medias: nada del paso 4. Emulador encendido para cerrar C1.
+- Sigue: paso 5, cierre de C1 y plan de C2.
+- Para Joswill: no se probó en un teléfono físico; sin publicación.
 
 ### 2026-10-02 16:32 · Codex
 - Hizo: C1 · T4 · paso 3. Vista de tres pasos y entrada desde Inventario,

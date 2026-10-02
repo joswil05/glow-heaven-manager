@@ -127,6 +127,7 @@ export function PiezaPaqueteSheet({ abierto, onCerrar, onAgregar }: Props) {
               aria-invalid={Boolean(errores.producto)} aria-describedby={errores.producto ? 'pieza-producto-error' : undefined}
               autoComplete="off" placeholder="Buscá por nombre o código" onChange={(e) => {
                 setBusqueda(e.target.value); setProducto(null); setNuevo(false); setVariante(null); setAgregada('');
+                setErrores((actual) => ({ ...actual, producto: undefined, variante: undefined }));
               }} />
           </label>
           {errores.producto && <p id="pieza-producto-error" className="mt-1 text-sm text-peligro-fuerte">{errores.producto}</p>}
@@ -148,7 +149,7 @@ export function PiezaPaqueteSheet({ abierto, onCerrar, onAgregar }: Props) {
         {producto && (variantes.length !== 1 || variantes.some((v) => v.talla || v.color)) && <div role="radiogroup" aria-label="Talla o tono" tabIndex={-1} aria-invalid={Boolean(errores.variante)}>
           <p className="mb-2 text-sm font-semibold text-texto">Talla o tono</p>
           <div className="flex flex-wrap gap-2">{variantes.map((v) => <button key={v.id} type="button" role="radio" aria-checked={variante === v.id}
-            disabled={guardando} onClick={() => { haptics.selection(); setVariante(v.id); }}
+            disabled={guardando} onClick={() => { haptics.selection(); setVariante(v.id); setErrores((actual) => ({ ...actual, variante: undefined })); }}
             className={`min-h-11 rounded-xl border px-4 text-base ${variante === v.id ? 'border-acento bg-acento-suave text-acento-fuerte' : 'border-borde bg-superficie text-texto'}`}>
             {[v.talla, v.color].filter(Boolean).join(' · ') || 'Única'}
           </button>)}</div>
@@ -160,7 +161,9 @@ export function PiezaPaqueteSheet({ abierto, onCerrar, onAgregar }: Props) {
           ['peso', 'Peso (lb)', peso, setPeso, 'decimal'],
         ] as const).map(([id, nombre, valor, cambiar, inputMode]) => <div key={id}>
           <label className="block text-sm font-semibold text-texto">{nombre}
-            <input aria-label={nombre} inputMode={inputMode} className={campo} value={valor} onChange={(e) => cambiar(e.target.value)}
+            <input aria-label={nombre} inputMode={inputMode} className={campo} value={valor} onChange={(e) => {
+              cambiar(e.target.value); setErrores((actual) => ({ ...actual, [id]: undefined }));
+            }}
               disabled={guardando} aria-invalid={Boolean(errores[id])} aria-describedby={`pieza-${id}-ayuda`} />
           </label>
           <p id={`pieza-${id}-ayuda`} className={`mt-1 text-sm ${errores[id] ? 'text-peligro-fuerte' : 'text-texto-2'}`}>

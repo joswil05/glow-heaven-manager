@@ -1280,7 +1280,7 @@ En `mobile/src/App.tsx`, una vista nueva `'registrar-paquete'` como la de
 `'ajustes'`; en `InventoryQuickView.tsx`, el botón "Llegó un paquete" arriba
 de la lista que la abre.
 
-- [ ] **Paso 4: ver que pasa**
+- [x] **Paso 4: ver que pasa**
 
 Run: `SOLO="Llegó un paquete" PYTHONIOENCODING=utf-8 npm run test:interfaz`,
 después la suite entera y `npm run build:mobile`. Esperado: todo pasa.

@@ -23,7 +23,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from playwright.sync_api import sync_playwright, Page  # noqa: E402
+from playwright.sync_api import sync_playwright, Page, expect  # noqa: E402
 
 import arnes  # noqa: E402
 
@@ -1350,6 +1350,47 @@ def caso_c1_llego_un_paquete(page: Page) -> list[str]:
         fallas.append("las dos piezas no entraron al inventario")
     if visible(page, "button", "Listo") is not None:
         visible(page, "button", "Listo").click()
+    return fallas
+
+
+@caso("C1 · paquete valida en su campo y pregunta antes de descartar o quitar")
+def caso_c1_paquete_validacion(page: Page) -> list[str]:
+    ir_a(page, "Catálogo")
+    page.get_by_role("button", name="Llegó un paquete", exact=True).click()
+    page.get_by_role("button", name="Seguir", exact=True).click()
+    flete = page.get_by_label("Flete pagado ($)", exact=True)
+    expect(flete).to_have_attribute("aria-invalid", "true")
+    expect(flete).to_be_focused()
+    flete.fill("10")
+    expect(flete).to_have_attribute("aria-invalid", "false")
+    page.get_by_role("button", name="Seguir", exact=True).click()
+    page.get_by_role("button", name="Agregar pieza", exact=True).click()
+    hoja = page.get_by_role("dialog").last
+    hoja.get_by_label("Producto", exact=True).fill("Labial Mate Rojo")
+    hoja.get_by_role("button", name="Labial Mate Rojo", exact=True).click()
+    hoja.get_by_label("Pagó por unidad ($)", exact=True).fill("15")
+    cantidad = hoja.get_by_label("Cantidad", exact=True)
+    cantidad.fill("0")
+    hoja.get_by_role("button", name="Agregar", exact=True).click()
+    expect(cantidad).to_have_attribute("aria-invalid", "true")
+    expect(cantidad).to_be_focused()
+    cantidad.fill("2")
+    expect(cantidad).to_have_attribute("aria-invalid", "false")
+    hoja.get_by_role("button", name="Cerrar", exact=True).click()
+    page.get_by_role("alertdialog").get_by_role("button", name="Seguir editando").click()
+    expect(cantidad).to_have_value("2")
+    hoja.get_by_role("button", name="Agregar", exact=True).click()
+    expect(hoja.get_by_label("Producto", exact=True)).to_have_value("")
+    hoja.get_by_role("button", name="Cerrar", exact=True).click()
+    page.get_by_role("button", name="Quitar Labial Mate Rojo", exact=True).click()
+    page.get_by_role("button", name="Conservar", exact=True).click()
+    page.get_by_role("button", name="Quitar Labial Mate Rojo", exact=True).click()
+    page.get_by_role("dialog").last.get_by_role("button", name="Quitar", exact=True).click()
+    expect(page.get_by_role("button", name="Quitar Labial Mate Rojo", exact=True)).to_have_count(0)
+    codigo = page.locator("header:visible").inner_text().splitlines()[0]
+    guardado = next((c for c in listar_coleccion("compras") if c.get("codigo") == codigo), None)
+    fallas = [] if guardado and not guardado.get("lineas") else ["quitar la pieza no actualizó el borrador"]
+    page.get_by_role("button", name="Volver al inventario", exact=True).click()
     return fallas
 
 

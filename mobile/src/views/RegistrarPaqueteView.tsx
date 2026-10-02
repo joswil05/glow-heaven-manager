@@ -225,7 +225,10 @@ export function RegistrarPaqueteView({ onVolver }: { onVolver: () => void }) {
           ['impuesto', 'Impuesto del recibo ($)', impuesto, setImpuesto, 'text'],
         ] as const).map(([nombre, titulo, valor, cambiar, tipo]) => <div key={nombre}>
           <label className="block text-sm font-semibold">{titulo}<input className={campo} type={tipo} inputMode={tipo === 'text' ? 'decimal' : undefined}
-            value={valor} disabled={guardando} onChange={(e) => { cambiar(e.target.value); setGuardado(false); }}
+            value={valor} disabled={guardando} onChange={(e) => {
+              cambiar(e.target.value); setGuardado(false);
+              setErrores((actual) => { const restantes = { ...actual }; delete restantes[nombre]; return restantes; });
+            }}
             aria-invalid={Boolean(errores[nombre])} aria-describedby={`paquete-${nombre}-ayuda`} /></label>
           <p id={`paquete-${nombre}-ayuda`} className={`mt-1 text-sm ${errores[nombre] ? 'text-peligro-fuerte' : 'text-texto-2'}`}>{errores[nombre] ?? (nombre === 'impuesto' ? `Opcional. Vacío: se calcula el ${(parametros?.tax_bp ?? 700) / 100}%. Escribí 0 si no te cobraron impuesto.` : '')}</p>
         </div>)}
@@ -259,7 +262,7 @@ export function RegistrarPaqueteView({ onVolver }: { onVolver: () => void }) {
         <p className="text-sm text-texto-2">{preview.criterio_flete === 'UNIDADES' ? 'Sin pesos conocidos, el flete se reparte por cantidad de unidades.' : preview.criterio_flete === 'PESO' ? 'El flete se reparte por peso entre las piezas.' : 'Este paquete no tiene flete.'} Los precios escritos a mano se conservan.</p>
       </>}
     </main>
-    <footer className="flex shrink-0 gap-3 border-t border-borde bg-superficie p-4 pb-safe-b">
+    <footer className="flex shrink-0 gap-3 border-t border-borde bg-superficie p-4" style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 1rem)' }}>
       {paso > 1 && <button type="button" disabled={guardando} className={secundario} onClick={() => cambiarPaso(paso - 1)}>Atrás</button>}
       <button type="button" disabled={guardando || !parametros} className={`${principal} flex flex-1 items-center justify-center gap-2`} onClick={paso === 3 ? recibir : () => cambiarPaso(paso + 1)}>
         {paso === 3 && <PackagePlus size={20} />}{guardando ? 'Guardando…' : paso === 3 ? 'Recibir' : 'Seguir'}
