@@ -11,7 +11,9 @@
 > auditó toda la interfaz ([AUDITORIA_UX_2026-09-29.md](AUDITORIA_UX_2026-09-29.md))
 > y el 30 se hicieron su Fase 0, la `v2.16.3`, y su Fase 1, la `v2.16.4`
 > (sección 3). El 1 de octubre salió la `v2.16.5`: la vibración vuelve en
-> iPhone (sección 3).
+> iPhone (sección 3). Hecho en local y **sin publicar**: "Fue un error"
+> (`9ed2237`, sección 3), que pide desplegar `firestore.rules` antes que el
+> código.
 > **Última actualización**: 1 de octubre de 2026.
 
 Leé este archivo primero. Después:
@@ -460,11 +462,38 @@ por cobrar, bodega $37.95, costo vendido + bodega = $370.16. **En el código**
 `+505 8601 2442` (o `+1 504 463 6250`), y uno que no encaja se rechaza;
 nombres de persona con mayúscula inicial; productos arreglados sólo si
 vienen todo en minúscula o todo en mayúscula; tallas en mayúscula. Buscar
-un número compara sólo dígitos, y el pago inicial guarda `creado_en`. El
-diseño aprobado de "Borrar: fue un error" (sin rastro, con PIN, hasta 7 días
-y dentro del mes), lo que falta de WhatsApp con números extranjeros y la
-convivencia con `shared/formatoTexto.ts` están en
+un número compara sólo dígitos, y el pago inicial guarda `creado_en`. Lo
+que falta de WhatsApp con números extranjeros y la convivencia con
+`shared/formatoTexto.ts` están en
 [PLAN_EQUIVOCACIONES_Y_FORMATOS.md](PLAN_EQUIVOCACIONES_Y_FORMATOS.md).
+
+### "Fue un error": hecho en local, sin publicar (1 de octubre)
+
+Pedido de Joswill: *"si fue un dato mal ingresado o erróneo por confusión me
+parece desordenado que se quede ahí guardada y de forma visible"*. Commit
+`9ed2237`. **Anular** sigue siendo para lo que pasó y se deshizo (devolución,
+reembolso, no se consiguió) y queda en el historial. **"Fue un error"** borra
+lo que nunca pasó: la venta, sus abonos, sus movimientos y sus eventos, y
+cada unidad vuelve a su lote exacto. Una sola puerta: "Anular" pregunta qué
+pasó.
+
+- La regla, en `core/borrado.ts`: hasta una semana desde que se cargó, del
+  mes en curso, sin abonos de otro día y sin piezas de encargo compradas.
+- Cómo, en `repositories/borrado.repo.ts`: anula por el camino de siempre y
+  después barre. Pide el PIN del negocio, y el contador vuelve atrás si era
+  el último número. No necesita índices nuevos.
+- **`firestore.rules` cambió**: un movimiento de inventario se puede borrar
+  sólo si su venta ya no existe al terminar el lote (`existsAfter`). **Se
+  despliega antes que el código** (sección 5, "Publicar").
+- Se decidió no ofrecer "Deshacer" después de borrar: volver a sacar las
+  unidades de sus lotes puede chocar con una venta hecha en el medio.
+
+Verificado: `npm test` (38 archivos), emulador 100, las dos suites de
+interfaz aprobadas con un caso nuevo cada una, y las tres auditorías. El
+detalle, y lo que queda para la Fase 6 ("Unir con…" para clientas
+duplicadas, "Ver anuladas"), está en el
+[PLAN_EQUIVOCACIONES_Y_FORMATOS.md](PLAN_EQUIVOCACIONES_Y_FORMATOS.md),
+sección 3.
 
 ### Hecho el 29 de septiembre, sobre producción: V-0007 borrada a mano
 
@@ -628,7 +657,8 @@ saca de ningún lado: se le pide a Joswill que lo escriba en la ventana.
 **Nunca se borra una venta, un pago ni un movimiento desde la consola de
 Firebase.** El documento se va, pero lo que hizo se queda: las unidades fuera
 de sus lotes, el pago contado como cobrado. Se anula (o, desde la 2.16, se
-corrige) desde la app. Si ya pasó, `scripts/reparar-venta-borrada.ts`.
+corrige) desde la app; y lo que nunca pasó se borra con "Fue un error", que
+barre todo lo suyo (`9ed2237`). Si ya pasó, `scripts/reparar-venta-borrada.ts`.
 
 **El Firestore falso es demasiado rápido para probar el deshacer.** Deshacer
 rechaza un grupo si el documento cambió DESPUÉS del evento que lo restaura, y
@@ -716,6 +746,12 @@ que tiene que ser rechazada. Si esa pasa, el arnés no está probando nada.
 npm run deploy:mobile          # PWA a los dos sitios de Firebase Hosting
 npm run release:windows        # instalador NSIS + GitHub Release
 ```
+
+**Si la versión lleva `9ed2237` ("Fue un error") por primera vez**, antes de
+todo: `npx firebase deploy --only firestore:rules --non-interactive`. Sin la
+regla nueva, borrar falla al llegar a los movimientos y la venta queda
+anulada. Las apps de antes no borran movimientos, así que desplegarla antes
+no les cambia nada.
 
 Para forzar la actualización de Windows en una máquina: descargarla
 (`window.api.actualizador.verificarManual()` por CDP) y **cerrar la app**, que
