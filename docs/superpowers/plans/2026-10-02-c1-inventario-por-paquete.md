@@ -1051,7 +1051,7 @@ git commit -m "C1 · T2: Windows dice cómo va cada paquete, sin alertas de agot
 - Consume (de T1): `PanelData.paquetes`, `ComprasRepoFirestore.marcarResumenVisto(id)`.
 - Produce: `AvancePaqueteCard`, `ResumenPaqueteSheet` (celular).
 
-- [ ] **Paso 1: sembrar dos paquetes**
+- [x] **Paso 1: sembrar dos paquetes**
 
 En `tests/interfaz/sembrar.test.ts`, después de crear a Ana y antes de la
 venta de $100, agregar dos paquetes recibidos: **PQ con "Bolso Prueba" (1) y

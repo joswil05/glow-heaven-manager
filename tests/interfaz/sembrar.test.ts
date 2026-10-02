@@ -24,7 +24,7 @@ describe('decorado para las pruebas de interfaz', () => {
     'deja el negocio con productos, una clienta y una venta a crédito',
     async () => {
       await baseLimpia();
-      const { Productos, Clientes, Ventas, Parametros } = await repos();
+      const { Productos, Clientes, Ventas, Parametros, Compras } = await repos();
 
       // El negocio con su nombre y su teléfono guardados: Ajustes tiene que
       // mostrarlos, no dos campos en blanco (CAJ-01). Y la tasa en 36,00, que
@@ -85,6 +85,40 @@ describe('decorado para las pruebas de interfaz', () => {
         g()
       );
 
+      // Dos paquetes recibidos (Fase C1): uno a medias y otro vendido entero.
+      // Inicio dice cómo va cada uno, en vez de avisar de agotados. Van
+      // después de la venta de Ana, para que ella siga siendo V-0001.
+      const paquete = async (lineas: { descripcion: string; cantidad: number; precio_linea_usd_cents: number }[]) => {
+        const id = await Compras.guardar(
+          {
+            fecha: HOY,
+            envio_total_usd_cents: 500,
+            lineas: lineas.map((l) => ({ ...l, peso_linea_mlb: 100, destino: 'INVENTARIO' as const })),
+          },
+          g()
+        );
+        await Compras.recibir(id, g());
+      };
+      await paquete([
+        { descripcion: 'Bolso Prueba', cantidad: 1, precio_linea_usd_cents: 2500 },
+        { descripcion: 'Gloss Prueba', cantidad: 2, precio_linea_usd_cents: 1000 },
+      ]);
+      await paquete([{ descripcion: 'Termo Prueba', cantidad: 1, precio_linea_usd_cents: 2000 }]);
+      const deNombre = async (nombre: string) => (await Productos.listar({})).find((p) => p.nombre === nombre)!.id;
+      const alContado = async (producto_id: number, precio: number) =>
+        Ventas.crear(
+          {
+            fecha: HOY,
+            tipo: 'INVENTARIO',
+            entregar_ahora: true,
+            lineas: [{ producto_id, cantidad: 1, precio_unitario_usd_cents: precio }],
+            pago_inicial: { moneda: 'USD', metodo: 'EFECTIVO' },
+          },
+          g()
+        );
+      await alContado(await deNombre('Termo Prueba'), 4000);
+      await alContado(await deNombre('Bolso Prueba'), 5000);
+
       // La tasa sube DESPUÉS de la venta. La venta quedó a 36,00 y hoy está a
       // 37,00: todo lo que se cobre de esa venta va con la suya (CCO-01).
       await Parametros.actualizar({ tasa_cambio_cents: 3700 }, g());
@@ -93,7 +127,7 @@ describe('decorado para las pruebas de interfaz', () => {
       expect(v.saldo_usd_cents).toBe(10000);
       expect(v.tasa_cambio_cents).toBe(3600);
       expect((await Parametros.getParametros()).tasa_cambio_cents).toBe(3700);
-      expect((await Productos.listar()).length).toBe(3);
+      expect((await Productos.listar()).length).toBe(6);
 
       // eslint-disable-next-line no-console
       console.log(`  decorado listo: venta ${v.codigo} con saldo $100 de ${'Ana Prueba'}`);
