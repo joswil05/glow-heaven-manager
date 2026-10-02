@@ -65,8 +65,8 @@ se trabaja**.
   [superpowers/plans/2026-10-02-c1-inventario-por-paquete.md](superpowers/plans/2026-10-02-c1-inventario-por-paquete.md).
   T1 (núcleo) primero; después T2 (Windows), T3 (celular) y T4 (celular),
   en ese orden porque se hacen de a uno.
-- **Siguiente paso**: "Al terminar C1": todas las suites y actualización
-  de contexto y auditoría. T4 completa; después escribir el plan de C2.
+- **Siguiente paso**: escribir el plan de C2. C1 T1 a T4 y su verificación
+  conjunta completas, sin publicar.
 - **Después de C1**: C2 a C4, en el diseño
   [superpowers/specs/2026-10-02-fases-del-celular-design.md](superpowers/specs/2026-10-02-fases-del-celular-design.md)
   (al empezar cada una se escribe su plan, como el de C1); después las fases
@@ -90,7 +90,19 @@ Formato de cada entrada:
 - Para Joswill: lo que necesita decidir o probar (o "nada").
 ```
 
-### 2026-10-02 16:46 · Codex
+### 2026-10-02 16:55 · Codex
+- Hizo: cierre conjunto de C1 y actualización de CONTEXTO_SESION y AUDITORIA.
+- Commits: T4 en `1208854`, `e079985`, `b0e6468`, `0626f3d`, `d87541a`;
+  este commit registra el cierre de C1.
+- Pruebas: 593 unitarias, 104 emulador (incluida simulación), 43 interfaz
+  Windows, 28 móvil; tipos de ambas apps y build móvil con auditorías pasan.
+- Quedó a medias: nada de C1. Se está redactando el plan de C2, aún sin
+  commitear; el emulador sigue encendido hasta cerrar la sesión.
+- Sigue: terminar y revisar el plan de C2; su primera tarea es la prueba
+  del PDF en teléfono real exigida por el diseño.
+- Para Joswill: sin publicación. Falta prueba física del flujo nuevo.
+
+### 2026-10-02 16:44 · Codex
 - Hizo: C1 · T4 · paso 5; tarea completa y sus cinco casillas marcadas.
 - Commits: `1208854`, `e079985`, `b0e6468`, `0626f3d` y este cierre.
   Incluyen vista, hoja de pieza, entrada desde Inventario, ruta en App y pruebas.
@@ -99,7 +111,7 @@ Formato de cada entrada:
 - Sigue: "Al terminar C1", luego escribir el plan de C2.
 - Para Joswill: nada; sin push ni publicación.
 
-### 2026-10-02 16:45 · Codex
+### 2026-10-02 16:43 · Codex
 - Hizo: C1 · T4 · paso 4. Revisión visual en claro y oscuro y regresión de
   errores por campo, descarte de la hoja y quitar una pieza del borrador.
   La prueba encontró que el error seguía al corregir el valor; ahora se

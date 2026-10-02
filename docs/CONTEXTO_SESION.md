@@ -13,8 +13,8 @@
 > (sección 3). El 1 de octubre salió la `v2.16.5`: la vibración vuelve en
 > iPhone (sección 3). El 2 de octubre salió la **`v2.17.0`** en las dos apps:
 > la Fase 2 de la auditoría (un solo abono, lo pagado en su moneda y un solo
-> WhatsApp) y "Fue un error" (sección 3). **Lo que sigue es la Fase C1**, la
-> primera de las fases del celular, con su plan escrito y validado. Claude
+> WhatsApp) y "Fue un error" (sección 3). **C1 está completa en master local,
+> sin publicar**; sigue el plan de C2 (Inventario y encargos). Claude
 > Code y Codex trabajan **en relevo**: dónde quedó cada uno está en
 > [RELEVO.md](RELEVO.md).
 > **Última actualización**: 2 de octubre de 2026.
@@ -40,13 +40,13 @@ antes de parar. Este apartado es el resto de lo mínimo para retomar.
 
 **Dónde está todo**:
 
-- `master` local y `origin/master` están en el mismo commit, publicado como
-  `v2.17.0` (`b47d21f`), más los commits de documentación que vengan después.
-  No hay cambios sin commitear de ninguna sesión.
-- **Lo próximo es la Fase C1 · Inventario por paquete.** El plan, tarea por
-  tarea y con el código, está en
-  [superpowers/plans/2026-10-02-c1-inventario-por-paquete.md](superpowers/plans/2026-10-02-c1-inventario-por-paquete.md). Se validó el 2/10 en un
-  worktree descartable: el código de T1 compila y sus pruebas pasan.
+- La versión publicada sigue siendo `v2.17.0` (`b47d21f`). `master` local
+  incluye C1 T1 a T4, sin push ni publicación; no asumir que coincide con
+  `origin/master`. Los commits y el siguiente paso exacto están en RELEVO.
+- **C1 · Inventario por paquete está completa.** Sus casillas están en
+  [superpowers/plans/2026-10-02-c1-inventario-por-paquete.md](superpowers/plans/2026-10-02-c1-inventario-por-paquete.md).
+  Sigue escribir el plan de C2 desde el diseño, empezando por probar el PDF
+  en un teléfono real; esa prueba no se sustituye por el navegador simulado.
 - El diseño de las cuatro fases del celular (C1 a C4), con las decisiones de
   Joswill, está en
   [superpowers/specs/2026-10-02-fases-del-celular-design.md](superpowers/specs/2026-10-02-fases-del-celular-design.md).
@@ -657,8 +657,8 @@ saber para no deshacerlo:
    `await`; en Electron lo recibe `setWindowOpenHandler`); en el teléfono,
    Deshacer después de un abono y de una venta.
 2. ~~Publicar~~: hecho, `v2.17.0`.
-3. **Lo que sigue es la Fase C1** (abajo y en el apartado "Para seguir"),
-   después C2 a C4 y después las fases 3 a 6 del informe.
+3. **C1 completa en local, sin publicar** (abajo). Siguen C2 a C4 y después
+   las fases 3 a 6 del informe; la publicación de cada fase requiere a Joswill.
 4. Pendiente de antes: probar la vibración en el iPhone (la 2.16.5).
 
 **Archivos que tocó la fase** (todos en `481d24a`, ninguno a medio hacer):
@@ -702,12 +702,30 @@ importan para no equivocarse: la sección de productos se llama
 ajustan existencias; el paquete se carga **cuando llega**, de una vez; sin
 internet es **sólo el celular**.
 
-**Para empezar C1**: el plan está en
-[superpowers/plans/2026-10-02-c1-inventario-por-paquete.md](superpowers/plans/2026-10-02-c1-inventario-por-paquete.md), con T1 (núcleo) primero y T2
-(Windows), T3 y T4 (celular) después, de a una. Lo hace el agente que esté
-de turno, en relevo ([RELEVO.md](RELEVO.md)). El dato del que depende todo
-(cada lote sabe de qué paquete vino, y cada línea de venta de qué lotes
-salió) se comprobó sobre producción el 2/10. Codex tiene un worktree propio
+**C1 terminada el 2/10, sin publicar**: T1 (núcleo), T2 (Windows), T3 y T4
+(celular) completas en el [plan](superpowers/plans/2026-10-02-c1-inventario-por-paquete.md).
+Inicio muestra avance/resumen por paquete en las dos apps, sin alertas de
+agotados. El estado se deriva de los lotes: anular una venta puede reabrirlo;
+`resumen_visto_el` comparte el cierre del resumen. Inventario abre con lo
+que hay y permite consultar vendidos por paquete (en móvil también al buscar).
+
+En el celular, **Llegó un paquete** registra cabecera, piezas y revisión.
+Guarda BORRADOR al avanzar y agregar/quitar; se puede retomar después de
+recargar o continuar uno de Windows conservando sus campos. Agregar deja la
+hoja vacía y abierta; quitar pide confirmar; los errores van junto al campo.
+Recibir usa el repositorio compartido y refresca productos/Inicio. El precio
+sugerido es de consulta, respeta el manual y los lotes existentes; cambiarlo
+es de C2. Un producto nuevo se crea al recibir, no al guardar el borrador.
+
+**Verificación conjunta:** 593 unitarias, 104 del emulador (incluida simulación
+del negocio), 43 casos de interfaz Windows y 28 móvil; tipos de ambas apps
+sin errores y build móvil con auditorías aprobadas. Se inspeccionó el flujo
+nuevo en claro/oscuro a 390 px; no se probó en un teléfono físico. Vite mantiene
+avisos de tamaño de chunk e imports estáticos/dinámicos; build sin errores.
+T4: `1208854`, `e079985`, `b0e6468`, `0626f3d`, `d87541a`.
+
+El dato del que depende C1 (lote → paquete y venta → lotes consumidos) se
+comprobó sobre producción el 2/10 por la sesión previa. Codex tiene un worktree propio
 (`.codex/worktrees/coordinacion-agentes`) con un puente de revisión sin
 commitear, de cuando iba a coordinar: con el relevo no se usa.
 

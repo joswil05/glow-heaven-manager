@@ -680,6 +680,14 @@ Reglas para todas las fases:
 | **C3 · Sin internet: consultar** | Sólo en el celular: abre y muestra lo último que cargó, con "Sin conexión · datos de las 10:42"; los botones de escribir dicen por qué no se puede. | | Interfaz del celular con la red cortada. |
 | **C4 · Sin internet: operar** | Sólo en el celular: una venta, un abono o un pedido de encargo sin señal quedan "Pendiente de subir" y se suben solos, en orden y sin duplicarse (`operacion_id`); lo que no se puede subir queda en "No se pudo subir". | | Contra el emulador, una operación subida dos veces escribe una vez; interfaz del celular cortando y volviendo la red. |
 
+**Estado C1 al 2/10:** T1 a T4 completas en `master` local, sin publicar.
+Avance/resumen por paquete y apertura del inventario con existencias en las
+dos apps; registro de paquetes en tres pasos desde el celular, con borrador
+persistente, confirmación al quitar y precio sugerido de consulta. Verificación
+conjunta: 593 unitarias, 104 emulador, 43 casos Windows, 28 móvil, tipos de
+ambas apps y build móvil con auditorías aprobados. Revisión visual del flujo
+nuevo en claro/oscuro; la prueba física en teléfono sigue pendiente.
+
 Los IDs de la tercera columna salieron de las fases 3 a 6: son de pantallas que estas fases rehacen, y no se tocan dos veces. El plan de implementación de C1, tarea por tarea, está en [superpowers/plans/2026-10-02-c1-inventario-por-paquete.md](superpowers/plans/2026-10-02-c1-inventario-por-paquete.md). Reemplazan las versiones 2.17, 2.18 y 2.19 de [PLAN_ENCARGOS_Y_SIN_CONEXION.md](PLAN_ENCARGOS_Y_SIN_CONEXION.md).
 
 ### Fase 3 · Color, contraste y tipografía · puede ir con la revisión de tipografía de la 2.20
