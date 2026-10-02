@@ -704,7 +704,7 @@ En `src/renderer/src/mock-api.ts`:
 
 Run: `npx tsc --noEmit` y `npx tsc -p mobile/tsconfig.json --noEmit`. Esperado: sin errores.
 
-- [ ] **Paso 11: la prueba contra el emulador (que falla primero)**
+- [x] **Paso 11: la prueba contra el emulador (que falla primero)**
 
 Crear `tests/motor-real/c1-avance-paquete.test.ts`:
 
