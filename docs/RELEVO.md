@@ -61,12 +61,13 @@ se trabaja**.
 ## Estado ahora
 
 - **Publicado**: `v2.17.0` en Windows y en el celular (`b47d21f`, 2/10).
-- **Plan vigente**: Fase C1 · Inventario por paquete,
-  [superpowers/plans/2026-10-02-c1-inventario-por-paquete.md](superpowers/plans/2026-10-02-c1-inventario-por-paquete.md).
-  T1 (núcleo) primero; después T2 (Windows), T3 (celular) y T4 (celular),
-  en ese orden porque se hacen de a uno.
-- **Siguiente paso**: escribir el plan de C2. C1 T1 a T4 y su verificación
-  conjunta completas, sin publicar.
+- **Plan vigente**: Fase C2 · Inventario y encargos en el celular,
+  [superpowers/plans/2026-10-02-c2-inventario-y-encargos.md](superpowers/plans/2026-10-02-c2-inventario-y-encargos.md).
+- **Siguiente paso**: C2 · T1 · paso 1, referencia y caso rojo del PDF.
+  Plan escrito, sin código C2. T1 requiere comparación en teléfono real
+  antes de T2; no se da por cumplida con Playwright.
+- **C1**: T1 a T4 completas y verificadas en `master` local, sin publicar;
+  cierre documentado en `ddc0fc7`. Emulador apagado.
 - **Después de C1**: C2 a C4, en el diseño
   [superpowers/specs/2026-10-02-fases-del-celular-design.md](superpowers/specs/2026-10-02-fases-del-celular-design.md)
   (al empezar cada una se escribe su plan, como el de C1); después las fases
@@ -89,6 +90,26 @@ Formato de cada entrada:
 - Sigue: el paso exacto del plan.
 - Para Joswill: lo que necesita decidir o probar (o "nada").
 ```
+
+### 2026-10-02 17:00 · Codex
+- Hizo: plan C2 escrito y revisado contra el diseño y las firmas actuales.
+  Siete tareas: prueba PDF, Inventario/precio, lista de encargos, anotar,
+  cotizar, compartir y aceptar. Sin código de C2 ni dependencia instalada.
+- Commits: cierre de C1 `ddc0fc7`; este commit guarda el plan y el relevo.
+- Pruebas: C1 verificada con 593 unitarias, 104 emulador, 43 interfaz Windows,
+  28 móvil, ambos tipos y build móvil. Después sólo cambió documentación;
+  se revisaron contratos y referencias del plan, sin ejecutar sus pasos.
+- Decisiones para no perder: html2pdf.js es candidata del experimento, no
+  motor aprobado; compartir requiere archivo preparado antes del toque.
+  Deshacer el grupo de Aceptó con pago vuelve a cotizada; anular/corregir
+  un abono como acción posterior conserva aceptación (pruebas existentes).
+- Quedó a medias: nada del alcance de este relevo. Emulador apagado y
+  comprobado sin escuchas en 8080, 9099, 4400 ni 9150. Sin push/deploy.
+- Sigue: C2 · T1 · paso 1. Leer el plan antes de instalar o implementar.
+- Para Joswill: cuando el prototipo esté listo hará falta el teléfono para
+  comparar PDF y compartir; esa prueba aún no se hizo. Sigue pendiente
+  probar a mano el flujo de paquetes, WhatsApp Windows, Deshacer y haptics
+  en el teléfono indicados en entradas previas.
 
 ### 2026-10-02 16:55 · Codex
 - Hizo: cierre conjunto de C1 y actualización de CONTEXTO_SESION y AUDITORIA.

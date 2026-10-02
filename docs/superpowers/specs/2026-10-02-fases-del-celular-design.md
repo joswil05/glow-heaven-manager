@@ -3,7 +3,7 @@
 > **Para quién es esto**: Joswill, y las sesiones de Claude y de Codex que
 > implementen cada fase.
 > **Fecha**: 2 de octubre de 2026. **Estado**: diseño acordado con Joswill;
-> no hay código todavía.
+> C1 implementada en local, sin publicar; C2 con plan escrito, sin implementar.
 > **Leer antes**: [CONTEXTO_SESION.md](../../CONTEXTO_SESION.md),
 > [AGENTS.md](../../../AGENTS.md), y la sección 5 de
 > [AUDITORIA_UX_2026-09-29.md](../../AUDITORIA_UX_2026-09-29.md), donde estas
@@ -156,6 +156,9 @@ el 7% del paquete y no el de hoy, importa además para el resumen).
 ---
 
 ## C2 · Inventario y encargos en el celular
+
+Plan de implementación: [2026-10-02-c2-inventario-y-encargos.md](../plans/2026-10-02-c2-inventario-y-encargos.md).
+La primera tarea conserva la prueba física del PDF como condición para seguir.
 
 ### Inventario
 

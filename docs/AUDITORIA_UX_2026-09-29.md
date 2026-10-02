@@ -688,6 +688,11 @@ conjunta: 593 unitarias, 104 emulador, 43 casos Windows, 28 móvil, tipos de
 ambas apps y build móvil con auditorías aprobados. Revisión visual del flujo
 nuevo en claro/oscuro; la prueba física en teléfono sigue pendiente.
 
+**Estado C2 al 2/10:** [plan escrito](superpowers/plans/2026-10-02-c2-inventario-y-encargos.md),
+sin implementación. Empieza por el experimento del PDF y su comparación en
+teléfono real; después Inventario/precios y el ciclo de encargos. Esa prueba
+física es condición de avance del diseño, no se da por aprobada con mocks.
+
 Los IDs de la tercera columna salieron de las fases 3 a 6: son de pantallas que estas fases rehacen, y no se tocan dos veces. El plan de implementación de C1, tarea por tarea, está en [superpowers/plans/2026-10-02-c1-inventario-por-paquete.md](superpowers/plans/2026-10-02-c1-inventario-por-paquete.md). Reemplazan las versiones 2.17, 2.18 y 2.19 de [PLAN_ENCARGOS_Y_SIN_CONEXION.md](PLAN_ENCARGOS_Y_SIN_CONEXION.md).
 
 ### Fase 3 · Color, contraste y tipografía · puede ir con la revisión de tipografía de la 2.20

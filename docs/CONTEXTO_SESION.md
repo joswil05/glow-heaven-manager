@@ -45,8 +45,9 @@ antes de parar. Este apartado es el resto de lo mínimo para retomar.
   `origin/master`. Los commits y el siguiente paso exacto están en RELEVO.
 - **C1 · Inventario por paquete está completa.** Sus casillas están en
   [superpowers/plans/2026-10-02-c1-inventario-por-paquete.md](superpowers/plans/2026-10-02-c1-inventario-por-paquete.md).
-  Sigue escribir el plan de C2 desde el diseño, empezando por probar el PDF
-  en un teléfono real; esa prueba no se sustituye por el navegador simulado.
+  El [plan de C2](superpowers/plans/2026-10-02-c2-inventario-y-encargos.md)
+  ya está escrito; sigue T1 paso 1, preparar la prueba del PDF en teléfono
+  real. No se sustituye esa prueba por el navegador simulado.
 - El diseño de las cuatro fases del celular (C1 a C4), con las decisiones de
   Joswill, está en
   [superpowers/specs/2026-10-02-fases-del-celular-design.md](superpowers/specs/2026-10-02-fases-del-celular-design.md).
