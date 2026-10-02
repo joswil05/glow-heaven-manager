@@ -1066,7 +1066,7 @@ y arreglar los casos que contaban productos del catálogo: el caso "el catálogo
 muestra los productos sembrados con su stock" sigue valiendo para los tres de
 siempre.
 
-- [ ] **Paso 2: escribir los casos que fallan**
+- [x] **Paso 2: escribir los casos que fallan**
 
 En `tests/interfaz/pruebas.py`, antes de `@caso("no quedan errores de consola al recorrer la app")`:
 

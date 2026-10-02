@@ -1257,6 +1257,46 @@ def caso_codigo_de_la_venta(page: Page) -> list[str]:
     return fallas
 
 
+def pantalla(page: Page) -> str:
+    """El texto de la pantalla que se ve: las cinco vistas están montadas a la vez."""
+    m = visible(page, "main")
+    return m.inner_text() if m is not None else ""
+
+
+@caso("C1 · Inicio del celular dice cómo va cada paquete, sin 'Stock crítico'")
+def caso_c1_inicio_celular(page: Page) -> list[str]:
+    fallas = []
+    ir_a(page, "Inicio")
+    texto = pantalla(page)
+    if re.search(r"stock cr[ií]tico|agotad", texto, re.I):
+        fallas.append("Inicio sigue mostrando stock crítico o agotados")
+    if not re.search(r"1 de 3 vendid", texto):
+        fallas.append("no dice cuántas se vendieron del paquete en venta")
+    if "se vendió todo" not in texto.lower():
+        fallas.append("no muestra el resumen del paquete que se vendió todo")
+    listo = visible(page, "button", "Listo")
+    if listo is None:
+        fallas.append("el resumen no se puede cerrar")
+    else:
+        listo.click()
+        page.wait_for_timeout(1200)
+        if "se vendió todo" in pantalla(page).lower():
+            fallas.append("'Listo' no cierra el resumen")
+    return fallas
+
+
+@caso("C1 · el Inventario del celular abre con lo que hay a la venta")
+def caso_c1_inventario_celular(page: Page) -> list[str]:
+    fallas = []
+    ir_a(page, "Catálogo")
+    texto = pantalla(page)
+    if "Termo Prueba" in texto:
+        fallas.append("abre mostrando un producto sin unidades")
+    if "Gloss Prueba" not in texto:
+        fallas.append("no muestra lo que sí hay")
+    return fallas
+
+
 @caso("no quedan errores de consola al recorrer la app")
 def caso_consola(page: Page) -> list[str]:
     # Lo llena el registrador; se evalúa al final de la corrida.
