@@ -65,7 +65,7 @@ se trabaja**.
   [superpowers/plans/2026-10-02-c1-inventario-por-paquete.md](superpowers/plans/2026-10-02-c1-inventario-por-paquete.md).
   T1 (núcleo) primero; después T2 (Windows), T3 (celular) y T4 (celular),
   en ese orden porque se hacen de a uno.
-- **Siguiente paso**: C1 · T4 · paso 2 (paso 1 verificado en rojo).
+- **Siguiente paso**: C1 · T4 · paso 3 (hoja de pieza creada; falta conectarla).
 - **Después de C1**: C2 a C4, en el diseño
   [superpowers/specs/2026-10-02-fases-del-celular-design.md](superpowers/specs/2026-10-02-fases-del-celular-design.md)
   (al empezar cada una se escribe su plan, como el de C1); después las fases

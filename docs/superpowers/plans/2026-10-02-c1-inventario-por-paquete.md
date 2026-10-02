@@ -1228,7 +1228,7 @@ def caso_c1_llego_un_paquete(page: Page) -> list[str]:
 Run: `SOLO="Llegó un paquete" PYTHONIOENCODING=utf-8 npm run test:interfaz`.
 Esperado: FAIL, "el Inventario no ofrece 'Llegó un paquete'".
 
-- [ ] **Paso 2: la hoja de una pieza**
+- [x] **Paso 2: la hoja de una pieza**
 
 Crear `mobile/src/components/PiezaPaqueteSheet.tsx`, sobre `BottomSheet`
 (con `hayCambios`):
