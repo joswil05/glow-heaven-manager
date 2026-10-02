@@ -8,7 +8,6 @@ import {
   History,
   Boxes,
   TrendingUp,
-  AlertTriangle,
   X,
   RotateCcw,
   Copy,
@@ -76,7 +75,19 @@ interface InventarioViewProps {
   onCambio: () => void;
 }
 
-type Filtro = 'TODOS' | 'CON_STOCK' | 'BAJO_STOCK' | 'AGOTADOS' | 'DESCATALOGADOS';
+/**
+ * Qué productos se ven. Desde la Fase C1 abre en "A la venta": un producto que
+ * se trajo una vez y se vendió no es una alerta, y queda en "Vendidos" con su
+ * historia. Se fueron "Por acabarse" y "Agotados".
+ */
+type Filtro = 'A_LA_VENTA' | 'VENDIDOS' | 'DESCATALOGADOS' | 'TODOS';
+
+const FILTROS: { id: Filtro; etiqueta: string }[] = [
+  { id: 'A_LA_VENTA', etiqueta: 'A la venta' },
+  { id: 'VENDIDOS', etiqueta: 'Vendidos' },
+  { id: 'DESCATALOGADOS', etiqueta: 'Descatalogados' },
+  { id: 'TODOS', etiqueta: 'Todos' },
+];
 
 export const InventarioView: React.FC<InventarioViewProps> = (props) => {
   const { pestana, onCambiarPestana, categorias, parametros, abrirEditorPaquete, productoParaPaquete, onCambio } = props;
@@ -143,7 +154,7 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
   const [productos, setProductos] = useState<ProductoConStock[]>([]);
   const [cargando, setCargando] = useState(true);
   const [busqueda, setBusqueda] = useState('');
-  const [filtro, setFiltro] = useState<Filtro>('TODOS');
+  const [filtro, setFiltro] = useState<Filtro>('A_LA_VENTA');
   const [categoriaFiltro, setCategoriaFiltro] = useState<number | undefined>(undefined);
   /**
    * De qué paquete mirar la bodega.
@@ -158,7 +169,6 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
   const [paquetes, setPaquetes] = useState<
     { id: number; codigo: string; fecha: string; estado: string }[]
   >([]);
-  const [verTodosLosPaquetes, setVerTodosLosPaquetes] = useState(false);
 
   const [modalAbierto, setModalAbierto] = useState(false);
   const [productoEditando, setProductoEditando] = useState<ProductoConStock | null>(null);
@@ -180,7 +190,7 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
   const [todosLosProductos, setTodosLosProductos] = useState<ProductoConStock[]>([]);
 
   const hayFiltroActivo = Boolean(
-    busqueda.trim() || categoriaFiltro !== undefined || filtro !== 'TODOS' || paqueteFiltro !== undefined
+    busqueda.trim() || categoriaFiltro !== undefined || filtro !== 'A_LA_VENTA' || paqueteFiltro !== undefined
   );
 
   const cargarTotalesGenerales = useCallback(async () => {
@@ -201,8 +211,7 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
       const r = await window.api.productos.list({
         busqueda: busqueda.trim() || undefined,
         categoria_id: categoriaFiltro,
-        soloConStock: filtro === 'CON_STOCK',
-        soloBajoStock: filtro === 'BAJO_STOCK',
+        soloConStock: filtro === 'A_LA_VENTA',
         soloInactivos: filtro === 'DESCATALOGADOS',
         paquete_id: paqueteFiltro,
       });
@@ -216,7 +225,7 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
         ) {
           setTodosLosProductos(items);
         }
-        if (filtro === 'AGOTADOS') {
+        if (filtro === 'VENDIDOS') {
           items = items.filter((p) => p.existencias === 0);
         }
         setProductos(items);
@@ -251,11 +260,13 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
     };
   }, []);
 
+  // Siempre, no sólo con un filtro: la lista abre en "A la venta", y el
+  // selector de paquetes y "Vendidos" se arman con todos los productos.
   useEffect(() => {
-    if (hayFiltroActivo && todosLosProductos.length === 0) {
+    if (todosLosProductos.length === 0) {
       cargarTotalesGenerales();
     }
-  }, [hayFiltroActivo, todosLosProductos.length, cargarTotalesGenerales]);
+  }, [todosLosProductos.length, cargarTotalesGenerales]);
 
   useEffect(() => {
     const t = setTimeout(cargar, busqueda ? 200 : 0);
@@ -444,8 +455,10 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
    * Un borrador vacío que nadie referencia no aparece: filtrar por él no
    * mostraría nada.
    */
-  /** Cuántos paquetes se ofrecen antes de pedir "ver más". */
-  const PAQUETES_VISIBLES = 8;
+  // Para la tercera cifra: cuántos hay a la venta y cuántos se vendieron todos.
+  const fuenteTotales = todosLosProductos.length > 0 ? todosLosProductos : productos;
+  const aLaVenta = fuenteTotales.filter((p) => p.activo !== false && p.existencias > 0).length;
+  const vendidosTodos = fuenteTotales.filter((p) => p.activo !== false && p.existencias === 0).length;
 
   const paquetesDelFiltro = useMemo(() => {
     const referenciados = new Set(
@@ -456,10 +469,7 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
     return paquetes.filter((q) => q.estado === 'RECIBIDA' || referenciados.has(q.id));
   }, [paquetes, productos, todosLosProductos]);
 
-  const paquetesVisibles = useMemo(
-    () => (verTodosLosPaquetes ? paquetesDelFiltro : paquetesDelFiltro.slice(0, PAQUETES_VISIBLES)),
-    [paquetesDelFiltro, verTodosLosPaquetes]
-  );
+
 
   const columnas: Column<ProductoConStock>[] = [
     {
@@ -514,7 +524,7 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
                   : 'neutral'
           }
         >
-          {!p.activo ? 'Descatalogado' : p.existencias === 0 ? 'Agotado' : `${p.existencias} unid.`}
+          {!p.activo ? 'Descatalogado' : p.existencias === 0 ? 'Vendido' : `${p.existencias} unid.`}
         </Badge>
       ),
     },
@@ -689,11 +699,6 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
                 ? `${totales.unidades} unid. de ${formatearMoneda(totalesGenerales.valor, 'USD')} en total`
                 : `${totalesGenerales.unidades} ${totalesGenerales.unidades === 1 ? 'unidad' : 'unidades'}`
             }
-            onClick={() => {
-              setFiltro('TODOS');
-              setCategoriaFiltro(undefined);
-              setBusqueda('');
-            }}
           />
           <StatTile
             label={hayFiltroActivo ? 'Ganancia potencial (en filtro)' : 'Ganancia potencial'}
@@ -701,24 +706,17 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
             tone="success"
             icon={TrendingUp}
             hint="Si vendés todo a los precios de hoy"
-            onClick={() => {
-              setFiltro('TODOS');
-            }}
           />
           <StatTile
-            label="Stock por agotarse"
-            value={
-              productos.filter((p) => p.stock_minimo > 0 && p.existencias <= p.stock_minimo).length
+            label="Productos a la venta"
+            value={aLaVenta}
+            tone="neutral"
+            icon={Package}
+            hint={
+              vendidosTodos > 0
+                ? `${vendidosTodos} ${vendidosTodos === 1 ? 'se vendió todo' : 'se vendieron todos'}: están en "Vendidos"`
+                : undefined
             }
-            tone={
-              productos.some((p) => p.stock_minimo > 0 && p.existencias <= p.stock_minimo)
-                ? 'danger'
-                : 'success'
-            }
-            icon={AlertTriangle}
-            hint={filtro === 'BAJO_STOCK' ? 'Filtrando: tocá para ver todo' : undefined}
-            onClick={() => setFiltro(filtro === 'BAJO_STOCK' ? 'TODOS' : 'BAJO_STOCK')}
-            className={filtro === 'BAJO_STOCK' ? 'ring-2 ring-danger-500/50' : undefined}
           />
         </div>
 
@@ -768,50 +766,39 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
               value={paqueteFiltro === undefined ? '' : String(paqueteFiltro)}
               onChange={(e) => {
                 const v = e.target.value;
-                if (v === 'VER_MAS') {
-                  setVerTodosLosPaquetes(true);
-                  return;
-                }
                 setPaqueteFiltro(v === '' ? undefined : v === 'SIN_PAQUETE' ? 'SIN_PAQUETE' : Number(v));
               }}
               className="w-auto min-w-[175px]"
               aria-label="Filtrar por paquete"
             >
               <option value="">Todos los paquetes</option>
-              {paquetesVisibles.map((p, i) => (
+              {paquetesDelFiltro.map((p, i) => (
                 <option key={p.id} value={p.id}>
                   {p.codigo}
                   {i === 0 ? ' (el último)' : ''}
                 </option>
               ))}
-              {/* Con un paquete por mes, a los tres años son treinta y seis en
-                  una lista. Se muestran los últimos y el resto se pide. */}
-              {!verTodosLosPaquetes && paquetesDelFiltro.length > PAQUETES_VISIBLES && (
-                <option value="VER_MAS">
-                  Ver los {paquetesDelFiltro.length - PAQUETES_VISIBLES} anteriores…
-                </option>
-              )}
+              {/* Todos, el más nuevo primero: "Ver los N anteriores…" era una
+                  acción escondida dentro de la lista (INV-10). */}
               <option value="SIN_PAQUETE">Cargados a mano</option>
             </Select>
           )}
 
-          {/* Segmented Pill Control */}
-          <div className="inline-flex items-center p-1 bg-superficie-2/80 rounded-xl border border-borde/70 text-caption font-medium">
-            {(
-              [
-                { id: 'TODOS', etiqueta: 'Todos' },
-                { id: 'CON_STOCK', etiqueta: 'Con existencias' },
-                { id: 'BAJO_STOCK', etiqueta: 'Por acabarse' },
-                { id: 'AGOTADOS', etiqueta: 'Agotados' },
-                { id: 'DESCATALOGADOS', etiqueta: 'Descatalogados' },
-              ] as { id: Filtro; etiqueta: string }[]
-            ).map((f) => (
+          {/* Qué productos mostrar: un solo control, una sola escala (INV-10). */}
+          <div
+            role="radiogroup"
+            aria-label="Qué productos mostrar"
+            className="inline-flex items-center p-1 bg-superficie-2/80 rounded-xl border border-borde/70"
+          >
+            {FILTROS.map((f) => (
               <button
                 key={f.id}
+                type="button"
+                role="radio"
+                aria-checked={filtro === f.id}
                 onClick={() => setFiltro(f.id)}
-                aria-pressed={filtro === f.id}
                 className={cn(
-                  'px-3 py-1.5 rounded-lg transition-[background-color,border-color,color,box-shadow,transform,opacity] text-label pill-interactive active:scale-95 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento',
+                  'px-3 py-1.5 rounded-lg transition-[background-color,border-color,color,box-shadow,transform] duration-150 text-label active:scale-[0.97] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento',
                   filtro === f.id
                     ? 'bg-superficie text-texto font-semibold shadow-xs border border-borde/50'
                     : 'text-texto-3 hover:text-texto hover:bg-superficie/50'
@@ -828,14 +815,22 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
         ) : productos.length === 0 ? (
           <EmptyState
             icon={Package}
-            title={busqueda || filtro !== 'TODOS' ? 'Nada coincide' : 'Tu inventario está vacío'}
+            title={
+              hayFiltroActivo
+                ? 'Nada coincide'
+                : vendidosTodos > 0
+                  ? 'No queda nada a la venta'
+                  : 'Tu inventario está vacío'
+            }
             description={
-              busqueda || filtro !== 'TODOS'
+              hayFiltroActivo
                 ? 'Probá con otra búsqueda o quitá los filtros.'
-                : 'La mercadería entra con un paquete: registrá el que llegó, con lo que trajo y lo que costó.'
+                : vendidosTodos > 0
+                  ? 'Se vendió todo lo que trajiste: está en "Vendidos". Cuando llegue el próximo paquete, registralo.'
+                  : 'La mercadería entra con un paquete: registrá el que llegó, con lo que trajo y lo que costó.'
             }
             action={
-              !busqueda && filtro === 'TODOS' ? (
+              !hayFiltroActivo ? (
                 <Button variant="primary" onClick={() => onCambiarPestana('paquetes', true)}>
                   <PackagePlus className="w-4 h-4" />
                   <span>Registrar un paquete</span>
@@ -1007,7 +1002,7 @@ const ProductosDelInventario: React.FC<InventarioViewProps> = ({
                     </div>
                   ) : (
                     <>
-                      Agotado. Último costo:{' '}
+                      Se vendió todo. Último costo:{' '}
                       <strong className="text-texto">
                         {formatearMoneda(detalle.costo_unitario_usd_cents, 'USD')}
                       </strong>

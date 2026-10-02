@@ -989,7 +989,7 @@ En `src/renderer/src/views/PanelView.tsx`:
 2. En el filtro de la línea ~260 (`a.id !== 'agotados' && a.id !== 'bajo-stock'`),
    esas alertas ya no existen: dejar sólo `a.severidad !== 'urgente'`.
 
-- [ ] **Paso 4: Inventario (INV-08, INV-10)**
+- [x] **Paso 4: Inventario (INV-08, INV-10)**
 
 En `src/renderer/src/views/InventarioView.tsx`:
 
