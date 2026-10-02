@@ -65,7 +65,7 @@ se trabaja**.
   [superpowers/plans/2026-10-02-c1-inventario-por-paquete.md](superpowers/plans/2026-10-02-c1-inventario-por-paquete.md).
   T1 (núcleo) primero; después T2 (Windows), T3 (celular) y T4 (celular),
   en ese orden porque se hacen de a uno.
-- **Siguiente paso**: C1 · T4 · paso 1 (T1, T2 y T3 terminadas el 2/10).
+- **Siguiente paso**: C1 · T4 · paso 2 (paso 1 verificado en rojo).
 - **Después de C1**: C2 a C4, en el diseño
   [superpowers/specs/2026-10-02-fases-del-celular-design.md](superpowers/specs/2026-10-02-fases-del-celular-design.md)
   (al empezar cada una se escribe su plan, como el de C1); después las fases
@@ -88,6 +88,23 @@ Formato de cada entrada:
 - Sigue: el paso exacto del plan.
 - Para Joswill: lo que necesita decidir o probar (o "nada").
 ```
+
+### 2026-10-02 13:53 · Codex
+- Hizo: C1 · T4 · paso 1, el caso de "Llegó un paquete". Usa
+  `pantalla(page)` según la decisión de T3, y comprueba también las dos
+  unidades en bodega. Se trabaja en `master`; el puente viejo sigue intacto
+  y sin usarse en el otro worktree.
+- Commits: el de esta entrada (paso 1).
+- Pruebas: base limpia en `88fc80a`, `npm test` 593 aprobadas. El caso
+  nuevo falla por lo esperado: no existe "Llegó un paquete".
+- Entorno: esbuild necesita ejecutar fuera del aislamiento de Codex. El
+  lanzador del emulador copia `Path` pero consulta `PATH`, y arma una ruta
+  con `undefined`; se inició normalizando a `PATH` sólo el entorno del
+  proceso hijo, sin editar scripts ni configuración global.
+- Quedó a medias: implementación de T4 todavía no empezada; emulador local
+  encendido para las pruebas de este turno.
+- Sigue: C1 · T4 · paso 2.
+- Para Joswill: nada.
 
 ### 2026-10-02 13:42 · Claude Code
 - Hizo: **C1 · T3 completa** (celular). Inicio: sale "Stock crítico", su

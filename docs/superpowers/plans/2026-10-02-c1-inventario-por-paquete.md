@@ -1182,7 +1182,7 @@ y **no** se edita. Cambiar un precio desde el celular es de C2 ("Cambiar un
 precio", desde la ficha); hacerlo dos veces sería tener dos pantallas para lo
 mismo. Si Joswill lo quiere en el paquete, se suma en C2.
 
-- [ ] **Paso 1: el caso que falla**
+- [x] **Paso 1: el caso que falla**
 
 En `tests/interfaz/pruebas.py`, antes de `@caso("no quedan errores de consola al recorrer la app")`:
 

@@ -1297,6 +1297,44 @@ def caso_c1_inventario_celular(page: Page) -> list[str]:
     return fallas
 
 
+@caso("C1 · 'Llegó un paquete' registra la mercadería desde el celular")
+def caso_c1_llego_un_paquete(page: Page) -> list[str]:
+    fallas = []
+    antes = len([c for c in listar_coleccion("compras") if c.get("estado") == "RECIBIDA"])
+    ir_a(page, "Catálogo")
+    boton = visible(page, "button", "Llegó un paquete")
+    if boton is None:
+        return ["el Inventario no ofrece 'Llegó un paquete'"]
+    boton.click()
+    page.wait_for_timeout(800)
+    campo_de(page, "Flete pagado").fill("10")
+    visible(page, "button", "Seguir").click()
+    visible(page, "button", "Agregar pieza").click()
+    page.wait_for_timeout(500)
+    en_hoja(page, "input[aria-label='Producto']").fill("Cartera Llegada")
+    en_hoja(page, "button", "Nuevo: Cartera Llegada").click()
+    en_hoja(page, "input[aria-label='Cantidad']").fill("2")
+    en_hoja(page, "input[aria-label='Pagó por unidad ($)']").fill("15")
+    en_hoja(page, "button", "Agregar").click()
+    cerrar_hojas(page)
+    visible(page, "button", "Seguir").click()
+    page.wait_for_timeout(1500)
+    # Las vistas permanecen montadas: usar la pantalla visible (relevo de T3).
+    if "Cartera Llegada" not in pantalla(page):
+        fallas.append("el paso de revisar no lista la pieza")
+    visible(page, "button", "Recibir").click()
+    page.wait_for_timeout(3000)
+    recibidas = [c for c in listar_coleccion("compras") if c.get("estado") == "RECIBIDA"]
+    if len(recibidas) != antes + 1:
+        fallas.append("el paquete no quedó recibido")
+    producto = next((p for p in listar_coleccion("productos") if p.get("nombre") == "Cartera Llegada"), None)
+    if producto is None:
+        fallas.append("el producto nuevo no se creó")
+    elif sum(v.get("existencias", 0) for v in producto.get("variantes", [])) != 2:
+        fallas.append("las dos piezas no entraron al inventario")
+    return fallas
+
+
 @caso("no quedan errores de consola al recorrer la app")
 def caso_consola(page: Page) -> list[str]:
     # Lo llena el registrador; se evalúa al final de la corrida.
