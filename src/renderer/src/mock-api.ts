@@ -44,6 +44,7 @@ import { hoyISO, sumarDiasAFecha } from '@core/fechas';
 import { porQueNoSeBorraAbono, porQueNoSeBorraVenta } from '@core/borrado';
 import { formatearMoneda } from '@core/moneda';
 import { repartirAbono } from '@core/reparto';
+import { avanceDePaquetes } from '@core/avance-paquete';
 import { abonoQueSigueAlTotal, monedaDeLosAbonos, textoLoPagado, textoTotalEn } from '@core/abonos';
 import type { Autor } from '../../shared/types';
 
@@ -343,33 +344,10 @@ function armarPanel(): PanelData {
         ganancia_90d_usd_cents: 0,
         existencias: p.existencias,
       })),
-    alertas: [
-      ...(bajoStock.some((p) => p.existencias === 0)
-        ? [
-            {
-              id: 'agotados',
-              severidad: 'atencion' as const,
-              titulo: `${bajoStock.filter((p) => p.existencias === 0).length} producto(s) agotado(s)`,
-              detalle: bajoStock
-                .filter((p) => p.existencias === 0)
-                .map((p) => p.nombre)
-                .join(', '),
-              destino: { vista: 'inventario' },
-            },
-          ]
-        : []),
-      ...(bajoStock.some((p) => p.existencias > 0)
-        ? [
-            {
-              id: 'bajo-stock',
-              severidad: 'info' as const,
-              titulo: `${bajoStock.filter((p) => p.existencias > 0).length} producto(s) por acabarse`,
-              detalle: 'Llegaron al mínimo que configuraste.',
-              destino: { vista: 'inventario' },
-            },
-          ]
-        : []),
-    ],
+    // Como el repositorio: sin alertas de existencias desde la Fase C1, y el
+    // avance de cada paquete con la misma cuenta.
+    alertas: [],
+    paquetes: avanceDePaquetes(db.compras, db.productos.map(conLotes), db.ventas),
   };
 }
 
@@ -1037,6 +1015,10 @@ const api: ApiPuente = {
       db.compras = db.compras.filter((x) => x.id !== id);
       if (c) marcarPiezas({ ...c, lineas: [] });
       return ok(grupo());
+    },
+    marcarResumenVisto: (id) => {
+      db.compras = db.compras.map((c) => (c.id === id ? { ...c, resumen_visto_el: ahora() } : c));
+      return ok(null);
     },
   },
   ventas: {

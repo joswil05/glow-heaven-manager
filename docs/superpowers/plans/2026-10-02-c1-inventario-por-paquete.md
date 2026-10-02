@@ -679,7 +679,7 @@ escritura: no hace falta tocar `firestore.rules`.
   });
   ```
 
-- [ ] **Paso 10: el simulador de Windows**
+- [x] **Paso 10: el simulador de Windows**
 
 En `src/renderer/src/mock-api.ts`:
 
