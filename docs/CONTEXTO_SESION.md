@@ -13,8 +13,10 @@
 > (sección 3). El 1 de octubre salió la `v2.16.5`: la vibración vuelve en
 > iPhone (sección 3). Hecho en local y **sin publicar**: "Fue un error"
 > (`9ed2237`, sección 3), que pide desplegar `firestore.rules` antes que el
-> código.
-> **Última actualización**: 1 de octubre de 2026.
+> código, y la Fase 2 de la auditoría (`481d24a`, sección 3: un solo abono,
+> lo pagado en su moneda y un solo WhatsApp), probada y esperando el
+> "publicalo" de Joswill.
+> **Última actualización**: 2 de octubre de 2026.
 
 Leé este archivo primero. Después:
 
@@ -494,6 +496,135 @@ detalle, y lo que queda para la Fase 6 ("Unir con…" para clientas
 duplicadas, "Ver anuladas"), está en el
 [PLAN_EQUIVOCACIONES_Y_FORMATOS.md](PLAN_EQUIVOCACIONES_Y_FORMATOS.md),
 sección 3.
+
+### Fase 2 de la auditoría: hecha en local, sin publicar (2 de octubre)
+
+**Punto de control**: el código está en `481d24a` ("Fase 2 de la auditoría:
+un solo abono, lo pagado en su moneda y un solo WhatsApp"), encima de
+`89969b0`. El master local va adelante de `origin/master` con "Fue un error"
+(`9ed2237`, `89969b0`), la Fase 2 y este documento. **Nada de esto está
+publicado ni pusheado**, y no hay cambios sin commitear de esta sesión.
+
+**Qué quedó hecho** (todos los IDs de la Fase 2 del informe). Lo que hay que
+saber para no deshacerlo:
+
+1. **Un solo abono en Windows** (TRA-02, TRA-11, COB-03 a 07, COB-23, CLI-01
+   a 04, PAG-01 a 09, ENC-19). `components/PagoModal.tsx` tiene dos modos:
+   `venta` ("a esta venta", desde Ventas, Encargos y "Abonar" de una fila de
+   Cobros) y `cuenta` ("a la cuenta de la clienta", desde "Registrar abono"
+   de Cobros, con la clienta a elegir, y desde la ficha de Clientes, con la
+   clienta dada). Cobros y la ficha ya no tienen formulario propio. El modo
+   `cuenta` muestra, antes de registrar, a qué ventas va la plata y cómo
+   queda cada una. La moneda se elige con `components/TarjetasMoneda.tsx`
+   (también en Corregir abono y en Aceptó); si el monto sigue siendo el
+   sugerido, se convierte al cambiar de moneda (`montoSugerido`). Arranca
+   con la moneda y el método de Configuración, dice la equivalencia, pide
+   "Cancelar", tiene Deshacer, y el visto verde sólo aparece si queda
+   saldada. Corregir un abono desde Cobros o desde Clientes recibe la venta
+   y dice cómo queda. `Select` (`ui/Field.tsx`) pasa `ref`, como `Input`.
+2. **El reparto de un abono a la cuenta** vive en `core/reparto.ts`
+   (`repartirAbono`): la más vieja primero, y en la moneda en que pagó (en
+   córdobas, contra lo que se debe en córdobas de cada venta, con su tasa).
+   Lo usan la ventana, `PagosRepo.registrarAbonoCliente` y el mock: lo que
+   se ve es lo que se registra. **Arregla un error de plata**: con dos
+   ventas de tasas distintas, un abono de C$2,500 quedaba registrado como
+   C$2,519.28. Cada parte lleva en sus notas "Parte de un abono de …".
+3. **Lo pagado, en la moneda en que se pagó** (TRA-05, ENC-02, ENC-03,
+   VEN-03, DOC-02, CFG-05): `textoPagadoDeVenta` (`core/abonos.ts`) en la
+   ventana de abono, anular y borrar una venta (el menú de la fila ahora
+   carga la venta entera), el panel de Ventas, Encargos, Aceptó, Anular
+   encargo, y la factura y la proforma ("Abonado", "Anticipo Abonado"). Las
+   planillas de Configuración salen de `columnasVentas` y `columnasAbonos`
+   (`core/exportar.ts`): un abono dice en qué moneda entró, cuánto en esa
+   moneda, su equivalente, la tasa y quién lo registró; estados y métodos
+   en palabras.
+4. **La tasa de la venta** (TRA-04, VEN-02, COB-09, CEL-15, BAS-18): `Money`
+   acepta `tasa_cambio_cents` (sin ella usa la de hoy, que es para lo
+   nuevo) y escribe "≈" en todos sus formatos; `MoneyDual` también.
+   `cordobasQueSeDeben` (`core/mensajes.ts`) suma venta por venta, cada una
+   con su tasa: la usan la ficha de Clientes, su "Enviar WhatsApp" (que
+   ahora lee las ventas de la clienta) y los totales de Cobros del celular.
+5. **Un solo WhatsApp** (TRA-03, INI-02, CLI-05, CVE-03, CVE-04, CCO-05,
+   CCO-17, CCA-01, DOC-07, ENC-22): todos los mensajes a las clientas salen
+   de `core/mensajes.ts`, de tú (decisión de Joswill), con los córdobas de
+   la venta, "≈" y el código de país de Configuración (`enlaceMensaje`). En
+   Windows, `lib/whatsapp.ts` (`enlaceCobro`). Compartir un producto dice
+   qué tallas o tonos hay, no cuántas unidades (decisión de Joswill). La
+   plantilla de cobro vieja, sin "≈", se lee como la nueva si nadie la
+   cambió. **Mandar un documento** es un solo camino (`lib/mandarDocumento.ts`):
+   guarda el PDF en Documentos/Glow Heaven/Cotizaciones o Facturas, abre la
+   carpeta y abre el chat, desde "Mandar la cotización" y desde el botón
+   WhatsApp de la Factura o la Proforma. El canal `prepararCotizacion`
+   acepta `carpeta`. Si la clienta no tiene teléfono, "Mandar la cotización"
+   deja escribirlo y lo guarda en su ficha; sin teléfono, WhatsApp se abre
+   para elegir el chat.
+6. **Celular** (CCO-02 a 04, CCO-06, CCO-07, CVE-07, CEL-03, CEL-04): la
+   hoja de abono arranca con la preferencia de Configuración, tiene fecha,
+   equivalencia y "cómo queda", dice los errores en el campo, confirma una
+   sola vez (la pantalla de éxito, sin aviso flotante) y ofrece "Deshacer el
+   abono". Vender arranca con la preferencia, confirma una vez y ofrece
+   "Deshacer la venta", que devuelve el carrito como estaba. `Snackbar`
+   tiene `mostrarDeshacer` (corregir un abono o una venta, anular desde el
+   Historial o desde Abonos); los errores duran 8 s y el tiempo se para
+   mientras se toca el aviso o la app está oculta. La hoja "Abonos" es de la
+   venta (sus abonos, "Debe de V-…", "Abonado a V-…") y después de anular
+   pregunta "¿Cargar el abono correcto?" en vez de abrir otra hoja.
+7. **Avisos de Windows** (BAS-03): el tiempo se para con el mouse encima y
+   con la ventana oculta (`ToastContext`, un solo intervalo).
+
+**Pruebas ejecutadas el 2 de octubre**, sobre el árbol que quedó en
+`481d24a`:
+
+- `npx tsc --noEmit` y `npx tsc -p mobile/tsconfig.json --noEmit`: sin errores.
+- `npm test`: 41 archivos, 586 pruebas. Nuevas: `tests/fase2-mensajes.test.ts`,
+  `tests/fase2-pagado.test.ts`, `tests/fase2-reparto.test.ts`, y
+  `tests/whatsapp.test.ts` actualizada.
+- `npm run test:emulador`: 17 archivos, 102 pruebas. Nueva:
+  `tests/motor-real/fase2-auditoria.test.ts` (vista previa = lo registrado,
+  y que en córdobas se registra lo pagado).
+- `npm run test:interfaz-escritorio`: 41 casos, aprobado. Nuevos: TRA-03,
+  TRA-05, TRA-02, CLI-01, PAG-02, BAS-03, y ENC-22 con DOC-07.
+- `npm run test:interfaz`: 24 casos, aprobado. Nuevos: TRA-03 del celular,
+  CCA-01, CCO-02 a CCO-04, y CCO-06 con CCO-07. Los dos últimos van antes
+  de los casos del Historial a propósito: esos cancelan V-0001 y Ana deja
+  de deber.
+- `npm run build:mobile`, con las auditorías de colores, índices y hooks.
+- Cada caso nuevo se vio fallar con el código anterior: en un worktree
+  limpio en `89969b0` con sólo las pruebas nuevas, o con un stash del
+  archivo cuando no dependía de otros.
+- **No se hizo**: `build:exe`, desplegar, ni probar a mano en la app de
+  Windows o en un teléfono.
+
+**Lo que falta**:
+
+1. **Probar a mano antes de publicar**, en la app de verdad: en Windows, que
+   "Enviar WhatsApp" del menú de Clientes y el WhatsApp de la Factura abran
+   el chat (los dos llaman a `window.open` después de un `await`; en
+   Electron lo recibe `setWindowOpenHandler`, en las pruebas está espiado);
+   en el teléfono, Deshacer después de un abono y de una venta.
+2. **Publicar sólo con el "publicalo" de Joswill.** Saldría junto con "Fue un
+   error", así que primero `npx firebase deploy --only firestore:rules`
+   (sección 5), y después desde un worktree limpio y con push por SHA. El
+   informe sugería 2.18.0 para esta fase; la versión la decide quien
+   publique.
+3. **Las Fases 3 a 6 del informe esperan autorización**, una por una.
+4. Pendiente de antes: probar la vibración en el iPhone (la 2.16.5).
+
+**Archivos que tocó la fase** (todos en `481d24a`, ninguno a medio hacer):
+en el núcleo `core/mensajes.ts`, `core/reparto.ts`, `core/abonos.ts`,
+`core/exportar.ts`, `core/documentos/plantillas.ts`; en Windows
+`PagoModal`, `TarjetasMoneda`, `CorregirPagoModal`, `AnularOBorrar`,
+`DocumentoModal`, `ui/Field`, `ui/Money`, `ToastContext`, `lib/whatsapp`,
+`lib/mandarDocumento`, `mock-api`, y las vistas Clientes, Cobranza,
+Configuración, Encargos (con Aceptó y Mandar cotización), Panel, Ventas
+(con Anular encargo y el editor); en el celular `AbonoModalSheet`,
+`AbonoSelectorSheet`, `Corregir*Sheet`, `DetalleCobroSheet`,
+`FichaProductoSheet`, `KardexClienteSheet`, `MoneyDual`, `Snackbar`, y las
+vistas Cobranza, Historial y Vender; el canal de documentos (`main/ipc`,
+`preload/api`, `shared/ipc-contracts`) y `pagos.repo.ts`.
+
+**El emulador quedó apagado** (lo había levantado esta sesión). Se vuelve a
+levantar con `npm run emulador` en otra terminal.
 
 ### Hecho el 29 de septiembre, sobre producción: V-0007 borrada a mano
 

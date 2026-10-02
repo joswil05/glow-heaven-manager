@@ -109,7 +109,16 @@ La ficha del producto es catálogo: no tiene costo, existencias ni paquete.
 - **Un abono se muestra en la moneda en que se pagó** (`core/abonos.ts` →
   `textoPagado`, desde `v2.16.1`): "C$600.00", y su equivalente con la tasa
   del abono, nunca con la de hoy. Mostrarlo primero en dólares hacía creer
-  que se había cargado en la moneda equivocada.
+  que se había cargado en la moneda equivocada. Lo pagado de una venta,
+  igual: `textoPagadoDeVenta`.
+- **Un abono se registra en `PagoModal`** (desde la Fase 2 de la auditoría):
+  "a esta venta" o "a la cuenta de la clienta". No se arma otro formulario.
+  El reparto a la cuenta sale de `repartirAbono` (`core/reparto.ts`), el
+  mismo en la vista previa y en el repositorio.
+- **Los WhatsApp a las clientas salen de `core/mensajes.ts`**: de tú, con los
+  córdobas de la venta, "≈" en toda conversión y el número por
+  `enlaceMensaje` (código de país de Configuración). Nunca armar un `wa.me`
+  a mano.
 - **Eliminar una clienta no deja nada colgado**: se rechaza si debe, si
   tiene un encargo en curso (aunque cotizado no sea deuda) o una venta por
   entregar. Sus ventas viejas siguen siendo suyas.

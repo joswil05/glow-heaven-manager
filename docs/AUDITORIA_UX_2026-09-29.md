@@ -652,6 +652,12 @@ Reglas para todas las fases:
 
 **Objetivo**: una forma de cobrar por app, que siempre hable en la moneda en que se pagó, con la tasa de la venta, y mensajes que digan lo mismo desde cualquier botón.
 
+> **Estado al 2/10**: hecha y probada en local (`481d24a`), **sin publicar**. Todos los IDs de la tabla quedaron resueltos; cada caso nuevo se vio fallar contra el código anterior. El detalle, las pruebas y lo que falta para publicar están en `CONTEXTO_SESION.md`, sección 3. Lo que salió distinto de lo planeado:
+>
+> - **El reparto tenía un error de plata**: con dos ventas de tasas distintas, un abono en córdobas a la cuenta registraba más córdobas de los pagados. `core/reparto.ts` reparte en la moneda del abono, y la ventana lo muestra con la misma función con que se registra.
+> - **La hoja "Abonos" del celular** quedó de la venta (CCO-06): sus abonos y su saldo, no los de todas las ventas de la clienta.
+> - **Deshacer en el celular**: el abono y la venta lo ofrecen en su pantalla de éxito, que es la única confirmación (CCO-04); corregir y anular, en el aviso.
+
 | Qué | IDs | Cómo se comprueba |
 |---|---|---|
 | Ventana de abono única en Windows, con dos modos: "a esta venta" y "a la cuenta de la clienta" (muestra antes a qué ventas va el reparto). Reemplaza la de Cobros y la de la ficha de Clientes. Moneda con las tarjetas de Corregir; el monto sugerido se convierte al cambiar de moneda; línea de equivalencia; preferencia de Configuración; Deshacer en todo. | TRA-02, TRA-11, COB-03, COB-04, COB-05, COB-06, COB-07, COB-23, CLI-01, CLI-02, CLI-03, CLI-04, PAG-01, PAG-02, PAG-03, PAG-04, PAG-06, PAG-07, PAG-08, PAG-09, ENC-19 | Pruebas contra el emulador del reparto por antigüedad (vista previa = lo que se registra) y de la conversión. |
