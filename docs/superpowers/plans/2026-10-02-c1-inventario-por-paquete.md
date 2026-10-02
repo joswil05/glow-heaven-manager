@@ -657,7 +657,7 @@ En `src/main/firebase/repositories/compras.repo.ts`, dentro de
 como en `productos.repo.ts`.) Las reglas de `compras` ya permiten esta
 escritura: no hace falta tocar `firestore.rules`.
 
-- [ ] **Paso 9: el canal de Windows**
+- [x] **Paso 9: el canal de Windows**
 
 - `src/shared/ipc-channels.ts`, junto a los demás de compras:
   `COMPRAS_MARCAR_RESUMEN_VISTO: 'compras:marcarResumenVisto',`

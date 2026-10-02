@@ -36,6 +36,7 @@ export const IPC = {
   COMPRAS_RECONSTRUIR: 'compras:reconstruir',
   COMPRAS_COMPLETAR_RECONSTRUCCION: 'compras:completarReconstruccion',
   COMPRAS_HISTORIAL_PRODUCTO: 'compras:historialProducto',
+  COMPRAS_MARCAR_RESUMEN_VISTO: 'compras:marcarResumenVisto',
 
   // Ventas y encargos
   VENTAS_LIST: 'ventas:list',

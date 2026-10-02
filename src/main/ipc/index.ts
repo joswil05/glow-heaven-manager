@@ -202,6 +202,11 @@ export function registrarHandlers(): void {
     return { evento_grupo_id };
   });
 
+  manejar(IPC.COMPRAS_MARCAR_RESUMEN_VISTO, async (id: number) => {
+    await ComprasRepo.marcarResumenVisto(id);
+    return null;
+  });
+
   manejar(
     IPC.COMPRAS_CORREGIR,
     async (input: Parameters<typeof ComprasRepo.corregir>[0]) => {

@@ -55,6 +55,7 @@ export const api: ApiPuente = {
     reconstruir: (id) => ipcRenderer.invoke(IPC.COMPRAS_RECONSTRUIR, id),
     completarReconstruccion: (id) => ipcRenderer.invoke(IPC.COMPRAS_COMPLETAR_RECONSTRUCCION, id),
     historialProducto: (producto_id) => ipcRenderer.invoke(IPC.COMPRAS_HISTORIAL_PRODUCTO, producto_id),
+    marcarResumenVisto: (id) => ipcRenderer.invoke(IPC.COMPRAS_MARCAR_RESUMEN_VISTO, id),
   },
   ventas: {
     list: (filtros) => ipcRenderer.invoke(IPC.VENTAS_LIST, filtros),

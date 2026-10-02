@@ -414,6 +414,8 @@ export interface ApiPuente {
     completarReconstruccion(id: number): Promise<Resultado<ConGrupo & { lineas: number }>>;
     /** Los paquetes en los que vino un producto, con su línea. */
     historialProducto(producto_id: number): Promise<Resultado<EntradaDeProducto[]>>;
+    /** Ross cerró el resumen de "Se vendió todo" de un paquete. */
+    marcarResumenVisto(id: number): Promise<Resultado<null>>;
   };
   ventas: {
     list(filtros?: FiltrosVenta): Promise<Resultado<Venta[]>>;
