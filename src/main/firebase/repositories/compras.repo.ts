@@ -113,6 +113,21 @@ interface CompraDoc extends Compra {
   actualizado_en?: string;
 }
 
+/** El editor anterior guardaba cero aun cuando el contenido no estaba cargado.
+ * Al reconstruir, las líneas recuperan el impuesto real de la bodega: ese
+ * cero heredado no puede mandar sobre ellas. La lectura sólo lo normaliza en
+ * memoria; un cero real (líneas sin impuesto) se conserva.
+ */
+function impuestoDelRecibo(compra: {
+  reconstruido?: boolean;
+  tax_total_override_usd_cents?: number | null;
+  lineas: CompraLinea[];
+}): number | null | undefined {
+  if (compra.reconstruido && compra.tax_total_override_usd_cents === 0 &&
+      compra.lineas.reduce((s, l) => s + l.tax_linea_usd_cents, 0) > 0) return null;
+  return compra.tax_total_override_usd_cents;
+}
+
 interface PiezaDeVenta {
   id?: number;
   descripcion?: string;
@@ -574,6 +589,7 @@ export class ComprasRepoFirestore {
     const { lineas: _, ...compra } = data;
     return {
       ...compra,
+      tax_total_override_usd_cents: impuestoDelRecibo({ ...data, lineas }) ?? undefined,
       lineas: lineasCompletas,
       unidades_totales: lineasCompletas.reduce((a, l) => a + (l.cantidad || 0), 0),
     };
@@ -1475,6 +1491,11 @@ export class ComprasRepoFirestore {
           lineas: r.lineas.map(({ producto_nombre: _n, ...l }) => l),
           subtotal_productos_usd_cents: r.subtotal_productos_usd_cents,
           tax_total_usd_cents: r.tax_total_usd_cents,
+          tax_total_override_usd_cents: impuestoDelRecibo({
+            reconstruido: true,
+            tax_total_override_usd_cents: anterior?.tax_total_override_usd_cents ?? null,
+            lineas: r.lineas,
+          }),
           total_usd_cents: r.total_usd_cents,
           criterio_flete:
             r.envio_total_usd_cents + r.otros_costos_usd_cents === 0 ? 'SIN_FLETE' : 'UNIDADES',
