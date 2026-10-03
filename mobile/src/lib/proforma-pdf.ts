@@ -1,6 +1,38 @@
 import type { ParametrosSistema, VentaCompleta } from '@shared/types';
 import { generarHtmlProforma } from '@core/documentos/plantillas';
 
+/** Reutiliza las reglas que Windows imprime; no crea otra plantilla. */
+function aplicarImpresion(doc: Document, frame: HTMLIFrameElement): [number, number, number, number] {
+  const reglasPrint: string[] = [];
+  let pagina: CSSStyleDeclaration | undefined;
+  for (const hoja of Array.from(doc.styleSheets)) {
+    // Las reglas propias están en <style>; Google Fonts es de otro origen.
+    if (hoja.ownerNode?.nodeName !== 'STYLE') continue;
+    for (const regla of Array.from(hoja.cssRules)) {
+      if (regla.type === CSSRule.PAGE_RULE) pagina = (regla as CSSPageRule).style;
+      if (regla.type === CSSRule.MEDIA_RULE && (regla as CSSMediaRule).conditionText === 'print') {
+        reglasPrint.push(...Array.from((regla as CSSMediaRule).cssRules).map(r => r.cssText));
+      }
+    }
+  }
+  if (!pagina || pagina.getPropertyValue('size').toLowerCase() !== 'a4' || !reglasPrint.length) {
+    throw new Error('La proforma no tiene una configuración de impresión A4 compatible.');
+  }
+  const margenes = ['top', 'left', 'bottom', 'right'].map(lado => {
+    const valor = pagina!.getPropertyValue(`margin-${lado}`).trim();
+    if (!/^\d+(?:\.\d+)?mm$/.test(valor)) throw new Error('No se pudo leer el margen de impresión de la proforma.');
+    return Number(valor.slice(0, -2));
+  });
+  if (margenes[1] + margenes[3] >= 210 || margenes[0] + margenes[2] >= 297) {
+    throw new Error('Los márgenes de la proforma no dejan espacio para imprimir.');
+  }
+  const estilo = doc.createElement('style');
+  estilo.textContent = reglasPrint.join('\n');
+  doc.head.appendChild(estilo);
+  frame.style.width = `${210 - margenes[1] - margenes[3]}mm`;
+  return [margenes[0], margenes[1], margenes[2], margenes[3]];
+}
+
 /** Candidata experimental C2/T1. La comparación física todavía no está aprobada. */
 export async function generarArchivoProforma(
   venta: VentaCompleta,
@@ -28,6 +60,7 @@ export async function generarArchivoProforma(
     await cargado;
     const doc = frame.contentDocument;
     if (!doc || !frame.contentWindow) throw new Error('No se pudo preparar la proforma.');
+    const margenes = aplicarImpresion(doc, frame);
     // fonts.ready también resuelve cuando una fuente falla: verificar que se cargó.
     const fuentes = await Promise.all([400, 500, 600, 700, 800].map(peso =>
       doc.fonts.load(`${peso} 14px "Plus Jakarta Sans"`)));
@@ -43,17 +76,22 @@ export async function generarArchivoProforma(
     // html2pdf clona el body en la página anfitriona. Conservar sus estilos
     // resueltos evita heredar Tailwind/tema móvil o perder la CSS del iframe.
     // No cambiar la plantilla ni su maquetación para aprobar la comparación.
-    for (const el of [doc.body, ...Array.from(doc.body.querySelectorAll<HTMLElement>('*'))]) {
-      const estilo = frame.contentWindow.getComputedStyle(el);
-      for (const propiedad of Array.from(estilo)) {
+    // getComputedStyle es vivo: tomar todas las propiedades antes de escribir
+    // evita que shorthands de font alteren valores que todavía no se copiaron.
+    const estilos = [doc.body, ...Array.from(doc.body.querySelectorAll<HTMLElement>('*'))].map(el => {
+      const estilo = frame.contentWindow!.getComputedStyle(el);
+      return { el, valores: Array.from(estilo).map(p => [p, estilo.getPropertyValue(p)] as const) };
+    });
+    for (const { el, valores } of estilos) {
+      for (const [propiedad, valor] of valores) {
         // La altura resuelta del body es una foto anterior a los saltos.
         // Conservarla corta el pie al agregar los espacios entre páginas.
         if (el === doc.body && (propiedad === 'height' || propiedad === 'block-size')) continue;
-        el.style.setProperty(propiedad, estilo.getPropertyValue(propiedad));
+        el.style.setProperty(propiedad, valor);
       }
     }
     const opciones = {
-      margin: 0,
+      margin: margenes,
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
       html2canvas: { scale: 2, useCORS: true, logging: false },
       pagebreak: { mode: ['css', 'legacy'], avoid: ['tr'] },

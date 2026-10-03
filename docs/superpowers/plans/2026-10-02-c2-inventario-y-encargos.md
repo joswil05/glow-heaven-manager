@@ -1,8 +1,9 @@
 # C2 · Inventario y encargos en el celular — plan de implementación
 
 > **Para el agente de turno:** usar `executing-plans`, una tarea a la vez,
-> sobre `master`, en relevo según [RELEVO.md](../../RELEVO.md). Sin agentes
-> paralelos. Leer el diseño y este plan completos antes de implementar.
+> sobre `master`, en relevo según [RELEVO.md](../../RELEVO.md). Joswill
+> autorizó el 2/10 varios agentes en paralelo, con rutas exclusivas y
+> commits del principal. Leer diseño y plan antes de implementar.
 
 **Objetivo:** cambiar precios desde Inventario y llevar un encargo desde
 anotarlo hasta que la clienta acepta, compartiendo su proforma desde el celular.
@@ -223,6 +224,23 @@ adaptador, mismos plugins/Workbox, salida sólo en scratch. Registrar ambos
 builds y no presentar la exclusión DEV como costo cero de la librería.
 
 - [ ] **Paso 5: probar en el teléfono y documentar la decisión**
+
+Joswill pidió continuar el experimento el 2/10. Preparación local dividida
+en avances verificables, sin marcar el paso físico por adelantado:
+
+- [x] **5a · CSS de impresión y márgenes:** prueba roja de ancho útil y
+  márgenes PDF; el adaptador aplica las reglas print y @page que ya declara
+  el HTML, sin cambiar la plantilla compartida. Verificar PDF corto/largo.
+- [ ] **5b · Encabezados y saltos:** revisar recomendaciones del agente de
+  sólo lectura, fijar un caso rojo y documentar límites del motor antes de
+  decidir cómo reproducir la paginación. No otra plantilla de negocio.
+  El motor 0.14.0 corta un único canvas y no repite thead. Preparar páginas
+  DOM de 180 × 265 mm con las mismas filas/estilos, alturas naturales y
+  columnas constantes; mover filas enteras con su encabezado y conservar
+  completos los bloques posteriores. Renderizar cada página por separado
+  al mismo PDF, sin volver a usar el plugin de saltos. Una fila que no cabe
+  en una página vacía debe fallar con error concreto, nunca recortarse.
+- [ ] **5c · Teléfono, peso y decisión:** la evidencia física descrita abajo.
 
 Preparar una página de prueba local que sólo use las fixtures, accesible por
 HTTPS confiable en la red local. No abrir Firestore de producción, no publicar

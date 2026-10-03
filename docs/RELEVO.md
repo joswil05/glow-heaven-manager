@@ -10,6 +10,14 @@ revisor: el que está de turno toma el siguiente paso del plan vigente, lo
 hace, lo prueba y lo deja escrito acá. El que llega después no sabe nada de
 la conversación anterior: sólo sabe lo que quedó en el repositorio.
 
+**Excepción autorizada el 2/10:** Joswill pidió trabajar con varios agentes
+en paralelo. El agente principal integra, commitea y controla los procesos;
+los subagentes reciben rutas exclusivas (pruebas de paginación y página de
+fixtures) o revisan en sólo lectura. «Revisar y coordinar plan Glow Heaven»
+investiga encabezados/paginación en sólo lectura. Nadie comparte escrituras
+ni corre suites que limpien el emulador en paralelo. La prueba física, el
+peso y la publicación siguen requiriendo su decisión/evidencia.
+
 **Los créditos se cortan sin aviso**, a veces a mitad de un paso. Por eso lo
 importante no es la entrada de despedida, sino commitear y anotar **mientras
 se trabaja**.
@@ -91,6 +99,24 @@ Formato de cada entrada:
 - Sigue: el paso exacto del plan.
 - Para Joswill: lo que necesita decidir o probar (o "nada").
 ```
+
+### 2026-10-02 22:46 · Codex
+- Hizo: C2 · T1 · paso 5a. Aplicar CSS print y márgenes @page del HTML
+  original; snapshot completo antes de copiar estilos computados. Joswill
+  autorizó agentes en paralelo con rutas exclusivas y commits del principal.
+- Commits: este paso 5a; base `6dd1955`. Sin publicación.
+- Pruebas: 593 unitarias al retomar; tipos móvil pasan. Ancho útil visto
+  rojo (566.92 px), luego verde (680.315 px); márgenes A4 PDF corto/largo
+  pasan. Arnés PDF/share del paso 4 aprobado con el cambio de impresión.
+- Quedó a medias: 5b. Inspección visual todavía encuentra texto recortado
+  en la corta. Caso nuevo de paginación en rojo válido: 4 páginas PDF pero
+  un solo lienzo de 8248272 píxeles y sin cabeceras repetidas.
+- Sigue: conservar alturas naturales y paginar el mismo DOM antes de
+  rasterizar; comprobar rangos de texto, 35 filas únicas y cabeceras.
+  Página aislada preparada por otro agente, pendiente de integrar/verificar.
+- Para Joswill: no empezar T2; faltan acceso HTTPS para el iPhone remoto,
+  comparación física y aceptación del peso. Emulador/Vite activos mientras
+  continúa la implementación. Google Fonts requiere red fuera del sandbox.
 
 ### 2026-10-02 22:18 · Codex
 - Hizo: C2 · T1 · paso 4. Arnés de descarga corta/larga, permisos y

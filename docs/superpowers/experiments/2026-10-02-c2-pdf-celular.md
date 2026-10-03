@@ -181,3 +181,19 @@ Ninguna opción sustituye la prueba real en Safari/PWA del iPhone 14 Plus.
 Ross está fuera de la red local: falta coordinar acceso HTTPS confiable
 a una página de fixtures y anotar la versión exacta de iOS. No se publicó
 hosting ni se configuró un túnel o certificados en la máquina.
+
+### Paso 5a: impresión original (2/10, 22:46)
+
+Joswill pidió continuar la corrección local y trabajar con varios agentes.
+El adaptador extrae `@media print` y `@page` del HTML original: ancho útil
+180 mm, márgenes 16 mm verticales y 15 mm laterales. No cambió la plantilla.
+El caso de ancho falló antes (566.92 px, nombre partido), luego pasó con
+680.315 px y nombre en una línea; matrices PDF verifican los cuatro márgenes
+en corta y larga. Tipos y arnés PDF/share pasan.
+
+La corta aún recorta texto al rasterizar, pese a que su caja DOM cabe.
+No se declara fidelidad aprobada. `pdf-paginacion.py` fija expectativas
+independientes de Windows; rojo válido: PDF de 4 páginas, un solo contenedor
+de 3027.84 px, canvas de 8248272 píxeles, cero Auth/Firestore. El motor
+instalado corta el canvas en tiras y no repite cabeceras. Siguiente avance:
+paginar el mismo DOM y renderizar cada hoja, sin segunda plantilla.
