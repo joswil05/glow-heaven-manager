@@ -16,7 +16,7 @@ import type { Pago } from '../../../shared/types';
  * cosas, así no hay que saber cuál botón buscar.
  *
  * Ninguna opción viene elegida: la pregunta es el punto. Si el borrado no se
- * puede (más de una semana, un mes cerrado, plata de otro día), la opción se
+ * puede (más de una semana, plata de otro día), la opción se
  * ve apagada con el motivo, que dice qué hacer en su lugar.
  */
 export interface AnularOBorrarProps {
@@ -208,6 +208,12 @@ export const AnularOBorrar: React.FC<AnularOBorrarProps> = ({
               <span>{c}</span>
             </li>
           ))}
+          {eleccion === 'BORRAR' && (
+            <li className="text-label flex gap-2 text-danger-800">
+              <span aria-hidden="true">·</span>
+              <span>Se recalculan los totales del período de este registro.</span>
+            </li>
+          )}
         </ul>
       )}
 

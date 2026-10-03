@@ -14,7 +14,8 @@
  *
  *   - Sólo lo cargado hace una semana o menos: un error se nota pronto, y lo
  *     viejo ya puede estar en una factura o en lo que ella le dijo a alguien.
- *   - Sólo del mes en curso: un mes cerrado no cambia sus números.
+ *   - La fecha del documento tampoco puede tener más de una semana. El
+ *     cambio de mes no acorta el plazo: se recalcula el período afectado.
  *   - Una venta con un abono de otro día no: esa plata entró de verdad.
  *   - Un encargo con una pieza comprada no: eso costó plata, y anular es lo
  *     que pregunta qué pasa con ella.
@@ -62,13 +63,13 @@ function diaDeCarga(creado_en: string | undefined, fecha: string): string {
   return creado_en ? hoyISO(new Date(creado_en)) : fecha;
 }
 
-/** Las dos reglas de tiempo, iguales para una venta y para un abono. */
+/** Ventana de siete días de carga y documento, aunque cambie el mes. */
 function porTiempo(que: string, cargado: string, fecha: string, hoy: string, anular: string): string | null {
   if (diasEntre(cargado, hoy) > DIAS_PARA_BORRAR) {
     return `${que} se cargó hace más de ${DIAS_PARA_BORRAR} días. Si no pasó, ${anular}.`;
   }
-  if (fecha.slice(0, 7) !== hoy.slice(0, 7)) {
-    return `${que} es de un mes que ya cerró. Si no pasó, ${anular}: así ese mes no cambia sus números.`;
+  if (diasEntre(fecha, hoy) > DIAS_PARA_BORRAR) {
+    return `${que} tiene fecha de hace más de ${DIAS_PARA_BORRAR} días. Si no pasó, ${anular}.`;
   }
   return null;
 }
