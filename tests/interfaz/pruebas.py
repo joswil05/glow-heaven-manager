@@ -1894,6 +1894,38 @@ def caso_c2_anotar_descarte_y_carrito(page: Page) -> list[str]:
     return []
 
 
+@caso("C2 · seleccionar clienta confirma descarte sin permitir guardar detrás")
+def caso_c2_clienta_descarte_bloquea_guardar(page: Page) -> list[str]:
+    ir_a(page, "Vender")
+    clientas_antes = listar_coleccion("clientes")
+    ventas_antes = listar_coleccion("ventas")
+    elegir = visible(page, "header button")
+    assert elegir is not None, "Vender tiene que ofrecer elegir clienta desde su cabecera"
+    elegir.click()
+    selector = page.get_by_role("dialog", name="Elegí la clienta", exact=True)
+    selector.get_by_role("button", name=re.compile("Crear nueva clienta")).click()
+    alta = page.get_by_role("dialog", name="Clienta nueva", exact=True)
+    alta.get_by_label("Nombre", exact=True).fill("Clienta C2 que no debe guardarse detrás")
+    guardar = alta.get_by_role("button", name="Guardar y elegir", exact=True)
+    alta.get_by_role("button", name="Cancelar", exact=True).click()
+    descarte = page.get_by_role("alertdialog", name="¿Descartar lo que escribiste?", exact=True)
+    expect(descarte).to_be_visible()
+    expect(descarte.get_by_role("button", name="Seguir editando", exact=True)).to_be_focused()
+    # Una confirmación puede deshabilitar el fondo o aislarlo con inert;
+    # en ambos casos, Tab nunca debe ofrecer Guardar detrás de la pregunta.
+    for _ in range(6):
+        page.keyboard.press("Tab")
+        assert not guardar.evaluate("el => document.activeElement === el"), "Tab permite guardar mientras se decide descartar"
+    assert listar_coleccion("clientes") == clientas_antes
+    assert listar_coleccion("ventas") == ventas_antes
+    descarte.get_by_role("button", name="Descartar", exact=True).click()
+    expect(selector).to_be_visible()
+    expect(alta).not_to_be_visible()
+    assert listar_coleccion("clientes") == clientas_antes, "descartar no crea una clienta"
+    selector.get_by_role("button", name="Cerrar", exact=True).click()
+    return []
+
+
 @caso("no quedan errores de consola al recorrer la app")
 def caso_consola(page: Page) -> list[str]:
     # Lo llena el registrador; se evalúa al final de la corrida.
