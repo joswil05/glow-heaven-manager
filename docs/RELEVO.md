@@ -101,6 +101,23 @@ Formato de cada entrada:
 - Para Joswill: lo que necesita decidir o probar (o "nada").
 ```
 
+### 2026-10-02 23:08 · Codex
+- Hizo: T2 paso 2 verificado/commiteado; agente implementa precio. T3
+  paso 1 completo; paso 2 detenido al comprobar diferencia del plan.
+  T7 pruebas unitarias del adaptador en rojo, independientes de UI.
+- Commits: T2 `db5bbc9`/`43a0d06`; T3 `0319216`; este paso guarda T7 rojo.
+- Pruebas: filtro Inventario aprobado; tipos móvil/colores/hooks pasan.
+  T3 unitarias: 11 previas pasan, faltan fases/módulo; UI falta tarjeta.
+  T7 rojo por adaptador ausente. Sin datos ni escrituras de producción.
+- Quedó a medias: T3 espera decisión: Panel.cargar() relee 5 históricos;
+  calentar Panel no hace dashboard(true) gratis como supone el plan.
+  Se propuso comparar costo de dashboard contra Panel calentado y exigir
+  cero lecturas adicionales de encargos, sin tocar repositorios.
+- Sigue: T2 precio; T7 adaptador; T3 sólo tras decisión de Joswill.
+  Casos UI T7 antes de integrar formulario, para evitar dos dueños de pruebas.py.
+- Para Joswill: pregunta sobre corregir supuesto de lecturas de T3 enviada.
+  PDF sigue aplazado; no dedicar más tiempo ni integrar candidata.
+
 ### 2026-10-02 22:52 · Codex
 - Hizo: Joswill cuestionó el tiempo dedicado al PDF; se cerró la
   investigación y autorizó seguir C2 dejando PDF automático pendiente,

@@ -661,7 +661,7 @@ PDF automático queda fuera del cierre funcional acordado.
 **Produce:** extensión opcional `aceptarEncargo?: boolean` en props de
 AbonoModalSheet y adaptador probado para su única acción de guardar.
 
-- [ ] **Paso 1: rojo para aceptación con pago menor al anticipo**
+- [x] **Paso 1: rojo del adaptador para aceptación con pago menor al anticipo**
 
 Agregar el caso al arnés de `tests/encargos-fases.test.ts` o extraer su
 preparación al nuevo archivo: venta cotizada de $100, anticipo50%, pago$1.
@@ -680,9 +680,9 @@ expect(despues.estado).toBe('PENDIENTE');
 expect(despues.pagado_usd_cents).toBe(100);
 ```
 
-Importar la función nueva (todavía inexistente) y ver rojo. Test móvil:
-Aceptó → Todavía no → confirmar: pasa Por comprar sin pago. Otro con pago
-pequeño en córdobas usa la hoja existente y su pantalla de éxito/Deshacer.
+Importar la función nueva (todavía inexistente) y ver rojo. Para trabajar
+en paralelo sin editar pruebas.py desde dos agentes, los casos móviles
+se escriben y se ven rojos antes de implementar la integración del paso 3.
 
 - [ ] **Paso 2: adaptar la acción de la hoja de abono, sin copiar campos**
 
@@ -703,15 +703,21 @@ export async function registrarAbonoMovil(
 
 `RegistrarPagoInput` ya se exporta desde `@repos/pagos.repo`; importar ahí
 el tipo y PagosRepoFirestore. No envolver dos mutaciones en otro orden; el servicio
-existente tiene pruebas del deshacer. AbonoModalSheet llama este adaptador
-validando antes monto entero seguro >0: el servicio ignora montos no positivos
-y aceptaría sin pago; el adaptador debe rechazarlos sin escrituras.
-y preserva todos sus campos, tasa, éxito y Deshacer actuales. El grupo lo
-crea una vez la hoja antes de guardar. Si la operación parcial del servicio
+existente tiene pruebas del deshacer. El adaptador valida antes monto entero
+seguro >0: el servicio ignora montos no positivos y aceptaría sin pago;
+el adaptador debe rechazarlos sin escrituras. La integración con AbonoModalSheet
+se hace en paso 3, después de ver rojo el recorrido móvil; preserva sus campos,
+tasa, éxito y Deshacer. El grupo lo crea una vez la hoja antes de guardar.
+Si la operación parcial del servicio
 falla tras registrar pago, recargar detalle y mostrar lo realmente ocurrido;
 no reintentar automáticamente el mismo importe.
 
 - [ ] **Paso 3: elección de pago y refresco de fases**
+
+Primero caso móvil rojo: Aceptó → Todavía no → confirmar deja Por comprar
+sin pago. Otro abono pequeño en córdobas usa la hoja existente y éxito/Deshacer.
+Después sustituir únicamente la acción de guardar de AbonoModalSheet por el
+adaptador del paso 2; ninguna copia de campos de abono.
 
 AceptarEncargoSheet muestra total y «¿Pagó algo?» con `Todavía no` y
 `Registrar abono`. Sin pago llama `aceptarEncargo(id, undefined, grupo)`;
