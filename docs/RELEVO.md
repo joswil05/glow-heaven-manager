@@ -63,9 +63,10 @@ se trabaja**.
 - **Publicado**: `v2.17.0` en Windows y en el celular (`b47d21f`, 2/10).
 - **Plan vigente**: Fase C2 · Inventario y encargos en el celular,
   [superpowers/plans/2026-10-02-c2-inventario-y-encargos.md](superpowers/plans/2026-10-02-c2-inventario-y-encargos.md).
-- **Siguiente paso**: C2 · T1 · paso 4, automatizar errores/cancelación y
-  medir candidata en build separado. Paso 3 completo, bloqueo autorizado
-  y tipos corregidos. T1 requiere comparación en teléfono real antes de T2.
+- **Siguiente paso**: C2 · T1 · paso 5, decidir cómo resolver diferencias
+  de la candidata PDF y coordinar prueba física. Pasos 1 a 4 completos.
+  Peso medido, aún no aceptado; iPhone fuera de la red, sin acceso HTTPS.
+  No comenzar T2 sin evidencia/decisión. Ver informe del experimento.
 - **C1**: T1 a T4 completas y verificadas en `master` local, sin publicar;
   cierre documentado en `ddc0fc7`. Emulador apagado.
 - **Después de C1**: C2 a C4, en el diseño
@@ -90,6 +91,29 @@ Formato de cada entrada:
 - Sigue: el paso exacto del plan.
 - Para Joswill: lo que necesita decidir o probar (o "nada").
 ```
+
+### 2026-10-02 22:18 · Codex
+- Hizo: C2 · T1 · paso 4. Arnés de descarga corta/larga, permisos y
+  cancelación, fallo de fuentes y cero peticiones/escrituras a Firestore.
+  Build experimental separado para medir el adaptador con Workbox.
+- Commits: paso 3 `b7e8660`; este paso incluye corrección del recorte,
+  pruebas, medición, casilla y documentación. Sin push/publicación.
+- Pruebas: arnés PDF aprobado; recorte del pie visto rojo/verde; tipos y
+  build móvil final con auditorías pasan, build experimental pasa. Suite
+  móvil completa aprobada en paso 3 y 593 unitarias al retomar.
+- Detalle para no perder: CSS computada fijaba dos alturas del body
+  (height y block-size); omitir ambas evita cortar lo añadido por saltos.
+  No se cambió la plantilla. Adaptador sigue DEV, sin integrar encargos.
+- Quedó a medias: T1 paso 5. PDF local conserva importes, pero cambia
+  márgenes/saltos y no repite cabeceras; candidata sin aprobar. Suma ~965
+  KiB crudos/~281 gzip al JS; Workbox la precachea. Larga: 1204844 bytes.
+- Sigue: decisión documentada en el informe: continuar conversión con CSS
+  de impresión/cabeceras (sin cambiar Windows), o decidir impresión manual.
+  Después prueba física; no T2. Referencias/artefactos en scratch/c2-pdf.
+- Para Joswill: elegir cómo continuar con PDF y aceptar su peso cuando
+  corresponda. iPhone 14 Plus de Ross fuera de la red: acceso HTTPS y
+  versión exacta/Safari/PWA pendientes; publicar sigue sin autorizarse.
+- Procesos: apagar emulador y Vite antes de cerrar el relevo.
 
 ### 2026-10-02 22:08 · Codex
 - Hizo: C2 · T1 · paso 3 terminado; Joswill autorizó corregir el plan y

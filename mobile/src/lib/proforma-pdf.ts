@@ -46,6 +46,9 @@ export async function generarArchivoProforma(
     for (const el of [doc.body, ...Array.from(doc.body.querySelectorAll<HTMLElement>('*'))]) {
       const estilo = frame.contentWindow.getComputedStyle(el);
       for (const propiedad of Array.from(estilo)) {
+        // La altura resuelta del body es una foto anterior a los saltos.
+        // Conservarla corta el pie al agregar los espacios entre páginas.
+        if (el === doc.body && (propiedad === 'height' || propiedad === 'block-size')) continue;
         el.style.setProperty(propiedad, estilo.getPropertyValue(propiedad));
       }
     }

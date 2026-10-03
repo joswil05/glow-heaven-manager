@@ -46,8 +46,11 @@ antes de parar. Este apartado es el resto de lo mínimo para retomar.
 - **C1 · Inventario por paquete está completa.** Sus casillas están en
   [superpowers/plans/2026-10-02-c1-inventario-por-paquete.md](superpowers/plans/2026-10-02-c1-inventario-por-paquete.md).
   El [plan de C2](superpowers/plans/2026-10-02-c2-inventario-y-encargos.md)
-  ya está escrito; sigue T1 paso 1, preparar la prueba del PDF en teléfono
-  real. No se sustituye esa prueba por el navegador simulado.
+  tiene T1 pasos 1 a 4 verificados en local: PDF experimental, compartir,
+  cancelación, bloqueo de la hoja y medición de la dependencia. Sigue T1
+  paso 5: resolver diferencias visuales de la candidata y probar en el
+  iPhone 14 Plus de Ross; no se sustituye por el navegador simulado ni se
+  comienza T2 todavía. Detalles en el informe del experimento y RELEVO.
 - El diseño de las cuatro fases del celular (C1 a C4), con las decisiones de
   Joswill, está en
   [superpowers/specs/2026-10-02-fases-del-celular-design.md](superpowers/specs/2026-10-02-fases-del-celular-design.md).

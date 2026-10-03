@@ -18,7 +18,9 @@ la candidata inicial es html2pdf.js, no una elección ya aprobada.
 
 **Diseño:** [2026-10-02-fases-del-celular-design.md](../specs/2026-10-02-fases-del-celular-design.md), sección C2 y criterios de diseño.
 
-**Estado:** T1 pasos 1 a 3 completos; sigue paso 4. Joswill autorizó
+**Estado:** T1 pasos 1 a 4 completos; paso 5 pendiente. Candidata sin
+aprobar por diferencias visuales; prueba física y aceptación del peso
+pendientes. Joswill autorizó
 añadir y probar `BottomSheet ocupado` el 2/10. También se corrige la
 medición del experimento DEV y se investiga fidelidad sin cambiar la
 plantilla de Windows. C1 T1–T4 completa. Sin publicación autorizada.
@@ -205,7 +207,7 @@ y texto seleccionable. No decir «copiado» sin evidencia. Descargar por URL
 de objeto y revocarla después de iniciar la descarga. No marcar una venta
 como enviada desde esta hoja experimental.
 
-- [ ] **Paso 4: automatizar archivo, cancelación y alternativa; medir build**
+- [x] **Paso 4: automatizar archivo, cancelación y alternativa; medir build**
 
 `pdf-celular.py` prueba descarga no vacía, nombre y MIME; intercepta share
 en contexto de prueba y verifica archivo+mensaje. Probar `canShare=false`,

@@ -1,6 +1,7 @@
 # C2 · T1: experimento de proforma PDF en el celular
 
-Estado: pasos 1 a 3 completos; sigue automatización y medición del paso 4. No aprobado
+Estado: pasos 1 a 4 completos; paso 5 pendiente. Candidata sin aprobar
+por diferencias de maquetación. No aprobado
 para teléfono ni para continuar T2. Datos exclusivamente ficticios.
 
 ## Referencia y reproducción
@@ -45,12 +46,26 @@ chunk grande e imports mixtos preexistentes.
 
 Medición por Node zlib sobre todos los `.js` de `dist-mobile/assets`:
 
-| Medida | Antes | Después |
-|---|---:|---:|
-| JS crudo | 1328130 bytes | A medir en paso 4 |
-| JS gzip | 346481 bytes | A medir en paso 4 |
-| Chunk principal crudo | 1320214 bytes | A medir en paso 4 |
-| Chunk principal gzip | 343082 bytes | A medir en paso 4 |
+| Medida (assets JS) | Base | Normal después | Con candidata (entrada separada) |
+|---|---:|---:|---:|
+| JS crudo | 1328130 | 1328305 | 2315863 bytes |
+| JS gzip | 346481 | 346528 | 634123 bytes |
+| Chunk principal crudo | 1320214 | 1320389 | 1290319 bytes |
+| Chunk principal gzip | 343082 | 343128 | 336552 bytes |
+
+El normal excluye el adaptador y la hoja DEV. Su diferencia es el marco
+ocupado, no el peso de html2pdf. La entrada experimental conserva el adaptador
+como export, con los mismos plugins, pero separa plantillas en otro chunk:
+estimación del costo al integrarlo, no build de la futura T6 terminada.
+Delta contra base: **987733 bytes crudos / 287642 gzip** (~965 / 281 KiB).
+Chunk html2pdf: **984775 / 285686 bytes**. Workbox lo incluye en precache.
+Precache: 15 entradas / 2079.68 KiB base; normal 15 / 2079.92;
+candidata 18 / 3044.42. Vite: 10.69 s base, 11.30 s normal, 17.13 s
+candidata (corridas locales, no benchmark de rendimiento del teléfono).
+
+Reproducir la medición adicional: `npx vite build --config tests/interfaz/vite-pdf.config.ts`.
+Salida `scratch/c2-pdf/build-candidata`; no habilita la pantalla en la app
+ni publica nada.
 
 ## Comparación y decisión
 
@@ -112,3 +127,57 @@ El share del sistema está sustituido sólo en Playwright; no prueba iOS.
 TypeScript móvil sin errores, suite de interfaz móvil completa aprobada,
 build móvil con auditorías aprobado. Captura `scratch/c2-pdf/hoja-pdf.png`
 inspeccionada. El resto del paso 4 y la prueba física siguen pendientes.
+
+### Paso 4 cerrado (2/10, 22:18)
+
+`python tests/interfaz/pdf-celular.py` aprobado: descarga corta/larga,
+nombre/MIME/cabecera del File compartido, mensaje y activación del toque;
+ocupado y descarte; canShare=false; AbortError; permiso de compartir
+rechazado; portapapeles rechazado sin falsa confirmación y copia posterior;
+fuentes bloqueadas con error, cierre y alternativa de reintento. El contexto
+experimental no hizo peticiones a Firestore y ventas permaneció igual.
+El share y portapapeles se simulan sólo en el arnés; el PDF se genera realmente.
+
+La inspección de cuatro páginas encontró un recorte del pie: al conservar
+CSS computada, el adaptador había fijado `height` y `block-size` del body
+antes de los saltos. La prueba roja mostró pie en y3873.70, lienzo hasta
+y3734.80. Dejar esas alturas naturales corrigió el recorte; prueba verde y
+última página revisada con las tres políticas y el pie completos. No se
+cambiaron la plantilla de Windows, márgenes ni su CSS.
+
+Tipos y build móvil final con auditorías pasan; build experimental pasa.
+La suite móvil completa pasó después del cambio del marco común; la última
+corrección sólo afecta al adaptador DEV y se verificó con el arnés PDF.
+
+| Proforma | Windows | Candidata final | Páginas |
+|---|---:|---:|---:|
+| Corta | 217616 bytes | 289912 bytes | 1 / 1 |
+| Larga (35 líneas) | 218101 bytes | 1204844 bytes | 4 / 4 |
+
+Generar y descargar la larga tomó 8694 ms en Chromium local, incluyendo la
+interacción del arnés; no es una medición del iPhone. Los archivos finales
+son `scratch/c2-pdf/{corta,larga}-{windows,movil}.pdf`.
+
+**Fidelidad pendiente, con fallos locales visibles:** Windows distribuye las
+líneas 1–11 / 12–26 / 27–35 y repite cabecera de tabla. Candidata: 1–9 /
+10–22 / 23–35, sin repetir cabecera; totales/políticas pasan a página 4.
+Nombre del negocio partido y márgenes más grandes. Acentos e importes de
+ambas muestras revisados; la candidata permanece rasterizada. Corregir el
+recorte no aprueba esas diferencias ni la biblioteca.
+
+### Decisión y prueba física (paso 5, sin marcar)
+
+No comenzar T2. Opciones para Joswill:
+
+1. Continuar el experimento aplicando en el adaptador la CSS de impresión
+   y márgenes que ya declara la plantilla, y comprobar encabezados y saltos.
+   No modificar la plantilla compartida; evaluar otra candidata si ésta
+   no puede reproducirla. El peso sigue necesitando aceptación.
+2. Conservar el camino de impresión del teléfono y guardar/adjuntar el PDF
+   manualmente. Eso cambia el diseño de compartir automático y requiere
+   decisión explícita; no se implementó esa sustitución.
+
+Ninguna opción sustituye la prueba real en Safari/PWA del iPhone 14 Plus.
+Ross está fuera de la red local: falta coordinar acceso HTTPS confiable
+a una página de fixtures y anotar la versión exacta de iOS. No se publicó
+hosting ni se configuró un túnel o certificados en la máquina.
