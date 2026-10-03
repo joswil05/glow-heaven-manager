@@ -142,7 +142,7 @@ cabecera PDF para aprobar fidelidad; eso se verifica visualmente en paso 5.
 Hacer `npm run build:mobile` y anotar bytes crudos/gzip, precache y tiempo
 como base en el informe. El build de C1 es referencia histórica, medir de nuevo.
 
-- [ ] **Paso 2: implementar el adaptador experimental con la misma plantilla**
+- [x] **Paso 2: implementar el adaptador experimental con la misma plantilla**
 
 Instalar la candidata con versión fija resuelta por npm (`npm install --save-exact html2pdf.js`),
 guardar el lock y registrar la versión. No cargar librerías desde un CDN.

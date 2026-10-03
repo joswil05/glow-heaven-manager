@@ -63,8 +63,8 @@ se trabaja**.
 - **Publicado**: `v2.17.0` en Windows y en el celular (`b47d21f`, 2/10).
 - **Plan vigente**: Fase C2 · Inventario y encargos en el celular,
   [superpowers/plans/2026-10-02-c2-inventario-y-encargos.md](superpowers/plans/2026-10-02-c2-inventario-y-encargos.md).
-- **Siguiente paso**: C2 · T1 · paso 2, adaptador PDF experimental.
-  Referencia Windows y caso rojo preparados. T1 requiere comparación en teléfono real
+- **Siguiente paso**: C2 · T1 · paso 3, hoja experimental de preparación y
+  compartir. Adaptador y referencia preparados. T1 requiere comparación en teléfono real
   antes de T2; no se da por cumplida con Playwright.
 - **C1**: T1 a T4 completas y verificadas en `master` local, sin publicar;
   cierre documentado en `ddc0fc7`. Emulador apagado.
@@ -90,6 +90,18 @@ Formato de cada entrada:
 - Sigue: el paso exacto del plan.
 - Para Joswill: lo que necesita decidir o probar (o "nada").
 ```
+
+### 2026-10-02 21:47 · Codex
+- Hizo: C2 · T1 · paso 2, adaptador con html2pdf.js 0.14.0 y File.
+- Commits: este paso; paso 1 en `1fef684`.
+- Pruebas: TypeScript móvil sin errores; el caso de descarga sigue en rojo
+  hasta conectar la hoja del paso 3. No se evaluó fidelidad todavía.
+- Detalle técnico: la biblioteca clona fuera del iframe. Se conservan
+  estilos computados de la plantilla, sin rediseñarla, para evitar heredar
+  estilos de la app. Recursos y overlay se quitan en finally.
+- Quedó a medias: nada del paso 2; emulador/Vite encendidos para continuar.
+- Sigue: C2 · T1 · paso 3.
+- Para Joswill: nada; candidata todavía sin aprobar.
 
 ### 2026-10-02 21:44 · Codex
 - Hizo: C2 · T1 · paso 1. Fixtures desde repositorios/emulador, referencias

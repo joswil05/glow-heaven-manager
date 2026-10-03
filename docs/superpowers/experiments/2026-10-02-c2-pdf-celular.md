@@ -1,6 +1,6 @@
 # C2 · T1: experimento de proforma PDF en el celular
 
-Estado: paso 1 completo; PDF móvil todavía sin implementar. No aprobado
+Estado: pasos 1 y 2 completos; adaptador implementado, hoja aún pendiente. No aprobado
 para teléfono ni para continuar T2. Datos exclusivamente ficticios.
 
 ## Referencia y reproducción
@@ -53,6 +53,12 @@ Medición por Node zlib sobre todos los `.js` de `dist-mobile/assets`:
 | Chunk principal gzip | 343082 bytes | A medir en paso 4 |
 
 ## Comparación y decisión
+
+Paso 2: candidata `html2pdf.js` **0.14.0**, versión fija y lock. Adaptador
+`generarArchivoProforma` espera fuentes y decode de imágenes, conserva la
+plantilla en iframe y devuelve File. La biblioteca clona el body en la
+página anfitriona: se conservan estilos resueltos para evitar contaminación
+de Tailwind/tema. No se cambiaron CSS ni márgenes de la plantilla. Types móvil pasa.
 
 Pendientes: PDF móvil, contraste visual entre motores, fallo de fuentes,
 prueba de 35 líneas, share/cancelación/portapapeles, dependencia y delta de
