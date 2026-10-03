@@ -6,7 +6,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
-import { reiniciarFirestoreFalso, reiniciarContadores, contadores } from './firestore-fake';
+import { reiniciarFirestoreFalso, reiniciarContadores, contadores, volcar } from './firestore-fake';
 import { doc, setDoc } from 'firebase/firestore';
 import { getFirestoreDb } from '../src/main/firebase/client';
 import { ProductosRepoFirestore as Productos } from '../src/main/firebase/repositories/productos.repo';
@@ -124,6 +124,55 @@ describe('mandar la cotización', () => {
     await Ventas.marcarEnviada(e, grupo);
     await Eventos.deshacerGrupo(grupo);
     expect(await etapa(e)).toBe('POR_MANDAR');
+  });
+
+  it('rechaza marcar la versión mostrada si se recotizó antes de confirmar el envío', async () => {
+    const e = await encargo();
+    const mostrada = await leer(e);
+    const p = await pieza(e, 0);
+    await Ventas.cotizar(e, [{ id: p.id, precio_unitario_usd_cents: 6500 }], g());
+    const antes = await leer(e);
+    const grupo = g();
+    await expect(Ventas.marcarEnviada(e, grupo, mostrada.cotizacion_version ?? 0))
+      .rejects.toThrow(/cotización.*cambi|versión/i);
+    expect(await leer(e)).toEqual(antes);
+    expect(await etapa(e)).toBe('POR_MANDAR');
+    expect(volcar('eventos').filter((evento) => evento.evento_grupo_id === grupo)).toHaveLength(0);
+  });
+
+  it('marca exactamente la versión esperada vigente', async () => {
+    const e = await encargo();
+    const p = await pieza(e, 0);
+    await Ventas.cotizar(e, [{ id: p.id, precio_unitario_usd_cents: 6500 }], g());
+    const mostrada = await leer(e);
+    const esperada = mostrada.cotizacion_version ?? 0;
+    await Ventas.marcarEnviada(e, g(), esperada);
+    const mandada = await leer(e);
+    expect(mandada.cotizacion_enviada_version).toBe(esperada);
+    expect(await etapa(e)).toBe('ESPERANDO');
+  });
+
+  it('versión esperada cero también protege una cotización vieja sin contador', async () => {
+    const e = await encargo();
+    await setDoc(doc(getFirestoreDb(), 'ventas', String(e)), { cotizacion_version: 0 }, { merge: true });
+    const p = await pieza(e, 0);
+    await Ventas.cotizar(e, [{ id: p.id, precio_unitario_usd_cents: 6500 }], g());
+    const antes = await leer(e);
+    const grupo = g();
+    await expect(Ventas.marcarEnviada(e, grupo, 0))
+      .rejects.toThrow(/cotización.*cambi|versión/i);
+    expect(await leer(e)).toEqual(antes);
+    expect(volcar('eventos').filter((evento) => evento.evento_grupo_id === grupo)).toHaveLength(0);
+  });
+
+  it('mantiene llamadas anteriores sin versión esperada', async () => {
+    const e = await encargo();
+    const p = await pieza(e, 0);
+    await Ventas.cotizar(e, [{ id: p.id, precio_unitario_usd_cents: 6500 }], g());
+    const actual = await leer(e);
+    await Ventas.marcarEnviada(e, g());
+    expect((await leer(e)).cotizacion_enviada_version).toBe(actual.cotizacion_version);
+    expect(await etapa(e)).toBe('ESPERANDO');
   });
 });
 
