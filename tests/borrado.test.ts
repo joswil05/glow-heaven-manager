@@ -18,15 +18,15 @@ import { ClientesRepoFirestore as Clientes } from '../src/main/firebase/reposito
 import { ParametrosRepoFirestore as Parametros } from '../src/main/firebase/repositories/parametros.repo';
 import { PanelRepoFirestore as Panel } from '../src/main/firebase/repositories/panel.repo';
 import { EventosRepoFirestore as Eventos } from '../src/main/firebase/repositories/eventos.repo';
+import { ResumenesRepoFirestore as Resumenes } from '../src/main/firebase/repositories/resumenes.repo';
 import { BorradoRepoFirestore as Borrado } from '../src/main/firebase/repositories/borrado.repo';
 import { revisarInvariantes } from './motor-real/invariantes';
 import type { LineaVentaInput } from '../src/shared/ipc-contracts';
 
 const g = () => randomUUID();
 /**
- * El repositorio se prueba con el reloj fijo a mitad de mes: la regla mira
- * la semana y el mes, y una prueba que corre el día 1 no puede tener "ayer"
- * en el mismo mes. Sólo se falsea la fecha; los temporizadores siguen reales.
+ * El repositorio se prueba con el reloj fijo; los casos del cambio de mes
+ * mueven sólo la fecha, mientras los temporizadores siguen reales.
  */
 const HOY = '2026-09-15';
 const AYER = '2026-09-14';
@@ -46,9 +46,24 @@ describe('cuándo se puede borrar (core/borrado.ts)', () => {
     );
   });
 
-  it('una de un mes cerrado no, aunque se haya cargado ayer', () => {
+  it('una fecha de hace más de una semana no, aunque se haya cargado ayer', () => {
     const deAgosto = { ...venta, fecha: '2026-08-31' };
-    expect(porQueNoSeBorraVenta(deAgosto, [], ahora)).toMatch(/mes que ya cerró/);
+    expect(porQueNoSeBorraVenta(deAgosto, [], ahora)).toMatch(/hace más de 7 días/);
+  });
+
+  it('el cambio de mes no bloquea una venta del 29 de septiembre el 3 de octubre', () => {
+    const octubre = new Date('2026-10-03T18:00:00Z');
+    expect(porQueNoSeBorraVenta(venta, [], octubre)).toBeNull();
+    expect(porQueNoSeBorraVenta({ ...venta, creado_en: undefined }, [], octubre)).toBeNull();
+    expect(porQueNoSeBorraAbono({ fecha: venta.fecha, creado_en: venta.creado_en }, octubre)).toBeNull();
+  });
+
+  it('al cruzar el mes conserva el límite de siete días, incluso sin hora de carga', () => {
+    const sieteDias = new Date('2026-10-06T18:00:00Z');
+    const ochoDias = new Date('2026-10-07T18:00:00Z');
+    expect(porQueNoSeBorraVenta(venta, [], sieteDias)).toBeNull();
+    expect(porQueNoSeBorraVenta(venta, [], ochoDias)).toMatch(/hace más de 7 días/);
+    expect(porQueNoSeBorraAbono({ fecha: venta.fecha }, ochoDias)).toMatch(/hace más de 7 días/);
   });
 
   it('con un abono de otro día no: esa plata entró de verdad', () => {
@@ -187,6 +202,38 @@ describe('borrar una venta o un abono (borrado.repo.ts)', () => {
     expect(volcar('ventas')).toHaveLength(0);
     expect(volcar('movimientos_inventario')).toHaveLength(movimientosAntes);
     expect(fotoProducto(termo)).toEqual(antes);
+    await cuadra();
+  });
+
+  it('una cancelada del mes anterior se borra dentro de siete días sin devolver dos veces la bodega', async () => {
+    vi.setSystemTime(new Date('2026-09-29T18:00:00Z'));
+    const termo = await producto('Termo', 2, 1000);
+    const ana = await Clientes.guardar({ nombre: 'Ana' }, g());
+    const antes = fotoProducto(termo);
+    const movimientosAntes = volcar('movimientos_inventario').length;
+    const v = await Ventas.crear({
+      cliente_id: ana,
+      fecha: '2026-09-29',
+      tipo: 'INVENTARIO',
+      lineas: [linea(termo, 1, 2500)],
+      pago_inicial: { moneda: 'USD', metodo: 'EFECTIVO', monto_cents: 1000 },
+    }, g());
+    await Ventas.cambiarEstado(v, 'CANCELADA', g());
+    expect(fotoProducto(termo)).toEqual(antes);
+
+    vi.setSystemTime(new Date('2026-10-03T18:00:00Z'));
+    await Resumenes.guardar([await Resumenes.calcularMes('2026-09')]);
+    expect(volcar('resumenes_mensuales')).toHaveLength(1);
+
+    await Borrado.venta(v, undefined, g());
+
+    expect(volcar('ventas')).toHaveLength(0);
+    expect(volcar('pagos')).toHaveLength(0);
+    expect(volcar('movimientos_inventario')).toHaveLength(movimientosAntes);
+    expect(fotoProducto(termo)).toEqual(antes);
+    expect(volcar('resumenes_mensuales')).toHaveLength(0);
+    const clienta = (await Clientes.getById(ana))!;
+    expect([clienta.compras_count, clienta.total_comprado_usd_cents, clienta.saldo_pendiente_usd_cents]).toEqual([0, 0, 0]);
     await cuadra();
   });
 

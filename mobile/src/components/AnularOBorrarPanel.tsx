@@ -104,6 +104,12 @@ export function AnularOBorrarPanel({ anular, borrar, pedirPin, onAnular, onBorra
         })}
       </div>
 
+      {eleccion === 'BORRAR' && (
+        <p className="mt-3 text-[12px] leading-snug text-texto-2">
+          Se recalculan los totales del período de este registro.
+        </p>
+      )}
+
       {eleccion === 'BORRAR' && pedirPin && (
         <label className="mt-3 block">
           <span className="mb-1 block text-[12px] font-bold text-texto-2">PIN</span>
