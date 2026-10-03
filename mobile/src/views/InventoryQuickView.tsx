@@ -18,7 +18,8 @@ export function InventoryQuickView({ onRegistrarPaquete }: { onRegistrarPaquete:
   const { mostrar } = useSnackbar();
   const [busqueda, setBusqueda] = useState('');
   const [filtro, setFiltro] = useState<Filtro>({ tipo: 'todos' });
-  const [fichaAbierta, setFichaAbierta] = useState<ProductoConStock | null>(null);
+  const [fichaId, setFichaId] = useState<number | null>(null);
+  const fichaAbierta = productos.find(p => p.id === fichaId) ?? null;
   /**
    * Mirar la bodega por paquete.
    *
@@ -112,7 +113,7 @@ export function InventoryQuickView({ onRegistrarPaquete }: { onRegistrarPaquete:
 
   function abrirFicha(p: ProductoConStock) {
     haptics.selection();
-    setFichaAbierta(p);
+    setFichaId(p.id);
   }
 
   /** Una fila del inventario: la fila entera abre la ficha. */
@@ -339,7 +340,7 @@ export function InventoryQuickView({ onRegistrarPaquete }: { onRegistrarPaquete:
       <FichaProductoSheet
         producto={fichaAbierta}
         tasaCambioCents={tasa}
-        onCerrar={() => setFichaAbierta(null)}
+        onCerrar={() => setFichaId(null)}
       />
     </div>
   );

@@ -101,6 +101,27 @@ Formato de cada entrada:
 - Para Joswill: lo que necesita decidir o probar (o "nada").
 ```
 
+### 2026-10-03 12:08 · Codex
+- Hizo: retomó tras el corte de créditos. T3 paso 2 (`e7fe575`) y T7
+  paso 2 (`61de90b`) verificados y commiteados con sus casillas. Guarda
+  el cambio de precio de T2 paso 3 como WIP, pendiente de prueba de interfaz.
+  Joswill pidió priorizar dos errores y autorizó **publicarlos**: «Fue un
+  error» al cambiar de mes e impuesto cero de paquetes reconstruidos.
+- Decisiones fuera del plan: la ventana de siete días se conserva para
+  carga y fecha del documento, aunque cambie el mes; el resumen del período
+  afectado se recalcula. PIN y demás restricciones siguen vigentes.
+  La publicación se prepara sobre `44cdcdc` con sólo los dos hotfixes:
+  C1/C2 locales y el PDF experimental no se incluyen. Una copia Git
+  independiente en `scratch` permite publicar sin mover ni limpiar master.
+- Commits: T3 `e7fe575`, T7 `61de90b`; este commit guarda T2 WIP.
+- Pruebas: `npm test` 616 aprobadas con los hotfixes; ambas apps pasan tipos.
+  Las regresiones fallaron antes de corregir. Emulador y publicación pendientes.
+- Quedó a medias: T2 paso 3 sin marcar hasta verificar interfaz; T3 paso 3
+  asignado al agente de ventas tras terminar el hotfix, con rutas exclusivas.
+- Sigue: verificar y publicar los dos hotfixes; después T2 paso 3 y T3 paso 3.
+- Para Joswill: probar los dos errores cuando esté publicada la corrección.
+  PDF automático sigue aplazado; no se retoma su investigación.
+
 ### 2026-10-02 23:08 · Codex
 - Hizo: T2 paso 2 verificado/commiteado; agente implementa precio. T3
   paso 1 completo; paso 2 detenido al comprobar diferencia del plan.

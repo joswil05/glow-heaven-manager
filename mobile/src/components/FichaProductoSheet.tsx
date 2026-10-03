@@ -1,11 +1,12 @@
-import { useRef } from 'react';
-import { MessageCircle, PackageX } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { MessageCircle, PackageX, Pencil } from 'lucide-react';
 import type { ProductoConStock } from '@shared/types';
 import { formatearMoneda } from '@core/moneda';
 import { BottomSheet } from './BottomSheet';
 import { haptics } from '../lib/haptics';
 import { mensajeCompartirProducto, enlaceMensaje } from '@core/mensajes';
 import { useDatosNegocio } from '../context/DataContext';
+import { CambiarPrecioSheet } from './CambiarPrecioSheet';
 
 interface FichaProductoSheetProps {
   producto: ProductoConStock | null;
@@ -25,10 +26,13 @@ interface FichaProductoSheetProps {
 export function FichaProductoSheet({ producto, tasaCambioCents, onCerrar }: FichaProductoSheetProps) {
   // Cerrada, se sigue mostrando lo último mientras la hoja baja: sin esto el
   // componente desaparecía antes de que la hoja pudiera animar su salida.
-  const { parametros } = useDatosNegocio();
+  const { parametros, productos } = useDatosNegocio();
+  const [precioId, setPrecioId] = useState<number | null>(null);
+  const productoActual = producto ? productos.find(p => p.id === producto.id) ?? producto : null;
+  const precioAbierto = productos.find(p => p.id === precioId) ?? null;
   const ultimo = useRef(producto);
-  if (producto) ultimo.current = producto;
-  const visto = producto ?? ultimo.current;
+  if (productoActual) ultimo.current = productoActual;
+  const visto = productoActual ?? ultimo.current;
   if (!visto) return null;
   const p = visto;
   const precioCordobas = Math.round((p.precio_venta_usd_cents * tasaCambioCents) / 100);
@@ -53,20 +57,24 @@ export function FichaProductoSheet({ producto, tasaCambioCents, onCerrar }: Fich
   }
 
   return (
-    <BottomSheet
+    <><BottomSheet
       abierto={producto !== null}
-      onCerrar={onCerrar}
+      onCerrar={() => { setPrecioId(null); onCerrar(); }}
       titulo={p.nombre}
       subtitulo={[p.codigo, p.categoria_nombre].filter(Boolean).join(' · ')}
       footer={
-        <button
+        <div className="flex flex-col gap-2"><button type="button"
+          onClick={() => { haptics.selection(); setPrecioId(p.id); }}
+          className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-borde bg-superficie-2 px-4 py-3 text-base font-bold text-texto">
+          <Pencil size={18} />Cambiar precio
+        </button><button
           type="button"
           onClick={compartirPorWhatsApp}
           className="m3-press tocable flex w-full items-center justify-center gap-2 rounded-2xl bg-acento px-5 py-3.5 text-sm font-bold text-acento-texto active:scale-[0.98] transition-transform"
         >
           <MessageCircle size={18} />
           Compartir por WhatsApp
-        </button>
+        </button></div>
       }
     >
       <div className="flex flex-col gap-4 pb-2">
@@ -133,6 +141,6 @@ export function FichaProductoSheet({ producto, tasaCambioCents, onCerrar }: Fich
           )}
         </div>
       </div>
-    </BottomSheet>
+    </BottomSheet><CambiarPrecioSheet producto={precioAbierto} onCerrar={() => setPrecioId(null)} /></>
   );
 }
