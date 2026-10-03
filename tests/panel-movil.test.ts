@@ -24,6 +24,8 @@ import {
   invalidarCacheDashboard,
 } from '../mobile/src/lib/panel-movil';
 import { hoyISO, haceDias } from '../src/core/fechas';
+import { doc, setDoc } from 'firebase/firestore';
+import { getFirestoreDb } from '../src/main/firebase/client';
 
 const g = () => `grupo-${Math.random().toString(36).slice(2)}`;
 
@@ -270,5 +272,66 @@ describe('los encargos pendientes', () => {
 
     expect(pendientes).toHaveLength(1);
     expect(pendientes[0].cliente_nombre).toBe('Mostrador');
+  });
+});
+
+describe('C2 · fases de encargos en Inicio', () => {
+  beforeEach(async () => {
+    reiniciarFirestoreFalso();
+    invalidarCacheDashboard();
+    ParametrosRepoFirestore.invalidarCache();
+    await ParametrosRepoFirestore.getParametros();
+    await ParametrosRepoFirestore.getCategorias();
+    congelarReloj();
+    // Mantener V-0001 como una venta: los pedidos empiezan después.
+    await venta(hoyISO(), 1000);
+  });
+
+  afterEach(() => vi.useRealTimers());
+
+  const encargo = (fecha: string, precio = 1000) => VentasRepoFirestore.crear({
+    fecha, tipo: 'ENCARGO',
+    lineas: [{ descripcion: 'Bolso pedido', cantidad: 1, precio_unitario_usd_cents: precio }],
+  }, g());
+
+  it('cuenta pedidos sin precio y cotizaciones mandadas sin releer la instantánea', async () => {
+    await encargo(hoyISO(), 0);
+    const cotizado = await encargo(hoyISO());
+    await VentasRepoFirestore.marcarEnviada(cotizado, g());
+    await PanelRepoFirestore.cargar();
+    reiniciarContadores();
+
+    const resultado = await obtenerDatosDashboard(true);
+
+    expect(resultado).toMatchObject({ fasesEncargo: {
+      POR_BUSCAR: 1, POR_MANDAR: 0, ESPERANDO: 1, POR_COMPRAR: 0,
+      EN_CAMINO: 0, POR_ENTREGAR: 0, ENTREGADO: 0, ANULADO: 0,
+    } });
+    expect(contadores()).toMatchObject({ lecturas: 0, consultas: 0, escrituras: 0 });
+    reiniciarContadores();
+    expect(await obtenerDatosDashboard()).toBe(resultado);
+    expect(contadores()).toMatchObject({ lecturas: 0, consultas: 0 });
+  });
+
+  it('cuenta los viejos en curso y excluye entregados, anulados, inactivos y ventas normales', async () => {
+    await encargo(haceDias(160));
+    const aceptadoViejo = await encargo(haceDias(150));
+    await VentasRepoFirestore.aceptar(aceptadoViejo, g());
+    const entregado = await encargo(hoyISO());
+    await VentasRepoFirestore.cambiarEstado(entregado, 'ENTREGADA', g());
+    const anulado = await encargo(hoyISO());
+    await VentasRepoFirestore.cambiarEstado(anulado, 'CANCELADA', g());
+    const inactivo = await encargo(hoyISO(), 0);
+    await setDoc(doc(getFirestoreDb(), 'ventas', String(inactivo)), { activo: false }, { merge: true });
+    await PanelRepoFirestore.cargar();
+    reiniciarContadores();
+
+    const resultado = await obtenerDatosDashboard(true);
+
+    expect(resultado).toMatchObject({ fasesEncargo: {
+      POR_BUSCAR: 0, POR_MANDAR: 1, ESPERANDO: 0, POR_COMPRAR: 1,
+      EN_CAMINO: 0, POR_ENTREGAR: 0, ENTREGADO: 0, ANULADO: 0,
+    } });
+    expect(contadores()).toMatchObject({ lecturas: 0, consultas: 0, escrituras: 0 });
   });
 });

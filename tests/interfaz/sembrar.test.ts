@@ -129,6 +129,21 @@ describe('decorado para las pruebas de interfaz', () => {
       expect((await Parametros.getParametros()).tasa_cambio_cents).toBe(3700);
       expect((await Productos.listar()).length).toBe(6);
 
+      // C2: después de V-0001, con otra clienta para conservar los casos
+      // anteriores de cobro. La pieza de bodega no se entrega ni se descuenta.
+      const clientaC2 = await Clientes.guardar({ nombre: 'Clienta C2' }, g());
+      await Ventas.crear({ fecha: HOY, tipo: 'ENCARGO', cliente_id: clientaC2,
+        lineas: [{ descripcion: 'Bolso C2 sin precio', cantidad: 1, precio_unitario_usd_cents: 0 }],
+      }, g());
+      const viejo = await Ventas.crear({ fecha: '2026-01-05', tipo: 'ENCARGO', cliente_id: clientaC2,
+        lineas: [{ descripcion: 'Botas C2 antiguas', cantidad: 1, precio_unitario_usd_cents: 3000 }],
+      }, g());
+      await Ventas.marcarEnviada(viejo, g());
+      const listo = await Ventas.crear({ fecha: HOY, tipo: 'ENCARGO', cliente_id: clientaC2,
+        lineas: [{ descripcion: 'Labial C2 reservado', producto_id: labial, cantidad: 1, precio_unitario_usd_cents: 1200 }],
+      }, g());
+      await Ventas.aceptar(listo, g());
+
       // eslint-disable-next-line no-console
       console.log(`  decorado listo: venta ${v.codigo} con saldo $100 de ${'Ana Prueba'}`);
     },

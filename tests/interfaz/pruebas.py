@@ -1560,6 +1560,48 @@ def caso_c2_inventario_filtro(page: Page) -> list[str]:
     return []
 
 
+@caso("C2 · Encargos lista fases, incluye pedidos viejos y vuelve a su origen")
+def caso_c2_encargos_lista(page: Page) -> list[str]:
+    ir_a(page, "Inicio")
+    expect(page.locator("nav button:visible")).to_have_count(5)
+    tarjeta = page.get_by_role("button", name=re.compile("Encargos"))
+    expect(tarjeta).to_be_visible()
+    expect(tarjeta).to_contain_text("1 por cotizar")
+    expect(tarjeta).to_contain_text("1 esperando respuesta")
+    tarjeta.click()
+    principal = page.locator("main:visible").last
+    expect(principal.get_by_role("heading", name="Encargos", exact=True)).to_be_visible()
+    expect(principal).to_contain_text("Bolso C2 sin precio")
+    expect(principal).to_contain_text("Botas C2 antiguas")
+    expect(principal).to_contain_text("Labial C2 reservado")
+    expect(principal).to_contain_text("Clienta C2")
+    for fase, descripcion in [("Por buscar", "Bolso C2 sin precio"),
+                              ("Esperando respuesta", "Botas C2 antiguas"),
+                              ("Por entregar", "Labial C2 reservado")]:
+        filtro = principal.get_by_role("button", name=re.compile("^" + fase))
+        filtro.click()
+        expect(filtro).to_have_attribute("aria-pressed", "true")
+        expect(principal).to_contain_text(descripcion)
+        if fase == "Por buscar":
+            expect(principal).not_to_contain_text("$0.00")
+    principal.get_by_role("button", name=re.compile("Labial C2 reservado")).click()
+    detalle = page.get_by_role("dialog").last
+    expect(detalle).to_contain_text("Seguí este paso en la computadora")
+    for accion in ["Comprar", "Recibir", "Entregar", "Anular"]:
+        expect(detalle.get_by_role("button", name=accion, exact=True)).to_have_count(0)
+    detalle.get_by_role("button", name="Cerrar", exact=True).click()
+    principal.get_by_role("button", name=re.compile("^Volver")).click()
+    expect(tarjeta).to_be_visible()
+    expect(page.locator("nav button:visible")).to_have_count(5)
+    ir_a(page, "Vender")
+    page.get_by_role("button", name="Anotar un pedido", exact=True).click()
+    principal = page.locator("main:visible").last
+    expect(principal.get_by_role("heading", name="Encargos", exact=True)).to_be_visible()
+    principal.get_by_role("button", name=re.compile("^Volver")).click()
+    expect(page.get_by_role("button", name="Anotar un pedido", exact=True)).to_be_visible()
+    return []
+
+
 @caso("no quedan errores de consola al recorrer la app")
 def caso_consola(page: Page) -> list[str]:
     # Lo llena el registrador; se evalúa al final de la corrida.

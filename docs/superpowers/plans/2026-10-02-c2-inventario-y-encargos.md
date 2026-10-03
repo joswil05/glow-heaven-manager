@@ -368,11 +368,12 @@ prevista en paso 2. Actualizar bitácora, commit con rutas del encabezado.
 
 **Archivos:** nuevos `lib/encargos-movil.ts`, `views/EncargosView.tsx`;
 `lib/panel-movil.ts`, `DashboardView.tsx`, `QuickSaleView.tsx`, `App.tsx`,
-`tests/panel-movil.test.ts`, `tests/interfaz/pruebas.py`, `sembrar.test.ts`.
+`tests/panel-movil.test.ts`, `tests/c2-encargos-lista.test.ts`,
+`tests/interfaz/pruebas.py`, `sembrar.test.ts`.
 **Produce:** `cargarEncargosEnCurso(): Promise<Venta[]>` y vista
 `{ onVolver: () => void; abrirNuevoAlEntrar?: boolean }`.
 
-- [ ] **Paso 1: pruebas rojas de contadores y navegación**
+- [x] **Paso 1: pruebas rojas de contadores y navegación**
 
 En el bloque de `tests/panel-movil.test.ts` que ya inicializa Firestore y
 congela fecha, crear un encargo sin precio y otro cotizado/marcado. Después
@@ -596,73 +597,60 @@ Casos nuevos verdes; `npx vitest run tests/encargos-fases.test.ts`, suite
 móvil y emulador; contraste/teclado en claro/oscuro y hoja con varias piezas.
 Anotar pruebas exactas y commitear.
 
-## T6 · Mandar cotización con el PDF aprobado
+## T6 · Mandar cotización con la impresión actual (ajuste autorizado)
 
 **Archivos:** `MandarCotizacionSheet.tsx`, `DocumentoSheet.tsx`, `EncargosView.tsx`,
-`lib/proforma-pdf.ts`, `tests/interfaz/pruebas.py`; retirar hoja experimental
-`PruebaProformaSheet.tsx` y su entrada una vez reutilizada la prueba.
-**Consume:** adaptador de T1 aprobado; proforma/mensaje compartidos.
+`tests/interfaz/pruebas.py`. No integrar `lib/proforma-pdf.ts` ni borrar el WIP.
+**Consume:** proforma/mensaje compartidos y la impresión actual de DocumentoSheet.
+Joswill autorizó este alcance el 2/10 a las 22:52; compartir archivo automático
+y prueba física quedan como pendiente explícito de T1, no se declaran hechos.
 
-- [ ] **Paso 1: pruebas rojas de compartir, cancelar y volver a cotizar**
+- [ ] **Paso 1: pruebas rojas de mensaje, impresión y confirmación de envío**
 
-Caso `C2 · mandar cotización comparte PDF y conserva la fase al cancelar`.
-Stub de navegador sólo en el contexto de prueba:
+Caso `C2 · mandar cotización conserva la fase hasta confirmar que la mandó`.
+Interceptar impresión/enlace sólo en el contexto de prueba, conservando el
+HTML real. Abrir/cerrar hoja, imprimir, copiar o abrir WhatsApp no cambia la
+versión enviada. «Ya la mandé» sí la cambia y deja Esperando. Recotizar vuelve
+a Por mandar. Prueba de copia rechazada no dice copiado; error al marcar no
+cierra hoja ni dice enviada; reintentar sólo la escritura, sin repetir envío.
+Tasa vieja/abono en su moneda coinciden con HTML y mensaje compartidos.
 
-```python
-page.evaluate("""() => {
-  window.__compartidos = [];
-  Object.defineProperty(navigator, 'canShare', { configurable:true, value: () => true });
-  Object.defineProperty(navigator, 'share', { configurable:true, value: async d => {
-    window.__compartidos.push({nombre:d.files[0].name, tipo:d.files[0].type, texto:d.text});
-  }});
-}""")
-```
-
-Primero probar share que lanza `DOMException('Cancelado','AbortError')`:
-version enviada no cambia. Luego éxito: nombre venta.pdf, application/pdf,
-mensaje generado por la plantilla y fase Esperando. Tasa vieja y abono en
-su moneda coinciden con PDF. Repetir con `canShare=false`, portapapeles
-rechazado y fallo al marcarEnviada; no fingir enviado ni copiar en silencio.
-
-- [ ] **Paso 2: hoja de mensaje y archivo preparado**
+- [ ] **Paso 2: hoja de mensaje con vista previa e impresión actual**
 
 Mensaje editable parte de `mensajeWhatsappDocumento`, vista previa HTML de
-`generarHtmlProforma`. Generar File al abrir, cachearlo por venta/version,
-invalidarlo al recotizar; cancelar resultados tardíos al cerrar. Mostrar
-preparando/error/reintentar. `hayCambios` por mensaje editado. Compartir usa
-el gesto/portapapeles de T1 y dice «El mensaje queda copiado para pegarlo en
-WhatsApp» sólo después de copiar; si no, botón Copiar y explicación.
+`generarHtmlProforma`. `hayCambios` por mensaje editado. Ofrecer Copiar y
+WhatsApp por `enlaceWhatsappDocumento`; mostrar copiado sólo después de
+resolver el permiso y conservar texto seleccionable ante rechazo. Usar
+el mismo recorrido de impresión, sin segundo motor ni lógica financiera.
 
 ```ts
 haptics.impact('medium');
-const promesa = navigator.share({ files: [archivo], text: mensaje });
-await promesa;
 await VentasRepoFirestore.marcarEnviada(venta.id, nuevoGrupoEvento());
 marcarCambio(); onMandada();
 ```
 
-La copia se inicia sin esperar antes de share, como T1. Observar ambas
-promesas, bloqueo por ref y catch: AbortError conserva la fase sin error
-alarmante; otra falla permite reintentar. Share no acredita lectura de la
-clienta; la UI dice «Compartida», no «Recibida». Si falla guardar la marca,
-ofrecer `Ya la mandé` para reintentar sólo esa escritura, sin reenviar PDF.
+Ese bloque corre sólo al tocar `Ya la mandé`, con ref/ocupado y catch.
+Abrir WhatsApp/imprimir no confirma envío. Antes de confirmar, comprobar
+que sigue vigente la versión mostrada; si cambió, recargar la cotización.
+El repositorio actual no recibe versión esperada: cerrar la carrera entre
+lectura y escritura requiere parámetro opcional transaccional y prueba roja
+antes de tocar ese contrato. No marcar una versión que no se mostró.
 
-- [ ] **Paso 3: alternativa y reutilización en DocumentoSheet**
+- [ ] **Paso 3: reutilizar DocumentoSheet y explicar cómo adjuntar**
 
-Si no puede compartir archivos, mantener impresión/Guardar PDF y enlace
-de WhatsApp construido por el módulo común. Explicar cómo adjuntar y ofrecer
-`Ya la mandé` explícito; abrir un enlace no garantiza envío. No crear otro
-generador de mensajes. Para proformas, DocumentoSheet abre esta misma hoja
-o usa el mismo adaptador de compartición; facturas conservan su recorrido.
+Mantener impresión/Guardar PDF y enlace de WhatsApp construido por el
+módulo común. Explicar cómo guardar/adjuntar y ofrecer `Ya la mandé`
+explícito. No crear otro generador de mensajes. Compartir el recorrido
+de proformas con DocumentoSheet; facturas conservan el suyo.
 Mensaje sin teléfono permite elegir destinatario, como ahora. No incorporar
 captura de credenciales ni envío automático.
 
 - [ ] **Paso 4: verificar y cerrar**
 
-Casos verdes; suite móvil completa y build; comparar que la dependencia y
-los tamaños siguen lo aprobado en T1. Repetir compartir/cancelar en el
-teléfono tras conectar la UI definitiva. Mantener sólo el arnés de prueba
-necesario, no controles DEV huérfanos. Bitácora y commit.
+Casos verdes; suite móvil completa, tipos y build. Comprobar que el build
+normal sigue sin incorporar la candidata PDF. Documentar lo pendiente
+físico de impresión/WhatsApp sin atribuirlo a Playwright. Bitácora y commit;
+PDF automático queda fuera del cierre funcional acordado.
 
 ## T7 · Aceptó, con abono opcional y el mismo formulario
 
@@ -716,6 +704,8 @@ export async function registrarAbonoMovil(
 `RegistrarPagoInput` ya se exporta desde `@repos/pagos.repo`; importar ahí
 el tipo y PagosRepoFirestore. No envolver dos mutaciones en otro orden; el servicio
 existente tiene pruebas del deshacer. AbonoModalSheet llama este adaptador
+validando antes monto entero seguro >0: el servicio ignora montos no positivos
+y aceptaría sin pago; el adaptador debe rechazarlos sin escrituras.
 y preserva todos sus campos, tasa, éxito y Deshacer actuales. El grupo lo
 crea una vez la hoja antes de guardar. Si la operación parcial del servicio
 falla tras registrar pago, recargar detalle y mostrar lo realmente ocurrido;

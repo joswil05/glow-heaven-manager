@@ -119,6 +119,10 @@ Formato de cada entrada:
   Ajustar T6 para impresión actual antes de implementar compartir.
 - Para Joswill: nada para avanzar Inventario/encargos. PDF automático,
   aceptación de su peso y prueba física quedan pendientes. Sin publicación.
+  T2 paso 1 guardado en `db5bbc9`: tres casos rojos por Inventario ausente.
+  T3 paso 1 fija fases/lecturas/lista y UI roja por tarjeta Encargos ausente.
+  T6 ajustado a impresión actual, mensaje y «Ya la mandé» explícito;
+  T7 requiere validar importe positivo antes del servicio existente.
 
 ### 2026-10-02 22:46 · Codex
 - Hizo: C2 · T1 · paso 5a. Aplicar CSS print y márgenes @page del HTML

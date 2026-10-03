@@ -158,7 +158,9 @@ el 7% del paquete y no el de hoy, importa además para el resumen).
 ## C2 · Inventario y encargos en el celular
 
 Plan de implementación: [2026-10-02-c2-inventario-y-encargos.md](../plans/2026-10-02-c2-inventario-y-encargos.md).
-La primera tarea conserva la prueba física del PDF como condición para seguir.
+El 2/10 a las 22:52 Joswill autorizó avanzar Inventario y encargos dejando
+PDF automático pendiente y conservando la impresión actual. La prueba física
+sigue siendo condición para integrar el motor PDF; no bloquea los demás flujos.
 
 ### Inventario
 
