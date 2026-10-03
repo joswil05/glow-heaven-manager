@@ -689,7 +689,7 @@ Importar la función nueva (todavía inexistente) y ver rojo. Para trabajar
 en paralelo sin editar pruebas.py desde dos agentes, los casos móviles
 se escriben y se ven rojos antes de implementar la integración del paso 3.
 
-- [ ] **Paso 2: adaptador de abono, sin copiar campos**
+- [x] **Paso 2: adaptador de abono, sin copiar campos**
 
 Nuevo adaptador, tipos desde repositorio de pagos:
 
