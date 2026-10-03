@@ -197,3 +197,14 @@ independientes de Windows; rojo válido: PDF de 4 páginas, un solo contenedor
 de 3027.84 px, canvas de 8248272 píxeles, cero Auth/Firestore. El motor
 instalado corta el canvas en tiras y no repite cabeceras. Siguiente avance:
 paginar el mismo DOM y renderizar cada hoja, sin segunda plantilla.
+
+### Investigación aplazada por Joswill (2/10, 22:52)
+
+Joswill autorizó avanzar Inventario y encargos sin aprobar el PDF automático,
+conservando la impresión actual. No integrar la candidata. Paginador DOM
+guardado como WIP: tipos/ancho/márgenes pasan; prueba completa no concluyó
+por networkidle en el control. Inspección de corta conserva pie, pero aún
+recorta texto de descartada/saldo. No declarar fidelidad, motor o 5b aprobados.
+Página independiente de fixtures preparada para el futuro, sin publicar.
+No continuar esta investigación hasta nueva instrucción. T1 5b/5c pendientes;
+la puerta se mantiene para integrar PDF automático, no bloquea T2–T5/T7.

@@ -1,5 +1,7 @@
 import type { ParametrosSistema, VentaCompleta } from '@shared/types';
 import { generarHtmlProforma } from '@core/documentos/plantillas';
+import type { jsPDF } from 'jspdf';
+import { paginarProforma } from './paginar-proforma';
 
 /** Reutiliza las reglas que Windows imprime; no crea otra plantilla. */
 function aplicarImpresion(doc: Document, frame: HTMLIFrameElement): [number, number, number, number] {
@@ -84,21 +86,34 @@ export async function generarArchivoProforma(
     });
     for (const { el, valores } of estilos) {
       for (const [propiedad, valor] of valores) {
-        // La altura resuelta del body es una foto anterior a los saltos.
-        // Conservarla corta el pie al agregar los espacios entre páginas.
-        if (el === doc.body && (propiedad === 'height' || propiedad === 'block-size')) continue;
+        // La plantilla no fija alturas. Resolverlas a px impide que el clon
+        // crezca cuando cambian las métricas de texto o se divide la tabla.
+        if (propiedad === 'height' || propiedad === 'block-size' || propiedad === 'grid-template-rows') continue;
         el.style.setProperty(propiedad, valor);
       }
+      el.style.height = 'auto';
+      el.style.blockSize = 'auto';
     }
+    const paginas = paginarProforma(doc, 210 - margenes[1] - margenes[3], 297 - margenes[0] - margenes[2]);
     const opciones = {
       margin: margenes,
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
       html2canvas: { scale: 2, useCORS: true, logging: false },
-      pagebreak: { mode: ['css', 'legacy'], avoid: ['tr'] },
+      pagebreak: { mode: [], avoid: [] },
     };
-    const worker = html2pdf().set(opciones).from(doc.body).toContainer();
-    overlay = await worker.get('overlay');
-    const blob: Blob = await worker.outputPdf('blob');
+    let pdf: jsPDF | undefined;
+    for (const pagina of paginas) {
+      if (pdf) pdf.addPage();
+      // set('pdf') conserva el mismo documento entre renders de una sola hoja.
+      const opcionesPagina = { ...opciones, pdf };
+      const worker = html2pdf().set(opcionesPagina).from(pagina).toContainer();
+      overlay = await worker.get('overlay');
+      await worker.toPdf();
+      pdf = await worker.get('pdf');
+      overlay?.remove();
+      overlay = null;
+    }
+    const blob = pdf!.output('blob');
     if (!(blob instanceof Blob) || blob.size === 0) throw new Error('El PDF quedó vacío.');
     return new File([blob], `${venta.codigo}.pdf`, { type: 'application/pdf' });
   } finally {

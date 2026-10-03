@@ -48,9 +48,11 @@ antes de parar. Este apartado es el resto de lo mínimo para retomar.
   El [plan de C2](superpowers/plans/2026-10-02-c2-inventario-y-encargos.md)
   tiene T1 pasos 1 a 4 verificados en local: PDF experimental, compartir,
   cancelación, bloqueo de la hoja y medición de la dependencia. Sigue T1
-  paso 5: resolver diferencias visuales de la candidata y probar en el
-  iPhone 14 Plus de Ross; no se sustituye por el navegador simulado ni se
-  comienza T2 todavía. Detalles en el informe del experimento y RELEVO.
+  paso 5 aplazado: Joswill autorizó avanzar Inventario/encargos el 2/10 a
+  las 22:52 y dejar PDF automático pendiente, conservando impresión actual.
+  No integrar candidata ni retomar su investigación por ahora. T2/T3 en
+  paralelo con rutas exclusivas; principal integra y commitea. T6 se ajusta
+  antes de ejecutarse. Detalles en el informe del experimento y RELEVO.
 - El diseño de las cuatro fases del celular (C1 a C4), con las decisiones de
   Joswill, está en
   [superpowers/specs/2026-10-02-fases-del-celular-design.md](superpowers/specs/2026-10-02-fases-del-celular-design.md).

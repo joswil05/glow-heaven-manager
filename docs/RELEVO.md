@@ -71,10 +71,11 @@ se trabaja**.
 - **Publicado**: `v2.17.0` en Windows y en el celular (`b47d21f`, 2/10).
 - **Plan vigente**: Fase C2 · Inventario y encargos en el celular,
   [superpowers/plans/2026-10-02-c2-inventario-y-encargos.md](superpowers/plans/2026-10-02-c2-inventario-y-encargos.md).
-- **Siguiente paso**: C2 · T1 · paso 5, decidir cómo resolver diferencias
-  de la candidata PDF y coordinar prueba física. Pasos 1 a 4 completos.
-  Peso medido, aún no aceptado; iPhone fuera de la red, sin acceso HTTPS.
-  No comenzar T2 sin evidencia/decisión. Ver informe del experimento.
+- **Siguiente paso**: C2 · T2/T3 en paralelo, con rutas exclusivas.
+  Joswill autorizó dejar PDF automático pendiente y avanzar el resto de C2
+  el 2/10 a las 22:52. T1 5b/5c guardados WIP, sin investigar más por ahora;
+  conservar impresión actual y no integrar candidata. T6 se reajusta antes
+  de ejecutarse. Peso/iPhone/HTTPS siguen pendientes para PDF automático.
 - **C1**: T1 a T4 completas y verificadas en `master` local, sin publicar;
   cierre documentado en `ddc0fc7`. Emulador apagado.
 - **Después de C1**: C2 a C4, en el diseño
@@ -99,6 +100,23 @@ Formato de cada entrada:
 - Sigue: el paso exacto del plan.
 - Para Joswill: lo que necesita decidir o probar (o "nada").
 ```
+
+### 2026-10-02 22:52 · Codex
+- Hizo: Joswill cuestionó el tiempo dedicado al PDF; se cerró la
+  investigación y autorizó seguir C2 dejando PDF automático pendiente,
+  conservando impresión actual. Se repartieron T2 y T3 con rutas exclusivas,
+  principal encargado de integrar/commitear y tercer agente en revisión.
+- Commits: 5a en `5070bcd`; este WIP guarda 5b sin marcarlo terminado.
+- Pruebas: tipos móvil pasan con paginador; ancho/márgenes pasan. La prueba
+  completa nueva no concluyó: timeout networkidle en control, no verde.
+  Inspección corta: pie visible, aún recorta «No se consiguió» y saldo.
+- Quedó a medias: paginación 5b experimental, sin aprobación ni integración.
+  Prueba ampliada de DOM de html2canvas/control también WIP. No seguir
+  gastando tiempo en PDF hasta nueva instrucción de Joswill.
+- Sigue: T2 pasos 1–4 y T3 pasos 1–4; pruebas que siembran en serie.
+  Ajustar T6 para impresión actual antes de implementar compartir.
+- Para Joswill: nada para avanzar Inventario/encargos. PDF automático,
+  aceptación de su peso y prueba física quedan pendientes. Sin publicación.
 
 ### 2026-10-02 22:46 · Codex
 - Hizo: C2 · T1 · paso 5a. Aplicar CSS print y márgenes @page del HTML

@@ -19,7 +19,10 @@ la candidata inicial es html2pdf.js, no una elección ya aprobada.
 
 **Diseño:** [2026-10-02-fases-del-celular-design.md](../specs/2026-10-02-fases-del-celular-design.md), sección C2 y criterios de diseño.
 
-**Estado:** T1 pasos 1 a 4 completos; paso 5 pendiente. Candidata sin
+**Estado:** Joswill autorizó seguir T2–T5/T7 el 2/10 a las 22:52,
+dejando el PDF automático pendiente y conservando la impresión actual.
+T6 requiere ajustar su plan a esa decisión antes de implementarla.
+T1 pasos 1 a 4 y 5a completos; paso 5 físico pendiente. Candidata sin
 aprobar por diferencias visuales; prueba física y aceptación del peso
 pendientes. Joswill autorizó
 añadir y probar `BottomSheet ocupado` el 2/10. También se corrige la
@@ -104,7 +107,7 @@ En los ejemplos de interfaz, `ir_a`, `visible`, `en_hoja`, `campo_de`,
 de `tests/interfaz/pruebas.py`/`arnes.py`; importar `expect` de Playwright.
 Buscar siempre el `main` visible con `pantalla(page)`.
 
-## T1 · Prueba del PDF en un teléfono real (primero, puerta de avance)
+## T1 · Prueba del PDF en un teléfono real (aplazada por Joswill)
 
 **Archivos:** crear `mobile/src/lib/proforma-pdf.ts`,
 `mobile/src/components/PruebaProformaSheet.tsx`,
@@ -256,7 +259,10 @@ destino de prueba que elija Joswill; el agente no envía mensajes por su cuenta.
 Probar cancelar y volver a compartir. Registrar duración, tamaño, capturas
 y resultados en el informe, con diferencias explícitas.
 
-**No marcar este paso ni empezar T2 sin esa evidencia.** Si no se logra la
+**No marcar este paso ni integrar el PDF automático sin esa evidencia.**
+Joswill autorizó explícitamente comenzar T2 y los demás flujos independientes
+sin aprobar el PDF. Se conserva `DocumentoSheet` y su impresión actual;
+no importar el adaptador experimental en pantallas reales. Si no se logra la
 fidelidad, o Joswill no acepta el peso medido de la dependencia, parar y
 anotar opciones para decidir con él; no sustituir silenciosamente la
 plantilla ni pasar a un servicio remoto. Si falta el teléfono, dejar T1
