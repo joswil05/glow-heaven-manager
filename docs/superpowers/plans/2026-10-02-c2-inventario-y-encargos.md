@@ -356,7 +356,7 @@ Validar entero seguro >0 antes del bloque; ref ocupado evita doble toque,
 try/catch/finally conserva hoja y valor si falla. Mandar sólo estos campos.
 Guardar sin cambio no crea evento. `hayCambios` compara con el precio inicial.
 
-- [ ] **Paso 4: verificar y cerrar T2**
+- [x] **Paso 4: verificar y cerrar T2**
 
 Caso nuevo verde, suite móvil entera, `npm run test:emulador` y tipos móviles.
 Ver a 390 px en claro/oscuro y con teclado: precio, pérdida y botón visibles.

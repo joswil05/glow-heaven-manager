@@ -1350,6 +1350,15 @@ def caso_c1_llego_un_paquete(page: Page) -> list[str]:
         fallas.append("las dos piezas no entraron al inventario")
     if visible(page, "button", "Listo") is not None:
         visible(page, "button", "Listo").click()
+    # La recepción vuelve a Inventario sin reload: el paquete que se acaba de
+    # recibir debe estar disponible en el selector que ya estaba montado.
+    filtro = page.get_by_role("combobox", name="Filtrar inventario", exact=True)
+    expect(filtro).to_be_visible()
+    opcion = filtro.locator(f"option[value='paquete:{borrador['id']}']")
+    expect(opcion).to_have_text(borrador["codigo"])
+    filtro.select_option(f"paquete:{borrador['id']}")
+    expect(page.locator("main:visible")).to_contain_text("Cartera Llegada")
+    filtro.select_option("todos")
     return fallas
 
 
@@ -1558,6 +1567,64 @@ def caso_c2_inventario_filtro(page: Page) -> list[str]:
     page.get_by_role("button", name="Restablecer filtros", exact=True).click()
     expect(fila).to_be_visible()
     return []
+
+
+@caso("C2 · Inventario muestra costo, ganancia y pérdida a 390 px en ambos temas")
+def caso_c2_precio_legible(page: Page) -> list[str]:
+    original = producto_c2()
+    costo = original["costo_unitario_usd_cents"]
+    assert costo > 1, "esta fixture necesita costo positivo para comprobar una pérdida"
+    viewport = page.viewport_size or {"width": 390, "height": 844}
+    oscuro_antes = page.evaluate("document.documentElement.classList.contains('dark')")
+    fallas = []
+    try:
+        for tema, oscuro in (("claro", False), ("oscuro", True)):
+            page.set_viewport_size({"width": 390, "height": 844})
+            page.evaluate("o => document.documentElement.classList.toggle('dark', o)", oscuro)
+            hoja = abrir_precio_c2(page)
+            expect(hoja.get_by_text("Costo por unidad", exact=True)).to_be_visible()
+            expect(hoja.locator("dl").get_by_text(f"${costo / 100:,.2f}", exact=True)).to_be_visible()
+            expect(hoja.get_by_text("Precio actual", exact=True)).to_be_visible()
+            campo = hoja.get_by_label("Precio nuevo ($)", exact=True)
+            expect(campo).to_have_attribute("inputmode", "decimal")
+            campo.fill(f"{(costo + 100) / 100:.2f}")
+            expect(hoja.get_by_text("Ganancia por unidad: $1.00", exact=True)).to_be_visible()
+            campo.fill("0.01")
+            perdida = hoja.get_by_text(f"Perdés ${(costo - 1) / 100:,.2f} por unidad.", exact=True)
+            expect(perdida).to_be_visible()
+            page.wait_for_timeout(250)  # deja terminar la transición de los tokens del tema
+            contraste = perdida.evaluate(JS_CONTRASTE)
+            if contraste < 4.5:
+                fallas.append(f"pérdida en {tema}: contraste {contraste:.2f}:1")
+            # Altura disponible reducida como con un teclado. No equivale a
+            # probar el teclado físico de Safari; inputmode se comprueba arriba.
+            page.set_viewport_size({"width": 390, "height": 500})
+            campo.focus()
+            campo.scroll_into_view_if_needed()
+            expect(campo).to_be_visible()
+            guardar = hoja.get_by_role("button", name="Guardar precio", exact=True)
+            expect(guardar).to_be_visible()
+            for nombre, elemento in (("precio", campo), ("Guardar precio", guardar)):
+                cabe = elemento.evaluate("""el => {
+                  const r = el.getBoundingClientRect();
+                  const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+                  return r.left >= 0 && r.right <= innerWidth + 1 && r.top >= 0 &&
+                    r.bottom <= innerHeight + 1 && !!hit && (el === hit || el.contains(hit));
+                }""")
+                if not cabe:
+                    fallas.append(f"{nombre} se recorta o queda tapado en {tema}, con altura reducida")
+            perdida.scroll_into_view_if_needed()
+            expect(perdida).to_be_visible()
+            expect(guardar).to_be_visible()
+            assert hoja.evaluate("el => el.scrollWidth <= el.clientWidth + 1"), "la hoja desborda horizontalmente"
+            cerrar_hojas(page)
+        assert producto_c2()["precio_venta_usd_cents"] == original["precio_venta_usd_cents"]
+        comprobar_inventario_c2(original, producto_c2())
+    finally:
+        page.set_viewport_size(viewport)
+        page.evaluate("o => document.documentElement.classList.toggle('dark', o)", oscuro_antes)
+        cerrar_hojas(page)
+    return fallas
 
 
 @caso("C2 · Encargos lista fases, incluye pedidos viejos y vuelve a su origen")
