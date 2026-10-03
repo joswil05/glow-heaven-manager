@@ -282,7 +282,7 @@ nuevo `CambiarPrecioSheet.tsx`, `tests/interfaz/pruebas.py`.
 `useSnackbar().mostrarDeshacer(mensaje, grupo, callback)`.
 **Produce:** hoja `{ producto: ProductoConStock | null; onCerrar: () => void }`.
 
-- [ ] **Paso 1: casos rojos de filtro y precio**
+- [x] **Paso 1: casos rojos de filtro y precio**
 
 Cambiar sólo las expectativas/navegación de pruebas `Catálogo` → `Inventario`
 y agregar `C2 · Inventario filtra y cambia un precio con Deshacer`.

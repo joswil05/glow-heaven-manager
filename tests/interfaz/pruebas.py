@@ -275,20 +275,20 @@ def poner_en_el_carrito(page: Page, producto: str) -> str | None:
 @caso("la app abre y muestra las cinco pestañas")
 def caso_arranque(page: Page) -> list[str]:
     fallas = []
-    for etiqueta in ["Inicio", "Vender", "Cobros", "Historial", "Catálogo"]:
+    for etiqueta in ["Inicio", "Vender", "Cobros", "Historial", "Inventario"]:
         if page.locator("nav button", has_text=etiqueta).count() == 0:
             fallas.append(f"falta la pestaña {etiqueta!r}")
     return fallas
 
 
-@caso("el catálogo muestra los productos sembrados con su stock")
+@caso("el inventario muestra los productos sembrados con su stock")
 def caso_catalogo(page: Page) -> list[str]:
-    ir_a(page, "Catálogo")
+    ir_a(page, "Inventario")
     fallas = []
     cuerpo = page.locator("body").inner_text()
     for nombre in ["Labial Mate Rojo", "Perfume Carolina Herrera"]:
         if nombre not in cuerpo:
-            fallas.append(f"el catálogo no muestra {nombre!r}")
+            fallas.append(f"el inventario no muestra {nombre!r}")
     return fallas
 
 
@@ -739,14 +739,14 @@ def caso_whatsapp_movil(page: Page) -> list[str]:
 @caso("CCA-01 · compartir un producto dice qué tallas o tonos hay, sin cuántas unidades")
 def caso_compartir_producto(page: Page) -> list[str]:
     fallas = []
-    ir_a(page, "Catálogo")
+    ir_a(page, "Inventario")
     page.evaluate("""() => {
       window.__abiertos = [];
       window.open = (u) => { window.__abiertos.push(String(u)); return null; };
     }""")
     ficha = visible(page, "main button", "Labial Mate Rojo")
     if ficha is None:
-        return ["el catálogo no deja abrir la ficha del labial"]
+        return ["el inventario no deja abrir la ficha del labial"]
     ficha.click()
     page.wait_for_timeout(900)
     compartir = en_hoja(page, "button", "Compartir")
@@ -1050,10 +1050,10 @@ def caso_corregir(page: Page) -> list[str]:
 
 
 def stock_en_catalogo(page: Page, nombre: str) -> int | None:
-    """Las unidades que el Catálogo muestra para un producto ("17 disp.")."""
+    """Las unidades que el Inventario muestra para un producto ("17 disp.")."""
     import re
-    ir_a(page, "Catálogo")
-    m = re.search(re.escape(nombre) + r"[\s\S]{0,300}?(\d+) disp\.", page.locator("body").inner_text())
+    ir_a(page, "Inventario")
+    m = re.search(re.escape(nombre) + r"[\s\S]{0,300}?(\d+) en bodega", page.locator("body").inner_text())
     return int(m.group(1)) if m else None
 
 
@@ -1062,12 +1062,12 @@ def stock_en_base(nombre: str) -> int:
     return sum(v.get("existencias", 0) for v in p.get("variantes", []) if v.get("activo", True))
 
 
-@caso("lo que se corrige o se cancela en el Historial se ve en Cobros y en el Catálogo")
+@caso("lo que se corrige o se cancela en el Historial se ve en Cobros y en el Inventario")
 def caso_reacciona(page: Page) -> list[str]:
     """
     Fase de pruebas de la 2.16.1: editar o anular algo tiene que verse en las
     otras pantallas sin recargar la app. Cancelar una venta desde el Historial
-    devolvía las unidades a la bodega, pero el Catálogo seguía mostrando el
+    devolvía las unidades a la bodega, pero el Inventario seguía mostrando el
     stock de antes.
     """
     fallas = []
@@ -1081,7 +1081,7 @@ def caso_reacciona(page: Page) -> list[str]:
 
     antes = stock_en_catalogo(page, "Labial Mate Rojo")
     if antes != stock_en_base("Labial Mate Rojo"):
-        fallas.append(f"el Catálogo muestra {antes} labiales y la bodega tiene {stock_en_base('Labial Mate Rojo')}")
+        fallas.append(f"el Inventario muestra {antes} labiales y la bodega tiene {stock_en_base('Labial Mate Rojo')}")
 
     # Cancelar V-0001 desde el Historial.
     problema = abrir_historial(page, "Ventas")
@@ -1113,7 +1113,7 @@ def caso_reacciona(page: Page) -> list[str]:
     if esperado != (antes or 0) + sum(l["cantidad"] for l in venta["lineas"]):
         fallas.append(f"cancelar no devolvió los labiales a la bodega: quedan {esperado}")
     if despues != esperado:
-        fallas.append(f"después de cancelar, el Catálogo muestra {despues} labiales y la bodega tiene {esperado}")
+        fallas.append(f"después de cancelar, el Inventario muestra {despues} labiales y la bodega tiene {esperado}")
 
     ir_a(page, "Cobros")
     if visible(page, "button", "Ana Prueba") is not None and venta["saldo_usd_cents"] > 0:
@@ -1185,7 +1185,7 @@ def caso_tintes(page: Page) -> list[str]:
     y eran lo menos legible: peligro sobre su tinte da 3,93:1 en claro.
     """
     return textos_ilegibles_sobre_tinte(
-        page, ["Inicio", "Vender", "Cobros", "Historial", "Catálogo"], ir_a
+        page, ["Inicio", "Vender", "Cobros", "Historial", "Inventario"], ir_a
     )
 
 
@@ -1289,7 +1289,7 @@ def caso_c1_inicio_celular(page: Page) -> list[str]:
 @caso("C1 · el Inventario del celular abre con lo que hay a la venta")
 def caso_c1_inventario_celular(page: Page) -> list[str]:
     fallas = []
-    ir_a(page, "Catálogo")
+    ir_a(page, "Inventario")
     texto = pantalla(page)
     if "Termo Prueba" in texto:
         fallas.append("abre mostrando un producto sin unidades")
@@ -1302,7 +1302,7 @@ def caso_c1_inventario_celular(page: Page) -> list[str]:
 def caso_c1_llego_un_paquete(page: Page) -> list[str]:
     fallas = []
     antes = len([c for c in listar_coleccion("compras") if c.get("estado") == "RECIBIDA"])
-    ir_a(page, "Catálogo")
+    ir_a(page, "Inventario")
     boton = visible(page, "button", "Llegó un paquete")
     if boton is None:
         return ["el Inventario no ofrece 'Llegó un paquete'"]
@@ -1328,7 +1328,7 @@ def caso_c1_llego_un_paquete(page: Page) -> list[str]:
         fallas.append("el borrador creó mercadería antes de recibirla")
     page.reload()
     page.wait_for_timeout(2000)
-    ir_a(page, "Catálogo")
+    ir_a(page, "Inventario")
     visible(page, "button", "Llegó un paquete").click()
     page.wait_for_timeout(1000)
     visible(page, "button", f"Continuar {borrador['codigo']}").click()
@@ -1355,7 +1355,7 @@ def caso_c1_llego_un_paquete(page: Page) -> list[str]:
 
 @caso("C1 · paquete valida en su campo y pregunta antes de descartar o quitar")
 def caso_c1_paquete_validacion(page: Page) -> list[str]:
-    ir_a(page, "Catálogo")
+    ir_a(page, "Inventario")
     page.get_by_role("button", name="Llegó un paquete", exact=True).click()
     page.get_by_role("button", name="Seguir", exact=True).click()
     flete = page.get_by_label("Flete pagado ($)", exact=True)
@@ -1392,6 +1392,172 @@ def caso_c1_paquete_validacion(page: Page) -> list[str]:
     fallas = [] if guardado and not guardado.get("lineas") else ["quitar la pieza no actualizó el borrador"]
     page.get_by_role("button", name="Volver al inventario", exact=True).click()
     return fallas
+
+
+def producto_c2() -> dict:
+    return next(p for p in listar_coleccion("productos") if p.get("nombre") == "Labial Mate Rojo")
+
+
+def eventos_producto_c2(producto_id: int) -> list[dict]:
+    return [e for e in listar_coleccion("eventos")
+            if e.get("entidad_tipo") == "productos" and e.get("entidad_id") == producto_id
+            and e.get("tipo_evento") == "ACTUALIZACION"]
+
+
+def comprobar_inventario_c2(antes: dict, despues: dict) -> None:
+    for campo in ("variantes", "lotes", "valor_inventario_usd_cents", "costo_unitario_usd_cents"):
+        assert despues.get(campo) == antes.get(campo), f"cambiar precio modificó {campo}"
+
+
+def abrir_precio_c2(page: Page):
+    ir_a(page, "Inventario")
+    fila = page.locator("main:visible button").filter(has_text="Labial Mate Rojo").first
+    expect(fila).to_be_visible()
+    fila.click()
+    ficha = page.get_by_role("dialog", name="Labial Mate Rojo", exact=True)
+    expect(ficha).to_be_visible()
+    ficha.get_by_role("button", name="Cambiar precio", exact=True).click()
+    hoja = page.get_by_role("dialog", name="Cambiar precio", exact=True)
+    expect(hoja).to_be_visible()
+    return hoja
+
+
+@caso("C2 · Inventario filtra y cambia un precio con Deshacer")
+def caso_c2_inventario_precio(page: Page) -> list[str]:
+    original = producto_c2()
+    hoja = abrir_precio_c2(page)
+    campo = hoja.get_by_label("Precio nuevo ($)", exact=True)
+    expect(campo).to_have_attribute("inputmode", "decimal")
+    campo.fill("0")
+    hoja.get_by_role("button", name="Guardar precio", exact=True).click()
+    expect(campo).to_have_attribute("aria-invalid", "true")
+    expect(campo).to_be_focused()
+    campo.fill("25.50")
+    expect(campo).to_have_attribute("aria-invalid", "false")
+    hoja.get_by_role("button", name="Guardar precio", exact=True).click()
+    expect(page.get_by_role("status").filter(has_text="Precio guardado")).to_be_visible()
+    expect(hoja).not_to_be_visible()
+    ficha = page.get_by_role("dialog", name="Labial Mate Rojo", exact=True)
+    expect(ficha.get_by_text("$25.50", exact=True)).to_be_visible()
+    cambiado = producto_c2()
+    assert cambiado["precio_venta_usd_cents"] == 2550
+    assert cambiado["precio_manual_usd_cents"] == 2550
+    assert cambiado["modo_precio"] == "MANUAL"
+    comprobar_inventario_c2(original, cambiado)
+    page.get_by_role("button", name="Deshacer", exact=True).click()
+    expect(ficha.get_by_text(f"${original['precio_venta_usd_cents'] / 100:,.2f}", exact=True)).to_be_visible()
+    deshecho = producto_c2()
+    for atributo in ("precio_venta_usd_cents", "precio_manual_usd_cents", "modo_precio"):
+        assert deshecho.get(atributo) == original.get(atributo), f"Deshacer no restauró {atributo}"
+    comprobar_inventario_c2(original, deshecho)
+    cerrar_hojas(page)
+    fila = page.locator("main:visible button").filter(has_text="Labial Mate Rojo").first
+    expect(fila.get_by_text(f"${original['precio_venta_usd_cents'] / 100:,.2f}", exact=True)).to_be_visible()
+    return []
+
+
+@caso("C2 · Inventario valida el precio, confirma descarte y guarda una vez")
+def caso_c2_inventario_precio_validacion(page: Page) -> list[str]:
+    original = producto_c2()
+    eventos_antes = len(eventos_producto_c2(original["id"]))
+    hoja = abrir_precio_c2(page)
+    campo = hoja.get_by_label("Precio nuevo ($)", exact=True)
+    guardar = hoja.get_by_role("button", name="Guardar precio", exact=True)
+    # Un precio sin cambios no tiene que crear un grupo ni tocar la bodega.
+    if guardar.is_enabled():
+        guardar.click()
+    if not hoja.is_visible():
+        page.get_by_role("dialog", name="Labial Mate Rojo", exact=True).get_by_role("button", name="Cambiar precio", exact=True).click()
+        expect(hoja).to_be_visible()
+    assert len(eventos_producto_c2(original["id"])) == eventos_antes
+    for valor in ("", "0", "-2", "letras", "90071992547409.92"):
+        campo.fill(valor)
+        guardar.click()
+        expect(campo).to_have_attribute("aria-invalid", "true")
+        expect(campo).to_be_focused()
+        expect(hoja).to_be_visible()
+        assert len(eventos_producto_c2(original["id"])) == eventos_antes
+        assert producto_c2()["precio_venta_usd_cents"] == original["precio_venta_usd_cents"]
+    campo.fill("0.01")
+    expect(campo).to_have_attribute("aria-invalid", "false")
+    expect(hoja.get_by_text(re.compile("perdés|pérdida|perder", re.I))).to_be_visible()
+    hoja.get_by_role("button", name="Cerrar", exact=True).click()
+    descarte = page.get_by_role("alertdialog")
+    expect(descarte).to_be_visible()
+    descarte.get_by_role("button", name="Seguir editando", exact=True).click()
+    expect(campo).to_have_value("0.01")
+    hoja.get_by_role("button", name="Cerrar", exact=True).click()
+    descarte.get_by_role("button", name="Descartar", exact=True).click()
+    expect(hoja).not_to_be_visible()
+    assert len(eventos_producto_c2(original["id"])) == eventos_antes
+    comprobar_inventario_c2(original, producto_c2())
+    page.get_by_role("dialog", name="Labial Mate Rojo", exact=True).get_by_role("button", name="Cambiar precio", exact=True).click()
+    expect(hoja).to_be_visible()
+    expect(campo).to_have_value(f"{original['precio_venta_usd_cents'] / 100:.2f}")
+    campo.fill("25.50")
+    # Dos activaciones seguidas, sin esperar el primer guardado.
+    guardar.evaluate("el => { el.click(); el.click(); }")
+    expect(page.get_by_role("status").filter(has_text="Precio guardado")).to_be_visible()
+    expect(hoja).not_to_be_visible()
+    eventos = eventos_producto_c2(original["id"])
+    assert len(eventos) == eventos_antes + 1, "dos toques escribieron más de un cambio de precio"
+    assert eventos[-1].get("evento_grupo_id"), "cambiar precio no dejó grupo para Deshacer"
+    assert producto_c2()["precio_venta_usd_cents"] == 2550
+    comprobar_inventario_c2(original, producto_c2())
+    page.get_by_role("button", name="Deshacer", exact=True).click()
+    ficha = page.get_by_role("dialog", name="Labial Mate Rojo", exact=True)
+    expect(ficha.get_by_text(f"${original['precio_venta_usd_cents'] / 100:,.2f}", exact=True)).to_be_visible()
+    comprobar_inventario_c2(original, producto_c2())
+    cerrar_hojas(page)
+    return []
+
+
+@caso("C2 · Inventario usa un filtro excluyente y restablece búsqueda y selección")
+def caso_c2_inventario_filtro(page: Page) -> list[str]:
+    ir_a(page, "Inventario")
+    filtro = page.get_by_role("combobox", name="Filtrar inventario", exact=True)
+    expect(filtro).to_be_visible()
+    expect(page.locator("select:visible")).to_have_count(1)
+    expect(filtro.locator("optgroup[label='Categorías'] option").first).to_be_attached()
+    expect(filtro.locator("optgroup[label='Paquetes'] option").first).to_be_attached()
+    paquetes = listar_coleccion("compras")
+    abierto = next(c for c in paquetes if any(l.get("descripcion") == "Gloss Prueba" for l in c.get("lineas", [])))
+    cerrado = next(c for c in paquetes if any(l.get("descripcion") == "Termo Prueba" for l in c.get("lineas", [])))
+    categorias = listar_coleccion("categorias")
+    categoria = next(c for c in categorias if c.get("nombre") == "Ropa")
+    fila_gloss = page.locator("main:visible button").filter(has_text="Gloss Prueba").first
+    filtro.select_option(f"paquete:{abierto['id']}")
+    expect(fila_gloss).to_be_visible()
+    expect(page.locator("main:visible button").filter(has_text="Bolso Prueba").first).to_be_visible()
+    filtro.select_option(f"categoria:{categoria['id']}")
+    expect(filtro).to_have_value(f"categoria:{categoria['id']}")
+    expect(fila_gloss).not_to_be_visible()
+    expect(page.locator("main:visible")).to_contain_text("Ningún producto coincide")
+    filtro.select_option(f"paquete:{abierto['id']}")
+    expect(fila_gloss).to_be_visible()
+    filtro.select_option(f"paquete:{cerrado['id']}")
+    expect(page.locator("main:visible button").filter(has_text="Termo Prueba").first).to_be_visible()
+    expect(page.locator("main:visible")).to_contain_text("Vendidos")
+    buscar = page.get_by_placeholder("Buscar por nombre, código o tono", exact=True)
+    buscar.fill("sin coincidencia c2")
+    expect(page.locator("main:visible")).to_contain_text("Ningún producto coincide")
+    page.get_by_role("button", name="Restablecer filtros", exact=True).click()
+    expect(buscar).to_have_value("")
+    expect(filtro).to_have_value("todos")
+    expect(fila_gloss).to_be_visible()
+    expect(page.locator("main:visible button").filter(has_text="Termo Prueba")).to_have_count(0)
+    fila = page.locator("main:visible button").filter(has_text="Labial Mate Rojo").first
+    expect(fila).to_contain_text(re.compile(r"P-\d+"))
+    expect(fila).not_to_contain_text("#")
+    expect(fila).to_contain_text("en bodega")
+    buscar.fill("sin coincidencia c2")
+    vacio = page.locator("main:visible")
+    expect(vacio).to_contain_text("Ningún producto coincide")
+    expect(vacio).not_to_contain_text('""')
+    expect(vacio).not_to_contain_text(re.compile(r"categoría\s+Todos|en\s+[\"“]Todos", re.I))
+    page.get_by_role("button", name="Restablecer filtros", exact=True).click()
+    expect(fila).to_be_visible()
+    return []
 
 
 @caso("no quedan errores de consola al recorrer la app")
