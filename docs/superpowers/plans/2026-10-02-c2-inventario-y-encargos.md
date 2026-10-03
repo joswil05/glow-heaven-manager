@@ -449,7 +449,7 @@ conecte el alta; no mostrar un formulario falso ni marcar completado el
 recorrido de alta hasta T4. Cargar/error/reintentar/vacío explícitos.
 `version` recarga después de mutar.
 
-- [ ] **Paso 4: verificar lista y lecturas**
+- [x] **Paso 4: verificar lista y lecturas**
 
 Unitarias del panel y caso móvil verdes; comprobar encargo viejo, cambio de
 fase, retorno y ausencia de acciones de PC. Ejecutar auditoría de índices
