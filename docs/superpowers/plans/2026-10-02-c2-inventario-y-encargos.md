@@ -106,13 +106,16 @@ Buscar siempre el `main` visible con `pantalla(page)`.
 `docs/superpowers/experiments/2026-10-02-c2-pdf-celular.md` y
 `tests/interfaz/pdf-celular.py`; modificar `DocumentoSheet.tsx`,
 `package.json` y `package-lock.json` sólo para la dependencia candidata.
+Arnés de fixtures del paso 1: `tests/interfaz/sembrar-pdf.test.ts`,
+`fixtures-pdf.json` y `pdf-windows.cjs` (motor Electron con las opciones de
+Windows); entrada DEV de prueba en `mobile/src/main.tsx` al conectar el prototipo.
 
 **Consume:** las dos funciones de proforma del mapa.
 **Produce:** contrato `generarArchivoProforma(venta, parametros): Promise<File>`
 y evidencia de comparación. El motor interno se acepta o se rechaza en paso 5;
 las demás tareas sólo dependen del contrato, no del motor.
 
-- [ ] **Paso 1: fijar la referencia y el caso rojo**
+- [x] **Paso 1: fijar la referencia y el caso rojo**
 
 Usar la proforma de un encargo del emulador, con nombre largo, acentos,
 2 piezas, una descartada, abono en córdobas y tasa distinta de Configuración;

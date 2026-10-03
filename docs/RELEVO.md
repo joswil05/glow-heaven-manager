@@ -63,8 +63,8 @@ se trabaja**.
 - **Publicado**: `v2.17.0` en Windows y en el celular (`b47d21f`, 2/10).
 - **Plan vigente**: Fase C2 · Inventario y encargos en el celular,
   [superpowers/plans/2026-10-02-c2-inventario-y-encargos.md](superpowers/plans/2026-10-02-c2-inventario-y-encargos.md).
-- **Siguiente paso**: C2 · T1 · paso 1, referencia y caso rojo del PDF.
-  Plan escrito, sin código C2. T1 requiere comparación en teléfono real
+- **Siguiente paso**: C2 · T1 · paso 2, adaptador PDF experimental.
+  Referencia Windows y caso rojo preparados. T1 requiere comparación en teléfono real
   antes de T2; no se da por cumplida con Playwright.
 - **C1**: T1 a T4 completas y verificadas en `master` local, sin publicar;
   cierre documentado en `ddc0fc7`. Emulador apagado.
@@ -90,6 +90,22 @@ Formato de cada entrada:
 - Sigue: el paso exacto del plan.
 - Para Joswill: lo que necesita decidir o probar (o "nada").
 ```
+
+### 2026-10-02 21:44 · Codex
+- Hizo: C2 · T1 · paso 1. Fixtures desde repositorios/emulador, referencias
+  con Electron y las opciones actuales de Windows, prueba de descarga roja
+  y medición del build sin la dependencia. Informe en superpowers/experiments.
+- Commits: este paso con su casilla y entrada; base `e768f67` limpia.
+- Pruebas: base 593 unitarias; siembra PDF 1 aprobada; build móvil aprobado;
+  descarga falla por ausencia del botón experimental, como debía.
+- Detalle del experimento: la plantilla de Windows no tiene imagen de logo;
+  se conserva su identidad textual. El arnés imprime el mismo HTML y opciones
+  en Electron, sin entrar a producción. Las fixtures están en tests; artefactos
+  PDF/HTML y métricas en scratch (ignorados).
+- Quedó a medias: nada del paso 1. Emulador y Vite local encendidos mientras
+  se implementan los pasos siguientes.
+- Sigue: C2 · T1 · paso 2, después 3 y 4; paso 5 requiere teléfono real.
+- Para Joswill: nada todavía; sin publicación.
 
 ### 2026-10-02 17:00 · Codex
 - Hizo: plan C2 escrito y revisado contra el diseño y las firmas actuales.
