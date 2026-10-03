@@ -107,6 +107,8 @@ Formato de cada entrada:
   conservando impresión actual. Se repartieron T2 y T3 con rutas exclusivas,
   principal encargado de integrar/commitear y tercer agente en revisión.
 - Commits: 5a en `5070bcd`; este WIP guarda 5b sin marcarlo terminado.
+  5b en `907b61f`; página independiente guardada en WIP 5c, sin comprobar
+  Safari ni acceso remoto. Archivos de página en tests/interfaz/pdf-preview*.
 - Pruebas: tipos móvil pasan con paginador; ancho/márgenes pasan. La prueba
   completa nueva no concluyó: timeout networkidle en control, no verde.
   Inspección corta: pie visible, aún recorta «No se consiguió» y saldo.
