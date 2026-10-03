@@ -113,7 +113,8 @@ Formato de cada entrada:
 - Para Joswill: se pidió esa decisión. Ross usa iPhone 14 Plus actualizado,
   fuera de su casa, sin Wi-Fi compartido; versión exacta/Safari/PWA y
   acceso HTTPS remoto pendientes. No hay permiso de publicación.
-- Procesos: emulador y Vite se apagan antes de cerrar este relevo.
+- Procesos: emulador y Vite apagados; se verificó sin escuchas en
+  8080, 9099, 4400, 9150 ni 5174. WIP guardado en `fe6a9df`.
 
 ### 2026-10-02 21:47 · Codex
 - Hizo: C2 · T1 · paso 2, adaptador con html2pdf.js 0.14.0 y File.
