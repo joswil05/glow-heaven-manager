@@ -1387,13 +1387,23 @@ export class VentasRepoFirestore {
    * después cambia un precio, el encargo vuelve a estar "por mandar". Uno ya
    * aceptado no cambia: la fase ya no depende de esto.
    */
-  static async marcarEnviada(venta_id: number, evento_grupo_id: string): Promise<void> {
+  static async marcarEnviada(
+    venta_id: number,
+    evento_grupo_id: string,
+    versionEsperada?: number
+  ): Promise<void> {
     const db = getFirestoreDb();
     const ventaRef = doc(db, 'ventas', String(venta_id));
     const hoy = hoyISO();
 
     const anterior = await runTransaction(db, async (tx) => {
       const venta = await this.leerEncargoVivo(tx, ventaRef, venta_id);
+      // La hoja pudo mostrar una versión que otra app recotizó después.
+      // Se compara en la misma transacción que marca el envío, incluyendo
+      // la versión cero de un encargo viejo, para no confirmar otra proforma.
+      if (versionEsperada !== undefined && versionEsperada !== (venta.cotizacion_version ?? 0)) {
+        throw new Error('La cotización cambió. Volvé a verla antes de marcarla como mandada.');
+      }
       if (venta.estado === 'PENDIENTE') return null;
       const falta = faltaCotizar(venta);
       if (falta) throw new Error(falta);
