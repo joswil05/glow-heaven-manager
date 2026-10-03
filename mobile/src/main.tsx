@@ -38,7 +38,13 @@ const updateSW = registerSW({
   },
 });
 
-createRoot(document.getElementById('root')!).render(
+// Experimento local con fixtures: no monta Auth/DataProvider ni consulta la base.
+// Vite elimina esta rama (y su import) del build de producción.
+if (import.meta.env.DEV && new URLSearchParams(location.search).has('c2-pdf')) {
+  void import('./components/PruebaProformaSheet').then(({ PruebaProformaSheet }) => {
+    createRoot(document.getElementById('root')!).render(<PruebaProformaSheet />);
+  });
+} else createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AuthProvider>
       <App />

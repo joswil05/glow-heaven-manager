@@ -1,6 +1,6 @@
 # C2 · T1: experimento de proforma PDF en el celular
 
-Estado: pasos 1 y 2 completos; adaptador implementado, hoja aún pendiente. No aprobado
+Estado: pasos 1 y 2 completos; paso 3 en WIP, detenido por discrepancia del plan. No aprobado
 para teléfono ni para continuar T2. Datos exclusivamente ficticios.
 
 ## Referencia y reproducción
@@ -60,7 +60,42 @@ plantilla en iframe y devuelve File. La biblioteca clona el body en la
 página anfitriona: se conservan estilos resueltos para evitar contaminación
 de Tailwind/tema. No se cambiaron CSS ni márgenes de la plantilla. Types móvil pasa.
 
-Pendientes: PDF móvil, contraste visual entre motores, fallo de fuentes,
-prueba de 35 líneas, share/cancelación/portapapeles, dependencia y delta de
-build. Teléfono: aún no probado; modelo/SO/navegador sin registrar. No hay
-HTTPS confiable configurado para la prueba física. T1 paso 5 sigue abierto.
+### Inspección local del WIP del paso 3 (2/10, 21:53)
+
+La entrada DEV `/?c2-pdf=1` abre una hoja con fixtures, prepara el archivo
+y ofrece descarga, compartir y copiar. No está integrada al flujo de encargos.
+La prueba automática corta pasó: descargó `corta-movil.pdf`, 288911 bytes,
+una página A4. Ese resultado sólo verifica descarga; no aprueba la hoja.
+
+TypeScript móvil falla con TS2322 en `PruebaProformaSheet.tsx`: el plan pide
+`BottomSheet ocupado`, pero la interfaz real no tiene esa propiedad. No se
+eliminó el bloqueo ni se amplió el marco común para esconder la discrepancia.
+Paso 3 sin marcar; se detuvo la implementación según la regla del plan.
+
+Se inspeccionaron ambas capturas, a la misma escala A4 de 1300 px:
+
+- Windows: identidad textual en una línea y área útil más ancha.
+- Candidata: identidad partida en dos líneas, márgenes laterales mayores y
+  otros saltos de texto. Importes visibles correctos ($85, C$720, $65, tasa36),
+  pero fidelidad visual sin aprobar.
+- El PDF candidato es rasterizado: pypdf extrae 0 caracteres, frente a 1214
+  de Windows. No implica importes perdidos, pero sí texto no seleccionable.
+- La plantilla tiene CSS distinta para pantalla e impresión. El adaptador
+  conserva estilos de pantalla; no se modificó la plantilla compartida.
+  Investigar ese mecanismo si se autoriza corregir el plan; no rediseñar Windows.
+
+Otra limitación del paso 4: la entrada está restringida a DEV, de modo que
+Vite excluye el adaptador del build de producción. Medir ese build no
+mostraría el costo futuro de html2pdf. Propuesta pendiente: un build de
+medición separado que incluya la candidata y el mismo Workbox; reportar
+ambas mediciones, sin habilitar el experimento en producción.
+
+Joswill indicó que Ross usa un **iPhone 14 Plus actualizado a la última
+versión disponible**, fuera de su casa y sin compartir Wi-Fi. No se conoce
+la versión exacta de iOS ni se probó Safari/PWA. No hay HTTPS confiable
+configurado; el acceso remoto de prueba requiere coordinarlo y no autoriza
+publicar hosting. T1 paso 5 sigue abierto y bloquea T2.
+
+Pendientes: resolver la discrepancia del marco tras decisión de Joswill;
+prueba larga, share/cancelación/portapapeles, generación fallida y delta
+válido del build. No afirmar que esas pruebas pasaron.

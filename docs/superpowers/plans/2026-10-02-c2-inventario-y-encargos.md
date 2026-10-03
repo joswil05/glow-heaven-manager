@@ -18,8 +18,11 @@ la candidata inicial es html2pdf.js, no una elección ya aprobada.
 
 **Diseño:** [2026-10-02-fases-del-celular-design.md](../specs/2026-10-02-fases-del-celular-design.md), sección C2 y criterios de diseño.
 
-**Estado:** plan escrito; ningún paso de C2 implementado. Base de código:
-C1 T1–T4 completa. No se publica esta fase sin el «publicalo» de Joswill.
+**Estado:** T1 pasos 1 y 2 completos; paso 3 en WIP, detenido: el plan
+asume `BottomSheet ocupado`, propiedad ausente en el código. Decisión de
+Joswill pendiente antes de corregir el plan y continuar. Ver el informe
+del experimento y RELEVO. C1 T1–T4 completa. No se publica esta fase sin
+el «publicalo» de Joswill.
 
 ## Reglas para todas las tareas
 

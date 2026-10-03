@@ -63,9 +63,11 @@ se trabaja**.
 - **Publicado**: `v2.17.0` en Windows y en el celular (`b47d21f`, 2/10).
 - **Plan vigente**: Fase C2 · Inventario y encargos en el celular,
   [superpowers/plans/2026-10-02-c2-inventario-y-encargos.md](superpowers/plans/2026-10-02-c2-inventario-y-encargos.md).
-- **Siguiente paso**: C2 · T1 · paso 3, hoja experimental de preparación y
-  compartir. Adaptador y referencia preparados. T1 requiere comparación en teléfono real
-  antes de T2; no se da por cumplida con Playwright.
+- **Siguiente paso**: resolver con Joswill la discrepancia de C2 · T1 ·
+  paso 3 (`BottomSheet` no acepta `ocupado`). Hoja guardada como WIP, tipos
+  fallan; no marcar terminado ni avanzar sin corregir el plan. También
+  revisar medición de dependencia DEV y diferencias visuales del PDF.
+  T1 requiere comparación en teléfono real antes de T2.
 - **C1**: T1 a T4 completas y verificadas en `master` local, sin publicar;
   cierre documentado en `ddc0fc7`. Emulador apagado.
 - **Después de C1**: C2 a C4, en el diseño
@@ -90,6 +92,28 @@ Formato de cada entrada:
 - Sigue: el paso exacto del plan.
 - Para Joswill: lo que necesita decidir o probar (o "nada").
 ```
+
+### 2026-10-02 21:53 · Codex
+- Hizo: WIP C2 · T1 · paso 3. Hoja DEV de fixtures con preparación,
+  descarga y acciones de compartir/copiar. Se detuvo al encontrar que
+  BottomSheet no admite `ocupado`, aunque el plan lo exige.
+- Commits: pasos 1 y 2 en `1fef684` y `4025387`; este WIP con informe y
+  bitácora. No publicados.
+- Pruebas: descarga corta aprobada (288911 bytes, una página); tipos móvil
+  FALLAN TS2322 por la propiedad ausente. 593 unitarias y build móvil de
+  base aprobados antes del prototipo; no equivalen a verificar este WIP.
+  Inspección visual: importes correctos, márgenes/saltos diferentes de
+  Windows. PDF candidato rasterizado, sin texto seleccionable.
+- Quedó a medias: paso 3 sin marcar. No se probaron share, cancelación,
+  fallo de portapapeles, PDF largo ni generación fallida. Paso 4 necesita
+  medir con un build experimental: el normal elimina la entrada DEV.
+- Sigue: decisión de Joswill para corregir plan, probar `ocupado` en el
+  marco común, medir candidata sin incorporarla a producción e investigar
+  fidelidad conservando la plantilla. T2 no empieza.
+- Para Joswill: se pidió esa decisión. Ross usa iPhone 14 Plus actualizado,
+  fuera de su casa, sin Wi-Fi compartido; versión exacta/Safari/PWA y
+  acceso HTTPS remoto pendientes. No hay permiso de publicación.
+- Procesos: emulador y Vite se apagan antes de cerrar este relevo.
 
 ### 2026-10-02 21:47 · Codex
 - Hizo: C2 · T1 · paso 2, adaptador con html2pdf.js 0.14.0 y File.
