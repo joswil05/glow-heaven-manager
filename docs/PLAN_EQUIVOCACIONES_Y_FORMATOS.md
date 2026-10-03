@@ -119,7 +119,9 @@ Al tocar **Anular**, la app pregunta qué pasó:
 
 - **Pide el PIN de seguridad.** Sin eso, cualquiera con acceso puede hacer
   desaparecer una venta cobrada en efectivo.
-- **Hasta 7 días y dentro del mes.** Un mes cerrado no cambia.
+- **Hasta 7 días desde la carga y desde la fecha del documento.** Corrección
+  autorizada el 3/10/2026: cambiar de mes no acorta ese plazo; al borrar se
+  invalida y recalcula el resumen del período afectado.
 - **No si toca algo fuera de sí misma**: abonos de otro día (plata real) o
   piezas de encargo que ya entraron a un paquete. En esos casos, Anular.
 - **"Deshacer" unos segundos**, con la copia sólo en la memoria de la app,
@@ -137,7 +139,7 @@ Al tocar **Anular**, la app pregunta qué pasó:
 ### Cómo quedó hecho
 
 - **La regla** está en `src/core/borrado.ts` (`porQueNoSeBorraVenta`,
-  `porQueNoSeBorraAbono`): una semana desde que se cargó, el mes en curso,
+  `porQueNoSeBorraAbono`): una semana desde que se cargó y desde su fecha,
   ningún abono de otro día, ninguna pieza de encargo comprada. Cada motivo es
   una frase que dice qué hacer en su lugar.
 - **El borrado** está en `repositories/borrado.repo.ts`. Primero anula por el

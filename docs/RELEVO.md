@@ -114,8 +114,13 @@ Formato de cada entrada:
   C1/C2 locales y el PDF experimental no se incluyen. Una copia Git
   independiente en `scratch` permite publicar sin mover ni limpiar master.
 - Commits: T3 `e7fe575`, T7 `61de90b`; este commit guarda T2 WIP.
+- Avances posteriores: T2 WIP `73b5bea`, verificado y marcado en `3c7ff12`
+  (tres casos UI verdes); T3 vista/rutas `8b5cebd` (caso UI y tipos verdes).
+  Hotfix ventas `cea39b9`; hotfix impuesto `2d01ea9`.
 - Pruebas: `npm test` 616 aprobadas con los hotfixes; ambas apps pasan tipos.
-  Las regresiones fallaron antes de corregir. Emulador y publicación pendientes.
+  Las regresiones fallaron antes de corregir. Emulador: 106 aprobadas,
+  incluida la cancelada del 29/9 borrada el 3/10 sin doble devolución.
+  Publicación aislada en preparación, no publicada todavía.
 - Quedó a medias: T2 paso 3 sin marcar hasta verificar interfaz; T3 paso 3
   asignado al agente de ventas tras terminar el hotfix, con rutas exclusivas.
 - Sigue: verificar y publicar los dos hotfixes; después T2 paso 3 y T3 paso 3.

@@ -529,7 +529,9 @@ cada unidad vuelve a su lote exacto. Una sola puerta: "Anular" pregunta qué
 pasó.
 
 - La regla, en `core/borrado.ts`: hasta una semana desde que se cargó, del
-  mes en curso, sin abonos de otro día y sin piezas de encargo compradas.
+  fecha también dentro de siete días, sin abonos de otro día y sin piezas
+  de encargo compradas. Desde el hotfix del 3/10/2026, cambiar de mes no
+  acorta el plazo: se recalcula el resumen del período afectado.
 - Cómo, en `repositories/borrado.repo.ts`: anula por el camino de siempre y
   después barre. Pide el PIN del negocio, y el contador vuelve atrás si era
   el último número. No necesita índices nuevos.
