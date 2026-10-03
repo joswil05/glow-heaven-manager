@@ -328,7 +328,7 @@ de DataContext; no dejar la lista congelada por `paquetes.length > 0`.
 Conservar el criterio existente de pertenencia al paquete; no cambiar lotes
 ni su cálculo aquí. Quitar scroll-reveal en filas que se refiltran.
 
-- [ ] **Paso 3: hoja de precio, ganancia y guardado**
+- [x] **Paso 3: hoja de precio, ganancia y guardado**
 
 En ficha, `Cambiar precio` abre la hoja; mantener el producto por ID y
 resolverlo en `productos` para no mostrar una referencia vieja tras guardar
