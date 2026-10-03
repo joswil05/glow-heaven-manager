@@ -1669,6 +1669,231 @@ def caso_c2_encargos_lista(page: Page) -> list[str]:
     return []
 
 
+def abrir_pedido_c2(page: Page):
+    """La entrada real desde Vender; T4 conecta la intención de T3."""
+    if page.locator("nav button:visible").count() == 0:
+        cerrar_hojas(page)
+        page.locator("main:visible").last.get_by_role("button", name="Volver", exact=True).click()
+    ir_a(page, "Vender")
+    page.get_by_role("button", name="Anotar un pedido", exact=True).click()
+    hoja = page.get_by_role("dialog", name="Anotar un pedido", exact=True)
+    expect(hoja).to_be_visible()
+    return hoja
+
+
+def elegir_clienta_pedido_c2(page: Page, hoja, nombre: str = "Ana Prueba") -> None:
+    hoja.get_by_role("button", name="Elegir clienta", exact=True).click()
+    selector = page.get_by_role("dialog", name="Elegí la clienta", exact=True)
+    selector.get_by_placeholder("Buscar por nombre o teléfono", exact=True).fill(nombre)
+    selector.get_by_role("button", name=re.compile(re.escape(nombre))).click()
+    expect(selector).not_to_be_visible()
+    expect(hoja).to_contain_text(nombre)
+
+
+def pieza_pedido_c2(hoja, numero: int = 1):
+    return hoja.get_by_role("group", name=f"Pieza {numero}", exact=True)
+
+
+def volver_desde_encargos_c2(page: Page) -> None:
+    cerrar_hojas(page)
+    principal = page.locator("main:visible").last
+    principal.get_by_role("button", name="Volver", exact=True).click()
+    expect(page.locator("nav button:visible")).to_have_count(5)
+
+
+def foto_bodega_pedido_c2() -> list[dict]:
+    campos = ("id", "variantes", "lotes", "valor_inventario_usd_cents", "costo_unitario_usd_cents")
+    return sorted([{campo: p.get(campo) for campo in campos} for p in listar_coleccion("productos")], key=lambda p: p["id"])
+
+
+def pedidos_por_pieza_c2(descripcion: str) -> list[dict]:
+    return [v for v in listar_coleccion("ventas") if any(l.get("descripcion") == descripcion for l in v.get("lineas", []))]
+
+
+@caso("C2 · anotar un pedido sin precio no crea deuda ni descuenta bodega")
+def caso_c2_anotar_sin_precio(page: Page) -> list[str]:
+    antes = foto_bodega_pedido_c2()
+    movimientos_antes = listar_coleccion("movimientos_inventario")
+    ana = next(c for c in listar_coleccion("clientes") if c.get("nombre") == "Ana Prueba")
+    saldo_antes = ana.get("saldo_pendiente_usd_cents", 0)
+    ventas_antes = len(listar_coleccion("ventas"))
+    hoja = abrir_pedido_c2(page)
+    elegir_clienta_pedido_c2(page, hoja)
+    pieza = pieza_pedido_c2(hoja)
+    pieza.get_by_label("Qué quiere", exact=True).fill("Bolso C2")
+    cantidad = pieza.get_by_label("Cantidad", exact=True)
+    cantidad.fill("2")
+    expect(cantidad).to_have_attribute("inputmode", "numeric")
+    precio = pieza.get_by_label("Precio ($)", exact=True)
+    expect(precio).to_have_value("")
+    expect(precio).to_have_attribute("inputmode", "decimal")
+    hoja.get_by_role("button", name="Guardar pedido", exact=True).click()
+    expect(page.get_by_text("Pedido anotado", exact=True)).to_be_visible()
+    expect(hoja).not_to_be_visible()
+    pedidos = pedidos_por_pieza_c2("Bolso C2")
+    assert len(pedidos) == 1, "guardar el pedido debe crear un solo documento"
+    pedido = pedidos[0]
+    assert len(listar_coleccion("ventas")) == ventas_antes + 1
+    assert pedido["tipo"] == "ENCARGO" and pedido["estado"] == "COTIZADA"
+    assert pedido["cliente_id"] == ana["id"]
+    assert pedido["total_usd_cents"] == 0 and pedido["saldo_usd_cents"] == 0
+    assert pedido["piezas"]["sin_precio"] == 1
+    assert pedido["lineas"][0]["cantidad"] == 2 and pedido["lineas"][0]["precio_unitario_usd_cents"] == 0
+    assert foto_bodega_pedido_c2() == antes, "anotar un encargo no cambia unidades, lotes ni costos"
+    assert listar_coleccion("movimientos_inventario") == movimientos_antes
+    despues = next(c for c in listar_coleccion("clientes") if c["id"] == ana["id"])
+    assert despues.get("saldo_pendiente_usd_cents", 0) == saldo_antes
+    principal = page.locator("main:visible").last
+    principal.get_by_role("button", name=re.compile("^Por buscar")).click()
+    expect(principal.get_by_role("button", name=re.compile(re.escape(pedido["codigo"])))).to_contain_text("Bolso C2")
+    volver_desde_encargos_c2(page)
+    return []
+
+
+@caso("C2 · anotar con clienta nueva y precio guarda una vez sin convertir la cotización en deuda")
+def caso_c2_anotar_clienta_nueva(page: Page) -> list[str]:
+    bodega = foto_bodega_pedido_c2()
+    ventas_antes = len(listar_coleccion("ventas"))
+    clientas_antes = len(listar_coleccion("clientes"))
+    hoja = abrir_pedido_c2(page)
+    hoja.get_by_role("button", name="Elegir clienta", exact=True).click()
+    selector = page.get_by_role("dialog", name="Elegí la clienta", exact=True)
+    selector.get_by_role("button", name=re.compile("Crear nueva clienta")).click()
+    alta = page.get_by_role("dialog", name="Clienta nueva", exact=True)
+    alta.get_by_label("Nombre", exact=True).fill("Clienta nueva C2 pedido")
+    alta.get_by_label("Teléfono", exact=True).fill("88889999")
+    alta.get_by_role("button", name="Guardar y elegir", exact=True).evaluate("b => { b.click(); b.click(); }")
+    expect(alta).not_to_be_visible()
+    expect(hoja).to_contain_text(re.compile("Clienta nueva C2 pedido", re.I))
+    pieza = pieza_pedido_c2(hoja)
+    pieza.get_by_label("Qué quiere", exact=True).fill("Perfume C2 precio opcional")
+    pieza.get_by_label("Precio ($)", exact=True).fill("12.50")
+    hoja.get_by_role("button", name="Guardar pedido", exact=True).evaluate("b => { b.click(); b.click(); }")
+    expect(page.get_by_text("Pedido anotado", exact=True)).to_be_visible()
+    assert len(listar_coleccion("clientes")) == clientas_antes + 1, "el doble toque no debe duplicar a la clienta"
+    assert len(listar_coleccion("ventas")) == ventas_antes + 1, "el doble toque no debe duplicar el pedido"
+    pedidos = pedidos_por_pieza_c2("Perfume C2 precio opcional")
+    assert len(pedidos) == 1
+    pedido = pedidos[0]
+    assert pedido["tipo"] == "ENCARGO" and pedido["estado"] == "COTIZADA"
+    assert pedido["total_usd_cents"] == 1250 and pedido["lineas"][0]["precio_unitario_usd_cents"] == 1250
+    assert not any(p.get("venta_id") == pedido["id"] for p in listar_coleccion("pagos"))
+    clienta = next(c for c in listar_coleccion("clientes") if c["id"] == pedido["cliente_id"])
+    assert clienta.get("saldo_pendiente_usd_cents", 0) == 0, "cotizada todavía no cuenta como deuda"
+    assert foto_bodega_pedido_c2() == bodega
+    volver_desde_encargos_c2(page)
+    return []
+
+
+@caso("C2 · anotar valida clienta y piezas en sus campos antes de escribir")
+def caso_c2_anotar_validacion(page: Page) -> list[str]:
+    ventas_antes = listar_coleccion("ventas")
+    eventos_antes = listar_coleccion("eventos")
+    hoja = abrir_pedido_c2(page)
+    guardar = hoja.get_by_role("button", name="Guardar pedido", exact=True)
+    guardar.click()
+    elegir = hoja.get_by_role("button", name="Elegir clienta", exact=True)
+    expect(elegir).to_have_attribute("aria-invalid", "true")
+    expect(elegir).to_be_focused()
+    elegir_clienta_pedido_c2(page, hoja)
+    pieza = pieza_pedido_c2(hoja)
+    descripcion = pieza.get_by_label("Qué quiere", exact=True)
+    guardar.click()
+    expect(descripcion).to_have_attribute("aria-invalid", "true")
+    expect(descripcion).to_be_focused()
+    descripcion.fill("Pedido C2 validar sin guardar")
+    expect(descripcion).to_have_attribute("aria-invalid", "false")
+    cantidad = pieza.get_by_label("Cantidad", exact=True)
+    for valor in ("0", "1.5", "letras", "9007199254740992"):
+        cantidad.fill(valor)
+        guardar.click()
+        expect(cantidad).to_have_attribute("aria-invalid", "true")
+        expect(cantidad).to_be_focused()
+        assert listar_coleccion("ventas") == ventas_antes
+    cantidad.fill("1")
+    expect(cantidad).to_have_attribute("aria-invalid", "false")
+    precio = pieza.get_by_label("Precio ($)", exact=True)
+    for valor in ("-1", "letras", "90071992547409.92"):
+        precio.fill(valor)
+        guardar.click()
+        expect(precio).to_have_attribute("aria-invalid", "true")
+        expect(precio).to_be_focused()
+        assert listar_coleccion("ventas") == ventas_antes
+    precio.fill("")
+    expect(precio).to_have_attribute("aria-invalid", "false")
+    assert listar_coleccion("eventos") == eventos_antes
+    hoja.get_by_role("button", name="Cerrar", exact=True).click()
+    page.get_by_role("alertdialog").get_by_role("button", name="Descartar", exact=True).click()
+    volver_desde_encargos_c2(page)
+    return []
+
+
+@caso("C2 · anotar confirma descarte por X y Atrás, conserva carrito y la clienta ya guardada")
+def caso_c2_anotar_descarte_y_carrito(page: Page) -> list[str]:
+    if page.locator("nav button:visible").count() == 0:
+        volver_desde_encargos_c2(page)
+    problema = poner_en_el_carrito(page, "Perfume Carolina Herrera")
+    assert problema is None, problema
+    clienta_vender = visible(page, "header button")
+    assert clienta_vender is not None
+    clienta_vender.click()
+    selector = page.get_by_role("dialog", name="Elegí la clienta", exact=True)
+    selector.get_by_placeholder("Buscar por nombre o teléfono", exact=True).fill("Ana Prueba")
+    selector.get_by_role("button", name=re.compile("Ana Prueba")).click()
+    expect(selector).not_to_be_visible()
+    cobrar = visible(page, "span:text-is('Cobrar')")
+    assert cobrar is not None
+    cobrar.click()
+    carrito = page.get_by_role("dialog", name="Carrito", exact=True)
+    expect(carrito).to_contain_text("Ana Prueba")
+    expect(carrito).to_contain_text("Perfume Carolina Herrera")
+    carrito_antes = carrito.inner_text()
+    carrito.get_by_role("button", name="Cerrar", exact=True).click()
+    expect(carrito).not_to_be_visible()
+    ventas_antes = listar_coleccion("ventas")
+    hoja = abrir_pedido_c2(page)
+    hoja.get_by_role("button", name="Elegir clienta", exact=True).click()
+    page.get_by_role("dialog", name="Elegí la clienta", exact=True).get_by_role("button", name=re.compile("Crear nueva clienta")).click()
+    alta = page.get_by_role("dialog", name="Clienta nueva", exact=True)
+    alta.get_by_label("Nombre", exact=True).fill("Clienta C2 que conserva su ficha")
+    alta.get_by_role("button", name="Guardar y elegir", exact=True).click()
+    expect(alta).not_to_be_visible()
+    clientas_antes = listar_coleccion("clientes")
+    primera = pieza_pedido_c2(hoja)
+    primera.get_by_label("Qué quiere", exact=True).fill("Pedido C2 que se descarta")
+    hoja.get_by_role("button", name="Agregar otra pieza", exact=True).click()
+    segunda = pieza_pedido_c2(hoja, 2)
+    expect(segunda.get_by_label("Qué quiere", exact=True)).to_be_focused()
+    segunda.get_by_label("Qué quiere", exact=True).fill("Segunda pieza C2")
+    segunda.get_by_role("button", name="Quitar pieza", exact=True).click()
+    confirmar_quitar = page.get_by_role("alertdialog")
+    expect(confirmar_quitar).to_be_visible()
+    confirmar_quitar.get_by_role("button", name="No, conservar", exact=True).click()
+    expect(segunda.get_by_label("Qué quiere", exact=True)).to_have_value("Segunda pieza C2")
+    segunda.get_by_role("button", name="Quitar pieza", exact=True).click()
+    confirmar_quitar.get_by_role("button", name="Sí, quitar pieza", exact=True).click()
+    expect(segunda).to_have_count(0)
+    hoja.get_by_role("button", name="Cerrar", exact=True).click()
+    descarte = page.get_by_role("alertdialog")
+    expect(descarte).to_be_visible()
+    descarte.get_by_role("button", name="Seguir editando", exact=True).click()
+    expect(primera.get_by_label("Qué quiere", exact=True)).to_have_value("Pedido C2 que se descarta")
+    # El historial de BottomSheet intercepta Atrás sin navegar fuera de la app.
+    page.evaluate("window.history.back()")
+    expect(descarte).to_be_visible()
+    descarte.get_by_role("button", name="Descartar", exact=True).click()
+    expect(hoja).not_to_be_visible()
+    assert listar_coleccion("ventas") == ventas_antes
+    assert listar_coleccion("clientes") == clientas_antes, "descartar el pedido no borra una clienta que ya se guardó"
+    volver_desde_encargos_c2(page)
+    expect(visible(page, "header button", "Ana Prueba")).to_be_visible()
+    visible(page, "span:text-is('Cobrar')").click()
+    expect(carrito).to_be_visible()
+    assert carrito.inner_text() == carrito_antes, "abrir o descartar un pedido no cambia el carrito ni su clienta"
+    carrito.get_by_role("button", name="Cerrar", exact=True).click()
+    return []
+
+
 @caso("no quedan errores de consola al recorrer la app")
 def caso_consola(page: Page) -> list[str]:
     # Lo llena el registrador; se evalúa al final de la corrida.

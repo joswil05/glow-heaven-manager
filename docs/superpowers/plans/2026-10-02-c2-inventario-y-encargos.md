@@ -462,7 +462,7 @@ fase, retorno y ausencia de acciones de PC. Ejecutar auditoría de índices
 **Produce:** selector `{ abierto; onCerrar; onSeleccionar: (c: ClienteDetalle) => void }`
 y alta `{ abierto; onCerrar; onGuardado: (id: number) => void }`.
 
-- [ ] **Paso 1: caso rojo de alta y descarte**
+- [x] **Paso 1: caso rojo de alta y descarte**
 
 `C2 · anotar un pedido no crea deuda ni descuenta bodega`: Vender → Anotar un
 pedido → Ana Prueba → descripción «Bolso C2», cantidad 2, precio vacío.
