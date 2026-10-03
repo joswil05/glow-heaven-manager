@@ -427,7 +427,7 @@ ESPERANDO «Esperando respuesta», POR_COMPRAR «Por comprar», EN_CAMINO
 «Anulado». `FASES_EN_CURSO` da orden. Encabezado resumen «2 por cotizar · 1
 esperando respuesta» cuenta POR_BUSCAR/ESPERANDO sin redefinir las fases.
 
-- [ ] **Paso 3: vista y rutas**
+- [x] **Paso 3: vista y rutas**
 
 Extender `Vista` con `encargos`; renderizar como registrar-paquete, sin dock
 propio, recordando retorno Inicio/Vender. Tarjeta visible incluso en cero,

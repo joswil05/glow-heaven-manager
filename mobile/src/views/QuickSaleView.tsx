@@ -51,7 +51,7 @@ function etiquetaVariante(v: ProductoVariante): string {
   return [v.talla, v.color].filter(Boolean).join(' · ') || 'Único';
 }
 
-export function QuickSaleView() {
+export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void }) {
   const {
     parametros,
     categorias,
@@ -484,6 +484,17 @@ export function QuickSaleView() {
             </button>
           )}
         </div>
+
+        {onAnotarPedido && (
+          <button
+            type="button"
+            onClick={() => { haptics.selection(); onAnotarPedido(); }}
+            className="tocable mt-1 flex min-h-11 w-full items-center justify-between rounded-xl border border-borde bg-superficie-2 px-3 text-sm font-semibold text-texto"
+          >
+            <span>Anotar un pedido</span>
+            <ChevronRight size={16} className="text-texto-2" />
+          </button>
+        )}
 
         {/* Barra de búsqueda moderna */}
         <div className="relative flex items-center mt-1">

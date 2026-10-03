@@ -11,12 +11,13 @@ import { InventoryQuickView } from './views/InventoryQuickView';
 import { AjustesView } from './views/AjustesView';
 import { HistorialView } from './views/HistorialView';
 import { RegistrarPaqueteView } from './views/RegistrarPaqueteView';
+import { EncargosView } from './views/EncargosView';
 import { BottomNav } from './components/BottomNav';
 import { SnackbarProvider } from './components/Snackbar';
 
 // `ajustes` no esta en el dock: se toca cada varias semanas y el dock es
 // para lo de cada minuto. Se entra por el engranaje del Inicio.
-export type Vista = 'panel' | 'vender' | 'cobranza' | 'historial' | 'inventario' | 'ajustes' | 'registrar-paquete';
+export type Vista = 'panel' | 'vender' | 'cobranza' | 'historial' | 'inventario' | 'ajustes' | 'registrar-paquete' | 'encargos';
 
 import { ShieldAlert, WifiOff } from 'lucide-react';
 import { usandoEmuladorLocal } from './lib/firebase-mobile';
@@ -173,6 +174,13 @@ function AppContenido() {
 function Navegacion() {
   const { parametros } = useDatosNegocio();
   const [vista, setVista] = useState<Vista>('panel');
+  const [origenEncargos, setOrigenEncargos] = useState<'panel' | 'vender'>('panel');
+  const [nuevoEncargoAlEntrar, setNuevoEncargoAlEntrar] = useState(false);
+  function abrirEncargos(origen: 'panel' | 'vender', nuevo = false) {
+    setOrigenEncargos(origen);
+    setNuevoEncargoAlEntrar(nuevo);
+    setVista('encargos');
+  }
   /**
    * Se aplica UNA sola vez.
    *
@@ -202,10 +210,11 @@ function Navegacion() {
                 onIrAVenta={() => setVista('vender')}
                 onIrACobranza={() => setVista('cobranza')}
                 onIrAInventario={() => setVista('inventario')}
+                onIrAEncargos={() => abrirEncargos('panel')}
               />
             </div>
             <div className={`h-full w-full overflow-hidden ${vista === 'vender' ? 'block animate-vista' : 'hidden'}`}>
-              <QuickSaleView />
+              <QuickSaleView onAnotarPedido={() => abrirEncargos('vender', true)} />
             </div>
             <div className={`h-full w-full overflow-hidden ${vista === 'cobranza' ? 'block animate-vista' : 'hidden'}`}>
               <CobranzaView />
@@ -220,8 +229,11 @@ function Navegacion() {
               <HistorialView />
             </div>
             {vista === 'registrar-paquete' && <RegistrarPaqueteView onVolver={() => setVista('inventario')} />}
+            {vista === 'encargos' && (
+              <EncargosView onVolver={() => setVista(origenEncargos)} abrirNuevoAlEntrar={nuevoEncargoAlEntrar} />
+            )}
           </div>
-          {vista !== 'ajustes' && vista !== 'registrar-paquete' && <BottomNav actual={vista} onCambiar={setVista} />}
+          {vista !== 'ajustes' && vista !== 'registrar-paquete' && vista !== 'encargos' && <BottomNav actual={vista} onCambiar={setVista} />}
         </div>
   );
 }

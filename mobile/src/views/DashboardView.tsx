@@ -41,12 +41,14 @@ export function DashboardView({
   onIrAVenta,
   onIrACobranza,
   onIrAInventario,
+  onIrAEncargos,
 }: {
   onIrAAjustes?: () => void;
   onIrAActividad?: () => void;
   onIrAVenta?: () => void;
   onIrACobranza?: () => void;
   onIrAInventario?: () => void;
+  onIrAEncargos?: () => void;
 }) {
   const { usuario } = useAuth();
   const { version, productos, parametros } = useDatosNegocio();
@@ -55,6 +57,7 @@ export function DashboardView({
   const [panel, setPanel] = useState<PanelData | null>(cacheDashboardGlobal.panel);
   const [serie, setSerie] = useState<DiaVentas[]>(cacheDashboardGlobal.serie);
   const [hoy, setHoy] = useState<ResumenHoy>(cacheDashboardGlobal.hoy);
+  const [fasesEncargo, setFasesEncargo] = useState(cacheDashboardGlobal.fasesEncargo);
   const [cargando, setCargando] = useState(!cacheDashboardGlobal.panel);
   const [error, setError] = useState<string | null>(null);
 
@@ -80,6 +83,7 @@ export function DashboardView({
       setPanel(data.panel);
       setSerie(data.serie);
       setHoy(data.hoy);
+      setFasesEncargo(data.fasesEncargo);
     } catch (err) {
       console.error('[DashboardView] Error cargando el panel:', err);
       if (!cacheDashboardGlobal.panel) {
@@ -118,6 +122,11 @@ export function DashboardView({
   const cuentasPorCobrar = panel?.por_cobrar ?? [];
   const cuotasVencidas = cuentasPorCobrar.filter((f) => f.cuotas_vencidas > 0);
   const maxSerie = Math.max(1, ...serie.map((d) => d.total_usd_cents));
+  const encargosEnCurso = Object.values(fasesEncargo).reduce((suma, n) => suma + n, 0);
+  const resumenEncargos = [
+    fasesEncargo.POR_BUSCAR > 0 ? `${fasesEncargo.POR_BUSCAR} por cotizar` : '',
+    fasesEncargo.ESPERANDO > 0 ? `${fasesEncargo.ESPERANDO} esperando respuesta` : '',
+  ].filter(Boolean).join(' · ') || (encargosEnCurso > 0 ? `${encargosEnCurso} en curso` : 'No hay encargos en curso');
 
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden bg-fondo text-texto transition-colors">
@@ -416,6 +425,18 @@ export function DashboardView({
               })}
             </div>
           </section>
+
+          <button
+            type="button"
+            onClick={() => { haptics.selection(); onIrAEncargos?.(); }}
+            className="tocable m3-card flex min-h-16 w-full shrink-0 items-center justify-between gap-3 p-3.5 text-left"
+          >
+            <span className="min-w-0">
+              <span className="block text-base font-bold text-texto">Encargos</span>
+              <span className="mt-0.5 block text-xs text-texto-2">{resumenEncargos}</span>
+            </span>
+            <ChevronRight size={18} className="shrink-0 text-texto-2" />
+          </button>
 
           {/* Paquetes (Fase C1): reemplaza a "Stock crítico". El resumen de uno
               que se vendió todo, hasta que Ross toca "Listo"; y cómo va cada
