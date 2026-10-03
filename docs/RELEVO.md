@@ -113,7 +113,10 @@ Formato de cada entrada:
 - Para Joswill: elegir cómo continuar con PDF y aceptar su peso cuando
   corresponda. iPhone 14 Plus de Ross fuera de la red: acceso HTTPS y
   versión exacta/Safari/PWA pendientes; publicar sigue sin autorizarse.
-- Procesos: apagar emulador y Vite antes de cerrar el relevo.
+- Procesos: emulador y Vite apagados; sin escuchas verificadas en
+  8080, 9099, 4400, 9150 ni 5174. Paso 4 en `535cbde`.
+  Se presentó a Joswill la elección de conversor o impresión manual;
+  no se asume aceptación del peso ni aprobación física.
 
 ### 2026-10-02 22:08 · Codex
 - Hizo: C2 · T1 · paso 3 terminado; Joswill autorizó corregir el plan y
