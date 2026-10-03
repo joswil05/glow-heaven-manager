@@ -1669,6 +1669,101 @@ def caso_c2_encargos_lista(page: Page) -> list[str]:
     return []
 
 
+@caso("C2 · aceptar un encargo reutiliza abono y Deshacer antes de aceptar sin pago")
+def caso_c2_aceptar_encargo(page: Page) -> list[str]:
+    """Un abono menor al anticipo acepta sólo por el gesto explícito de Aceptó."""
+    original = next(v for v in listar_coleccion("ventas")
+                    if any(l.get("descripcion") == "Botas C2 antiguas" for l in v.get("lineas", [])))
+    venta_id = original["id"]
+    assert original["estado"] == "COTIZADA" and original["pagado_usd_cents"] == 0
+    assert original["tasa_cambio_cents"] == 3700 and original["anticipo_esperado_usd_cents"] > 100
+    pagos_antes = {p["id"] for p in listar_coleccion("pagos")}
+    eventos_antes = {e["id"] for e in listar_coleccion("eventos")}
+    bodega_antes = foto_bodega_pedido_c2()
+
+    ir_a(page, "Inicio")
+    page.get_by_role("button", name=re.compile("Encargos")).click()
+    principal = page.locator("main:visible").last
+
+    def abrir_aceptacion():
+        principal.get_by_role("button", name=re.compile("^Todos")).click()
+        principal.get_by_role("button", name=re.compile("Botas C2 antiguas")).click()
+        detalle = page.get_by_role("dialog").last
+        expect(detalle.get_by_role("button", name="Aceptó", exact=True)).to_be_visible()
+        detalle.get_by_role("button", name="Aceptó", exact=True).click()
+        eleccion = page.get_by_role("dialog").last
+        expect(eleccion.get_by_role("button", name="Todavía no", exact=True)).to_be_visible()
+        expect(eleccion.get_by_role("button", name="Registrar abono", exact=True)).to_be_visible()
+        return eleccion
+
+    # Abrir o cancelar el formulario no confirma una aceptación ni mueve dinero.
+    eleccion = abrir_aceptacion()
+    assert leer_doc("ventas", str(venta_id))["estado"] == "COTIZADA"
+    eleccion.get_by_role("button", name="Registrar abono", exact=True).click()
+    abono = page.get_by_role("dialog", name="Registrar abono", exact=True)
+    expect(abono).to_be_visible()
+    assert leer_doc("ventas", str(venta_id))["estado"] == "COTIZADA"
+    abono.get_by_role("button", name="Cerrar", exact=True).click()
+    expect(abono).not_to_be_visible()
+    assert leer_doc("ventas", str(venta_id))["estado"] == "COTIZADA"
+    assert {p["id"] for p in listar_coleccion("pagos")} == pagos_antes
+    cerrar_hojas(page)
+
+    # La hoja existente conserva moneda, tasa, éxito y su propio Deshacer.
+    eleccion = abrir_aceptacion()
+    eleccion.get_by_role("button", name="Registrar abono", exact=True).click()
+    expect(abono).to_be_visible()
+    abono.get_by_role("radio", name="Córdobas (C$)", exact=True).click()
+    monto = abono.get_by_label("Cuánto pagó (C$)", exact=True)
+    expect(monto).to_have_attribute("inputmode", "decimal")
+    monto.fill("37.00")
+    abono.get_by_label("Referencia", exact=True).fill("Aceptación C2 prueba")
+    abono.get_by_role("button", name="Registrar abono", exact=True).click()
+    expect(abono.get_by_role("heading", name="Abono registrado", exact=True)).to_be_visible()
+    expect(abono).to_contain_text("C$37.00")
+    aceptada = leer_doc("ventas", str(venta_id))
+    assert aceptada["estado"] == "PENDIENTE", "el abono pequeño debe aceptar al elegir Aceptó"
+    assert aceptada["pagado_usd_cents"] == 100 and aceptada["saldo_usd_cents"] == 2900
+    nuevos = [p for p in listar_coleccion("pagos") if p["id"] not in pagos_antes]
+    assert len(nuevos) == 1, "aceptar con pago tiene que crear un solo abono"
+    pago = nuevos[0]
+    assert pago["venta_id"] == venta_id and pago["moneda"] == "COR"
+    assert pago["monto_cor_cents"] == 3700 and pago["monto_usd_cents"] == 100
+    assert pago["tasa_cambio_cents"] == 3700, "el abono usa la tasa congelada del encargo"
+    eventos = [e for e in listar_coleccion("eventos") if e["id"] not in eventos_antes]
+    del_pago = [e for e in eventos if e.get("entidad_tipo") == "pagos" and e.get("entidad_id") == pago["id"]]
+    de_aceptar = [e for e in eventos if e.get("entidad_tipo") == "ventas" and e.get("entidad_id") == venta_id]
+    assert del_pago and de_aceptar, "el grupo tiene que registrar el abono y la aceptación"
+    assert len({e["evento_grupo_id"] for e in del_pago + de_aceptar}) == 1, "ambas acciones se deshacen juntas"
+    assert foto_bodega_pedido_c2() == bodega_antes
+
+    abono.get_by_role("button", name="Deshacer el abono", exact=True).click()
+    expect(page.get_by_text("Abono deshecho.", exact=True)).to_be_visible()
+    expect(abono).not_to_be_visible()
+    deshecha = leer_doc("ventas", str(venta_id))
+    assert deshecha["estado"] == "COTIZADA" and deshecha["pagado_usd_cents"] == 0
+    assert deshecha["saldo_usd_cents"] == 3000
+    assert {p["id"] for p in listar_coleccion("pagos")} == pagos_antes, "Deshacer elimina el abono de ese grupo"
+    cerrar_hojas(page)
+    expect(principal.get_by_role("region", name="Esperando respuesta", exact=True)).to_contain_text("Botas C2 antiguas")
+
+    # Reusar la misma cotización, ahora aceptando sin pago, evita depender del alta T4.
+    eleccion = abrir_aceptacion()
+    eleccion.get_by_role("button", name="Todavía no", exact=True).click()
+    assert leer_doc("ventas", str(venta_id))["estado"] == "COTIZADA", "elegir no paga ni acepta antes de confirmar"
+    eleccion.get_by_role("button", name="Aceptó", exact=True).click()
+    expect(eleccion).not_to_be_visible()
+    cerrar_hojas(page)
+    expect(principal.get_by_role("region", name="Por comprar", exact=True)).to_contain_text("Botas C2 antiguas")
+    sin_pago = leer_doc("ventas", str(venta_id))
+    assert sin_pago["estado"] == "PENDIENTE" and sin_pago["pagado_usd_cents"] == 0
+    assert sin_pago["saldo_usd_cents"] == 3000
+    assert {p["id"] for p in listar_coleccion("pagos")} == pagos_antes
+    assert foto_bodega_pedido_c2() == bodega_antes
+    volver_desde_encargos_c2(page)
+    return []
+
+
 def abrir_pedido_c2(page: Page):
     """La entrada real desde Vender; T4 conecta la intención de T3."""
     if page.locator("nav button:visible").count() == 0:
