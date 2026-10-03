@@ -63,11 +63,9 @@ se trabaja**.
 - **Publicado**: `v2.17.0` en Windows y en el celular (`b47d21f`, 2/10).
 - **Plan vigente**: Fase C2 · Inventario y encargos en el celular,
   [superpowers/plans/2026-10-02-c2-inventario-y-encargos.md](superpowers/plans/2026-10-02-c2-inventario-y-encargos.md).
-- **Siguiente paso**: resolver con Joswill la discrepancia de C2 · T1 ·
-  paso 3 (`BottomSheet` no acepta `ocupado`). Hoja guardada como WIP, tipos
-  fallan; no marcar terminado ni avanzar sin corregir el plan. También
-  revisar medición de dependencia DEV y diferencias visuales del PDF.
-  T1 requiere comparación en teléfono real antes de T2.
+- **Siguiente paso**: C2 · T1 · paso 4, automatizar errores/cancelación y
+  medir candidata en build separado. Paso 3 completo, bloqueo autorizado
+  y tipos corregidos. T1 requiere comparación en teléfono real antes de T2.
 - **C1**: T1 a T4 completas y verificadas en `master` local, sin publicar;
   cierre documentado en `ddc0fc7`. Emulador apagado.
 - **Después de C1**: C2 a C4, en el diseño
@@ -92,6 +90,22 @@ Formato de cada entrada:
 - Sigue: el paso exacto del plan.
 - Para Joswill: lo que necesita decidir o probar (o "nada").
 ```
+
+### 2026-10-02 22:08 · Codex
+- Hizo: C2 · T1 · paso 3 terminado; Joswill autorizó corregir el plan y
+  añadir `BottomSheet ocupado`. La hoja prepara el File antes del toque;
+  compartir y copiar arrancan sin await intermedio. Sigue sólo en DEV.
+- Commits: este paso completa el WIP `fe6a9df`; pasos 1/2 `1fef684`/`4025387`.
+- Pruebas: 593 unitarias de base; tipos móvil y build con auditorías pasan;
+  suite móvil completa aprobada. Caso ocupado visto rojo/verde: X, velo,
+  arrastre, Atrás, cierre después, bloqueo durante preparación y descarte.
+  PDF real descargado; share simulado conserva nombre/MIME/mensaje y gesto.
+- Quedó a medias: nada del paso 3. Falta paso 4 y comparación física.
+  Emulador/Vite encendidos para continuar; no hubo publicación.
+- Sigue: C2 · T1 · paso 4; el build normal elimina la librería DEV y no
+  mide su costo. Plan actualizado para medir con entrada experimental.
+- Para Joswill: iPhone 14 Plus de Ross fuera de la red; acceso HTTPS y
+  prueba física pendientes. Fidelidad visual todavía no aprobada.
 
 ### 2026-10-02 21:53 · Codex
 - Hizo: WIP C2 · T1 · paso 3. Hoja DEV de fixtures con preparación,

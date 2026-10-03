@@ -18,11 +18,10 @@ la candidata inicial es html2pdf.js, no una elección ya aprobada.
 
 **Diseño:** [2026-10-02-fases-del-celular-design.md](../specs/2026-10-02-fases-del-celular-design.md), sección C2 y criterios de diseño.
 
-**Estado:** T1 pasos 1 y 2 completos; paso 3 en WIP, detenido: el plan
-asume `BottomSheet ocupado`, propiedad ausente en el código. Decisión de
-Joswill pendiente antes de corregir el plan y continuar. Ver el informe
-del experimento y RELEVO. C1 T1–T4 completa. No se publica esta fase sin
-el «publicalo» de Joswill.
+**Estado:** T1 pasos 1 a 3 completos; sigue paso 4. Joswill autorizó
+añadir y probar `BottomSheet ocupado` el 2/10. También se corrige la
+medición del experimento DEV y se investiga fidelidad sin cambiar la
+plantilla de Windows. C1 T1–T4 completa. Sin publicación autorizada.
 
 ## Reglas para todas las tareas
 
@@ -177,7 +176,13 @@ diseño exige un logo ausente, anotarlo y decidir con Joswill, no inventarlo.
 No cambiar márgenes ni estilos de la plantilla compartida para tapar un fallo
 del conversor: sería cambiar también Windows fuera del alcance de la prueba.
 
-- [ ] **Paso 3: preparar y compartir conservando el gesto del usuario**
+- [x] **Paso 3: preparar y compartir conservando el gesto del usuario**
+
+Corrección autorizada: `BottomSheet` no tenía `ocupado`. Añadirlo opcional
+(false por defecto); impedir X, velo, arrastre, atrás y descarte mientras
+esté ocupado, restaurando la guardia de historial. Primero probar el caso
+rojo con share pendiente; después bloqueo y cierre al terminar. No extender
+el bloqueo a hojas existentes que no pasan la propiedad.
 
 La hoja de prueba prepara el archivo al abrirse, muestra `Preparando PDF…`
 y después habilita Compartir. El botón inicia `navigator.share` directamente
@@ -209,6 +214,11 @@ escrituras en ventas. Ejecutar `npx tsc -p mobile/tsconfig.json --noEmit`
 y `npm run build:mobile`; comparar suma de JS crudo/gzip, precache y tiempo
 contra paso 1, con detalle del chunk PDF. No confundir lazy import con que
 Workbox no lo precachea. Correr el caso rojo del paso 1 y verlo verde.
+
+La entrada DEV elimina la candidata del build normal. Medir además con
+`tests/interfaz/vite-pdf.config.ts` y una entrada de medición que incluya el
+adaptador, mismos plugins/Workbox, salida sólo en scratch. Registrar ambos
+builds y no presentar la exclusión DEV como costo cero de la librería.
 
 - [ ] **Paso 5: probar en el teléfono y documentar la decisión**
 

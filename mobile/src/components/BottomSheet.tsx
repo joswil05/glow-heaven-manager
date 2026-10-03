@@ -72,6 +72,8 @@ interface BottomSheetProps {
    * abajo y "atrás" preguntan antes de descartar (CEL-02).
    */
   hayCambios?: boolean;
+  /** Evita descartar/cerrar mientras una acción está pendiente. */
+  ocupado?: boolean;
   titulo?: string;
   subtitulo?: string;
   children: ReactNode;
@@ -83,6 +85,7 @@ export function BottomSheet({
   abierto,
   onCerrar,
   hayCambios = false,
+  ocupado = false,
   titulo,
   subtitulo,
   children,
@@ -108,11 +111,12 @@ export function BottomSheet({
 
   /** La salida que pregunta si hay algo escrito. */
   function pedirCierre() {
+    if (ocupado) return;
     if (hayCambios) setPreguntando(true);
     else onCerrar();
   }
-  const vivo = useRef({ pedirCierre, hayCambios, onCerrar });
-  vivo.current = { pedirCierre, hayCambios, onCerrar };
+  const vivo = useRef({ pedirCierre, hayCambios, onCerrar, ocupado });
+  vivo.current = { pedirCierre, hayCambios, onCerrar, ocupado };
 
   const hojaRef = useRef<HTMLDivElement>(null);
   const scrimRef = useRef<HTMLDivElement>(null);
@@ -130,6 +134,7 @@ export function BottomSheet({
   }
 
   function iniciarArrastre(e: React.PointerEvent<HTMLDivElement>) {
+    if (ocupado) return;
     // Un segundo dedo durante el arrastre haría saltar la hoja a su posición.
     if (arrastre.current.activo) return;
 
@@ -188,7 +193,7 @@ export function BottomSheet({
     // Un tirón corto y rápido alcanza: no hay que arrastrar media pantalla
     // para cerrar algo que ya se decidió cerrar. Con algo escrito, la hoja
     // vuelve a su sitio y pregunta.
-    if ((a.y > UMBRAL_CIERRE_PX || velocidad > VELOCIDAD_CIERRE) && !hayCambios) {
+    if ((a.y > UMBRAL_CIERRE_PX || velocidad > VELOCIDAD_CIERRE) && !hayCambios && !ocupado) {
       haptics.impact('light');
       // La salida es rápida: la persona ya decidió, el sistema sólo obedece.
       hoja.style.transition = 'transform 200ms cubic-bezier(0.32, 0.72, 0, 1)';
@@ -197,11 +202,11 @@ export function BottomSheet({
         scrimRef.current.style.transition = 'opacity 200ms ease-out';
         scrimRef.current.style.opacity = '0';
       }
-      window.setTimeout(onCerrar, 190);
+      window.setTimeout(() => vivo.current.pedirCierre(), 190);
       return;
     }
 
-    if (a.y > UMBRAL_CIERRE_PX || velocidad > VELOCIDAD_CIERRE) setPreguntando(true);
+    if (!ocupado && (a.y > UMBRAL_CIERRE_PX || velocidad > VELOCIDAD_CIERRE)) setPreguntando(true);
 
     // No alcanzó (o hay que preguntar): vuelve a su sitio con la misma curva
     // de las hojas de Android.
@@ -254,7 +259,9 @@ export function BottomSheet({
     pila.push(id);
     ponerGuardia();
     alVolverPorHoja.set(id, () => {
-      if (vivo.current.hayCambios) {
+      if (vivo.current.ocupado) {
+        ponerGuardia();
+      } else if (vivo.current.hayCambios) {
         // Se queda abierta: vuelve la guardia y pregunta.
         ponerGuardia();
         setPreguntando(true);
@@ -363,6 +370,7 @@ export function BottomSheet({
         ref={hojaRef}
         role="dialog"
         aria-modal="true"
+        aria-busy={ocupado}
         aria-labelledby={visto.titulo ? `${id}-titulo` : undefined}
         tabIndex={-1}
         style={{
@@ -402,6 +410,7 @@ export function BottomSheet({
               type="button"
               onClick={pedirCierre}
               aria-label="Cerrar"
+              disabled={ocupado}
               className="m3-press flex h-8 w-8 items-center justify-center rounded-full text-texto-3 hover:text-texto-2 hover:bg-superficie-2 cursor-pointer"
             >
               <X size={18} />
@@ -472,9 +481,11 @@ export function BottomSheet({
               <button
                 type="button"
                 onClick={() => {
+                  if (vivo.current.ocupado) return;
                   setPreguntando(false);
                   onCerrar();
                 }}
+                disabled={ocupado}
                 className="tocable rounded-2xl bg-peligro px-4 py-3 text-sm font-bold text-peligro-texto active:scale-[0.98] transition-transform cursor-pointer"
               >
                 Descartar

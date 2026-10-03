@@ -1,6 +1,6 @@
 # C2 · T1: experimento de proforma PDF en el celular
 
-Estado: pasos 1 y 2 completos; paso 3 en WIP, detenido por discrepancia del plan. No aprobado
+Estado: pasos 1 a 3 completos; sigue automatización y medición del paso 4. No aprobado
 para teléfono ni para continuar T2. Datos exclusivamente ficticios.
 
 ## Referencia y reproducción
@@ -99,3 +99,16 @@ publicar hosting. T1 paso 5 sigue abierto y bloquea T2.
 Pendientes: resolver la discrepancia del marco tras decisión de Joswill;
 prueba larga, share/cancelación/portapapeles, generación fallida y delta
 válido del build. No afirmar que esas pruebas pasaron.
+
+### Paso 3 cerrado (2/10)
+
+Joswill autorizó incorporar el bloqueo. `BottomSheet ocupado` es opcional,
+false por defecto; bloquea X, velo, arrastre, atrás y descarte. La prueba
+falló antes por cierre permitido, luego pasó con share pendiente y al
+terminar: archivo/MIME/mensaje y activación del toque comprobados. Se
+probó preparación al reabrir y confirmación de descarte del mensaje editado.
+El share del sistema está sustituido sólo en Playwright; no prueba iOS.
+
+TypeScript móvil sin errores, suite de interfaz móvil completa aprobada,
+build móvil con auditorías aprobado. Captura `scratch/c2-pdf/hoja-pdf.png`
+inspeccionada. El resto del paso 4 y la prueba física siguen pendientes.
