@@ -300,6 +300,11 @@ describe('C2 · fases de encargos en Inicio', () => {
     await VentasRepoFirestore.marcarEnviada(cotizado, g());
     await PanelRepoFirestore.cargar();
     reiniciarContadores();
+    // La instantánea está caliente, pero cargar() sigue leyendo el histórico.
+    // Medir ese costo previo para exigir cero lecturas añadidas por encargos.
+    await PanelRepoFirestore.cargar();
+    const costoPanel = contadores();
+    reiniciarContadores();
 
     const resultado = await obtenerDatosDashboard(true);
 
@@ -307,7 +312,8 @@ describe('C2 · fases de encargos en Inicio', () => {
       POR_BUSCAR: 1, POR_MANDAR: 0, ESPERANDO: 1, POR_COMPRAR: 0,
       EN_CAMINO: 0, POR_ENTREGAR: 0, ENTREGADO: 0, ANULADO: 0,
     } });
-    expect(contadores()).toMatchObject({ lecturas: 0, consultas: 0, escrituras: 0 });
+    expect(contadores()).toEqual(costoPanel);
+    expect(contadores().escrituras).toBe(0);
     reiniciarContadores();
     expect(await obtenerDatosDashboard()).toBe(resultado);
     expect(contadores()).toMatchObject({ lecturas: 0, consultas: 0 });
@@ -325,6 +331,9 @@ describe('C2 · fases de encargos en Inicio', () => {
     await setDoc(doc(getFirestoreDb(), 'ventas', String(inactivo)), { activo: false }, { merge: true });
     await PanelRepoFirestore.cargar();
     reiniciarContadores();
+    await PanelRepoFirestore.cargar();
+    const costoPanel = contadores();
+    reiniciarContadores();
 
     const resultado = await obtenerDatosDashboard(true);
 
@@ -332,6 +341,7 @@ describe('C2 · fases de encargos en Inicio', () => {
       POR_BUSCAR: 0, POR_MANDAR: 1, ESPERANDO: 0, POR_COMPRAR: 1,
       EN_CAMINO: 0, POR_ENTREGAR: 0, ENTREGADO: 0, ANULADO: 0,
     } });
-    expect(contadores()).toMatchObject({ lecturas: 0, consultas: 0, escrituras: 0 });
+    expect(contadores()).toEqual(costoPanel);
+    expect(contadores().escrituras).toBe(0);
   });
 });

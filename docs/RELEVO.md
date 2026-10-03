@@ -116,6 +116,10 @@ Formato de cada entrada:
 - Sigue: T2 precio; T7 adaptador; T3 sólo tras decisión de Joswill.
   Casos UI T7 antes de integrar formulario, para evitar dos dueños de pruebas.py.
 - Para Joswill: pregunta sobre corregir supuesto de lecturas de T3 enviada.
+  Joswill respondió «Sí, corregí la prueba y seguí»; se autoriza baseline
+  de Panel calentado, cero costo adicional de fases sin tocar repositorios.
+  T7 adaptador verificado: 36 pruebas (11 nuevas + 25 fases) y ambos tipos
+  pasan; UI todavía no conectada. Commit de paso 2 con su casilla.
   PDF sigue aplazado; no dedicar más tiempo ni integrar candidata.
 
 ### 2026-10-02 22:52 · Codex

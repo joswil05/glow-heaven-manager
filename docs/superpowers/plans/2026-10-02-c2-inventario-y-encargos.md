@@ -384,19 +384,24 @@ reiniciarContadores();
 const resultado = await obtenerDatosDashboard(true);
 expect(resultado.fasesEncargo.POR_BUSCAR).toBe(1);
 expect(resultado.fasesEncargo.ESPERANDO).toBe(1);
-expect(contadores().lecturas).toBe(0);
+expect(contadores().lecturas).toBe(costoPanel.lecturas);
+expect(contadores().consultas).toBe(costoPanel.consultas);
 ```
 
 Importar `reiniciarContadores, contadores` del falso (ya disponibles).
-La llamada previa a `PanelRepoFirestore.cargar()` calienta también parámetros
-y categorías: así la aserción mide únicamente las lecturas adicionales. Añadir lectura de
+Corrección autorizada por Joswill el 2/10 a las 23:11: `cargar()` reutiliza
+ventas, pero relee los resúmenes históricos (cinco lecturas en esta fixture).
+Antes del reset de contadores del ejemplo, medir `costoPanel` repitiendo
+`PanelRepoFirestore.cargar()` con la instantánea ya caliente. Dashboard debe
+costar exactamente lo mismo: los encargos no añaden lecturas ni consultas.
+No modificar repositorios ni rebajar la comprobación de fases. Añadir lectura de
 encargo viejo fuera del mes y exclusión de cancelado/entregado. Sembrar los
 encargos **después** de V-0001, para no romper casos previos. Caso móvil:
 Inicio → tarjeta Encargos → Por buscar, Esperando respuesta, Por entregar;
 conteos y textos; sólo cinco botones del dock; cerrar vuelve a Inicio.
 Correr `npx vitest run tests/panel-movil.test.ts` y caso SOLO `C2 · Encargos`.
 
-- [ ] **Paso 2: contadores desde la instantánea, consulta sólo al abrir lista**
+- [x] **Paso 2: contadores desde la instantánea, consulta sólo al abrir lista**
 
 Agregar `fasesEncargo: Record<EtapaEncargo, number>` a CacheDashboardData
 y su inicialización. Después de cargar panel/tendencia, recorrer
@@ -684,7 +689,7 @@ Importar la función nueva (todavía inexistente) y ver rojo. Para trabajar
 en paralelo sin editar pruebas.py desde dos agentes, los casos móviles
 se escriben y se ven rojos antes de implementar la integración del paso 3.
 
-- [ ] **Paso 2: adaptar la acción de la hoja de abono, sin copiar campos**
+- [ ] **Paso 2: adaptador de abono, sin copiar campos**
 
 Nuevo adaptador, tipos desde repositorio de pagos:
 

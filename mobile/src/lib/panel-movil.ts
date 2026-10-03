@@ -4,6 +4,7 @@ import type { PanelData } from '@shared/types';
 import { PanelRepoFirestore } from '@repos/panel.repo';
 import { hoyISO } from './util';
 import { haceDias } from '@core/fechas';
+import { etapaEncargo, type EtapaEncargo } from '@core/encargos';
 
 export interface DiaVentas {
   fecha: string;
@@ -122,7 +123,15 @@ export interface CacheDashboardData {
   serie: DiaVentas[];
   hoy: ResumenHoy;
   encargos: EncargoPendiente[];
+  fasesEncargo: Record<EtapaEncargo, number>;
   tiempo: number;
+}
+
+function fasesEncargoVacias(): Record<EtapaEncargo, number> {
+  return {
+    POR_BUSCAR: 0, POR_MANDAR: 0, ESPERANDO: 0, POR_COMPRAR: 0,
+    EN_CAMINO: 0, POR_ENTREGAR: 0, ENTREGADO: 0, ANULADO: 0,
+  };
 }
 
 export const cacheDashboardGlobal: CacheDashboardData = {
@@ -130,6 +139,7 @@ export const cacheDashboardGlobal: CacheDashboardData = {
   serie: [],
   hoy: { total_usd_cents: 0, ganancia_usd_cents: 0, ventas_count: 0 },
   encargos: [],
+  fasesEncargo: fasesEncargoVacias(),
   tiempo: 0,
 };
 
@@ -143,9 +153,18 @@ export async function obtenerDatosDashboard(forzar = false): Promise<CacheDashbo
   // a pagar la colección de ventas dos veces.
   const panelData = await PanelRepoFirestore.cargar();
   const tendencia = await cargarTendenciaDiaria(7);
+  const fasesEncargo = fasesEncargoVacias();
+  // Incluye lo viejo en curso y usa la misma instantánea, sin leer clientas
+  // ni abrir la consulta de la lista sólo por entrar a Inicio.
+  for (const venta of await PanelRepoFirestore.ventasActivas()) {
+    if (venta.tipo !== 'ENCARGO' || venta.activo === false) continue;
+    if (venta.estado !== 'COTIZADA' && venta.estado !== 'PENDIENTE') continue;
+    fasesEncargo[etapaEncargo(venta)]++;
+  }
   cacheDashboardGlobal.panel = panelData;
   cacheDashboardGlobal.serie = tendencia.serie;
   cacheDashboardGlobal.hoy = tendencia.hoy;
+  cacheDashboardGlobal.fasesEncargo = fasesEncargo;
   cacheDashboardGlobal.tiempo = Date.now();
   return cacheDashboardGlobal;
 }
