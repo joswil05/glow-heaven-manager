@@ -1,27 +1,23 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Search, X, PackagePlus } from 'lucide-react';
+import { Search, X, Package, PackagePlus } from 'lucide-react';
 import type { ProductoConStock } from '@shared/types';
 import { PullToRefresh } from '../components/PullToRefresh';
 import { FichaProductoSheet } from '../components/FichaProductoSheet';
 import { formatearMoneda } from '@core/moneda';
 import { useDatosNegocio } from '../context/DataContext';
 import { haptics } from '../lib/haptics';
-import { useScrollReveal } from '../lib/useScrollReveal';
 import { useSnackbar } from '../components/Snackbar';
 import { algunoContiene } from '@core/texto';
 import { ComprasRepoFirestore } from '../../../src/main/firebase/repositories/compras.repo';
 
-/** `null` representa "Todos". El resto son los `id` reales de `categorias`,
- * las mismas que la dueña administra en Windows > Configuración > Ganancia
- * por categoría — antes esta pantalla inventaba su propia lista de
- * categorías ("Labiales", "Bases y Polvos"...) adivinando por palabras
- * dentro del nombre del producto, así que nunca coincidía con lo real. */
+type Filtro = { tipo: 'todos' } | { tipo: 'categoria'; id: number } | { tipo: 'paquete'; id: number };
+
 export function InventoryQuickView({ onRegistrarPaquete }: { onRegistrarPaquete: () => void }) {
-  const { parametros, categorias, productos, cargandoProductos, recargarProductos } = useDatosNegocio();
+  const { parametros, categorias, productos, cargandoProductos, recargarProductos, version } = useDatosNegocio();
 
   const { mostrar } = useSnackbar();
   const [busqueda, setBusqueda] = useState('');
-  const [categoriaActiva, setCategoriaActiva] = useState<number | null>(null);
+  const [filtro, setFiltro] = useState<Filtro>({ tipo: 'todos' });
   const [fichaAbierta, setFichaAbierta] = useState<ProductoConStock | null>(null);
   /**
    * Mirar la bodega por paquete.
@@ -30,24 +26,21 @@ export function InventoryQuickView({ onRegistrarPaquete }: { onRegistrarPaquete:
    * nuevo que renueva el inventario. Estando en el mostrador, "¿esto vino en
    * el último paquete?" es una pregunta de todos los días.
    */
-  const [paqueteActivo, setPaqueteActivo] = useState<number | null>(null);
   const [paquetes, setPaquetes] = useState<{ id: number; codigo: string }[]>([]);
 
-  // Los paquetes se leen una sola vez, y sólo si hay algún producto que venga
-  // de uno: en una bodega cargada a mano esto no gasta ni una lectura.
-  const hayProductosConPaquete = productos.some((p) => p.paquete_id);
+  // Volver a recibir un paquete invalida la lista. Un cambio de precio o de
+  // stock no cambia por sí solo los paquetes a los que apunta el inventario.
+  const idsPaquetes = [...new Set(productos.map(p => p.paquete_id).filter((id): id is number => Boolean(id)))].sort((a, b) => a - b).join(',');
   useEffect(() => {
-    if (!hayProductosConPaquete || paquetes.length > 0) return;
+    if (!idsPaquetes) { setPaquetes([]); return; }
     let vivo = true;
+    const referenciados = new Set(idsPaquetes.split(',').map(Number));
     ComprasRepoFirestore.listar()
       .then((lista) => {
         if (!vivo) return;
         // Los recibidos, más cualquiera al que un producto apunte: un
         // paquete anotado sólo con el flete sigue en borrador, pero su
         // mercadería ya está en la bodega.
-        const referenciados = new Set(
-          productos.map((p) => p.paquete_id).filter((id): id is number => Boolean(id))
-        );
         setPaquetes(
           lista
             .filter((c) => c.estado === 'RECIBIDA' || referenciados.has(c.id))
@@ -55,18 +48,26 @@ export function InventoryQuickView({ onRegistrarPaquete }: { onRegistrarPaquete:
         );
       })
       .catch(() => {
-        /* sin paquetes, los chips no aparecen */
+        if (vivo) mostrar('No se pudieron actualizar los paquetes.', 'error');
       });
     return () => {
       vivo = false;
     };
-  }, [hayProductosConPaquete, paquetes.length, productos]);
+  }, [idsPaquetes, version, mostrar]);
 
   const tasa = parametros?.tasa_cambio_cents ?? 3662;
   const cargando = cargandoProductos && productos.length === 0;
-  const nombreCategoriaActiva = categoriaActiva === null
-    ? 'Todos'
-    : categorias.find((c) => c.id === categoriaActiva)?.nombre ?? 'esa categoría';
+  const nombreFiltro = filtro.tipo === 'categoria'
+    ? `la categoría ${categorias.find(c => c.id === filtro.id)?.nombre ?? 'seleccionada'}`
+    : filtro.tipo === 'paquete'
+      ? `el paquete ${paquetes.find(p => p.id === filtro.id)?.codigo ?? 'seleccionado'}`
+      : '';
+
+  function restablecer() {
+    haptics.selection();
+    setFiltro({ tipo: 'todos' });
+    setBusqueda('');
+  }
 
   const refrescar = async () => {
     try {
@@ -90,31 +91,24 @@ export function InventoryQuickView({ onRegistrarPaquete }: { onRegistrarPaquete:
       );
     }
 
-    if (paqueteActivo !== null) {
-      res = res.filter((p) => p.paquete_id === paqueteActivo);
-    }
-
-    if (categoriaActiva !== null) {
-      res = res.filter((p) => p.categoria_id === categoriaActiva);
-    }
+    if (filtro.tipo === 'paquete') res = res.filter(p => p.paquete_id === filtro.id);
+    if (filtro.tipo === 'categoria') res = res.filter(p => p.categoria_id === filtro.id);
 
     return res;
-  }, [productos, busqueda, categoriaActiva, paqueteActivo]);
+  }, [productos, busqueda, filtro]);
 
   // Fase C1: la lista abre con lo que hay a la venta. Lo que se vendió todo
   // no es una alerta: se ve aparte, al elegir un paquete o al buscar, para
   // saber que se vendió.
   const aLaVenta = filtrados.filter((p) => p.existencias > 0);
   const vendidos = filtrados.filter((p) => p.existencias <= 0);
-  const verVendidos = paqueteActivo !== null || busqueda.trim() !== '';
+  const verVendidos = filtro.tipo === 'paquete' || busqueda.trim() !== '';
   const quedaAlgoALaVenta = productos.some((p) => p.existencias > 0);
-  const sinFiltros = !busqueda.trim() && categoriaActiva === null && paqueteActivo === null;
+  const sinFiltros = !busqueda.trim() && filtro.tipo === 'todos';
   /** No hay ninguna fila que mostrar. */
   const listaVacia = aLaVenta.length === 0 && !(verVendidos && vendidos.length > 0);
   /** Vacía porque se vendió todo, no porque un filtro no encuentre nada. */
   const todoVendido = listaVacia && sinFiltros && productos.length > 0 && !quedaAlgoALaVenta;
-
-  const scrollRevealRef = useScrollReveal<HTMLElement>({ deps: [filtrados] });
 
   function abrirFicha(p: ProductoConStock) {
     haptics.selection();
@@ -137,7 +131,7 @@ export function InventoryQuickView({ onRegistrarPaquete }: { onRegistrarPaquete:
                   key={p.id}
                   type="button"
                   onClick={() => abrirFicha(p)}
-                  className="scroll-reveal flex w-full items-center gap-3 rounded-2xl border border-borde bg-superficie p-3.5 text-left shadow-xs active:scale-[0.99] transition-transform cursor-pointer"
+                  className="flex w-full items-center gap-3 rounded-2xl border border-borde bg-superficie p-3.5 text-left shadow-xs cursor-pointer"
                 >
                   <div className="relative flex h-[60px] w-[60px] shrink-0 items-center justify-center overflow-hidden rounded-xl border border-borde bg-superficie-2">
                     {p.foto ? (
@@ -155,7 +149,7 @@ export function InventoryQuickView({ onRegistrarPaquete }: { onRegistrarPaquete:
                     </h2>
 
                     <div className="flex items-center gap-1.5 text-caption font-semibold text-texto-3">
-                      <span className="shrink-0">#{p.codigo}</span>
+                      <span className="shrink-0">{p.codigo}</span>
                       {p.categoria_nombre && (
                         <>
                           <span className="shrink-0">·</span>
@@ -186,7 +180,7 @@ export function InventoryQuickView({ onRegistrarPaquete }: { onRegistrarPaquete:
                         </span>
                       ) : (
                         <span className="shrink-0 whitespace-nowrap text-caption font-bold tabular-nums text-texto-3">
-                          {p.existencias} disp.
+                          {p.existencias} en bodega
                         </span>
                       )}
                     </div>
@@ -202,17 +196,13 @@ export function InventoryQuickView({ onRegistrarPaquete }: { onRegistrarPaquete:
         <div className="flex items-center justify-between gap-2 py-1.5">
           <div className="flex min-w-0 items-center gap-2.5">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-superficie-2 text-texto-2 border border-borde">
-              <Search size={18} />
+              <Package size={18} />
             </span>
             <div className="min-w-0">
               <span className="text-caption font-bold tracking-widest uppercase text-texto-3 block leading-none mb-0.5">
                 Glow Heaven
               </span>
-              {/* "Catálogo" y no "Catálogo de Productos": el nav inferior ya
-                  dice "Catálogo", y el título largo era justo lo que forzaba
-                  el encabezado a partirse en 2 líneas y quedar más alto que
-                  el resto de pantallas móviles. */}
-              <h1 className="text-title font-extrabold text-texto leading-tight truncate">Catálogo</h1>
+              <h1 className="text-title font-extrabold text-texto leading-tight truncate">Inventario</h1>
             </div>
           </div>
           {/* shrink-0 + whitespace-nowrap: esta píldora competía por espacio
@@ -246,11 +236,11 @@ export function InventoryQuickView({ onRegistrarPaquete }: { onRegistrarPaquete:
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar por nombre, código o tono"
-            className="w-full rounded-xl bg-superficie-2 text-xs font-medium text-texto placeholder:text-texto-3 outline-none focus:bg-superficie focus:ring-2 focus:ring-acento/30 transition-all border border-borde"
+            className="w-full rounded-xl bg-superficie-2 text-base font-medium text-texto placeholder:text-texto-3 outline-none focus:bg-superficie focus:ring-2 focus:ring-acento/30 border border-borde"
             style={{
               paddingLeft: '38px',
               paddingRight: '36px',
-              height: '40px',
+              height: '48px',
             }}
             autoComplete="off"
             enterKeyHint="search"
@@ -270,97 +260,33 @@ export function InventoryQuickView({ onRegistrarPaquete }: { onRegistrarPaquete:
           )}
         </div>
 
-        {/* Chips de categorías: las mismas categorías reales de Windows.
-            El degradado a la derecha avisa que hay más chips fuera de
-            vista en vez de cortarlos en seco contra el borde. */}
-        {/* De qué paquete. Sólo aparece si hay más de uno: con un solo
-            paquete el filtro no distingue nada y ocupa lugar en una pantalla
-            que ya es chica. */}
-        {paquetes.length > 1 && (
-          <div className="relative mt-2">
-            <div className="flex items-center gap-1.5 overflow-x-auto sin-scrollbar py-0.5 pr-6">
-              <button
-                type="button"
-                onClick={() => {
-                  haptics.selection();
-                  setPaqueteActivo(null);
-                }}
-                className={`m3-press shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                  paqueteActivo === null
-                    ? 'bg-acento text-acento-texto shadow-sm'
-                    : 'bg-superficie-2 text-texto-2 hover:bg-superficie-3 border border-borde'
-                }`}
-              >
-                Todo
-              </button>
-              {paquetes.map((paq, i) => {
-                const activo = paqueteActivo === paq.id;
-                return (
-                  <button
-                    key={paq.id}
-                    type="button"
-                    onClick={() => {
-                      haptics.selection();
-                      setPaqueteActivo(paq.id);
-                    }}
-                    className={`m3-press shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                      activo
-                        ? 'bg-acento text-acento-texto shadow-sm'
-                        : 'bg-superficie-2 text-texto-2 hover:bg-superficie-3 border border-borde'
-                    }`}
-                  >
-                    {i === 0 ? 'Último paquete' : paq.codigo}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        <div className="relative mt-2">
-          <div className="flex items-center gap-1.5 overflow-x-auto sin-scrollbar py-0.5 pr-6">
-            <button
-              type="button"
-              onClick={() => {
-                haptics.selection();
-                setCategoriaActiva(null);
-              }}
-              className={`m3-press shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                categoriaActiva === null
-                  ? 'bg-acento text-acento-texto shadow-sm'
-                  : 'bg-superficie-2 text-texto-2 hover:bg-superficie-3 border border-borde'
-              }`}
-            >
-              Todos
-            </button>
-            {categorias.map((cat) => {
-              const activa = categoriaActiva === cat.id;
-              return (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => {
-                    haptics.selection();
-                    setCategoriaActiva(cat.id);
-                  }}
-                  className={`m3-press shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                    activa
-                      ? 'bg-acento text-acento-texto shadow-sm'
-                      : 'bg-superficie-2 text-texto-2 hover:bg-superficie-3 border border-borde'
-                  }`}
-                >
-                  {cat.nombre}
-                </button>
-              );
-            })}
-          </div>
-          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-superficie to-transparent" />
-        </div>
+        <label className="mt-3 block text-base font-semibold text-texto-2">
+          Filtrar inventario
+          <select
+            aria-label="Filtrar inventario"
+            value={filtro.tipo === 'todos' ? 'todos' : `${filtro.tipo}:${filtro.id}`}
+            onChange={e => {
+              haptics.selection();
+              const [tipo, id] = e.target.value.split(':');
+              setFiltro(tipo === 'categoria' || tipo === 'paquete'
+                ? { tipo, id: Number(id) } : { tipo: 'todos' });
+            }}
+            className="mt-1 min-h-12 w-full rounded-xl border border-borde bg-superficie-2 px-3 text-base text-texto"
+          >
+            <option value="todos">Todo el inventario</option>
+            <optgroup label="Categorías">
+              {categorias.map(cat => <option key={cat.id} value={`categoria:${cat.id}`}>{cat.nombre}</option>)}
+            </optgroup>
+            {paquetes.length > 0 && <optgroup label="Paquetes">
+              {paquetes.map(paq => <option key={paq.id} value={`paquete:${paq.id}`}>{paq.codigo}</option>)}
+            </optgroup>}
+          </select>
+        </label>
       </header>
 
       {/* Lista de productos con Pull-to-Refresh */}
       <PullToRefresh onRefresh={refrescar}>
-        <main ref={scrollRevealRef} className="flex flex-col gap-3 px-3.5 pt-3 pb-24 scroll-smooth">
+        <main className="flex flex-col gap-3 px-3.5 pt-3 pb-24 scroll-smooth">
 
           {cargando && (
             <div className="flex flex-col items-center justify-center py-16 gap-3 text-texto-3">
@@ -395,16 +321,12 @@ export function InventoryQuickView({ onRegistrarPaquete }: { onRegistrarPaquete:
               <p className="text-sm font-bold text-texto-2">Ningún producto coincide</p>
               <p className="text-xs text-texto-3 mt-1 max-w-xs">
                 {busqueda.trim()
-                  ? `No hay coincidencias para "${busqueda}" en "${nombreCategoriaActiva}".`
-                  : `No hay nada a la venta en "${nombreCategoriaActiva}".`}
+                  ? `No hay coincidencias para “${busqueda.trim()}”${nombreFiltro ? ` en ${nombreFiltro}` : ''}.`
+                  : `No hay nada a la venta${nombreFiltro ? ` en ${nombreFiltro}` : ''}.`}
               </p>
               <button
                 type="button"
-                onClick={() => {
-                  setBusqueda('');
-                  setCategoriaActiva(null);
-                  setPaqueteActivo(null);
-                }}
+                onClick={restablecer}
                 className="mt-3 rounded-full bg-superficie-2 hover:bg-superficie-3 px-4 py-1.5 text-xs font-bold text-texto-2 cursor-pointer"
               >
                 Restablecer filtros

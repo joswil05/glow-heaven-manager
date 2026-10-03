@@ -57,7 +57,7 @@ export function FichaProductoSheet({ producto, tasaCambioCents, onCerrar }: Fich
       abierto={producto !== null}
       onCerrar={onCerrar}
       titulo={p.nombre}
-      subtitulo={[`#${p.codigo}`, p.categoria_nombre].filter(Boolean).join(' · ')}
+      subtitulo={[p.codigo, p.categoria_nombre].filter(Boolean).join(' · ')}
       footer={
         <button
           type="button"
@@ -106,7 +106,7 @@ export function FichaProductoSheet({ producto, tasaCambioCents, onCerrar }: Fich
                   : 'bg-acento-suave text-acento-fuerte'
               }`}
             >
-              {hayStock ? `${p.existencias} disponibles` : 'Agotado'}
+              {hayStock ? `${p.existencias} en bodega` : 'Vendido'}
             </span>
           </div>
 

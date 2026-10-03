@@ -1,4 +1,4 @@
-import { LayoutDashboard, ShoppingBag, Search, HandCoins, History } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, Package, HandCoins, History } from 'lucide-react';
 import type { Vista } from '../App';
 import { haptics } from '../lib/haptics';
 import { useTheme } from '../context/ThemeContext';
@@ -17,7 +17,7 @@ const ITEMS: { vista: Vista; etiqueta: string; Icono: typeof LayoutDashboard }[]
   // Desde la 2.16.1: lo que pasó, y donde se corrige. Antes era "Actividad",
   // escondida detrás del chip "N ventas" de Inicio.
   { vista: 'historial', etiqueta: 'Historial', Icono: History },
-  { vista: 'inventario', etiqueta: 'Catálogo', Icono: Search },
+  { vista: 'inventario', etiqueta: 'Inventario', Icono: Package },
 ];
 
 export function BottomNav({ actual, onCambiar, badgeCarrito = 0, badgeCobranza = 0 }: BottomNavProps) {

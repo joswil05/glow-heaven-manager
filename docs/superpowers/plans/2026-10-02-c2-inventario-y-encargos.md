@@ -309,7 +309,7 @@ limpia todo; vacío sin `""` ni «categoría Todos». Verificar `P-…`, sin `#`
 y «en bodega». Correr `$env:SOLO='C2 · Inventario'; npm run test:interfaz`
 con `$env:PYTHONIOENCODING='utf-8'`; rojo por acción/nombre ausentes.
 
-- [ ] **Paso 2: un filtro y textos de inventario**
+- [x] **Paso 2: un filtro y textos de inventario**
 
 Usar icono `Package` en navegación y cabecera, etiqueta Inventario. Un
 selector etiquetado `Filtrar inventario`, opciones agrupadas Categorías y
