@@ -68,10 +68,12 @@ se trabaja**.
 
 ## Estado ahora
 
-- **Publicado**: `v2.17.0` en Windows y en el celular (`b47d21f`, 2/10).
+- **Publicado**: `v2.17.1` en Windows y celular (`5ec3541`, 3/10), sólo
+  hotfixes de fecha e impuesto sobre la versión anterior. C1/C2 siguen locales.
 - **Plan vigente**: Fase C2 · Inventario y encargos en el celular,
   [superpowers/plans/2026-10-02-c2-inventario-y-encargos.md](superpowers/plans/2026-10-02-c2-inventario-y-encargos.md).
-- **Siguiente paso**: C2 · T2/T3 en paralelo, con rutas exclusivas.
+- **Siguiente paso**: C2 · T4 · paso 1 (casos rojos de anotar pedido).
+  T2 y T3 completas y verificadas; T7 paso 2 completo, UI pendiente.
   Joswill autorizó dejar PDF automático pendiente y avanzar el resto de C2
   el 2/10 a las 22:52. T1 5b/5c guardados WIP, sin investigar más por ahora;
   conservar impresión actual y no integrar candidata. T6 se reajusta antes
@@ -100,6 +102,35 @@ Formato de cada entrada:
 - Sigue: el paso exacto del plan.
 - Para Joswill: lo que necesita decidir o probar (o "nada").
 ```
+
+### 2026-10-03 12:32 · Codex
+- Hizo: publicó **v2.17.1** en Windows y ambos sitios móviles, con los dos
+  hotfixes solicitados. El bloqueo de «Fue un error» era el cambio de mes;
+  conserva siete días para carga/fecha y las demás restricciones. PQ-0001
+  real confirma impuesto histórico $19.18, mercadería $273.98, flete $77,
+  total $370.16, pero override heredado 0: corregir ya conserva ese impuesto.
+  La consulta de producción sólo leyó importes, sin escribir datos.
+- Decisiones fuera del plan: publicación aislada sobre `44cdcdc` en copia
+  Git independiente `scratch/release-2.17.1`, sin C1/C2/PDF experimental.
+  Push por SHA exacto, instalador/manual de GitHub sin exportar tokens.
+  Sesiones Firebase/gcloud vencidas; Joswill ejecutó login. Aunque ADC dio
+  acceso denegado, gcloud sí renovó su token y Hosting se desplegó por el
+  script REST existente. No se cambiaron permisos, reglas ni índices.
+- Commits: publicación `97d5f90`, `0abf42a`, `5ec3541` pusheados; master
+  local integra en `0ce7fd7` y conserva C1/C2. T2 cierre `50a06c3`, T3
+  cierre `3e7cfb7`, locales. No pushear master local mientras tenga C2.
+- Pruebas: copia publicada 593 unitarias, 103 emulador, ambas suites UI
+  (41 Windows y 24 móvil), tipos y builds auditados aprobados. SHA512/tamaño
+  del exe coinciden con latest.yml; manifiesto remoto idéntico. Ambos
+  Hosting index.html y sw.js idénticos a la build publicada (HTTP 200).
+  Master local: suite móvil completa 32 casos, incluido contraste/pérdida
+  a 390 px, altura reducida y paquete nuevo en selector sin reload; 616
+  unitarias y 106 emulador, ambos tipos aprobados antes de integrar versión.
+- Quedó a medias: T4 casos nuevos rojos; implementación aún no comenzada.
+  Emulador prendido para continuar; apagarlo antes de parar.
+- Sigue: C2 · T4 · paso 1 y después extraer selección compartida de clienta.
+- Para Joswill: probar «Fue un error» y Corregir PQ-0001 tras actualizar
+  a 2.17.1. PDF automático sigue aplazado por su decisión.
 
 ### 2026-10-03 12:08 · Codex
 - Hizo: retomó tras el corte de créditos. T3 paso 2 (`e7fe575`) y T7

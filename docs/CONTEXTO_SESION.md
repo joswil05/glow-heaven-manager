@@ -14,10 +14,12 @@
 > iPhone (sección 3). El 2 de octubre salió la **`v2.17.0`** en las dos apps:
 > la Fase 2 de la auditoría (un solo abono, lo pagado en su moneda y un solo
 > WhatsApp) y "Fue un error" (sección 3). **C1 está completa en master local,
-> sin publicar**; sigue el plan de C2 (Inventario y encargos). Claude
+> sin publicar**; el 3/10 salió **v2.17.1** en ambas apps, sólo las
+> correcciones de «Fue un error» al cambiar de mes e impuesto de paquetes
+> reconstruidos. Sigue el plan de C2 (Inventario y encargos). Claude
 > Code y Codex trabajan **en relevo**: dónde quedó cada uno está en
 > [RELEVO.md](RELEVO.md).
-> **Última actualización**: 2 de octubre de 2026.
+> **Última actualización**: 3 de octubre de 2026.
 
 Leé este archivo primero. Después:
 
@@ -40,7 +42,7 @@ antes de parar. Este apartado es el resto de lo mínimo para retomar.
 
 **Dónde está todo**:
 
-- La versión publicada sigue siendo `v2.17.0` (`b47d21f`). `master` local
+- La versión publicada es `v2.17.1` (`5ec3541`, hotfixes sobre `44cdcdc`). `master` local
   incluye C1 T1 a T4, sin push ni publicación; no asumir que coincide con
   `origin/master`. Los commits y el siguiente paso exacto están en RELEVO.
 - **C1 · Inventario por paquete está completa.** Sus casillas están en
