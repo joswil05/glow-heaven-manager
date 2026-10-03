@@ -72,7 +72,7 @@ se trabaja**.
   hotfixes de fecha e impuesto sobre la versión anterior. C1/C2 siguen locales.
 - **Plan vigente**: Fase C2 · Inventario y encargos en el celular,
   [superpowers/plans/2026-10-02-c2-inventario-y-encargos.md](superpowers/plans/2026-10-02-c2-inventario-y-encargos.md).
-- **Siguiente paso**: C2 · T4 · paso 1 (casos rojos de anotar pedido).
+- **Siguiente paso**: C2 · T4 · paso 2 (selector compartido de clienta).
   T2 y T3 completas y verificadas; T7 paso 2 completo, UI pendiente.
   Joswill autorizó dejar PDF automático pendiente y avanzar el resto de C2
   el 2/10 a las 22:52. T1 5b/5c guardados WIP, sin investigar más por ahora;
@@ -102,6 +102,20 @@ Formato de cada entrada:
 - Sigue: el paso exacto del plan.
 - Para Joswill: lo que necesita decidir o probar (o "nada").
 ```
+
+### 2026-10-03 12:39 · Codex
+- Hizo: T4 paso 1 guardado en `1b28ba4`: cuatro casos rojos por alta ausente,
+  sin implementar antes las hojas. Selector compartido en implementación.
+- Decisiones fuera del plan: T6 detenido al detectar que el enlace original
+  no admite mensaje editado. Joswill eligió **conservar el original sin
+  edición**; plan corregido, se mantienen los helpers compartidos existentes.
+  La comparación transaccional de versión esperada ya estaba prevista en T6.
+- Commits: `1b28ba4`; este commit registra la decisión de T6.
+- Pruebas: 616 unitarias aprobadas después de integrar 2.17.1. T4 rojo
+  confirmado; cuarto caso aislado evita heredar la navegación de otro rojo.
+- Quedó a medias: T4 paso 2; T7 casos móviles en preparación independiente.
+- Sigue: T4 paso 2, verificar ventas previas y después alta del pedido.
+- Para Joswill: nada. Ambas correcciones urgentes ya están publicadas.
 
 ### 2026-10-03 12:32 · Codex
 - Hizo: publicó **v2.17.1** en Windows y ambos sitios móviles, con los dos

@@ -27,7 +27,8 @@ aprobar por diferencias visuales; prueba física y aceptación del peso
 pendientes. Joswill autorizó
 añadir y probar `BottomSheet ocupado` el 2/10. También se corrige la
 medición del experimento DEV y se investiga fidelidad sin cambiar la
-plantilla de Windows. C1 T1–T4 completa. Sin publicación autorizada.
+plantilla de Windows. C1 T1–T4 completa. La autorización del 3/10 para
+publicar 2.17.1 cubre sólo los dos hotfixes; C1/C2 siguen sin publicar.
 
 ## Reglas para todas las tareas
 
@@ -609,6 +610,11 @@ Anotar pruebas exactas y commitear.
 **Consume:** proforma/mensaje compartidos y la impresión actual de DocumentoSheet.
 Joswill autorizó este alcance el 2/10 a las 22:52; compartir archivo automático
 y prueba física quedan como pendiente explícito de T1, no se declaran hechos.
+El 3/10 Joswill decidió conservar el mensaje original **sin edición**, al
+comprobar que el helper de WhatsApp genera el mensaje compartido internamente.
+Se mantienen `mensajeWhatsappDocumento` y `enlaceWhatsappDocumento`; no
+extender firmas ni crear otro enlace por esa decisión. Texto seleccionable
+para copiar, sin editor ni cambios pendientes del mensaje.
 
 - [ ] **Paso 1: pruebas rojas de mensaje, impresión y confirmación de envío**
 
@@ -622,8 +628,8 @@ Tasa vieja/abono en su moneda coinciden con HTML y mensaje compartidos.
 
 - [ ] **Paso 2: hoja de mensaje con vista previa e impresión actual**
 
-Mensaje editable parte de `mensajeWhatsappDocumento`, vista previa HTML de
-`generarHtmlProforma`. `hayCambios` por mensaje editado. Ofrecer Copiar y
+Mensaje original de `mensajeWhatsappDocumento`, vista previa HTML de
+`generarHtmlProforma`. Mostrar el mensaje sin edición. Ofrecer Copiar y
 WhatsApp por `enlaceWhatsappDocumento`; mostrar copiado sólo después de
 resolver el permiso y conservar texto seleccionable ante rechazo. Usar
 el mismo recorrido de impresión, sin segundo motor ni lógica financiera.
