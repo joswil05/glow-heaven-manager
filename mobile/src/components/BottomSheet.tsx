@@ -76,6 +76,8 @@ interface BottomSheetProps {
   hayCambios?: boolean;
   /** Evita descartar/cerrar mientras una acción está pendiente. */
   ocupado?: boolean;
+  /** Las confirmaciones usan la misma pila de foco y Atrás que las hojas. */
+  rol?: 'dialog' | 'alertdialog';
   titulo?: string;
   subtitulo?: string;
   children: ReactNode;
@@ -89,6 +91,7 @@ export function BottomSheet({
   onCerrar,
   hayCambios = false,
   ocupado = false,
+  rol = 'dialog',
   titulo,
   subtitulo,
   children,
@@ -407,7 +410,7 @@ export function BottomSheet({
       <div
         ref={hojaRef}
         {...(preguntando ? { inert: '' } : {})}
-        role="dialog"
+        role={rol}
         aria-modal="true"
         aria-busy={ocupado}
         aria-labelledby={visto.titulo ? `${id}-titulo` : undefined}

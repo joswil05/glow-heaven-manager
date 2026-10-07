@@ -508,7 +508,7 @@ confirmación; Escape/Tab atienden únicamente la capa superior.
 Correr casos existentes de ventas antes de seguir; no crear un segundo
 formulario de clienta copiado dentro de NuevoEncargo.
 
-- [ ] **Paso 3: hoja de pedido y guardado compartido**
+- [x] **Paso 3: hoja de pedido y guardado compartido**
 
 Lista de piezas con claves estables, descripción obligatoria, cantidad
 entera >0, precio opcional vacío→0 y no negativo. Agregar otra enfoca su

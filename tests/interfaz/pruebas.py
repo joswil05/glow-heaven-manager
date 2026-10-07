@@ -45,7 +45,9 @@ def caso(nombre: str):
 def cerrar_hojas(page: Page) -> None:
     """Cierra cualquier hoja abierta: tapan la barra de navegación."""
     for _ in range(4):
-        botones = page.locator("button[aria-label='Cerrar']")
+        # Una hoja que ya baja puede seguir visible durante 200 ms, pero su
+        # botón se desmontará antes de que Playwright termine el click.
+        botones = page.locator("[role='dialog']:not(.animate-m3-salida-hoja):not([inert]) button[aria-label='Cerrar']")
         abiertos = [botones.nth(i) for i in range(botones.count()) if botones.nth(i).is_visible()]
         if not abiertos:
             break

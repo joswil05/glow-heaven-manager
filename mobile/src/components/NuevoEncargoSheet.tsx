@@ -3,7 +3,6 @@ import { Plus, Trash2, UserRound } from 'lucide-react';
 import type { ClienteDetalle } from '@shared/types';
 import { VentasRepoFirestore } from '@repos/ventas.repo';
 import { parsearACentavos } from '@core/numeros';
-import { Confirmar } from '../../../src/renderer/src/components/ui/Confirmar';
 import { enfocarPrimerError } from '../../../src/renderer/src/lib/enfocarPrimerError';
 import { useDatosNegocio } from '../context/DataContext';
 import { hoyISO, nuevoGrupoEvento } from '../lib/util';
@@ -145,7 +144,7 @@ export function NuevoEncargoSheet({ abierto, onCerrar, onGuardado }: Props) {
   const bloqueado = guardando || quitar !== null || eligiendoClienta;
 
   return <>
-    <BottomSheet abierto={abierto && quitar === null} onCerrar={onCerrar} titulo="Anotar un pedido"
+    <BottomSheet abierto={abierto} onCerrar={onCerrar} titulo="Anotar un pedido"
       subtitulo="Guardá lo que te pidió; podés cotizarlo después."
       hayCambios={hayCambios} ocupado={bloqueado}
       footer={<button type="button" disabled={bloqueado} onClick={() => void guardar()}
@@ -218,9 +217,21 @@ export function NuevoEncargoSheet({ abierto, onCerrar, onGuardado }: Props) {
     </BottomSheet>
     <SeleccionarClientaSheet abierto={abierto && eligiendoClienta} onCerrar={() => setEligiendoClienta(false)}
       onSeleccionar={(elegida) => { setClienta(elegida); setErrorClienta(''); setEligiendoClienta(false); }} />
-    <Confirmar abierto={quitar !== null} titulo="¿Quitar esta pieza?"
-      descripcion="Lo que escribiste para esta pieza no se guardó. Las demás quedan como están."
-      textoCancelar="No, conservar" textoConfirmar="Sí, quitar pieza" peligroso
-      onCerrar={() => setQuitar(null)} onConfirmar={() => { haptics.selection(); if (quitar !== null) quitarPieza(quitar); }} />
+    <BottomSheet abierto={abierto && quitar !== null} rol="alertdialog" titulo="¿Quitar esta pieza?"
+      onCerrar={() => setQuitar(null)} footer={<div className="grid grid-cols-2 gap-2">
+        <button type="button" autoFocus onClick={() => { haptics.selection(); setQuitar(null); }}
+          className="min-h-12 rounded-xl border border-borde bg-superficie-2 px-3 py-2 text-sm font-bold text-texto">
+          No, conservar
+        </button>
+        <button type="button" onClick={() => {
+          haptics.selection();
+          if (quitar !== null) quitarPieza(quitar);
+          setQuitar(null);
+        }} className="min-h-12 rounded-xl bg-peligro px-3 py-2 text-sm font-bold text-peligro-texto">
+          Sí, quitar pieza
+        </button>
+      </div>}>
+      <p className="py-2 text-sm text-texto-2">Lo que escribiste para esta pieza no se guardó. Las demás quedan como están.</p>
+    </BottomSheet>
   </>;
 }
