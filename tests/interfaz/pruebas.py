@@ -1716,6 +1716,9 @@ def caso_c2_aceptar_encargo(page: Page) -> list[str]:
     abono.get_by_role("radio", name="Córdobas (C$)", exact=True).click()
     monto = abono.get_by_label("Cuánto pagó (C$)", exact=True)
     expect(monto).to_have_attribute("inputmode", "decimal")
+    abono.get_by_role("button", name="Registrar abono", exact=True).click()
+    expect(monto).to_have_attribute("aria-invalid", "true")
+    expect(monto).to_be_focused()
     monto.fill("37.00")
     abono.get_by_label("Referencia", exact=True).fill("Aceptación C2 prueba")
     abono.get_by_role("button", name="Registrar abono", exact=True).click()
@@ -1737,7 +1740,30 @@ def caso_c2_aceptar_encargo(page: Page) -> list[str]:
     assert len({e["evento_grupo_id"] for e in del_pago + de_aceptar}) == 1, "ambas acciones se deshacen juntas"
     assert foto_bodega_pedido_c2() == bodega_antes
 
-    abono.get_by_role("button", name="Deshacer el abono", exact=True).click()
+    # Pausar únicamente el servicio local deja probar la protección mientras
+    # Deshacer está realmente pendiente, sin depender de la velocidad de red.
+    page.evaluate("""async () => {
+      const url = performance.getEntriesByType('resource').map(r => r.name)
+        .find(url => new URL(url).pathname.endsWith('/eventos.repo.ts'));
+      if (!url) throw new Error('No se encontró el repositorio local de eventos');
+      const { EventosRepoFirestore: repo } = await import(url);
+      const original = repo.deshacerGrupo;
+      repo.deshacerGrupo = async (...args) => {
+        await new Promise(resolve => { window.soltarDeshacerC2 = resolve; });
+        return original.apply(repo, args);
+      };
+      window.restaurarDeshacerC2 = () => { repo.deshacerGrupo = original; };
+    }""")
+    try:
+        abono.get_by_role("button", name="Deshacer el abono", exact=True).click()
+        expect(abono).to_have_attribute("aria-busy", "true")
+        expect(abono.get_by_role("button", name="Listo", exact=True)).to_be_disabled()
+        abono.get_by_role("button", name="Cerrar", exact=True).click()
+        page.evaluate("history.back()")
+        page.wait_for_timeout(300)
+        expect(abono).to_be_visible()
+    finally:
+        page.evaluate("() => { window.soltarDeshacerC2?.(); window.restaurarDeshacerC2?.(); }")
     expect(page.get_by_text("Abono deshecho.", exact=True)).to_be_visible()
     expect(abono).not_to_be_visible()
     deshecha = leer_doc("ventas", str(venta_id))
@@ -1999,9 +2025,13 @@ def caso_c2_clienta_descarte_bloquea_guardar(page: Page) -> list[str]:
     elegir.click()
     selector = page.get_by_role("dialog", name="Elegí la clienta", exact=True)
     selector.get_by_role("button", name=re.compile("Crear nueva clienta")).click()
-    alta = page.get_by_role("dialog", name="Clienta nueva", exact=True)
+    alta = page.get_by_role("dialog", name="Clienta nueva", exact=True, include_hidden=True)
+    # La hoja de búsqueda termina de salir después de abrir el alta: no debe
+    # restaurar el foco en Vender mientras otra hoja siga encima.
+    page.wait_for_timeout(350)
+    expect(alta.get_by_label("Nombre", exact=True)).to_be_focused()
     alta.get_by_label("Nombre", exact=True).fill("Clienta C2 que no debe guardarse detrás")
-    guardar = alta.get_by_role("button", name="Guardar y elegir", exact=True)
+    guardar = alta.get_by_role("button", name="Guardar y elegir", exact=True, include_hidden=True)
     alta.get_by_role("button", name="Cancelar", exact=True).click()
     descarte = page.get_by_role("alertdialog", name="¿Descartar lo que escribiste?", exact=True)
     expect(descarte).to_be_visible()
