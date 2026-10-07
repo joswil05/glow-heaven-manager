@@ -2232,6 +2232,231 @@ def caso_c2_cotizar_sobrepago(page: Page) -> list[str]:
     return []
 
 
+def modulo_t6(ruta: str) -> str:
+    return "/@fs/" + (Path(__file__).resolve().parents[2] / ruta).as_posix()
+
+
+def preparar_mandar_c2(page: Page, sufijo: str):
+    """Cotizada con tasa vieja y abono pequeño COR: sigue sin aceptar."""
+    cliente = next(c for c in listar_coleccion("clientes") if c.get("nombre") == "Clienta C2")
+    rutas = {"ventas": modulo_t6("src/main/firebase/repositories/ventas.repo.ts"),
+             "pagos": modulo_t6("src/main/firebase/repositories/pagos.repo.ts"),
+             "parametros": modulo_t6("src/main/firebase/repositories/parametros.repo.ts"),
+             "mensajes": modulo_t6("src/core/documentos/mensajes.ts")}
+    descripcion = "Perfume C2 mandar " + sufijo
+    fixture = page.evaluate("""async ({rutas, cliente, descripcion}) => {
+      const {VentasRepoFirestore: V} = await import(rutas.ventas);
+      const {PagosRepoFirestore: P} = await import(rutas.pagos);
+      const {ParametrosRepoFirestore: A} = await import(rutas.parametros);
+      const M = await import(rutas.mensajes);
+      const parametros = await A.getParametros();
+      const g = () => crypto.randomUUID();
+      let id;
+      try {
+        await A.actualizar({tasa_cambio_cents: 3600}, g());
+        id = await V.crear({cliente_id: cliente, fecha: '2026-10-01', tipo: 'ENCARGO',
+          anticipo_bp: 5000, lineas: [{descripcion, cantidad: 1,
+          precio_unitario_usd_cents: 0}]}, g());
+        const sinPrecio = await V.getById(id);
+        await V.cotizar(id, [{id: sinPrecio.lineas[0].id,
+          precio_unitario_usd_cents: 3000}], g());
+        await P.registrar({venta_id: id, fecha: '2026-10-01', monto_cents: 3600,
+          moneda: 'COR', metodo: 'EFECTIVO'}, g());
+      } finally {
+        await A.actualizar({tasa_cambio_cents: parametros.tasa_cambio_cents}, g());
+      }
+      const venta = await V.getById(id);
+      return {id, descripcion, mensaje: M.mensajeWhatsappDocumento(venta, parametros),
+        enlace: M.enlaceWhatsappDocumento(venta, parametros)};
+    }""", {"rutas": rutas, "cliente": cliente["id"], "descripcion": descripcion})
+    original = leer_doc("ventas", str(fixture["id"]))
+    assert original["estado"] == "COTIZADA" and original["pagado_usd_cents"] == 100
+    assert original["tasa_cambio_cents"] == 3600
+    arnes.abrir_app(page)
+    ir_a(page, "Inicio")
+    page.get_by_role("button", name=re.compile("Encargos")).click()
+    principal = page.locator("main:visible").last
+    principal.get_by_role("button", name=re.compile("^Todos")).click()
+    principal.get_by_role("button", name=re.compile(re.escape(descripcion))).click()
+    detalle = page.get_by_role("dialog").last
+    expect(detalle.get_by_role("button", name="Mandar cotización", exact=True)).to_be_visible()
+    detalle.get_by_role("button", name="Mandar cotización", exact=True).click()
+    hoja = page.get_by_role("dialog", name="Mandar cotización", exact=True)
+    expect(hoja).to_be_visible()
+    return fixture, original, hoja
+
+
+def sin_escrituras_mandar_c2(original: dict, eventos: list[dict]) -> None:
+    assert leer_doc("ventas", str(original["id"])) == original, "abrir/copiar/imprimir/WhatsApp modificó el encargo"
+    assert listar_coleccion("eventos") == eventos, "una vista previa confirmó la cotización sin el gesto explícito"
+
+
+def interceptar_salidas_mandar_c2(page: Page) -> None:
+    """Intercepta salidas, conservando generación y DOM real de la proforma."""
+    page.evaluate("""() => {
+      window.__t6 = {copias: [], enlaces: [], impresos: [], rechazarCopia: false};
+      window.__t6Descriptor = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+      Object.defineProperty(navigator, 'clipboard', {configurable: true, value: {
+        writeText: async texto => {
+          if (window.__t6.rechazarCopia) throw new DOMException('Permiso denegado', 'NotAllowedError');
+          window.__t6.copias.push(texto);
+        }
+      }});
+      window.__t6Click = e => {
+        const enlace = e.target.closest?.('a');
+        if (enlace && ['wa.me', 'api.whatsapp.com'].includes(new URL(enlace.href).hostname)) {
+          e.preventDefault(); window.__t6.enlaces.push(enlace.href);
+        }
+      };
+      document.addEventListener('click', window.__t6Click, true);
+      window.__t6Append = Node.prototype.appendChild;
+      Node.prototype.appendChild = function (nodo) {
+        const resultado = window.__t6Append.call(this, nodo);
+        if (nodo instanceof HTMLIFrameElement) {
+          nodo.contentWindow.print = () => window.__t6.impresos.push(nodo.contentDocument.documentElement.outerHTML);
+          nodo.contentWindow.focus = () => {};
+        }
+        return resultado;
+      };
+    }""")
+
+
+def restaurar_salidas_mandar_c2(page: Page) -> None:
+    page.evaluate("""() => {
+      if (window.__t6Append) Node.prototype.appendChild = window.__t6Append;
+      if (window.__t6Click) document.removeEventListener('click', window.__t6Click, true);
+      if (window.__t6Descriptor) Object.defineProperty(navigator, 'clipboard', window.__t6Descriptor);
+      else delete navigator.clipboard;
+    }""")
+
+
+@caso("C2 · mandar cotización conserva la fase hasta confirmar que la mandó")
+def caso_c2_mandar_confirmacion(page: Page) -> list[str]:
+    fixture, original, hoja = preparar_mandar_c2(page, "confirmacion")
+    eventos = listar_coleccion("eventos")
+    interceptar_salidas_mandar_c2(page)
+    try:
+        mensaje = hoja.get_by_label("Mensaje para la clienta", exact=True)
+        assert mensaje.inner_text().strip() == fixture["mensaje"].strip(), "la vista debe usar el mensaje original compartido"
+        expect(hoja.locator("textarea, [contenteditable='true']")).to_have_count(0)
+        assert "C$1,080.00" in fixture["mensaje"], "el mensaje usa la tasa congelada36, no la actual37"
+        sin_escrituras_mandar_c2(original, eventos)
+        hoja.get_by_role("button", name="Copiar mensaje", exact=True).click()
+        expect(page.get_by_role("status").filter(has_text="Mensaje copiado")).to_be_visible()
+        assert page.evaluate("window.__t6.copias") == [fixture["mensaje"]]
+        hoja.get_by_role("link", name="WhatsApp", exact=True).click()
+        assert page.evaluate("window.__t6.enlaces") == [fixture["enlace"]]
+        sin_escrituras_mandar_c2(original, eventos)
+        hoja.get_by_role("button", name="Guardar PDF", exact=True).click()
+        page.wait_for_function("window.__t6.impresos.length === 1")
+        html = page.evaluate("window.__t6.impresos[0]")
+        assert fixture["descripcion"] in html and "$30.00" in html and "C$1,080.00" in html
+        assert "C$36.00" in html, "la proforma debe mostrar el abono en su moneda"
+        sin_escrituras_mandar_c2(original, eventos)
+        hoja.get_by_role("button", name="Cerrar", exact=True).click()
+        expect(hoja).not_to_be_visible()
+        sin_escrituras_mandar_c2(original, eventos)
+        page.get_by_role("dialog").last.get_by_role("button", name="Mandar cotización", exact=True).click()
+        expect(hoja).to_be_visible()
+        hoja.get_by_role("button", name="Ya la mandé", exact=True).evaluate("b => {b.click(); b.click();}")
+        expect(hoja).not_to_be_visible()
+        despues = leer_doc("ventas", str(original["id"]))
+        assert despues["cotizacion_enviada_version"] == original["cotizacion_version"]
+        assert despues["estado"] == "COTIZADA", "mandar todavía no significa que aceptó"
+        assert despues["pagado_usd_cents"] == original["pagado_usd_cents"]
+        nuevos = [e for e in listar_coleccion("eventos") if e["id"] not in {a["id"] for a in eventos}]
+        assert len(nuevos) == 1, "doble toque debe registrar un solo envío"
+        detalle = page.get_by_role("dialog").last
+        expect(detalle).to_contain_text(re.compile("Esperando|respuesta", re.I))
+        assert page.evaluate("window.__t6.enlaces.length") == 1
+        page.evaluate("""async ({ruta, id}) => {
+          const {VentasRepoFirestore: V} = await import(ruta);
+          const actual = await V.getById(id);
+          await V.cotizar(id, [{id: actual.lineas[0].id,
+            precio_unitario_usd_cents: 3500}], crypto.randomUUID());
+        }""", {"ruta": modulo_t6("src/main/firebase/repositories/ventas.repo.ts"), "id": fixture["id"]})
+        recotizada = leer_doc("ventas", str(original["id"]))
+        assert recotizada["cotizacion_version"] > recotizada["cotizacion_enviada_version"]
+        restaurar_salidas_mandar_c2(page)
+        arnes.abrir_app(page)
+        ir_a(page, "Inicio")
+        page.get_by_role("button", name=re.compile("Encargos")).click()
+        expect(page.get_by_role("region", name="Por mandar", exact=True)).to_contain_text(fixture["descripcion"])
+    finally:
+        restaurar_salidas_mandar_c2(page)
+        cerrar_hojas(page)
+        volver_desde_encargos_c2(page)
+    return []
+
+
+@caso("C2 · mandar informa copia rechazada y reintenta guardar sin repetir WhatsApp")
+def caso_c2_mandar_errores(page: Page) -> list[str]:
+    fixture, original, hoja = preparar_mandar_c2(page, "errores")
+    eventos = listar_coleccion("eventos")
+    interceptar_salidas_mandar_c2(page)
+    repos = modulo_t6("src/main/firebase/repositories/ventas.repo.ts")
+    try:
+        page.evaluate("window.__t6.rechazarCopia = true")
+        hoja.get_by_role("button", name="Copiar mensaje", exact=True).click()
+        expect(hoja.get_by_role("alert")).to_contain_text(re.compile("copiar|permiso|seleccion", re.I))
+        expect(page.get_by_role("status").filter(has_text="Mensaje copiado")).to_have_count(0)
+        assert page.evaluate("window.__t6.copias") == []
+        assert hoja.get_by_label("Mensaje para la clienta", exact=True).inner_text().strip() == fixture["mensaje"].strip()
+        sin_escrituras_mandar_c2(original, eventos)
+        hoja.get_by_role("link", name="WhatsApp", exact=True).click()
+        # Falla controlada sólo de la frontera de escritura. El reintento sí
+        # llama al método original y se verifica contra el emulador real.
+        page.evaluate("""async ruta => {
+          const {VentasRepoFirestore: V} = await import(ruta);
+          window.__t6MarcarOriginal = V.marcarEnviada;
+          let fallar = true;
+          V.marcarEnviada = async (...args) => {
+            if (fallar) { fallar = false; throw new Error('No se pudo guardar el envío. Probá de nuevo.'); }
+            return window.__t6MarcarOriginal.apply(V, args);
+          };
+        }""", repos)
+        hoja.get_by_role("button", name="Ya la mandé", exact=True).click()
+        expect(hoja.get_by_role("alert")).to_contain_text("No se pudo guardar el envío")
+        expect(hoja).to_be_visible()
+        sin_escrituras_mandar_c2(original, eventos)
+        hoja.get_by_role("button", name="Ya la mandé", exact=True).click()
+        expect(hoja).not_to_be_visible()
+        assert leer_doc("ventas", str(original["id"]))["cotizacion_enviada_version"] == original["cotizacion_version"]
+        assert page.evaluate("window.__t6.enlaces") == [fixture["enlace"]], "reintentar escritura volvió a abrir WhatsApp"
+    finally:
+        page.evaluate("""async ruta => {
+          const {VentasRepoFirestore: V} = await import(ruta);
+          if (window.__t6MarcarOriginal) V.marcarEnviada = window.__t6MarcarOriginal;
+        }""", repos)
+        restaurar_salidas_mandar_c2(page)
+        cerrar_hojas(page)
+        volver_desde_encargos_c2(page)
+    return []
+
+
+@caso("C2 · mandar rechaza la versión que cambió mientras estaba abierta")
+def caso_c2_mandar_version(page: Page) -> list[str]:
+    fixture, original, hoja = preparar_mandar_c2(page, "version")
+    # Otra sesión recotiza por el repositorio real mientras sigue visible la
+    # versión anterior. No puede marcar como mandada la nueva que no mostró.
+    page.evaluate("""async ({ruta, id}) => {
+      const {VentasRepoFirestore: V} = await import(ruta);
+      const actual = await V.getById(id);
+      await V.cotizar(id, [{id: actual.lineas[0].id,
+        precio_unitario_usd_cents: 3500}], crypto.randomUUID());
+    }""", {"ruta": modulo_t6("src/main/firebase/repositories/ventas.repo.ts"), "id": fixture["id"]})
+    recotizada = leer_doc("ventas", str(original["id"]))
+    assert recotizada["cotizacion_version"] > original["cotizacion_version"]
+    eventos = listar_coleccion("eventos")
+    hoja.get_by_role("button", name="Ya la mandé", exact=True).click()
+    expect(hoja.get_by_role("alert")).to_contain_text(re.compile("cotización cambió|volvé a verla|actualizada", re.I))
+    expect(hoja).to_be_visible()
+    sin_escrituras_mandar_c2(recotizada, eventos)
+    cerrar_hojas(page)
+    volver_desde_encargos_c2(page)
+    return []
+
+
 @caso("no quedan errores de consola al recorrer la app")
 def caso_consola(page: Page) -> list[str]:
     # Lo llena el registrador; se evalúa al final de la corrida.

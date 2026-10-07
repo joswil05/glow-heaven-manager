@@ -630,7 +630,7 @@ Se mantienen `mensajeWhatsappDocumento` y `enlaceWhatsappDocumento`; no
 extender firmas ni crear otro enlace por esa decisión. Texto seleccionable
 para copiar, sin editor ni cambios pendientes del mensaje.
 
-- [ ] **Paso 1: pruebas rojas de mensaje, impresión y confirmación de envío**
+- [x] **Paso 1: pruebas rojas de mensaje, impresión y confirmación de envío**
 
 Caso `C2 · mandar cotización conserva la fase hasta confirmar que la mandó`.
 Interceptar impresión/enlace sólo en el contexto de prueba, conservando el
