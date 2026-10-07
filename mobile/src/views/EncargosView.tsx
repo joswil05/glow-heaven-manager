@@ -10,15 +10,16 @@ import { useDatosNegocio } from '../context/DataContext';
 import { BottomSheet } from '../components/BottomSheet';
 import { AceptarEncargoSheet, puedeAceptarEncargo } from '../components/AceptarEncargoSheet';
 import { AbonoModalSheet, type VentaCobroItem } from '../components/AbonoModalSheet';
+import { NuevoEncargoSheet } from '../components/NuevoEncargoSheet';
 import { haptics } from '../lib/haptics';
 
 interface Props {
   onVolver: () => void;
-  /** T4 conecta esta intención al alta del pedido. */
+  /** Abre el alta cuando se entra desde Anotar un pedido en Vender. */
   abrirNuevoAlEntrar?: boolean;
 }
 
-export function EncargosView({ onVolver }: Props) {
+export function EncargosView({ onVolver, abrirNuevoAlEntrar = false }: Props) {
   const { version, marcarCambio } = useDatosNegocio();
   const [encargos, setEncargos] = useState<Venta[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -32,6 +33,7 @@ export function EncargosView({ onVolver }: Props) {
   const [reintentoDetalle, setReintentoDetalle] = useState(0);
   const [aceptando, setAceptando] = useState<VentaCompleta | null>(null);
   const [abono, setAbono] = useState<VentaCobroItem | null>(null);
+  const [nuevo, setNuevo] = useState(abrirNuevoAlEntrar);
 
   useEffect(() => {
     let vivo = true;
@@ -85,6 +87,10 @@ export function EncargosView({ onVolver }: Props) {
               <p className="text-xs text-texto-2">{encargos.length} en curso</p>
             </div>
           </div>
+          <button type="button" onClick={() => { haptics.selection(); setNuevo(true); }}
+            className="mb-3 min-h-12 w-full rounded-xl bg-acento px-3 py-2 text-sm font-bold text-acento-texto">
+            Anotar un pedido
+          </button>
           <div aria-label="Filtrar encargos" className="flex gap-2 overflow-x-auto pb-3">
             {[{ fase: 'TODOS' as const, nombre: 'Todos', cantidad: encargos.length }, ...grupos.map((grupo) => ({
               fase: grupo.fase, nombre: NOMBRES_ETAPA_ENCARGO[grupo.fase], cantidad: grupo.ventas.length,
@@ -170,6 +176,8 @@ export function EncargosView({ onVolver }: Props) {
             saldo_usd_cents: venta.saldo_usd_cents, tasa_cambio_cents: venta.tasa_cambio_cents });
         }} />
       <AbonoModalSheet venta={abono} aceptarEncargo onCerrar={() => setAbono(null)} onAbonoRegistrado={marcarCambio} />
+      <NuevoEncargoSheet abierto={nuevo} onCerrar={() => setNuevo(false)}
+        onGuardado={() => { setNuevo(false); setFiltro('TODOS'); }} />
     </div>
   );
 }
