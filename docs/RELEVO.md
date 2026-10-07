@@ -72,8 +72,8 @@ se trabaja**.
   hotfixes de fecha e impuesto sobre la versión anterior. C1/C2 siguen locales.
 - **Plan vigente**: Fase C2 · Inventario y encargos en el celular,
   [superpowers/plans/2026-10-02-c2-inventario-y-encargos.md](superpowers/plans/2026-10-02-c2-inventario-y-encargos.md).
-- **Siguiente paso**: C2 · T4 · paso 2 (selector compartido de clienta).
-  T2 y T3 completas y verificadas; T7 paso 2 completo, UI pendiente.
+- **Siguiente paso**: C2 · T4 · paso 3 (alta del pedido y descarte de piezas).
+  T2 y T3 completas y verificadas; T4 paso 2 y T7 paso 3 completos.
   Joswill autorizó dejar PDF automático pendiente y avanzar el resto de C2
   el 2/10 a las 22:52. T1 5b/5c guardados WIP, sin investigar más por ahora;
   conservar impresión actual y no integrar candidata. T6 se reajusta antes
@@ -102,6 +102,24 @@ Formato de cada entrada:
 - Sigue: el paso exacto del plan.
 - Para Joswill: lo que necesita decidir o probar (o "nada").
 ```
+
+### 2026-10-06 23:13 · Codex
+- Hizo: retomó los cambios del corte anterior. T4 paso 2 completo: selector
+  compartido, foco por capas y descarte sin permitir guardar detrás.
+  T7 paso 3 completo: Aceptó, abono opcional y Deshacer del grupo completo.
+  Listo/X/Atrás bloqueados mientras Deshacer está pendiente.
+- Commits: regresiones `8e48223`; T4 paso 2 `5d95d51`; T7 paso 3 `83cf523`.
+- Pruebas: 620 unitarias, tipos móvil y auditorías colores/hooks aprobados;
+  selector y CVE-01/02 verdes; recorrido T7 verde con pago C$37 a tasa37,
+  aceptación sin pago, Deshacer y bloqueo con operación pausada. Foco de
+  nueva clienta y Listo durante Deshacer se vieron rojos antes de corregir.
+- Quedó a medias: T4 paso 3 implementado en hoja nueva, pendiente integrar,
+  verificar y corregir confirmación de quitar para conservar guardia Atrás.
+  T5 pendiente; T6 sólo tiene protección transaccional de versión, falta UI.
+- Sigue: C2 · T4 · paso 3 y luego paso 4. T7 paso 4 es cierre conjunto C2.
+- Para Joswill: nada para seguir. PDF automático sigue aplazado; impresión
+  actual y mensaje original sin edición. Sin push, instalador ni deploy.
+  Emulador local activo durante el trabajo; apagar antes de parar.
 
 ### 2026-10-03 12:39 · Codex
 - Hizo: T4 paso 1 guardado en `1b28ba4`: cuatro casos rojos por alta ausente,
