@@ -5,7 +5,6 @@ import {
   Minus,
   Trash2,
   User,
-  UserPlus,
   MessageCircle,
   CheckCircle2,
   X,
@@ -15,7 +14,6 @@ import {
   Tag,
   RotateCcw,
 } from 'lucide-react';
-import { ClientesRepoFirestore } from '@repos/clientes.repo';
 import { VentasRepoFirestore } from '@repos/ventas.repo';
 import { EventosRepoFirestore } from '@repos/eventos.repo';
 import { monedaPorDefecto, metodoPorDefecto } from '@core/preferencias';
@@ -35,6 +33,7 @@ import { parsearACentavos, parsearDecimal } from '@core/numeros';
 import { nuevoGrupoEvento, hoyISO } from '../lib/util';
 import { useDatosNegocio } from '../context/DataContext';
 import { BottomSheet } from '../components/BottomSheet';
+import { SeleccionarClientaSheet } from '../components/SeleccionarClientaSheet';
 import { useSnackbar } from '../components/Snackbar';
 import { haptics } from '../lib/haptics';
 import { useScrollReveal } from '../lib/useScrollReveal';
@@ -174,60 +173,8 @@ export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void 
   const bajoCosto = totalUsdCents > 0 && totalUsdCents < costoTotalCarrito;
 
   // --- Clienta ---------------------------------------------------------------
-  const [clienteQuery, setClienteQuery] = useState('');
-  const [clienteResultados, setClienteResultados] = useState<ClienteDetalle[]>([]);
   const [clienteSeleccionado, setClienteSeleccionado] = useState<ClienteDetalle | null>(null);
   const [sheetClienteAbierto, setSheetClienteAbierto] = useState(false);
-  const [modoCrearCliente, setModoCrearCliente] = useState(false);
-  const [creandoCliente, setCreandoCliente] = useState(false);
-  const [nuevoNombre, setNuevoNombre] = useState('');
-  const [nuevoTelefono, setNuevoTelefono] = useState('');
-
-  useEffect(() => {
-    if (!sheetClienteAbierto) return;
-    let vivo = true;
-    ClientesRepoFirestore.listar(clienteQuery.trim() || undefined)
-      .then((lista) => {
-        if (vivo) setClienteResultados(lista.slice(0, 25));
-      })
-      .catch((err) => {
-        console.error('[QuickSaleView] Error listando clientas:', err);
-        // Si esto falla en silencio, la lista queda vacía y parece que la
-        // clienta no existe: se termina creando una repetida.
-        if (vivo) mostrar('No se pudo buscar. Revisá la conexión.', 'error');
-      });
-    return () => {
-      vivo = false;
-    };
-  }, [clienteQuery, sheetClienteAbierto]);
-
-  async function crearClienteRapido() {
-    if (!nuevoNombre.trim()) {
-      mostrar('Escribí el nombre de la clienta.', 'error');
-      return;
-    }
-    setCreandoCliente(true);
-    try {
-      const id = await ClientesRepoFirestore.guardar(
-        { nombre: nuevoNombre.trim(), telefono: nuevoTelefono.trim() || undefined },
-        nuevoGrupoEvento()
-      );
-      const cliente = await ClientesRepoFirestore.getById(id);
-      if (cliente) {
-        setClienteSeleccionado(cliente);
-        mostrar(`Clienta "${cliente.nombre}" creada y seleccionada`, 'success');
-      }
-      setSheetClienteAbierto(false);
-      setModoCrearCliente(false);
-      setNuevoNombre('');
-      setNuevoTelefono('');
-    } catch (err) {
-      console.error('[QuickSaleView] Error creando clienta:', err);
-      mostrar('No se pudo guardar la clienta. Probá de nuevo.', 'error');
-    } finally {
-      setCreandoCliente(false);
-    }
-  }
 
   // --- Cobro -----------------------------------------------------------------
   const [esCredito, setEsCredito] = useState(false);
@@ -1107,105 +1054,15 @@ export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void 
         </div>
       </BottomSheet>
 
-      {/* Modal Bottom Sheet: Elegir o Crear Clienta */}
-      <BottomSheet
+      <SeleccionarClientaSheet
         abierto={sheetClienteAbierto}
-        onCerrar={() => {
+        onCerrar={() => setSheetClienteAbierto(false)}
+        onSeleccionar={(clienta) => {
+          setClienteSeleccionado(clienta);
           setSheetClienteAbierto(false);
-          setModoCrearCliente(false);
         }}
-        hayCambios={modoCrearCliente && (nuevoNombre.trim() !== '' || nuevoTelefono.trim() !== '')}
-        titulo={modoCrearCliente ? 'Clienta nueva' : 'Elegí la clienta'}
-      >
-        {!modoCrearCliente ? (
-          <div className="flex flex-col gap-3 pb-4">
-            {/* Buscador de clientes */}
-            <div className="relative flex items-center">
-              <Search size={17} className="absolute left-3.5 text-texto-3 pointer-events-none" />
-              <input
-                autoFocus
-                value={clienteQuery}
-                onChange={(e) => setClienteQuery(e.target.value)}
-                placeholder="Buscar por nombre o teléfono"
-                className="w-full h-11 rounded-full bg-superficie-2 pl-10 pr-4 text-xs font-semibold text-texto placeholder:text-texto-3 border border-transparent outline-none focus:bg-superficie focus:ring-2 focus:ring-acento"
-              />
-            </div>
+      />
 
-            <button
-              type="button"
-              onClick={() => setModoCrearCliente(true)}
-              className="m3-press flex items-center justify-center gap-2 rounded-2xl border border-dashed border-acento-suave bg-acento-suave p-3 text-xs font-bold text-acento-fuerte cursor-pointer"
-            >
-              <UserPlus size={16} />
-              + Crear nueva clienta ahora
-            </button>
-
-            {/* Lista de clientas */}
-            <div className="flex flex-col divide-y divide-borde max-h-72 overflow-y-auto pr-1">
-              {clienteResultados.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => {
-                    setClienteSeleccionado(c);
-                    setSheetClienteAbierto(false);
-                    mostrar(`Clienta seleccionada: ${c.nombre}`, 'info');
-                  }}
-                  className="m3-press flex items-center justify-between py-3 text-left hover:bg-superficie-2/60 px-2 rounded-xl cursor-pointer"
-                >
-                  <div>
-                    <p className="text-xs font-bold text-texto">{c.nombre}</p>
-                    {c.telefono && <p className="text-[11px] text-texto-3">{c.telefono}</p>}
-                  </div>
-                  <span className="text-[11px] font-bold text-acento">Elegir</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3 pb-4">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-bold text-texto-2">Nombre</label>
-              <input
-                autoFocus
-                value={nuevoNombre}
-                onChange={(e) => setNuevoNombre(e.target.value)}
-                placeholder="Carmen Rodríguez"
-                className="rounded-xl border border-borde bg-superficie px-3.5 py-2.5 text-xs text-texto font-semibold outline-none focus:border-acento-suave"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-bold text-texto-2">Teléfono</label>
-              <input
-                value={nuevoTelefono}
-                onChange={(e) => setNuevoTelefono(e.target.value)}
-                placeholder="8888 1234"
-                inputMode="tel"
-                className="rounded-xl border border-borde bg-superficie px-3.5 py-2.5 text-xs text-texto font-semibold outline-none focus:border-acento-suave"
-              />
-            </div>
-
-            <div className="flex gap-2 mt-2">
-              <button
-                type="button"
-                onClick={() => setModoCrearCliente(false)}
-                className="m3-press flex-1 rounded-xl bg-superficie-2 py-3 text-xs font-bold text-texto-2 cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={crearClienteRapido}
-                disabled={!nuevoNombre.trim() || creandoCliente}
-                className="m3-press flex-1 rounded-xl bg-acento hover:bg-acento py-3 text-xs font-bold text-acento-texto shadow-md shadow-m3-2 disabled:opacity-40 cursor-pointer"
-              >
-                {creandoCliente ? 'Guardando…' : 'Guardar y elegir'}
-              </button>
-            </div>
-          </div>
-        )}
-      </BottomSheet>
     </div>
   );
 }

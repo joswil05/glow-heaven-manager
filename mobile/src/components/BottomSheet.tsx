@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { haptics } from '../lib/haptics';
+import { retenerFoco } from '../../../src/renderer/src/components/ui/MarcoModal';
 
 /** Distancia que por sí sola basta para cerrar, si se soltó sin impulso. */
 const UMBRAL_CIERRE_PX = 110;
@@ -29,6 +30,7 @@ const SALIDA_MS = 200;
  */
 const pila: string[] = [];
 const alVolverPorHoja = new Map<string, () => void>();
+const panelPorHoja = new Map<string, () => HTMLDivElement | null>();
 let guardiaPuesta = false;
 let popsAIgnorar = 0;
 let escuchando = false;
@@ -77,7 +79,8 @@ interface BottomSheetProps {
   titulo?: string;
   subtitulo?: string;
   children: ReactNode;
-  footer?: ReactNode;
+  /** Como función recibe la misma salida con descarte que la X y Atrás. */
+  footer?: ReactNode | ((cerrar: () => void) => ReactNode);
   maxHeight?: string;
 }
 
@@ -115,10 +118,11 @@ export function BottomSheet({
     if (hayCambios) setPreguntando(true);
     else onCerrar();
   }
-  const vivo = useRef({ pedirCierre, hayCambios, onCerrar, ocupado });
-  vivo.current = { pedirCierre, hayCambios, onCerrar, ocupado };
+  const vivo = useRef({ pedirCierre, hayCambios, onCerrar, ocupado, preguntando });
+  vivo.current = { pedirCierre, hayCambios, onCerrar, ocupado, preguntando };
 
   const hojaRef = useRef<HTMLDivElement>(null);
+  const preguntaRef = useRef<HTMLDivElement>(null);
   const scrimRef = useRef<HTMLDivElement>(null);
   /* En un ref y no en estado: durante el arrastre esto cambia en cada frame y
    * un re-render por frame haría perder fotogramas justo cuando el dedo está
@@ -257,6 +261,7 @@ export function BottomSheet({
     if (!abierto) return;
     escucharAtras();
     pila.push(id);
+    panelPorHoja.set(id, () => vivo.current.preguntando ? preguntaRef.current : hojaRef.current);
     ponerGuardia();
     alVolverPorHoja.set(id, () => {
       if (vivo.current.ocupado) {
@@ -271,12 +276,31 @@ export function BottomSheet({
     });
     return () => {
       alVolverPorHoja.delete(id);
+      panelPorHoja.delete(id);
       const i = pila.lastIndexOf(id);
       if (i >= 0) pila.splice(i, 1);
       // Quedan otras hojas: el próximo "atrás" es para la de abajo.
       if (pila.length > 0) ponerGuardia();
       else sacarGuardiaSiNoHayHojas();
     };
+  }, [abierto, id]);
+
+  // Sólo la hoja de arriba atiende el teclado. Durante el descarte, el
+  // formulario queda inerte y Tab da la vuelta en los dos botones de salida.
+  useEffect(() => {
+    if (!abierto) return;
+    const alPresionar = (evento: KeyboardEvent) => {
+      if (pila[pila.length - 1] !== id || evento.defaultPrevented) return;
+      if (evento.key === 'Tab') {
+        retenerFoco(evento, vivo.current.preguntando ? preguntaRef.current : hojaRef.current);
+      } else if (evento.key === 'Escape') {
+        evento.preventDefault();
+        if (vivo.current.preguntando) setPreguntando(false);
+        else vivo.current.pedirCierre();
+      }
+    };
+    window.addEventListener('keydown', alPresionar);
+    return () => window.removeEventListener('keydown', alPresionar);
   }, [abierto, id]);
 
   // El foco entra a la hoja y, al cerrarse, vuelve a lo que la abrió (CEL-08).
@@ -292,6 +316,20 @@ export function BottomSheet({
     if (hoja && !hoja.contains(document.activeElement)) hoja.focus({ preventScroll: true });
     return () => {
       const a = focoAntes.current;
+      // Una hoja puede terminar su salida después de que ya abrió la siguiente.
+      // En ese caso conserva su foco; devolverlo al botón de Vender lo robaría.
+      const arriba = pila[pila.length - 1];
+      const panel = arriba ? panelPorHoja.get(arriba)?.() : null;
+      if (panel) {
+        if (panel.contains(document.activeElement)) return;
+        if (a?.isConnected && panel.contains(a) && !a.closest('[inert]')) {
+          a.focus({ preventScroll: true });
+        } else {
+          const primero = panel.querySelector<HTMLElement>('input:not([disabled]), textarea:not([disabled]), button:not([disabled])');
+          (primero ?? panel).focus({ preventScroll: true });
+        }
+        return;
+      }
       if (a && a.isConnected) a.focus({ preventScroll: true });
     };
   }, [montada]);
@@ -368,6 +406,7 @@ export function BottomSheet({
       {/* Hoja deslizable (Bottom Sheet) */}
       <div
         ref={hojaRef}
+        {...(preguntando ? { inert: '' } : {})}
         role="dialog"
         aria-modal="true"
         aria-busy={ocupado}
@@ -448,7 +487,7 @@ export function BottomSheet({
               paddingBottom: tecladoActivo ? '0.75rem' : 'max(env(safe-area-inset-bottom, 0px), 1rem)',
             }}
           >
-            {visto.footer}
+            {typeof visto.footer === 'function' ? visto.footer(pedirCierre) : visto.footer}
           </div>
         )}
       </div>
@@ -459,6 +498,7 @@ export function BottomSheet({
         <div className="fixed inset-0 z-20 flex items-end" role="presentation">
           <div className="absolute inset-0 bg-velo/40 animate-m3-fade" onClick={() => setPreguntando(false)} />
           <div
+            ref={preguntaRef}
             role="alertdialog"
             aria-modal="true"
             aria-labelledby={`${id}-pregunta`}

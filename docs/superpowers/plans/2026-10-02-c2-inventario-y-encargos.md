@@ -459,7 +459,8 @@ fase, retorno y ausencia de acciones de PC. Ejecutar auditoría de índices
 ## T4 · Anotar un pedido, con clienta existente o nueva
 
 **Archivos:** nuevo `SeleccionarClientaSheet.tsx`, `NuevoEncargoSheet.tsx`;
-`QuickSaleView.tsx`, `EncargosView.tsx`, `tests/interfaz/pruebas.py`.
+`QuickSaleView.tsx`, `EncargosView.tsx`, `tests/interfaz/pruebas.py`;
+`BottomSheet.tsx` para reutilizar su salida y aislar el descarte.
 **Produce:** selector `{ abierto; onCerrar; onSeleccionar: (c: ClienteDetalle) => void }`
 y alta `{ abierto; onCerrar; onGuardado: (id: number) => void }`.
 
@@ -482,7 +483,7 @@ expect(page.get_by_text("Pedido anotado", exact=True)).to_be_visible()
 Incluir selección de clienta antes de guardar y comprobaciones leyendo el
 documento por la descripción única. La UI aún no tiene esa alta: rojo.
 
-- [ ] **Paso 2: compartir la selección de clienta con Vender**
+- [x] **Paso 2: compartir la selección de clienta con Vender**
 
 Extraer el bloque de búsqueda/alta de `QuickSaleView` sin cambiar sus reglas.
 Usar `ClientesRepoFirestore.listar(query)`, `guardar(input,grupo)`, `getById`;
@@ -490,6 +491,13 @@ cancelar resultado tardío al cerrar/cambiar query. Nombre obligatorio,
 teléfono opcional, errores junto a campos, hayCambios al crear. La clienta
 se guarda al confirmar su propia alta y se selecciona; si luego cancela el
 pedido no borrarla. Conservar carrito y clienta seleccionada de Vender.
+
+Regresión encontrada el 3/10: Tab permitía guardar detrás de una pregunta
+inline de descarte. Usar la confirmación común de `BottomSheet`, con su
+pie opcional como función `(cerrar) => ReactNode`; las hojas actuales con
+nodo siguen funcionando. Búsqueda y alta conservan sus propias hojas.
+Durante la pregunta, el panel queda inerte y el foco gira sólo por la
+confirmación; Escape/Tab atienden únicamente la capa superior.
 
 ```tsx
 <SeleccionarClientaSheet abierto={elegirClienta}
