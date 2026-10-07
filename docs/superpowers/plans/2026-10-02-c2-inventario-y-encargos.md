@@ -551,7 +551,7 @@ no duplicada ante error de venta y descarte por atrás Android. Bitácora y comm
 `tests/interfaz/pruebas.py`; reutilizar `tests/encargos-fases.test.ts`.
 **Produce:** hoja `{ venta: VentaCompleta | null; onCerrar; onGuardado: () => void }`.
 
-- [ ] **Paso 1: caso rojo con dinero comprobable**
+- [x] **Paso 1: caso rojo con dinero comprobable**
 
 Sobre pedido de 2 piezas, abrir Cotizar; tienda10, peso1lb, tax700,
 tarifa700 → costo1770 por unidad. Precio30 → total6000 si cantidad2.

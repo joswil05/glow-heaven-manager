@@ -2065,6 +2065,173 @@ def caso_c2_clienta_descarte_bloquea_guardar(page: Page) -> list[str]:
     return []
 
 
+def crear_pedido_cotizar_c2(page: Page, piezas: list[tuple[str, str, str]]) -> dict:
+    hoja = abrir_pedido_c2(page)
+    elegir_clienta_pedido_c2(page, hoja)
+    for indice, (descripcion, cantidad, precio) in enumerate(piezas, 1):
+        if indice > 1:
+            hoja.get_by_role("button", name="Agregar otra pieza", exact=True).click()
+        pieza = pieza_pedido_c2(hoja, indice)
+        pieza.get_by_label("Qué quiere", exact=True).fill(descripcion)
+        pieza.get_by_label("Cantidad", exact=True).fill(cantidad)
+        pieza.get_by_label("Precio ($)", exact=True).fill(precio)
+    hoja.get_by_role("button", name="Guardar pedido", exact=True).click()
+    expect(hoja).not_to_be_visible()
+    pedidos = pedidos_por_pieza_c2(piezas[0][0])
+    assert len(pedidos) == 1, "la fixture T5 necesita un único pedido independiente"
+    return pedidos[0]
+
+
+def abrir_editor_cotizacion_c2(page: Page, pedido: dict):
+    cerrar_hojas(page)
+    if page.locator("nav button:visible").count() > 0:
+        ir_a(page, "Inicio")
+        page.get_by_role("button", name=re.compile("Encargos")).click()
+    principal = page.locator("main:visible").last
+    principal.get_by_role("button", name=re.compile("^Todos")).click()
+    principal.get_by_role("button", name=re.compile(re.escape(pedido["codigo"]) + r"\b")).click()
+    detalle = page.get_by_role("dialog", name="Ana Prueba", exact=True)
+    expect(detalle).to_be_visible()
+    accion = detalle.get_by_role("button", name=re.compile(r"^(Cotizar|Cambiar precios)$"))
+    expect(accion).to_be_visible()
+    accion.click()
+    editor = page.get_by_role("dialog", name=re.compile(r"^(Cotizar|Precios de) " + re.escape(pedido["codigo"]) + "$"))
+    expect(editor).to_be_visible()
+    return editor
+
+
+def repositorio_ventas_fixture_c2(page: Page, accion: str, dato: dict):
+    """Sólo preparación: la conducta bajo prueba se ejecuta por la interfaz."""
+    return page.evaluate("""async ({accion, dato}) => {
+      const url = performance.getEntriesByType('resource').map(r => r.name)
+        .find(url => new URL(url).pathname.endsWith('/ventas.repo.ts'));
+      if (!url) throw new Error('No se encontró el repositorio local de ventas');
+      const { VentasRepoFirestore: ventas } = await import(url);
+      if (accion === 'enviada') {
+        await ventas.marcarEnviada(dato.id, crypto.randomUUID(), dato.version);
+        return;
+      }
+      const pagosUrl = new URL(url);
+      pagosUrl.pathname = pagosUrl.pathname.replace('/ventas.repo.ts', '/pagos.repo.ts');
+      const { PagosRepoFirestore: pagos } = await import(pagosUrl.href);
+      const fecha = new Intl.DateTimeFormat('en-CA').format(new Date());
+      const id = await ventas.crear({
+        tipo: 'ENCARGO', cliente_id: dato.cliente_id, fecha, anticipo_bp: 10000,
+        lineas: [
+          { descripcion: 'Bolso C2 cotizar sobrepago', cantidad: 1, precio_unitario_usd_cents: 6000 },
+          { descripcion: 'Gloss C2 cotizar sobrepago', cantidad: 1, precio_unitario_usd_cents: 2000 },
+        ],
+      }, crypto.randomUUID());
+      await pagos.registrar({ venta_id: id, fecha, monto_cents: 3000,
+        moneda: 'USD', metodo: 'EFECTIVO' }, crypto.randomUUID());
+      return id;
+    }""", {"accion": accion, "dato": dato})
+
+
+@caso("C2 · cotizar estima costo unitario exacto y descarta sin perder el precio original")
+def caso_c2_cotizar_costo_y_descarte(page: Page) -> list[str]:
+    parametros = leer_doc("parametros", "sistema")
+    assert int(parametros["tax_bp"]) == 700 and int(parametros["tarifa_envio_cents_lb"]) == 700
+    pedido = crear_pedido_cotizar_c2(page, [
+        ("Bolso C2 cotizar dos unidades", "2", ""),
+        ("Gloss C2 cotizar descartado", "1", "12.50"),
+    ])
+    bodega = foto_bodega_pedido_c2()
+    movimientos = listar_coleccion("movimientos_inventario")
+    editor = abrir_editor_cotizacion_c2(page, pedido)
+    bolso = editor.get_by_role("group", name="Bolso C2 cotizar dos unidades", exact=True)
+    tienda = bolso.get_by_label("Precio en tienda ($)", exact=True)
+    peso = bolso.get_by_label("Peso por pieza (lb)", exact=True)
+    expect(tienda).to_have_attribute("inputmode", "decimal")
+    expect(peso).to_have_attribute("inputmode", "decimal")
+    tienda.fill("10")
+    peso.fill("1")
+    expect(bolso.get_by_label("Costo por pieza ($)", exact=True)).to_have_value("17.70")
+    precio = bolso.get_by_label("Precio por pieza ($)", exact=True)
+    expect(precio).to_have_attribute("inputmode", "decimal")
+    precio.fill("30")
+    gloss = editor.get_by_role("group", name="Gloss C2 cotizar descartado", exact=True)
+    gloss.get_by_role("button", name="No se consiguió", exact=True).click()
+    expect(gloss.get_by_role("button", name="No se consiguió", exact=True)).to_have_attribute("aria-pressed", "true")
+    editor.get_by_role("button", name="Guardar cotización", exact=True).click()
+    expect(editor).not_to_be_visible()
+    actual = leer_doc("ventas", str(pedido["id"]))
+    assert actual["total_usd_cents"] == 6000 and actual["subtotal_usd_cents"] == 6000
+    assert actual["costo_total_usd_cents"] == 3540 and actual["saldo_usd_cents"] == 6000
+    primera = next(l for l in actual["lineas"] if l["descripcion"] == "Bolso C2 cotizar dos unidades")
+    assert primera["cantidad"] == 2 and primera["precio_unitario_usd_cents"] == 3000
+    assert primera["precio_tienda_usd_cents"] == 1000 and primera["peso_mlb"] == 1000
+    assert primera["costo_unitario_usd_cents"] == 1770 and primera["costo_total_usd_cents"] == 3540
+    descartada = next(l for l in actual["lineas"] if l["descripcion"] == "Gloss C2 cotizar descartado")
+    assert descartada["descartada_el"] and descartada["precio_unitario_usd_cents"] == 1250
+    assert descartada["subtotal_usd_cents"] == 0 and descartada["costo_total_usd_cents"] == 0
+    assert actual["cotizacion_version"] == pedido.get("cotizacion_version", 0) + 1
+    assert actual["piezas"]["descartadas"] == 1 and actual["piezas"]["sin_precio"] == 0
+    assert foto_bodega_pedido_c2() == bodega
+    assert listar_coleccion("movimientos_inventario") == movimientos
+    cerrar_hojas(page)
+    expect(page.locator("main:visible").last.get_by_role("region", name="Por mandar", exact=True)).to_contain_text(actual["codigo"])
+    volver_desde_encargos_c2(page)
+    return []
+
+
+@caso("C2 · cotizar de nuevo una versión enviada vuelve a Por mandar")
+def caso_c2_cotizar_version_enviada(page: Page) -> list[str]:
+    pedido = crear_pedido_cotizar_c2(page, [("Bolso C2 cotizar versión enviada", "2", "30")])
+    # Preparar una cotización ya enviada sin depender de la UI todavía ausente
+    # de T6. No se simula acá el gesto de mandar: sólo el de cambiar su precio.
+    repositorio_ventas_fixture_c2(page, "enviada", {"id": pedido["id"], "version": pedido.get("cotizacion_version", 0)})
+    enviada = leer_doc("ventas", str(pedido["id"]))
+    assert enviada["cotizacion_enviada_version"] == enviada.get("cotizacion_version", 0)
+    page.reload()
+    expect(page.locator("nav button:visible")).to_have_count(5)
+    editor = abrir_editor_cotizacion_c2(page, enviada)
+    pieza = editor.get_by_role("group", name="Bolso C2 cotizar versión enviada", exact=True)
+    pieza.get_by_label("Precio por pieza ($)", exact=True).fill("31")
+    editor.get_by_role("button", name="Guardar cotización", exact=True).click()
+    expect(editor).not_to_be_visible()
+    actual = leer_doc("ventas", str(pedido["id"]))
+    assert actual["total_usd_cents"] == 6200
+    assert actual["cotizacion_version"] == enviada.get("cotizacion_version", 0) + 1
+    assert actual["cotizacion_enviada_version"] == enviada["cotizacion_enviada_version"]
+    assert actual["cotizacion_enviada_el"] == enviada["cotizacion_enviada_el"]
+    cerrar_hojas(page)
+    expect(page.locator("main:visible").last.get_by_role("region", name="Por mandar", exact=True)).to_contain_text(actual["codigo"])
+    volver_desde_encargos_c2(page)
+    return []
+
+
+@caso("C2 · cotizar rechaza sobrepago sin escrituras parciales y conserva el borrador")
+def caso_c2_cotizar_sobrepago(page: Page) -> list[str]:
+    ana = next(c for c in listar_coleccion("clientes") if c.get("nombre") == "Ana Prueba")
+    venta_id = repositorio_ventas_fixture_c2(page, "sobrepago", {"cliente_id": ana["id"]})
+    pedido = leer_doc("ventas", str(venta_id))
+    assert pedido["estado"] == "COTIZADA" and pedido["pagado_usd_cents"] == 3000
+    assert pedido["total_usd_cents"] == 8000 and pedido["anticipo_esperado_usd_cents"] == 8000
+    page.reload()
+    expect(page.locator("nav button:visible")).to_have_count(5)
+    editor = abrir_editor_cotizacion_c2(page, pedido)
+    antes = leer_doc("ventas", str(venta_id))
+    pagos = listar_coleccion("pagos")
+    eventos = listar_coleccion("eventos")
+    bodega = foto_bodega_pedido_c2()
+    movimientos = listar_coleccion("movimientos_inventario")
+    pieza = editor.get_by_role("group", name="Bolso C2 cotizar sobrepago", exact=True)
+    pieza.get_by_role("button", name="No se consiguió", exact=True).click()
+    editor.get_by_role("button", name="Guardar cotización", exact=True).click()
+    expect(editor.get_by_role("alert")).to_contain_text("Corregí el pago")
+    expect(editor).to_be_visible()
+    expect(pieza.get_by_role("button", name="No se consiguió", exact=True)).to_have_attribute("aria-pressed", "true")
+    expect(editor.get_by_role("group", name="Gloss C2 cotizar sobrepago", exact=True)
+        .get_by_label("Precio por pieza ($)", exact=True)).to_have_value("20.00")
+    assert leer_doc("ventas", str(venta_id)) == antes
+    assert listar_coleccion("pagos") == pagos and listar_coleccion("eventos") == eventos
+    assert foto_bodega_pedido_c2() == bodega and listar_coleccion("movimientos_inventario") == movimientos
+    cerrar_hojas(page)
+    volver_desde_encargos_c2(page)
+    return []
+
+
 @caso("no quedan errores de consola al recorrer la app")
 def caso_consola(page: Page) -> list[str]:
     # Lo llena el registrador; se evalúa al final de la corrida.
