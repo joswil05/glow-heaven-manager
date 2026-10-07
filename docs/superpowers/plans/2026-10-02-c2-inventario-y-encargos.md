@@ -515,6 +515,12 @@ entera >0, precio opcional vacío→0 y no negativo. Agregar otra enfoca su
 descripción; quitar una pieza escrita pide confirmar. Notas opcionales.
 Sin lookup de catálogo ni movimiento de mercadería en esta alta.
 
+Quitar usa una segunda `BottomSheet` con `rol="alertdialog"`, conservando
+el padre abierto y bloqueado mientras se decide. El marco acepta ese rol
+opcional sin cambiar su valor por defecto. Así Atrás cierra sólo la
+confirmación y no pierde el pedido; el caso se vio rojo al mezclar las pilas
+de `Confirmar` de Windows y las hojas del celular.
+
 ```ts
 haptics.impact('medium');
 const id = await VentasRepoFirestore.crear({

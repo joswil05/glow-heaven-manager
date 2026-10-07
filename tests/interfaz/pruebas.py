@@ -1666,6 +1666,11 @@ def caso_c2_encargos_lista(page: Page) -> list[str]:
     page.get_by_role("button", name="Anotar un pedido", exact=True).click()
     principal = page.locator("main:visible").last
     expect(principal.get_by_role("heading", name="Encargos", exact=True)).to_be_visible()
+    # T4 ahora consume la intención de alta que T3 dejaba pendiente.
+    pedido = page.get_by_role("dialog", name="Anotar un pedido", exact=True)
+    expect(pedido).to_be_visible()
+    pedido.get_by_role("button", name="Cerrar", exact=True).click()
+    expect(pedido).not_to_be_visible()
     principal.get_by_role("button", name=re.compile("^Volver")).click()
     expect(page.get_by_role("button", name="Anotar un pedido", exact=True)).to_be_visible()
     return []
