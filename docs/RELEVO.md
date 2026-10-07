@@ -72,8 +72,8 @@ se trabaja**.
   hotfixes de fecha e impuesto sobre la versión anterior. C1/C2 siguen locales.
 - **Plan vigente**: Fase C2 · Inventario y encargos en el celular,
   [superpowers/plans/2026-10-02-c2-inventario-y-encargos.md](superpowers/plans/2026-10-02-c2-inventario-y-encargos.md).
-- **Siguiente paso**: C2 · T4 · paso 3 (alta del pedido y descarte de piezas).
-  T2 y T3 completas y verificadas; T4 paso 2 y T7 paso 3 completos.
+- **Siguiente paso**: C2 · T4 · paso 4 (suites y cierre del alta de pedidos).
+  T2 y T3 completas y verificadas; T4 pasos 1–3 y T7 paso 3 completos.
   Joswill autorizó dejar PDF automático pendiente y avanzar el resto de C2
   el 2/10 a las 22:52. T1 5b/5c guardados WIP, sin investigar más por ahora;
   conservar impresión actual y no integrar candidata. T6 se reajusta antes
@@ -102,6 +102,22 @@ Formato de cada entrada:
 - Sigue: el paso exacto del plan.
 - Para Joswill: lo que necesita decidir o probar (o "nada").
 ```
+
+### 2026-10-07 08:42 · Codex
+- Hizo: T4 paso 3 completo. Anotar desde Vender o Encargos, clienta nueva
+  o existente, piezas con precio opcional, validación por campo y doble toque
+  bloqueado. Quitar usa el mismo marco móvil con rol alertdialog, conserva
+  guardia Atrás y el pedido. El helper de pruebas ignora hojas ya saliendo.
+- Commits: WIP integrado `6f43bf6`; paso 3 verificado `bc17773`.
+- Pruebas: al retomar 620 unitarias, tipos y auditorías aprobadas. Los cuatro
+  recorridos T4 verdes, incluido Atrás al quitar, no deuda/bodega, descarte
+  y carrito conservado. La pérdida de guardia se vio roja antes del fix.
+- Quedó a medias: T4 paso 4 (suite móvil completa corriendo, emulador después).
+  Casos T5/T6 preparados en scratch; todavía no integrados ni verificados rojos.
+- Sigue: cerrar T4, luego T5 paso 1. T7 paso 4 es cierre conjunto de C2.
+- Para Joswill: nada para seguir; no se publicó. El corte anterior impidió
+  la última verificación por límite de créditos de aprobación automática.
+  Se retomó sin borrar cambios y se reutiliza el emulador local que quedó activo.
 
 ### 2026-10-06 23:13 · Codex
 - Hizo: retomó los cambios del corte anterior. T4 paso 2 completo: selector
