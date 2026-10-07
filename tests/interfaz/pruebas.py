@@ -1691,7 +1691,7 @@ def caso_c2_aceptar_encargo(page: Page) -> list[str]:
         detalle = page.get_by_role("dialog").last
         expect(detalle.get_by_role("button", name="Aceptó", exact=True)).to_be_visible()
         detalle.get_by_role("button", name="Aceptó", exact=True).click()
-        eleccion = page.get_by_role("dialog").last
+        eleccion = page.get_by_role("dialog", name=re.compile(r" aceptó$"))
         expect(eleccion.get_by_role("button", name="Todavía no", exact=True)).to_be_visible()
         expect(eleccion.get_by_role("button", name="Registrar abono", exact=True)).to_be_visible()
         return eleccion
@@ -1758,7 +1758,7 @@ def caso_c2_aceptar_encargo(page: Page) -> list[str]:
         abono.get_by_role("button", name="Deshacer el abono", exact=True).click()
         expect(abono).to_have_attribute("aria-busy", "true")
         expect(abono.get_by_role("button", name="Listo", exact=True)).to_be_disabled()
-        abono.get_by_role("button", name="Cerrar", exact=True).click()
+        expect(abono.get_by_role("button", name="Cerrar", exact=True)).to_be_disabled()
         page.evaluate("history.back()")
         page.wait_for_timeout(300)
         expect(abono).to_be_visible()

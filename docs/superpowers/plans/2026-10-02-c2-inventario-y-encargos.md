@@ -731,7 +731,7 @@ Si la operación parcial del servicio
 falla tras registrar pago, recargar detalle y mostrar lo realmente ocurrido;
 no reintentar automáticamente el mismo importe.
 
-- [ ] **Paso 3: elección de pago y refresco de fases**
+- [x] **Paso 3: elección de pago y refresco de fases**
 
 Primero caso móvil rojo: Aceptó → Todavía no → confirmar deja Por comprar
 sin pago. Otro abono pequeño en córdobas usa la hoja existente y éxito/Deshacer.

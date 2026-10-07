@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { DollarSign, MessageCircle, CheckCircle2, Loader2, RotateCcw } from 'lucide-react';
 import { BottomSheet } from './BottomSheet';
-import { PagosRepoFirestore } from '@repos/pagos.repo';
+import { VentasRepoFirestore } from '@repos/ventas.repo';
+import { registrarAbonoMovil } from '../lib/registrar-abono-movil';
 import { EventosRepoFirestore } from '@repos/eventos.repo';
 import { formatearMoneda, usdCentavosACorCentavos } from '@core/moneda';
 import { parsearACentavos } from '@core/numeros';
@@ -31,6 +32,7 @@ interface AbonoModalSheetProps {
   venta: VentaCobroItem | null;
   onCerrar: () => void;
   onAbonoRegistrado: () => void;
+  aceptarEncargo?: boolean;
 }
 
 /** Lo que se debe, escrito en la moneda elegida, con la tasa de la venta. */
@@ -44,7 +46,7 @@ const saldoEn = (usd: number, moneda: MonedaPago, tasa: number) =>
  * errores van en el campo, y la confirmación es una: la pantalla de éxito
  * (había además un aviso flotante, CCO-04).
  */
-export function AbonoModalSheet({ venta: ventaAbierta, onCerrar, onAbonoRegistrado }: AbonoModalSheetProps) {
+export function AbonoModalSheet({ venta: ventaAbierta, onCerrar, onAbonoRegistrado, aceptarEncargo = false }: AbonoModalSheetProps) {
   // Cerrada, se sigue mostrando lo último mientras la hoja baja: sin esto el
   // componente desaparecía antes de que la hoja pudiera animar su salida.
   const ultimaVenta = useRef(ventaAbierta);
@@ -61,6 +63,9 @@ export function AbonoModalSheet({ venta: ventaAbierta, onCerrar, onAbonoRegistra
   const [error, setError] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [deshaciendo, setDeshaciendo] = useState(false);
+  const [requiereRevisar, setRequiereRevisar] = useState(false);
+  const ocupado = useRef(false);
+  const montoRef = useRef<HTMLInputElement>(null);
   const [exito, setExito] = useState<{
     montoFormateado: string;
     nuevoSaldoUsdCents: number;
@@ -79,6 +84,7 @@ export function AbonoModalSheet({ venta: ventaAbierta, onCerrar, onAbonoRegistra
     setFecha(hoyISO());
     setError(null);
     setExito(null);
+    setRequiereRevisar(false);
     // Se reinicia al abrir, no cuando cambian los parámetros.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [abierta, ventaAbierta?.venta_id]);
@@ -95,7 +101,7 @@ export function AbonoModalSheet({ venta: ventaAbierta, onCerrar, onAbonoRegistra
   function llenarSaldoTotal() {
     haptics.impact('medium');
     setMontoTexto(saldoEn(venta!.saldo_usd_cents, moneda, tasa));
-    setError(null);
+    if (!requiereRevisar) setError(null);
   }
 
   function cambiarMoneda(m: MonedaPago) {
@@ -109,19 +115,21 @@ export function AbonoModalSheet({ venta: ventaAbierta, onCerrar, onAbonoRegistra
   }
 
   async function handleConfirmar() {
-    if (guardando) return;
+    if (ocupado.current || requiereRevisar) return;
     if (centavos === null) {
       haptics.error();
       setError(montoTexto.trim() ? 'El monto tiene que ser mayor a cero.' : 'Escribí cuánto pagó.');
+      montoRef.current?.focus();
       return;
     }
 
     haptics.impact('heavy');
+    ocupado.current = true;
     setGuardando(true);
     setError(null);
     try {
       const grupo = nuevoGrupoEvento();
-      const res = await PagosRepoFirestore.registrar(
+      const res = await registrarAbonoMovil(
         {
           venta_id: venta!.venta_id,
           fecha,
@@ -130,7 +138,8 @@ export function AbonoModalSheet({ venta: ventaAbierta, onCerrar, onAbonoRegistra
           metodo,
           referencia: referencia.trim() || undefined,
         },
-        grupo
+        grupo,
+        aceptarEncargo
       );
 
       setExito({
@@ -144,7 +153,22 @@ export function AbonoModalSheet({ venta: ventaAbierta, onCerrar, onAbonoRegistra
       haptics.error();
       console.error('[AbonoModalSheet] Error registrando abono:', err);
       setError(err?.message || 'No se pudo registrar el abono.');
+      if (aceptarEncargo) {
+        // El servicio pudo registrar el pago antes de fallar al aceptar.
+        // Nunca repetirlo desde este formulario, ni automáticamente.
+        setRequiereRevisar(true);
+        try {
+          const actual = await VentasRepoFirestore.getById(venta!.venta_id);
+          onAbonoRegistrado();
+          setError(actual
+            ? `Revisá el encargo antes de volver a cobrar: ${actual.estado === 'PENDIENTE' ? 'quedó aceptado' : 'todavía no quedó aceptado'} y tiene ${formatearMoneda(actual.pagado_usd_cents, 'USD')} pagados. Cerrá esta hoja para revisar el detalle.`
+            : 'No se pudo comprobar cómo quedó el encargo. Cerrá esta hoja y revisá sus abonos antes de volver a cobrar.');
+        } catch {
+          setError('No se pudo comprobar cómo quedó el encargo. Cerrá esta hoja y revisá sus abonos antes de volver a cobrar.');
+        }
+      }
     } finally {
+      ocupado.current = false;
       setGuardando(false);
     }
   }
@@ -152,29 +176,39 @@ export function AbonoModalSheet({ venta: ventaAbierta, onCerrar, onAbonoRegistra
   // Deshacer, como en Windows (CEL-03): perdonar el error es más rápido que
   // corregirlo o anularlo.
   async function deshacerAbono() {
-    if (!exito || deshaciendo) return;
+    if (!exito || ocupado.current) return;
     haptics.impact('medium');
+    ocupado.current = true;
     setDeshaciendo(true);
     try {
       const r = await EventosRepoFirestore.deshacerGrupo(exito.grupo);
       if (r.revertido) {
         mostrar('Abono deshecho.', 'info');
         onAbonoRegistrado();
-        handleCerrarTodo();
+        cerrarTodo();
       } else {
         mostrar(r.descripcion, 'error');
       }
     } catch (err: any) {
       mostrar(err?.message || 'No se pudo deshacer el abono.', 'error');
     } finally {
+      ocupado.current = false;
       setDeshaciendo(false);
     }
   }
 
   function handleCerrarTodo() {
+    if (ocupado.current) return;
+    cerrarTodo();
+  }
+
+  // La salida de una operación exitosa no es un cierre del usuario: todavía
+  // conserva ocupado hasta el finally, pero ya puede cerrar su propia hoja.
+  function cerrarTodo() {
     setExito(null);
     setMontoTexto('');
     setReferencia('');
+    setRequiereRevisar(false);
     onCerrar();
   }
 
@@ -185,7 +219,8 @@ export function AbonoModalSheet({ venta: ventaAbierta, onCerrar, onAbonoRegistra
       abierto={Boolean(ventaAbierta)}
       onCerrar={handleCerrarTodo}
       // Un monto o una referencia escritos y no registrados: cerrar pregunta.
-      hayCambios={!exito && (montoTexto.trim() !== '' || referencia.trim() !== '')}
+      hayCambios={!exito && !requiereRevisar && (montoTexto.trim() !== '' || referencia.trim() !== '')}
+      ocupado={guardando || deshaciendo}
       titulo="Registrar abono"
       subtitulo={`${venta.cliente_nombre} · Venta #${venta.codigo}`}
     >
@@ -241,7 +276,8 @@ export function AbonoModalSheet({ venta: ventaAbierta, onCerrar, onAbonoRegistra
             <button
               type="button"
               onClick={handleCerrarTodo}
-              className="tocable flex w-full items-center justify-center rounded-2xl bg-superficie-2 px-4 py-3 text-sm font-semibold text-texto-2 active:scale-[0.98] transition-transform"
+              disabled={guardando || deshaciendo}
+              className="tocable flex w-full items-center justify-center rounded-2xl bg-superficie-2 px-4 py-3 text-sm font-semibold text-texto-2 active:scale-[0.98] transition-transform disabled:opacity-50"
             >
               Listo
             </button>
@@ -310,6 +346,7 @@ export function AbonoModalSheet({ venta: ventaAbierta, onCerrar, onAbonoRegistra
               </span>
               <input
                 id="monto-abono-celular"
+                ref={montoRef}
                 // Texto, no `type="number"`: el navegador convierte "1,500"
                 // en "1.500" antes de que la aplicación lo vea, y eso se lee
                 // como uno con medio. El parser de `@core/numeros` sí sabe
@@ -320,7 +357,7 @@ export function AbonoModalSheet({ venta: ventaAbierta, onCerrar, onAbonoRegistra
                 value={montoTexto}
                 onChange={(e) => {
                   setMontoTexto(e.target.value);
-                  if (error) setError(null);
+                  if (error && !requiereRevisar) setError(null);
                 }}
                 placeholder="0.00"
                 aria-invalid={Boolean(error)}
@@ -411,7 +448,7 @@ export function AbonoModalSheet({ venta: ventaAbierta, onCerrar, onAbonoRegistra
           <button
             type="button"
             onClick={handleConfirmar}
-            disabled={guardando}
+            disabled={guardando || requiereRevisar}
             className="m3-press mt-2 tocable flex w-full items-center justify-center gap-2 rounded-2xl bg-acento px-5 py-3.5 text-sm font-bold text-acento-texto shadow-lg shadow-m3-2 active:scale-[0.98] disabled:opacity-50"
           >
             {guardando ? <Loader2 size={18} className="animate-spin" /> : <DollarSign size={18} />}

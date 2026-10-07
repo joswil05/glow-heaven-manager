@@ -8,6 +8,8 @@ import { formatearMoneda } from '@core/moneda';
 import { cargarEncargosEnCurso, NOMBRES_ETAPA_ENCARGO } from '../lib/encargos-movil';
 import { useDatosNegocio } from '../context/DataContext';
 import { BottomSheet } from '../components/BottomSheet';
+import { AceptarEncargoSheet, puedeAceptarEncargo } from '../components/AceptarEncargoSheet';
+import { AbonoModalSheet, type VentaCobroItem } from '../components/AbonoModalSheet';
 import { haptics } from '../lib/haptics';
 
 interface Props {
@@ -17,7 +19,7 @@ interface Props {
 }
 
 export function EncargosView({ onVolver }: Props) {
-  const { version } = useDatosNegocio();
+  const { version, marcarCambio } = useDatosNegocio();
   const [encargos, setEncargos] = useState<Venta[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
@@ -28,6 +30,8 @@ export function EncargosView({ onVolver }: Props) {
   const [cargandoDetalle, setCargandoDetalle] = useState(false);
   const [errorDetalle, setErrorDetalle] = useState('');
   const [reintentoDetalle, setReintentoDetalle] = useState(0);
+  const [aceptando, setAceptando] = useState<VentaCompleta | null>(null);
+  const [abono, setAbono] = useState<VentaCobroItem | null>(null);
 
   useEffect(() => {
     let vivo = true;
@@ -147,11 +151,25 @@ export function EncargosView({ onVolver }: Props) {
             {faseDetalle !== 'POR_BUSCAR' && <div className="flex justify-between gap-3 text-sm font-bold">
               <span>Total</span><span>{formatearMoneda(detalle.total_usd_cents, 'USD')}</span>
             </div>}
+            {faseDetalle === 'ESPERANDO' && puedeAceptarEncargo(detalle) && (
+              <button type="button" onClick={() => { haptics.selection(); setAceptando(detalle); }}
+                className="min-h-12 rounded-xl bg-acento px-4 py-3 text-base font-bold text-acento-texto">
+                Aceptó
+              </button>
+            )}
             {faseDetalle && ['POR_COMPRAR', 'EN_CAMINO', 'POR_ENTREGAR'].includes(faseDetalle) && (
               <p className="rounded-xl border border-borde bg-superficie-2 p-3 text-sm text-texto-2">Seguí este paso en la computadora</p>
             )}
           </div>}
       </BottomSheet>
+      <AceptarEncargoSheet venta={aceptando} onCerrar={() => setAceptando(null)}
+        onAceptado={marcarCambio} onRegistrarAbono={(venta) => {
+          setAceptando(null);
+          setAbono({ venta_id: venta.id, codigo: venta.codigo,
+            cliente_nombre: venta.cliente_nombre || 'La clienta', cliente_telefono: venta.cliente?.telefono,
+            saldo_usd_cents: venta.saldo_usd_cents, tasa_cambio_cents: venta.tasa_cambio_cents });
+        }} />
+      <AbonoModalSheet venta={abono} aceptarEncargo onCerrar={() => setAbono(null)} onAbonoRegistrado={marcarCambio} />
     </div>
   );
 }
