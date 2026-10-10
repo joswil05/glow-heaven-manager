@@ -2312,7 +2312,9 @@ def interceptar_salidas_mandar_c2(page: Page) -> None:
       window.__t6Append = Node.prototype.appendChild;
       Node.prototype.appendChild = function (nodo) {
         const resultado = window.__t6Append.call(this, nodo);
-        if (nodo instanceof HTMLIFrameElement) {
+        // Sólo el iframe de impresión: la vista previa de "Ver proforma" se
+        // arma fuera del documento y todavía no tiene ventana.
+        if (nodo instanceof HTMLIFrameElement && nodo.contentWindow) {
           nodo.contentWindow.print = () => window.__t6.impresos.push(nodo.contentDocument.documentElement.outerHTML);
           nodo.contentWindow.focus = () => {};
         }
@@ -2347,8 +2349,11 @@ def caso_c2_mandar_confirmacion(page: Page) -> list[str]:
         hoja.get_by_role("link", name="WhatsApp", exact=True).click()
         assert page.evaluate("window.__t6.enlaces") == [fixture["enlace"]]
         sin_escrituras_mandar_c2(original, eventos)
-        hoja.get_by_role("button", name="Guardar PDF", exact=True).click()
-        page.wait_for_function("window.__t6.impresos.length === 1")
+        # Dos toques seguidos abren una sola impresión (revisión del 10/10).
+        hoja.get_by_role("button", name="Guardar PDF", exact=True).evaluate("b => {b.click(); b.click();}")
+        page.wait_for_function("window.__t6.impresos.length >= 1")
+        page.wait_for_timeout(900)
+        assert page.evaluate("window.__t6.impresos.length") == 1, "dos toques abrieron dos impresiones"
         html = page.evaluate("window.__t6.impresos[0]")
         assert fixture["descripcion"] in html and "$30.00" in html and "C$1,080.00" in html
         assert "C$36.00" in html, "la proforma debe mostrar el abono en su moneda"

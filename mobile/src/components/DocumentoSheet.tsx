@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { MessageCircle, Download, Loader2, FileText } from 'lucide-react';
 import type { VentaCompleta } from '@shared/types';
 import { generarHtmlFactura, generarHtmlProforma, tasaDelDocumento } from '@core/documentos/plantillas';
@@ -9,6 +9,7 @@ import { BottomSheet } from './BottomSheet';
 import { useDatosNegocio } from '../context/DataContext';
 import { useSnackbar } from '../components/Snackbar';
 import { haptics } from '../lib/haptics';
+import { imprimirDocumento } from '../lib/imprimir-documento';
 
 /**
  * Factura o proforma de una venta, desde el celular.
@@ -32,6 +33,8 @@ export function DocumentoSheet({
   const { mostrar } = useSnackbar();
   const [venta, setVenta] = useState<VentaCompleta | null>(null);
   const [cargando, setCargando] = useState(false);
+  const [preparando, setPreparando] = useState(false);
+  const imprimiendo = useRef(false);
 
   useEffect(() => {
     if (ventaId === null) {
@@ -68,47 +71,25 @@ export function DocumentoSheet({
   /**
    * Imprime desde un iframe oculto, no con `window.open`: en la PWA instalada
    * no hay una ventana real donde abrir un popup — es el mismo motivo por el
-   * que fallaba el inicio de sesión.
+   * que fallaba el inicio de sesión. El recorrido es el de
+   * `lib/imprimir-documento.ts`, compartido con "Mandar cotización": no se
+   * dispara dos veces y no deja el iframe colgado si el documento no carga.
    */
   function abrirImpresion() {
+    if (imprimiendo.current) return;
     const contenido = html();
     if (!contenido) return;
     haptics.impact('medium');
-
-    const iframe = document.createElement('iframe');
-    iframe.setAttribute('aria-hidden', 'true');
-    Object.assign(iframe.style, {
-      position: 'fixed',
-      right: '0',
-      bottom: '0',
-      width: '0',
-      height: '0',
-      border: '0',
-      visibility: 'hidden',
-    });
-    document.body.appendChild(iframe);
-
-    const doc = iframe.contentDocument;
-    if (!doc) {
-      document.body.removeChild(iframe);
-      mostrar('No se pudo preparar el documento.', 'error');
-      return;
-    }
-    doc.open();
-    doc.write(contenido);
-    doc.close();
-
-    // Se espera a que termine de maquetar y de cargar las fuentes: imprimir
-    // antes saca la hoja a medio armar.
-    const lanzar = () => {
-      iframe.contentWindow?.focus();
-      iframe.contentWindow?.print();
-      setTimeout(() => {
-        if (iframe.parentNode) document.body.removeChild(iframe);
-      }, 60_000);
-    };
-    if (doc.readyState === 'complete') setTimeout(lanzar, 400);
-    else iframe.onload = () => setTimeout(lanzar, 400);
+    imprimiendo.current = true;
+    setPreparando(true);
+    imprimirDocumento(
+      contenido,
+      (mensajeError) => mostrar(mensajeError, 'error'),
+      () => {
+        imprimiendo.current = false;
+        setPreparando(false);
+      }
+    );
   }
 
   return (
@@ -133,10 +114,11 @@ export function DocumentoSheet({
             <button
               type="button"
               onClick={abrirImpresion}
-              className="m3-press tocable flex items-center justify-center gap-2 rounded-2xl bg-acento px-4 py-3 text-sm font-bold text-acento-texto active:scale-[0.98] transition-transform cursor-pointer"
+              disabled={preparando}
+              className="m3-press tocable flex items-center justify-center gap-2 rounded-2xl bg-acento px-4 py-3 text-sm font-bold text-acento-texto active:scale-[0.98] transition-transform cursor-pointer disabled:opacity-60"
             >
               <Download size={17} />
-              Guardar PDF
+              {preparando ? 'Preparando…' : 'Guardar PDF'}
             </button>
           </div>
         ) : undefined

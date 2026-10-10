@@ -661,7 +661,7 @@ El repositorio actual no recibe versión esperada: cerrar la carrera entre
 lectura y escritura requiere parámetro opcional transaccional y prueba roja
 antes de tocar ese contrato. No marcar una versión que no se mostró.
 
-- [ ] **Paso 3: reutilizar DocumentoSheet y explicar cómo adjuntar**
+- [x] **Paso 3: reutilizar DocumentoSheet y explicar cómo adjuntar**
 
 Mantener impresión/Guardar PDF y enlace de WhatsApp construido por el
 módulo común. Explicar cómo guardar/adjuntar y ofrecer `Ya la mandé`

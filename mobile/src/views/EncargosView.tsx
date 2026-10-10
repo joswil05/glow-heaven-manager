@@ -12,6 +12,7 @@ import { AceptarEncargoSheet, puedeAceptarEncargo } from '../components/AceptarE
 import { AbonoModalSheet, type VentaCobroItem } from '../components/AbonoModalSheet';
 import { NuevoEncargoSheet } from '../components/NuevoEncargoSheet';
 import { CotizarEncargoSheet } from '../components/CotizarEncargoSheet';
+import { MandarCotizacionSheet } from '../components/MandarCotizacionSheet';
 import { haptics } from '../lib/haptics';
 
 interface Props {
@@ -34,6 +35,7 @@ export function EncargosView({ onVolver, abrirNuevoAlEntrar = false }: Props) {
   const [reintentoDetalle, setReintentoDetalle] = useState(0);
   const [aceptando, setAceptando] = useState<VentaCompleta | null>(null);
   const [cotizando, setCotizando] = useState<VentaCompleta | null>(null);
+  const [mandando, setMandando] = useState<VentaCompleta | null>(null);
   const [abono, setAbono] = useState<VentaCobroItem | null>(null);
   const [nuevo, setNuevo] = useState(abrirNuevoAlEntrar);
 
@@ -161,6 +163,21 @@ export function EncargosView({ onVolver, abrirNuevoAlEntrar = false }: Props) {
             {faseDetalle !== 'POR_BUSCAR' && <div className="flex justify-between gap-3 text-sm font-bold">
               <span>Total</span><span>{formatearMoneda(detalle.total_usd_cents, 'USD')}</span>
             </div>}
+            {/* La acción principal de la fase va primero, como en Windows: por
+                mandar, mandarla; esperando, Aceptó. Cambiar precios y volver a
+                mandarla quedan como secundarias. */}
+            {faseDetalle === 'POR_MANDAR' && (
+              <button type="button" onClick={() => { haptics.selection(); setMandando(detalle); }}
+                className="min-h-12 rounded-xl bg-acento px-4 py-3 text-base font-bold text-acento-texto">
+                Mandar cotización
+              </button>
+            )}
+            {faseDetalle === 'ESPERANDO' && puedeAceptarEncargo(detalle) && (
+              <button type="button" onClick={() => { haptics.selection(); setAceptando(detalle); }}
+                className="min-h-12 rounded-xl bg-acento px-4 py-3 text-base font-bold text-acento-texto">
+                Aceptó
+              </button>
+            )}
             {detalle.estado === 'COTIZADA' && (
               <button type="button" onClick={() => { haptics.selection(); setCotizando(detalle); }}
                 className={porCotizar
@@ -169,10 +186,10 @@ export function EncargosView({ onVolver, abrirNuevoAlEntrar = false }: Props) {
                 {porCotizar ? 'Cotizar' : 'Cambiar precios'}
               </button>
             )}
-            {faseDetalle === 'ESPERANDO' && puedeAceptarEncargo(detalle) && (
-              <button type="button" onClick={() => { haptics.selection(); setAceptando(detalle); }}
-                className="min-h-12 rounded-xl bg-acento px-4 py-3 text-base font-bold text-acento-texto">
-                Aceptó
+            {faseDetalle === 'ESPERANDO' && (
+              <button type="button" onClick={() => { haptics.selection(); setMandando(detalle); }}
+                className="min-h-12 rounded-xl border border-borde bg-superficie-2 px-4 py-3 text-base font-semibold text-texto">
+                Mandarla otra vez
               </button>
             )}
             {faseDetalle && ['POR_COMPRAR', 'EN_CAMINO', 'POR_ENTREGAR'].includes(faseDetalle) && (
@@ -190,6 +207,8 @@ export function EncargosView({ onVolver, abrirNuevoAlEntrar = false }: Props) {
       <AbonoModalSheet venta={abono} aceptarEncargo onCerrar={() => setAbono(null)} onAbonoRegistrado={marcarCambio} />
       {/* Guardar ya avisa el cambio (marcarCambio): el detalle y la lista se releen. */}
       <CotizarEncargoSheet venta={cotizando} onCerrar={() => setCotizando(null)} onGuardado={() => undefined} />
+      {/* Sólo "Ya la mandé" escribe; copiar, WhatsApp o imprimir no la marcan. */}
+      <MandarCotizacionSheet venta={mandando} onCerrar={() => setMandando(null)} onMandada={() => undefined} />
       <NuevoEncargoSheet abierto={nuevo} onCerrar={() => setNuevo(false)}
         onGuardado={() => { setNuevo(false); setFiltro('TODOS'); }} />
     </div>
