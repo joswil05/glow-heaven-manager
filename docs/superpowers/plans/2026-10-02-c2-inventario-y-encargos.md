@@ -670,12 +670,22 @@ de proformas con DocumentoSheet; facturas conservan el suyo.
 Mensaje sin teléfono permite elegir destinatario, como ahora. No incorporar
 captura de credenciales ni envío automático.
 
-- [ ] **Paso 4: verificar y cerrar**
+- [x] **Paso 4: verificar y cerrar**
 
 Casos verdes; suite móvil completa, tipos y build. Comprobar que el build
 normal sigue sin incorporar la candidata PDF. Documentar lo pendiente
 físico de impresión/WhatsApp sin atribuirlo a Playwright. Bitácora y commit;
 PDF automático queda fuera del cierre funcional acordado.
+
+> **Cerrado el 10/10 (Claude Code).** Suite móvil completa (46 casos
+> verdes), tipos de las dos apps y `build:mobile` con auditorías aprobados.
+> `dist-mobile/` no contiene html2pdf, jsPDF ni html2canvas: la candidata
+> sólo se carga en desarrollo, con `?c2-pdf` (`mobile/src/main.tsx`).
+> **Pendiente físico, que Playwright no cubre** (la suite intercepta
+> `print`, el portapapeles y `window.open`): en el iPhone de Ross, que
+> "Guardar PDF" abra la impresión del sistema y deje guardar el PDF; que
+> "WhatsApp" abra el chat con el mensaje; y que se pueda adjuntar ese PDF
+> a mano en el chat.
 
 ## T7 · Aceptó, con abono opcional y el mismo formulario
 
