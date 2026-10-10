@@ -72,12 +72,15 @@ se trabaja**.
   hotfixes de fecha e impuesto sobre la versión anterior. C1/C2 siguen locales.
 - **Plan vigente**: Fase C2 · Inventario y encargos en el celular,
   [superpowers/plans/2026-10-02-c2-inventario-y-encargos.md](superpowers/plans/2026-10-02-c2-inventario-y-encargos.md).
-- **Siguiente paso**: C2 · T4 · paso 4 (suites y cierre del alta de pedidos).
-  T2 y T3 completas y verificadas; T4 pasos 1–3 y T7 paso 3 completos.
+- **Siguiente paso**: C2 · T4 · paso 4: repetir suite móvil completa y cerrar
+  el alta. Después revisar los dos hallazgos pendientes descritos en la última
+  bitácora e integrar T5/T6. T2/T3 completas; T4 pasos 1–3, T5/T6 paso 1 y
+  T7 pasos 1–3 completos. T5/T6 paso 2 guardados WIP, sin conectar a la vista.
+  La suite móvil completa todavía no tiene una pasada final verde.
   Joswill autorizó dejar PDF automático pendiente y avanzar el resto de C2
   el 2/10 a las 22:52. T1 5b/5c guardados WIP, sin investigar más por ahora;
-  conservar impresión actual y no integrar candidata. T6 se reajusta antes
-  de ejecutarse. Peso/iPhone/HTTPS siguen pendientes para PDF automático.
+  conservar impresión actual y mensaje original sin edición. T6 ya ajustado
+  a esas decisiones. Peso/iPhone/HTTPS pendientes para PDF automático.
 - **C1**: T1 a T4 completas y verificadas en `master` local, sin publicar;
   cierre documentado en `ddc0fc7`. Emulador apagado.
 - **Después de C1**: C2 a C4, en el diseño
@@ -103,6 +106,58 @@ Formato de cada entrada:
 - Para Joswill: lo que necesita decidir o probar (o "nada").
 ```
 
+### 2026-10-10 10:38 · Codex
+- Hizo: pausa solicitada por Joswill para seguir con Claude. Guardadas las
+  dos hojas nuevas y el helper de impresión, sin integrarlas a EncargosView
+  ni cambiar DocumentoSheet. No se marcaron sus pasos como terminados.
+  T5 incluye editor/estimación del núcleo/guardar; T6 mensaje original,
+  HTML real, copiar/WhatsApp/impresión y confirmación explícita con versión.
+- Commits: `335c724` adapta el regreso del caso T3 al alta real de T4;
+  `b1ba354` T5 paso 1 (tres casos rojos); `79df1aa` dos casos de versión
+  contra Firestore real; `82a2413` T6 paso 1 (tres casos rojos).
+  WIP T5 paso 2 `6937ad6`; WIP T6 paso 2 `b326672`; esta entrada se
+  commitea después. Todo en master local, sin push ni publicación.
+- Pruebas: al entregar, npm test **620/620**, tipos móvil, colores y hooks
+  (92 componentes), todos aprobados. En la ejecución del 7/10: emulador
+  **108/108**, incluido marcarEnviada con versión esperada; cuatro casos T4
+  y los once casos C2 existentes aprobados juntos. La suite móvil completa
+  de 38 casos falló en el viejo caso T3: no cerraba el alta antes de Volver,
+  y provocaba una segunda falla T7. Se corrigió el caso en `335c724` y los
+  once C2 quedaron verdes; **no** se repitió la suite completa después.
+  Las seis pruebas nuevas T5/T6 fallan por ausencia de sus botones en
+  EncargosView, lo esperado antes de conectar. Ahora hay 44 casos móviles.
+- Quedó a medias: T4 paso 4; T5/T6 pasos 2–4; T7 paso 4 (cierre conjunto).
+  **Revisión pendiente para Claude, antes de integrar:**
+  1. CotizarEncargoSheet, analizar(): editar un precio (12.50 → 15) y luego
+     marcar No se consiguió toma el precio original al guardar y omite los
+     opcionales editados. Windows conserva el borrador y sólo pone subtotal
+     y costo_total en cero. Revisar esa semántica, agregar la regresión roja
+     y corregir; la observación NO está corregida en el WIP. No mandar costo
+     estimado en piezas con costo real ni tocar precios aceptados/fijos.
+  2. MandarCotizacionSheet, imprimir(): no activa accionEnCurso/ocupado,
+     por lo que doble toque puede crear dos iframe/diálogos. El helper sólo
+     agenda quitar después de print; si no llega load queda iframe, y el
+     error tardío no comprueba sigueVisible(id). Añadir prueba roja y guardia
+     mínima/limpieza, conservando el mismo motor de impresión. No retomar
+     html2pdf ni rediseñar el formato del documento.
+  Los hallazgos surgieron en revisión independiente de otros agentes, en
+  sólo lectura; requieren comprobación. Los agentes quedaron interrumpidos.
+- Sigue: leer esta entrada y revisar los WIP, correr base y suite móvil
+  completa para T4 paso 4. Luego T5 paso 2 y conexión en paso 3; después T6
+  paso 2 y compartir helper con DocumentoSheet en paso 3. No editar
+  EncargosView desde dos agentes a la vez. Root controla en serie UI y
+  emulador porque ambos limpian la base. Contratos:
+  CotizarEncargoSheet { venta: VentaCompleta|null, onCerrar, onGuardado };
+  MandarCotizacionSheet { venta: VentaCompleta|null, onCerrar, onMandada }.
+  Ambas llaman marcarCambio internamente. Cierre C2 exige todas las suites,
+  ciclo alta→cotizar→mandar→aceptar, CONTEXTO_SESION y estado C2 de AUDITORIA
+  (todavía desactualizados); próximo paso escribir plan C3, no implementarlo.
+- Para Joswill: nada para este relevo. C1 terminada local; C2 funcional
+  16/24 pasos verificados (~67%), excluyendo PDF automático aplazado.
+  Impresión/WhatsApp y demás recorridos no se probaron físicamente en el
+  iPhone de Ross. No publicar C1/C2 sin nueva orden; el publicalo anterior
+  fue sólo para hotfixes 2.17.1, ya publicados. Puertos 8080/9099/4400/9150
+  y 5174 sin escuchas al entregar; no queda emulador/Vite activo.
 ### 2026-10-07 08:42 · Codex
 - Hizo: T4 paso 3 completo. Anotar desde Vender o Encargos, clienta nueva
   o existente, piezas con precio opcional, validación por campo y doble toque
