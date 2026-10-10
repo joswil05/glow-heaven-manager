@@ -688,10 +688,19 @@ conjunta: 593 unitarias, 104 emulador, 43 casos Windows, 28 móvil, tipos de
 ambas apps y build móvil con auditorías aprobados. Revisión visual del flujo
 nuevo en claro/oscuro; la prueba física en teléfono sigue pendiente.
 
-**Estado C2 al 2/10:** [plan escrito](superpowers/plans/2026-10-02-c2-inventario-y-encargos.md),
-sin implementación. Empieza por el experimento del PDF y su comparación en
-teléfono real; después Inventario/precios y el ciclo de encargos. Esa prueba
-física es condición de avance del diseño, no se da por aprobada con mocks.
+**Estado C2 al 10/10:** completa en `master` local, sin publicar
+([plan](superpowers/plans/2026-10-02-c2-inventario-y-encargos.md)). La
+pestaña del celular se llama Inventario, abre con lo que hay, filtra y
+cambia un precio con la ganancia a la vista y Deshacer. Encargos se abre
+desde su tarjeta en Inicio y desde "Anotar un pedido" en Vender, sin
+pestaña propia: anotar (con o sin precio, sin deuda ni movimiento de
+bodega), cotizar ("No se consiguió" conserva lo escrito), mandar la
+cotización (copiar, WhatsApp o "Guardar PDF" por la impresión del sistema;
+sólo "Ya la mandé" la marca) y "Aceptó", con abono opcional en el mismo
+formulario y Deshacer. El PDF automático quedó aplazado por decisión de
+Joswill (2/10): se usa la impresión actual. Verificación conjunta: 628 unitarias, 108 del emulador, 43 casos de interfaz Windows y 46 del celular; tipos de las dos apps y `build:mobile` con sus auditorías aprobados; `git diff --check` limpio.
+Falta la prueba física en el iPhone de Ross (impresión, WhatsApp,
+Deshacer). Sigue escribir el plan de C3.
 
 Los IDs de la tercera columna salieron de las fases 3 a 6: son de pantallas que estas fases rehacen, y no se tocan dos veces. El plan de implementación de C1, tarea por tarea, está en [superpowers/plans/2026-10-02-c1-inventario-por-paquete.md](superpowers/plans/2026-10-02-c1-inventario-por-paquete.md). Reemplazan las versiones 2.17, 2.18 y 2.19 de [PLAN_ENCARGOS_Y_SIN_CONEXION.md](PLAN_ENCARGOS_Y_SIN_CONEXION.md).
 

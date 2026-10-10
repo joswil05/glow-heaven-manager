@@ -19,7 +19,9 @@ la candidata inicial es html2pdf.js, no una elección ya aprobada.
 
 **Diseño:** [2026-10-02-fases-del-celular-design.md](../specs/2026-10-02-fases-del-celular-design.md), sección C2 y criterios de diseño.
 
-**Estado:** Joswill autorizó seguir T2–T5/T7 el 2/10 a las 22:52,
+**Estado:** **C2 cerrada el 10/10 en `master` local, sin publicar**
+(T1 paso 5, el PDF automático, sigue aplazado). Historia: Joswill autorizó
+seguir T2–T5/T7 el 2/10 a las 22:52,
 dejando el PDF automático pendiente y conservando la impresión actual.
 T6 requiere ajustar su plan a esa decisión antes de implementarla.
 T1 pasos 1 a 4 y 5a completos; paso 5 físico pendiente. Candidata sin
@@ -770,13 +772,23 @@ piezas: usar las condiciones del repositorio y las de la PC.
 
 Mantener compra/recepción/entrega/anulación como estados informativos.
 
-- [ ] **Paso 4: cerrar el ciclo y C2**
+- [x] **Paso 4: cerrar el ciclo y C2**
 
 Ejecutar anotar → cotizar → compartir → aceptar sin pago y con pago pequeño;
 recotizar después de mandar; validar devolución por Deshacer según reglas
 existentes. Correr todas las suites de abajo, documentar prueba física y
 actualizar CONTEXTO_SESION, AUDITORIA C2, RELEVO. Próximo paso: escribir
 plan C3, no implementarlo ni publicar por inercia. Commit de cierre.
+
+> **Cerrado el 10/10 (Claude Code).** El caso nuevo "C2 · el ciclo entero
+> en el celular" encadena por la interfaz anotar sin precio → Cotizar →
+> Mandar cotización → "Ya la mandé" → Aceptó sin pago, y termina en "Por
+> comprar" sin abonos ni movimientos de bodega. El pago pequeño y su
+> Deshacer los cubre "C2 · aceptar un encargo reutiliza abono…"; recotizar
+> lo mandado, "C2 · cotizar de nuevo una versión enviada vuelve a Por
+> mandar". Verificación: 628 unitarias, 108 del emulador, 43 casos de interfaz Windows y 46 del celular; tipos de las dos apps y `build:mobile` con sus auditorías aprobados; `git diff --check` limpio. Falta la prueba física en el iPhone
+> (impresión, WhatsApp, Deshacer); el PDF automático sigue aplazado (T1
+> paso 5). **Sigue: escribir el plan de C3**, sin implementarlo ni publicar.
 
 ## Verificación conjunta y puntos de relevo
 

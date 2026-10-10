@@ -2462,6 +2462,66 @@ def caso_c2_mandar_version(page: Page) -> list[str]:
     return []
 
 
+@caso("C2 · el ciclo entero en el celular: anotar, cotizar, mandar y aceptar")
+def caso_c2_ciclo_completo(page: Page) -> list[str]:
+    """
+    Cada hoja tiene su caso; éste las encadena por la interfaz, como lo hace
+    Ross: un pedido sin precio, cotizado, mandado y aceptado sin pago. Lo que
+    se prueba es que cada paso deja el detalle listo para el siguiente.
+    """
+    descripcion = "Cartera C2 ciclo completo"
+    bodega = foto_bodega_pedido_c2()
+    pagos = listar_coleccion("pagos")
+
+    hoja = abrir_pedido_c2(page)
+    elegir_clienta_pedido_c2(page, hoja)
+    pieza = pieza_pedido_c2(hoja)
+    pieza.get_by_label("Qué quiere", exact=True).fill(descripcion)
+    pieza.get_by_label("Cantidad", exact=True).fill("1")
+    hoja.get_by_role("button", name="Guardar pedido", exact=True).click()
+    expect(hoja).not_to_be_visible()
+    pedidos = pedidos_por_pieza_c2(descripcion)
+    assert len(pedidos) == 1, "anotar crea un solo pedido"
+    pedido = pedidos[0]
+    assert pedido["estado"] == "COTIZADA" and pedido["total_usd_cents"] == 0
+
+    editor = abrir_editor_cotizacion_c2(page, pedido)
+    expect(editor).to_have_accessible_name("Cotizar " + pedido["codigo"])
+    editor.get_by_role("group", name=descripcion, exact=True).get_by_label("Precio por pieza ($)", exact=True).fill("40")
+    editor.get_by_role("button", name="Guardar cotización", exact=True).click()
+    expect(editor).not_to_be_visible()
+    cotizado = leer_doc("ventas", str(pedido["id"]))
+    assert cotizado["total_usd_cents"] == 4000 and cotizado["estado"] == "COTIZADA"
+
+    detalle = page.get_by_role("dialog", name="Ana Prueba", exact=True)
+    mandar = detalle.get_by_role("button", name="Mandar cotización", exact=True)
+    expect(mandar).to_be_visible()
+    mandar.click()
+    hoja_mandar = page.get_by_role("dialog", name="Mandar cotización", exact=True)
+    expect(hoja_mandar).to_be_visible()
+    hoja_mandar.get_by_role("button", name="Ya la mandé", exact=True).click()
+    expect(hoja_mandar).not_to_be_visible()
+    mandado = leer_doc("ventas", str(pedido["id"]))
+    assert mandado["cotizacion_enviada_version"] == mandado["cotizacion_version"]
+
+    aceptar = detalle.get_by_role("button", name="Aceptó", exact=True)
+    expect(aceptar).to_be_visible()
+    aceptar.click()
+    eleccion = page.get_by_role("dialog", name=re.compile(r" aceptó$"))
+    eleccion.get_by_role("button", name="Todavía no", exact=True).click()
+    eleccion.get_by_role("button", name="Aceptó", exact=True).click()
+    expect(eleccion).not_to_be_visible()
+    final = leer_doc("ventas", str(pedido["id"]))
+    assert final["estado"] == "PENDIENTE" and final["total_usd_cents"] == 4000
+    assert final["pagado_usd_cents"] == 0 and final["saldo_usd_cents"] == 4000
+    assert listar_coleccion("pagos") == pagos, "aceptar sin pago no registra abonos"
+    assert foto_bodega_pedido_c2() == bodega, "un encargo no toca la bodega"
+    cerrar_hojas(page)
+    expect(page.locator("main:visible").last.get_by_role("region", name="Por comprar", exact=True)).to_contain_text(descripcion)
+    volver_desde_encargos_c2(page)
+    return []
+
+
 @caso("no quedan errores de consola al recorrer la app")
 def caso_consola(page: Page) -> list[str]:
     # Lo llena el registrador; se evalúa al final de la corrida.

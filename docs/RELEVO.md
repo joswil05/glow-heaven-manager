@@ -72,14 +72,20 @@ se trabaja**.
   hotfixes de fecha e impuesto sobre la versión anterior. C1/C2 siguen locales.
 - **Plan vigente**: Fase C2 · Inventario y encargos en el celular,
   [superpowers/plans/2026-10-02-c2-inventario-y-encargos.md](superpowers/plans/2026-10-02-c2-inventario-y-encargos.md).
-- **Siguiente paso**: C2 · T5 · paso 3 (conectar `CotizarEncargoSheet` a
-  Encargos y guardar). Después T5 paso 4, T6 pasos 3 y 4, y T7 paso 4 (cierre
-  de C2). T4 cerrada; T5 y T6 paso 2 revisados y corregidos el 10/10 (los dos
-  hallazgos de Codex eran reales). PDF automático sigue aplazado (T1 paso 5);
-  conservar impresión actual y mensaje original sin edición.
+- **C2 cerrada el 10/10** en `master` local, sin publicar: T1 a T7, menos
+  el PDF automático (T1 paso 5), aplazado por Joswill; se conserva la
+  impresión actual y el mensaje original sin edición.
+- **Siguiente paso**: **escribir el plan de C3** (sin internet: consultar)
+  en `docs/superpowers/plans/`, con el formato del de C2 y desde la sección
+  C3 del diseño. Escribirlo y commitearlo; **no implementarlo ni publicar**
+  sin que Joswill lo pida.
 - **C1**: T1 a T4 completas y verificadas en `master` local, sin publicar;
   cierre documentado en `ddc0fc7`. Emulador apagado.
-- **Después de C1**: C2 a C4, en el diseño
+- **Trampa conocida**: `npm run test:emulador` y `npm run test:interfaz`
+  reescriben `tests/interfaz/fixtures-pdf.json` con la fecha del día.
+  Restaurarlo con `git checkout -- tests/interfaz/fixtures-pdf.json`
+  después de cada corrida; no commitearlo.
+- **Después de C2**: C3 y C4, en el diseño
   [superpowers/specs/2026-10-02-fases-del-celular-design.md](superpowers/specs/2026-10-02-fases-del-celular-design.md)
   (al empezar cada una se escribe su plan, como el de C1); después las fases
   3 a 6 de [AUDITORIA_UX_2026-09-29.md](AUDITORIA_UX_2026-09-29.md).
@@ -101,6 +107,28 @@ Formato de cada entrada:
 - Sigue: el paso exacto del plan.
 - Para Joswill: lo que necesita decidir o probar (o "nada").
 ```
+
+### 2026-10-10 11:32 · Claude Code
+- Hizo: **C2 cerrada.** T5 paso 3 (Cotizar desde el detalle de un encargo),
+  T5 paso 4, T6 paso 3 (Mandar cotización desde Encargos; `DocumentoSheet`
+  usa el mismo `imprimir-documento.ts`, con su guardia de doble toque), T6
+  paso 4 y T7 paso 4. Caso nuevo de interfaz "C2 · el ciclo entero en el
+  celular": anotar sin precio → Cotizar → Mandar → "Ya la mandé" → Aceptó
+  sin pago, termina en "Por comprar" sin abonos ni bodega. El pago pequeño
+  con Deshacer y recotizar lo mandado ya tenían sus casos.
+- Commits: `7fe06b9` (T5 p3), `aad58c6` (T5 p4), `7aaf506` (T6 p3),
+  `3842f53` (T6 p4) y el de cierre (T7 p4, con esta entrada). No pusheados.
+- Pruebas: 628 unitarias, 108 emulador, 46 casos móvil, 43 Windows; tipos
+  de las dos apps, `build:mobile` con auditorías y `git diff --check`, todo
+  verde. `dist-mobile/` sin html2pdf, jsPDF ni html2canvas.
+- Quedó a medias: nada. Emulador apagado (el de este turno).
+- Sigue: **escribir el plan de C3** (sin internet: consultar), desde la
+  sección C3 del diseño `superpowers/specs/2026-10-02-fases-del-celular-design.md`
+  y con el formato del de C2. No implementarlo ni publicar sin orden.
+- Para Joswill: probar en el iPhone de Ross "Guardar PDF" (impresión del
+  sistema → guardar PDF), "WhatsApp" con el mensaje, adjuntar el PDF a mano
+  y Deshacer de un abono; sigue pendiente también la vibración (2.16.5).
+  Decidir cuándo publicar C1 y C2: no hay "publicalo" para ellas.
 
 ### 2026-10-10 10:57 · Claude Code
 - Hizo: **C2 · T4 cerrada** (suite móvil completa: 39 casos verdes; fallan

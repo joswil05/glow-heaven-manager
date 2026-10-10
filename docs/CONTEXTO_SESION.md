@@ -13,13 +13,14 @@
 > (sección 3). El 1 de octubre salió la `v2.16.5`: la vibración vuelve en
 > iPhone (sección 3). El 2 de octubre salió la **`v2.17.0`** en las dos apps:
 > la Fase 2 de la auditoría (un solo abono, lo pagado en su moneda y un solo
-> WhatsApp) y "Fue un error" (sección 3). **C1 está completa en master local,
-> sin publicar**; el 3/10 salió **v2.17.1** en ambas apps, sólo las
-> correcciones de «Fue un error» al cambiar de mes e impuesto de paquetes
-> reconstruidos. Sigue el plan de C2 (Inventario y encargos). Claude
+> WhatsApp) y "Fue un error" (sección 3). **C1 y C2 están completas en
+> master local, sin publicar** (C2 el 10/10); el 3/10 salió **v2.17.1** en
+> ambas apps, sólo las correcciones de «Fue un error» al cambiar de mes e
+> impuesto de paquetes reconstruidos. Sigue escribir el plan de C3 (sin
+> internet: consultar), sin implementarlo ni publicar por inercia. Claude
 > Code y Codex trabajan **en relevo**: dónde quedó cada uno está en
 > [RELEVO.md](RELEVO.md).
-> **Última actualización**: 3 de octubre de 2026.
+> **Última actualización**: 10 de octubre de 2026.
 
 Leé este archivo primero. Después:
 
@@ -43,18 +44,18 @@ antes de parar. Este apartado es el resto de lo mínimo para retomar.
 **Dónde está todo**:
 
 - La versión publicada es `v2.17.1` (`5ec3541`, hotfixes sobre `44cdcdc`). `master` local
-  incluye C1 T1 a T4, sin push ni publicación; no asumir que coincide con
-  `origin/master`. Los commits y el siguiente paso exacto están en RELEVO.
+  incluye C1 y C2 completas, sin push ni publicación; no asumir que coincide
+  con `origin/master`. Los commits y el siguiente paso exacto están en RELEVO.
 - **C1 · Inventario por paquete está completa.** Sus casillas están en
   [superpowers/plans/2026-10-02-c1-inventario-por-paquete.md](superpowers/plans/2026-10-02-c1-inventario-por-paquete.md).
-  El [plan de C2](superpowers/plans/2026-10-02-c2-inventario-y-encargos.md)
-  tiene T1 pasos 1 a 4 verificados en local: PDF experimental, compartir,
-  cancelación, bloqueo de la hoja y medición de la dependencia. Sigue T1
-  paso 5 aplazado: Joswill autorizó avanzar Inventario/encargos el 2/10 a
-  las 22:52 y dejar PDF automático pendiente, conservando impresión actual.
-  No integrar candidata ni retomar su investigación por ahora. T2/T3 en
-  paralelo con rutas exclusivas; principal integra y commitea. T6 se ajusta
-  antes de ejecutarse. Detalles en el informe del experimento y RELEVO.
+- **C2 · Inventario y encargos en el celular está completa** (10/10), en
+  el [plan de C2](superpowers/plans/2026-10-02-c2-inventario-y-encargos.md);
+  el resumen, más abajo en "C2 terminada el 10/10". Sólo queda aplazado T1
+  paso 5, el PDF automático: Joswill decidió el 2/10 a las 22:52 conservar
+  la impresión actual. No integrar la candidata (html2pdf) ni retomar su
+  investigación sin que él lo pida.
+- **Lo que sigue es escribir el plan de C3** (sin internet: consultar), con
+  el formato de los de C1 y C2. Escribirlo, no implementarlo ni publicar.
 - El diseño de las cuatro fases del celular (C1 a C4), con las decisiones de
   Joswill, está en
   [superpowers/specs/2026-10-02-fases-del-celular-design.md](superpowers/specs/2026-10-02-fases-del-celular-design.md).
@@ -667,8 +668,9 @@ saber para no deshacerlo:
    `await`; en Electron lo recibe `setWindowOpenHandler`); en el teléfono,
    Deshacer después de un abono y de una venta.
 2. ~~Publicar~~: hecho, `v2.17.0`.
-3. **C1 completa en local, sin publicar** (abajo). Siguen C2 a C4 y después
-   las fases 3 a 6 del informe; la publicación de cada fase requiere a Joswill.
+3. **C1 y C2 completas en local, sin publicar** (abajo). Siguen C3 y C4 y
+   después las fases 3 a 6 del informe; la publicación de cada fase
+   requiere a Joswill.
 4. Pendiente de antes: probar la vibración en el iPhone (la 2.16.5).
 
 **Archivos que tocó la fase** (todos en `481d24a`, ninguno a medio hacer):
@@ -733,6 +735,28 @@ sin errores y build móvil con auditorías aprobadas. Se inspeccionó el flujo
 nuevo en claro/oscuro a 390 px; no se probó en un teléfono físico. Vite mantiene
 avisos de tamaño de chunk e imports estáticos/dinámicos; build sin errores.
 T4: `1208854`, `e079985`, `b0e6468`, `0626f3d`, `d87541a`.
+
+**C2 terminada el 10/10, sin publicar**: T1 a T7 en el
+[plan](superpowers/plans/2026-10-02-c2-inventario-y-encargos.md), menos el
+PDF automático (T1 paso 5, aplazado). En el celular, la pestaña Inventario
+abre con lo que hay, filtra y cambia un precio con la ganancia a la vista y
+Deshacer. Encargos se abre desde su tarjeta en Inicio y desde "Anotar un
+pedido" en Vender, y vuelve a donde se abrió. Ahí se anota un pedido (con o
+sin precio: sin precio no es deuda y ningún encargo toca la bodega), se
+cotiza (`CotizarEncargoSheet`; "No se consiguió" saca la pieza del total
+sin perder lo escrito), se manda la cotización (`MandarCotizacionSheet`:
+copiar, WhatsApp o "Guardar PDF" con la impresión del sistema, el mismo
+ayudante que `DocumentoSheet`; sólo "Ya la mandé" la marca, con la versión
+que se vio) y se registra "Aceptó", sin pago o con un abono en el mismo
+formulario de siempre, con Deshacer. La cuenta de cotizar está en
+`mobile/src/lib/cotizacion-movil.ts` y la impresión en
+`mobile/src/lib/imprimir-documento.ts`, las dos con pruebas unitarias.
+
+**Verificación conjunta de C2:** 628 unitarias, 108 del emulador, 43 casos de interfaz Windows y 46 del celular; tipos de las dos apps y `build:mobile` con sus auditorías aprobados; `git diff --check` limpio. `dist-mobile/` no trae la
+candidata del PDF. **Falta probar en el iPhone de Ross**: "Guardar PDF"
+(impresión del sistema → guardar PDF), "WhatsApp" con el mensaje,
+adjuntar el PDF a mano y Deshacer de un abono. Playwright intercepta
+esas salidas: no las prueba.
 
 El dato del que depende C1 (lote → paquete y venta → lotes consumidos) se
 comprobó sobre producción el 2/10 por la sesión previa. Codex tiene un worktree propio
