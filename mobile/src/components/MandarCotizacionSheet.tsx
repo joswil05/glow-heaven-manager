@@ -23,7 +23,7 @@ export function MandarCotizacionSheet({ venta, onCerrar, onMandada }: Props) {
   const [error, setError] = useState('');
   const [copiado, setCopiado] = useState(false);
   const [obsoleta, setObsoleta] = useState(false);
-  const [accion, setAccion] = useState<'copiar' | 'guardar' | 'recargar' | null>(null);
+  const [accion, setAccion] = useState<'copiar' | 'guardar' | 'recargar' | 'imprimir' | null>(null);
   const accionEnCurso = useRef(false);
   const idAbierto = useRef<number | null>(null);
   const ventaViva = useRef(venta);
@@ -119,11 +119,25 @@ export function MandarCotizacionSheet({ venta, onCerrar, onMandada }: Props) {
     }
   }
 
+  // Una acción en curso como las demás: un doble toque abría dos impresiones,
+  // y un error tardío aparecía en otra cotización (revisión del 10/10).
   function imprimir() {
-    if (accionEnCurso.current || !html) return;
+    if (accionEnCurso.current || !html || !mostrada) return;
     haptics.impact('medium');
+    accionEnCurso.current = true;
+    setAccion('imprimir');
     setError('');
-    imprimirDocumento(html, setError);
+    const id = mostrada.id;
+    imprimirDocumento(
+      html,
+      (mensajeError) => {
+        if (sigueVisible(id)) setError(mensajeError);
+      },
+      () => {
+        accionEnCurso.current = false;
+        setAccion(null);
+      }
+    );
   }
 
   return <BottomSheet abierto={venta !== null} onCerrar={onCerrar} titulo="Mandar cotización"
@@ -164,7 +178,7 @@ export function MandarCotizacionSheet({ venta, onCerrar, onMandada }: Props) {
       </details>
       <button type="button" disabled={ocupado || !html} onClick={imprimir}
         className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-borde bg-superficie-2 px-3 py-2 text-sm font-semibold disabled:opacity-60">
-        <Download size={17} />Guardar PDF
+        <Download size={17} />{accion === 'imprimir' ? 'Preparando…' : 'Guardar PDF'}
       </button>
       <p className="text-sm text-texto-2">Guardar PDF abre la impresión del teléfono: elegí Guardar como PDF y adjuntá el archivo en WhatsApp. Después tocá «Ya la mandé».</p>
       {error && <p role="alert" className="rounded-xl bg-peligro-suave p-3 text-sm text-peligro-fuerte">{error}</p>}

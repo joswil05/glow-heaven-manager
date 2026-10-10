@@ -640,7 +640,7 @@ a Por mandar. Prueba de copia rechazada no dice copiado; error al marcar no
 cierra hoja ni dice enviada; reintentar sólo la escritura, sin repetir envío.
 Tasa vieja/abono en su moneda coinciden con HTML y mensaje compartidos.
 
-- [ ] **Paso 2: hoja de mensaje con vista previa e impresión actual**
+- [x] **Paso 2: hoja de mensaje con vista previa e impresión actual**
 
 Mensaje original de `mensajeWhatsappDocumento`, vista previa HTML de
 `generarHtmlProforma`. Mostrar el mensaje sin edición. Ofrecer Copiar y
