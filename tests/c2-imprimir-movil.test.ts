@@ -11,7 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { imprimirDocumento } from '../mobile/src/lib/imprimir-documento';
 
 interface IframeFalso {
-  parentNode: { removeChild: (n: unknown) => void } | null;
+  parentNode: { removeChild: (n: IframeFalso) => void } | null;
   style: Record<string, string>;
   onload: null | (() => void);
   setAttribute: () => void;
