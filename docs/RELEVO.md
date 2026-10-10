@@ -72,15 +72,11 @@ se trabaja**.
   hotfixes de fecha e impuesto sobre la versión anterior. C1/C2 siguen locales.
 - **Plan vigente**: Fase C2 · Inventario y encargos en el celular,
   [superpowers/plans/2026-10-02-c2-inventario-y-encargos.md](superpowers/plans/2026-10-02-c2-inventario-y-encargos.md).
-- **Siguiente paso**: C2 · T4 · paso 4: repetir suite móvil completa y cerrar
-  el alta. Después revisar los dos hallazgos pendientes descritos en la última
-  bitácora e integrar T5/T6. T2/T3 completas; T4 pasos 1–3, T5/T6 paso 1 y
-  T7 pasos 1–3 completos. T5/T6 paso 2 guardados WIP, sin conectar a la vista.
-  La suite móvil completa todavía no tiene una pasada final verde.
-  Joswill autorizó dejar PDF automático pendiente y avanzar el resto de C2
-  el 2/10 a las 22:52. T1 5b/5c guardados WIP, sin investigar más por ahora;
-  conservar impresión actual y mensaje original sin edición. T6 ya ajustado
-  a esas decisiones. Peso/iPhone/HTTPS pendientes para PDF automático.
+- **Siguiente paso**: C2 · T5 · paso 3 (conectar `CotizarEncargoSheet` a
+  Encargos y guardar). Después T5 paso 4, T6 pasos 3 y 4, y T7 paso 4 (cierre
+  de C2). T4 cerrada; T5 y T6 paso 2 revisados y corregidos el 10/10 (los dos
+  hallazgos de Codex eran reales). PDF automático sigue aplazado (T1 paso 5);
+  conservar impresión actual y mensaje original sin edición.
 - **C1**: T1 a T4 completas y verificadas en `master` local, sin publicar;
   cierre documentado en `ddc0fc7`. Emulador apagado.
 - **Después de C1**: C2 a C4, en el diseño
@@ -105,6 +101,27 @@ Formato de cada entrada:
 - Sigue: el paso exacto del plan.
 - Para Joswill: lo que necesita decidir o probar (o "nada").
 ```
+
+### 2026-10-10 10:57 · Claude Code
+- Hizo: **C2 · T4 cerrada** (suite móvil completa: 39 casos verdes; fallan
+  sólo los 6 de T5/T6, sin pantalla todavía, como se esperaba). Revisó y
+  **corrigió los dos hallazgos** que dejó Codex, los dos reales:
+  1. Cotizar: con "No se consiguió" se perdía lo editado y volvía el precio
+     original. Ahora conserva lo escrito y sólo pone subtotal y costo en
+     cero, como Windows. La cuenta pasó a `mobile/src/lib/cotizacion-movil.ts`
+     (probable sola: `tests/c2-cotizar-movil.test.ts`).
+  2. Mandar: "Guardar PDF" ya no se dispara dos veces; el ayudante se rinde
+     a los 15 s si el documento no carga, quita el iframe y avisa (una carga
+     tardía ya no imprime); el error tardío sólo se muestra en la misma
+     cotización. `tests/c2-imprimir-movil.test.ts`, con un document mínimo.
+- Commits: `9f0d77e` (T4 paso 4), `528a1e7` (T5 paso 2), `86e8bfe` y
+  `729332b` (T6 paso 2). No pusheados.
+- Pruebas: base al llegar 620 y tipos limpios; emulador 108; suite móvil 39
+  verdes + 6 rojos esperados; npm test 628 (las 8 nuevas fallaron antes del
+  arreglo); tsc de las dos apps limpio.
+- Quedó a medias: nada. El emulador sigue prendido para el paso 3.
+- Sigue: C2 · T5 · paso 3.
+- Para Joswill: nada.
 
 ### 2026-10-10 10:38 · Codex
 - Hizo: pausa solicitada por Joswill para seguir con Claude. Guardadas las
