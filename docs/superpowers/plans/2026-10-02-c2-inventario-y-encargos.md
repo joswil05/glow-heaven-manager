@@ -570,7 +570,7 @@ page.get_by_role("button", name="Guardar cotización", exact=True).click()
 Con varias piezas, limitar cada selector a su fieldset con el nombre de la
 pieza. Verificar enteros guardados y fase; correr caso SOLO `C2 · cotizar`, rojo.
 
-- [ ] **Paso 2: editor y estimación del núcleo**
+- [x] **Paso 2: editor y estimación del núcleo**
 
 Tomar las condiciones de `src/renderer/src/views/ventas/CotizarEncargoModal.tsx`:
 `costoReal` si LLEGO o lotes consumidos; `fijo` si PENDIENTE, ya tiene precio
