@@ -11,6 +11,7 @@ import { BottomSheet } from '../components/BottomSheet';
 import { AceptarEncargoSheet, puedeAceptarEncargo } from '../components/AceptarEncargoSheet';
 import { AbonoModalSheet, type VentaCobroItem } from '../components/AbonoModalSheet';
 import { NuevoEncargoSheet } from '../components/NuevoEncargoSheet';
+import { CotizarEncargoSheet } from '../components/CotizarEncargoSheet';
 import { haptics } from '../lib/haptics';
 
 interface Props {
@@ -32,6 +33,7 @@ export function EncargosView({ onVolver, abrirNuevoAlEntrar = false }: Props) {
   const [errorDetalle, setErrorDetalle] = useState('');
   const [reintentoDetalle, setReintentoDetalle] = useState(0);
   const [aceptando, setAceptando] = useState<VentaCompleta | null>(null);
+  const [cotizando, setCotizando] = useState<VentaCompleta | null>(null);
   const [abono, setAbono] = useState<VentaCobroItem | null>(null);
   const [nuevo, setNuevo] = useState(abrirNuevoAlEntrar);
 
@@ -72,6 +74,8 @@ export function EncargosView({ onVolver, abrirNuevoAlEntrar = false }: Props) {
   const visibles = grupos.filter((grupo) => filtro === 'TODOS' || grupo.fase === filtro);
   const vacio = visibles.every((grupo) => grupo.ventas.length === 0);
   const faseDetalle = detalle ? etapaEncargo(detalle) : null;
+  // Se cotiza mientras la clienta no aceptó; lo aceptado sigue en la PC.
+  const porCotizar = detalle?.lineas.some((l) => sinPrecio(l)) ?? false;
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-fondo text-texto">
@@ -157,6 +161,14 @@ export function EncargosView({ onVolver, abrirNuevoAlEntrar = false }: Props) {
             {faseDetalle !== 'POR_BUSCAR' && <div className="flex justify-between gap-3 text-sm font-bold">
               <span>Total</span><span>{formatearMoneda(detalle.total_usd_cents, 'USD')}</span>
             </div>}
+            {detalle.estado === 'COTIZADA' && (
+              <button type="button" onClick={() => { haptics.selection(); setCotizando(detalle); }}
+                className={porCotizar
+                  ? 'min-h-12 rounded-xl bg-acento px-4 py-3 text-base font-bold text-acento-texto'
+                  : 'min-h-12 rounded-xl border border-borde bg-superficie-2 px-4 py-3 text-base font-semibold text-texto'}>
+                {porCotizar ? 'Cotizar' : 'Cambiar precios'}
+              </button>
+            )}
             {faseDetalle === 'ESPERANDO' && puedeAceptarEncargo(detalle) && (
               <button type="button" onClick={() => { haptics.selection(); setAceptando(detalle); }}
                 className="min-h-12 rounded-xl bg-acento px-4 py-3 text-base font-bold text-acento-texto">
@@ -176,6 +188,8 @@ export function EncargosView({ onVolver, abrirNuevoAlEntrar = false }: Props) {
             saldo_usd_cents: venta.saldo_usd_cents, tasa_cambio_cents: venta.tasa_cambio_cents });
         }} />
       <AbonoModalSheet venta={abono} aceptarEncargo onCerrar={() => setAbono(null)} onAbonoRegistrado={marcarCambio} />
+      {/* Guardar ya avisa el cambio (marcarCambio): el detalle y la lista se releen. */}
+      <CotizarEncargoSheet venta={cotizando} onCerrar={() => setCotizando(null)} onGuardado={() => undefined} />
       <NuevoEncargoSheet abierto={nuevo} onCerrar={() => setNuevo(false)}
         onGuardado={() => { setNuevo(false); setFiltro('TODOS'); }} />
     </div>

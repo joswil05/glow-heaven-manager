@@ -594,7 +594,7 @@ El costo se estima al cambiar tienda/peso, nunca reemplaza costo real;
 se escribe, debe ser >0. Validar dinero/pesos/cantidades seguros. Mostrar
 ganancia sin animaciones por tecla. No se consiguió queda en la lista.
 
-- [ ] **Paso 3: guardar por cotizar y actualizar vistas**
+- [x] **Paso 3: guardar por cotizar y actualizar vistas**
 
 Construir `LineaCotizacion[]` sólo de piezas editables, con id original;
 precio vacío0, campos opcionales ausentes si no se editaron, peso mlb y

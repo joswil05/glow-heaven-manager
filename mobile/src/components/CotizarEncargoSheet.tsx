@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { VentaCompleta } from '@shared/types';
-import { costoEstimadoDePieza, recalcularEncargo } from '@core/encargos';
+import { costoEstimadoDePieza, recalcularEncargo, sinPrecio } from '@core/encargos';
 import { calcularPrecio } from '@core/precios';
 import { formatearMoneda } from '@core/moneda';
 import { analizar, armarPiezas, monto, pesoMlb, type Campo, type Errores, type Pieza } from '../lib/cotizacion-movil';
@@ -103,7 +103,9 @@ export function CotizarEncargoSheet({ venta, onCerrar, onGuardado }: {
   const resumen = v && analisis.valido ? recalcularEncargo(v, analisis.lineas, parametros?.anticipo_defecto_bp ?? 5000) : null;
   const hayCambios = JSON.stringify(piezas) !== inicial;
   if (!v) return null;
-  return <BottomSheet abierto={abierta} titulo={`Cotizar ${v.codigo}`} subtitulo={v.cliente_nombre || 'Encargo'}
+  // "Cotizar" si falta algún precio; si no, se están cambiando precios (como Windows).
+  const titulo = `${v.lineas.some((l) => sinPrecio(l)) ? 'Cotizar' : 'Precios de'} ${v.codigo}`;
+  return <BottomSheet abierto={abierta} titulo={titulo} subtitulo={v.cliente_nombre || 'Encargo'}
     onCerrar={() => { if (!ocupado.current) onCerrar(); }} hayCambios={hayCambios} ocupado={guardando}
     footer={<div className="flex flex-col gap-2">
       <p className="text-sm font-semibold tabular-nums text-texto-2">
