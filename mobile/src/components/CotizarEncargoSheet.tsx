@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
+import { Check } from 'lucide-react';
 import type { VentaCompleta } from '@shared/types';
 import { costoEstimadoDePieza, recalcularEncargo, sinPrecio } from '@core/encargos';
 import { calcularPrecio } from '@core/precios';
@@ -141,8 +142,13 @@ export function CotizarEncargoSheet({ venta, onCerrar, onGuardado }: {
           {pieza.fijo ? <p className="text-sm text-texto-2">{formatearMoneda(l.precio_unitario_usd_cents, 'USD')} por pieza: ya lo aceptó la clienta.</p>
             : <div className="flex flex-col gap-3">
               {pieza.puedeDescartar && <button type="button" disabled={guardando} aria-pressed={pieza.descartada}
-                onClick={() => alternarDescarte(l.id)} className={`min-h-12 rounded-xl border px-3 py-2 text-left text-sm font-semibold ${pieza.descartada
-                  ? 'border-borde-fuerte bg-superficie text-texto' : 'border-borde bg-superficie text-texto-2'}`}>
+                onClick={() => alternarDescarte(l.id)} className={`flex min-h-12 items-center gap-2 rounded-xl border px-3 py-2 text-left text-sm font-semibold ${pieza.descartada
+                  ? 'border-acento bg-acento-suave text-acento-fuerte' : 'border-borde bg-superficie text-texto-2'}`}>
+                {/* Es un interruptor: marcado tiene que verse marcado de un vistazo. */}
+                <span aria-hidden="true" className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${pieza.descartada
+                  ? 'border-acento bg-acento text-acento-texto' : 'border-borde-fuerte bg-superficie'}`}>
+                  {pieza.descartada && <Check size={14} strokeWidth={3} />}
+                </span>
                 No se consiguió
               </button>}
               {pieza.descartada ? <p className="text-sm text-texto-2">Sale del total. Su precio era {formatearMoneda(precio || l.precio_unitario_usd_cents, 'USD')} por pieza.</p>

@@ -611,7 +611,7 @@ marcarCambio(); onGuardado(); onCerrar();
 Errores del servidor dentro de la hoja; no cerrar ni borrar borrador si
 se rechaza por pagos superiores al total. No escribir fases/versiones desde UI.
 
-- [ ] **Paso 4: verificar y cerrar**
+- [x] **Paso 4: verificar y cerrar**
 
 Casos nuevos verdes; `npx vitest run tests/encargos-fases.test.ts`, suite
 móvil y emulador; contraste/teclado en claro/oscuro y hoja con varias piezas.
