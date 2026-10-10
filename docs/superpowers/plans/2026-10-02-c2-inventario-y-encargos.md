@@ -539,7 +539,7 @@ negocio. `crear` deriva estado, código y anticipo; no imponer PENDIENTE
 cuando hay precio o anticipo configurado0. Una sola confirmación. Bloqueo
 con ref y try/finally; conservar valores ante error.
 
-- [ ] **Paso 4: pruebas y cierre**
+- [x] **Paso 4: pruebas y cierre**
 
 Casos verdes, suite móvil y emulador (crear escribe ventas/eventos). Verificar
 se conserva el carrito previo al entrar/salir del pedido, alta de clienta
