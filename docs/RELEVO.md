@@ -68,19 +68,21 @@ se trabaja**.
 
 ## Estado ahora
 
-- **Publicado**: `v2.17.1` en Windows y celular (`5ec3541`, 3/10), sólo
-  hotfixes de fecha e impuesto sobre la versión anterior. C1/C2 siguen locales.
+- **Publicado**: **`v2.18.0`** en Windows y celular (11/10), con C1 y C2.
+  Etiqueta en `74f42ea`; el celular salió de `ec518a4`, que da el mismo
+  build (el commit siguiente sólo saca html2pdf del instalador).
+  `master` local = `origin/master`.
 - **Plan vigente**: Fase C2 · Inventario y encargos en el celular,
   [superpowers/plans/2026-10-02-c2-inventario-y-encargos.md](superpowers/plans/2026-10-02-c2-inventario-y-encargos.md).
-- **C2 cerrada el 10/10** en `master` local, sin publicar: T1 a T7, menos
+- **C2 cerrada el 10/10** y publicada en la 2.18.0: T1 a T7, menos
   el PDF automático (T1 paso 5), aplazado por Joswill; se conserva la
   impresión actual y el mensaje original sin edición.
 - **Siguiente paso**: **escribir el plan de C3** (sin internet: consultar)
   en `docs/superpowers/plans/`, con el formato del de C2 y desde la sección
   C3 del diseño. Escribirlo y commitearlo; **no implementarlo ni publicar**
   sin que Joswill lo pida.
-- **C1**: T1 a T4 completas y verificadas en `master` local, sin publicar;
-  cierre documentado en `ddc0fc7`. Emulador apagado.
+- **C1**: T1 a T4 completas, publicadas en la 2.18.0; cierre documentado
+  en `ddc0fc7`. Emulador apagado.
 - **Trampa conocida**: `npm run test:emulador` y `npm run test:interfaz`
   reescriben `tests/interfaz/fixtures-pdf.json` con la fecha del día.
   Restaurarlo con `git checkout -- tests/interfaz/fixtures-pdf.json`
@@ -107,6 +109,31 @@ Formato de cada entrada:
 - Sigue: el paso exacto del plan.
 - Para Joswill: lo que necesita decidir o probar (o "nada").
 ```
+
+### 2026-10-11 17:07 · Claude Code
+- Hizo: **publicó la 2.18.0** (C1 y C2) con el "publicalo" de Joswill.
+  Antes comprobó por la API, con la sesión de gcloud, que reglas e índices
+  de producción coinciden con los del repo (12 índices READY): no hubo que
+  desplegar nada de Firestore. Celular: `build:mobile` y
+  `scripts/desplegar-movil.mjs` (la CLI de Firebase tiene la sesión
+  vencida); los dos sitios sirven `index-yDYgGTbG.js`. Windows: el primer
+  exe pesaba 113 MB porque `html2pdf.js` estaba en `dependencies` y
+  electron-builder la empaquetaba; pasó a `devDependencies` (`74f42ea`) y
+  el exe volvió a 106 MB, sin html2pdf en el asar. Release en borrador,
+  exe solo, después blockmap y `latest.yml`, y publicada como latest.
+- Commits: `ec518a4` (versión 2.18.0), `74f42ea` (html2pdf a desarrollo),
+  los dos pusheados. Esta entrada va en un commit de docs aparte.
+- Pruebas: las del cierre de C2 (628, 108, 46, 43, tipos y build). Después
+  del cambio de dependencia, el `build:exe` volvió a pasar tipos y
+  auditorías; `latest.yml` coincide con el exe (sha512 y 106.173.061
+  bytes) y la descarga pública también.
+- Quedó a medias: nada.
+- Sigue: **escribir el plan de C3** (sin internet: consultar), sin
+  implementarlo ni publicar sin orden.
+- Para Joswill: la app de Windows abierta se actualiza al reabrirla. Probar
+  en el iPhone de Ross "Guardar PDF", WhatsApp, adjuntar el PDF y Deshacer
+  de un abono; y la vibración (2.16.5). Si se quiere usar `firebase deploy`
+  otra vez, hace falta `firebase login --reauth` en el navegador.
 
 ### 2026-10-10 11:32 · Claude Code
 - Hizo: **C2 cerrada.** T5 paso 3 (Cotizar desde el detalle de un encargo),

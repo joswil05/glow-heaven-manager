@@ -13,14 +13,15 @@
 > (sección 3). El 1 de octubre salió la `v2.16.5`: la vibración vuelve en
 > iPhone (sección 3). El 2 de octubre salió la **`v2.17.0`** en las dos apps:
 > la Fase 2 de la auditoría (un solo abono, lo pagado en su moneda y un solo
-> WhatsApp) y "Fue un error" (sección 3). **C1 y C2 están completas en
-> master local, sin publicar** (C2 el 10/10); el 3/10 salió **v2.17.1** en
-> ambas apps, sólo las correcciones de «Fue un error» al cambiar de mes e
-> impuesto de paquetes reconstruidos. Sigue escribir el plan de C3 (sin
-> internet: consultar), sin implementarlo ni publicar por inercia. Claude
+> WhatsApp) y "Fue un error" (sección 3). El 3/10 salió **v2.17.1** en
+> ambas apps (correcciones de «Fue un error» y del impuesto de paquetes
+> reconstruidos), y el 11/10 la **`v2.18.0`**, con las fases C1 y C2:
+> inventario por paquete y el inventario y los encargos en el celular.
+> Sigue escribir el plan de C3 (sin internet: consultar), sin
+> implementarlo ni publicar por inercia. Claude
 > Code y Codex trabajan **en relevo**: dónde quedó cada uno está en
 > [RELEVO.md](RELEVO.md).
-> **Última actualización**: 10 de octubre de 2026.
+> **Última actualización**: 11 de octubre de 2026.
 
 Leé este archivo primero. Después:
 
@@ -43,9 +44,9 @@ antes de parar. Este apartado es el resto de lo mínimo para retomar.
 
 **Dónde está todo**:
 
-- La versión publicada es `v2.17.1` (`5ec3541`, hotfixes sobre `44cdcdc`). `master` local
-  incluye C1 y C2 completas, sin push ni publicación; no asumir que coincide
-  con `origin/master`. Los commits y el siguiente paso exacto están en RELEVO.
+- La versión publicada es **`v2.18.0`** (etiqueta en `74f42ea`), con C1 y
+  C2, en Windows y en el celular. Los commits y el siguiente paso exacto
+  están en RELEVO.
 - **C1 · Inventario por paquete está completa.** Sus casillas están en
   [superpowers/plans/2026-10-02-c1-inventario-por-paquete.md](superpowers/plans/2026-10-02-c1-inventario-por-paquete.md).
 - **C2 · Inventario y encargos en el celular está completa** (10/10), en
@@ -668,7 +669,7 @@ saber para no deshacerlo:
    `await`; en Electron lo recibe `setWindowOpenHandler`); en el teléfono,
    Deshacer después de un abono y de una venta.
 2. ~~Publicar~~: hecho, `v2.17.0`.
-3. **C1 y C2 completas en local, sin publicar** (abajo). Siguen C3 y C4 y
+3. **C1 y C2 publicadas en la 2.18.0** (abajo). Siguen C3 y C4 y
    después las fases 3 a 6 del informe; la publicación de cada fase
    requiere a Joswill.
 4. Pendiente de antes: probar la vibración en el iPhone (la 2.16.5).
@@ -736,7 +737,7 @@ nuevo en claro/oscuro a 390 px; no se probó en un teléfono físico. Vite manti
 avisos de tamaño de chunk e imports estáticos/dinámicos; build sin errores.
 T4: `1208854`, `e079985`, `b0e6468`, `0626f3d`, `d87541a`.
 
-**C2 terminada el 10/10, sin publicar**: T1 a T7 en el
+**C2 terminada el 10/10 y publicada en la 2.18.0**: T1 a T7 en el
 [plan](superpowers/plans/2026-10-02-c2-inventario-y-encargos.md), menos el
 PDF automático (T1 paso 5, aplazado). En el celular, la pestaña Inventario
 abre con lo que hay, filtra y cambia un precio con la ganancia a la vista y
