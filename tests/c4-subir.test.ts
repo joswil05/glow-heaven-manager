@@ -164,6 +164,26 @@ describe('Subir la cola', () => {
     expect(estados(cola)).toEqual([['a', 'SUBIDA']]);
   });
 
+  it('si la quitan justo cuando empieza a subir, no se sube', async () => {
+    // Como la cola de verdad: cada cambio se aplica después de guardarlo, y
+    // un Deshacer puede llegar en ese medio.
+    let actual = [venta('a')];
+    const cola: ColaViva = {
+      leer: () => actual,
+      cambiar: async (cambio) => {
+        await Promise.resolve();
+        actual = cambio(actual);
+      },
+    };
+    const { repos, llamadas } = reposFalsos();
+
+    const subida = subirCola(cola, repos);
+    actual = actual.filter((o) => o.operacion_id !== 'a');
+    await subida;
+
+    expect(llamadas).toEqual([]);
+  });
+
   it('con el candado, dos subidas al mismo tiempo suben cada operación una vez', async () => {
     const cola = colaEnMemoria([venta('a'), venta('b')]);
     const { repos, llamadas, maximo } = reposFalsos();
@@ -252,7 +272,8 @@ describe('Subir la cola con los repositorios de verdad', () => {
 
     await subirCola(cola, reales);
 
-    const clientas = volcar('clientes').filter((c) => c.nombre === 'Clienta de la cola');
+    // La base arranca vacía: la única clienta es la de la cola.
+    const clientas = volcar('clientes');
     expect(clientas).toHaveLength(1);
     const ventas = volcar('ventas') as { cliente_id: number }[];
     expect(ventas.map((v) => v.cliente_id)).toEqual([clientas[0].id, clientas[0].id]);

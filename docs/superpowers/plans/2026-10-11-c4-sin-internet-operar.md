@@ -220,7 +220,7 @@ API con `gcloud`) antes y después.
   - clienta nueva: se crea primero y su id entra en la venta;
   - reintentar una que en realidad ya había subido devuelve lo mismo (la
     marca de T1).
-- [ ] **Paso 2: implementar** `subirCola(cola, repos, guardar)`: marca
+- [x] **Paso 2: implementar** `subirCola(cola, repos, guardar)`: marca
   SUBIENDO, llama al repositorio con `operacion_id` y `grupo`, guarda el
   resultado (código de la venta) y SUBIDA, o PENDIENTE/REVISAR según el
   error. Una sola subida a la vez (candado).
