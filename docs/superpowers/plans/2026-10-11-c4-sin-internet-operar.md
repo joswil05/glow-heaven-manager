@@ -204,7 +204,7 @@ API con `gcloud`) antes y después.
   SUBIDA; `quitar` saca sólo esa; una operación SUBIENDO al abrir la app
   (se cerró a mitad) vuelve a PENDIENTE.
 - [x] **Paso 2: implementar `cola.ts`**, sin React ni IndexedDB.
-- [ ] **Paso 3: `cola-local.ts`**: una base `gh-cola` con un almacén; leer
+- [x] **Paso 3: `cola-local.ts`**: una base `gh-cola` con un almacén; leer
   todo, guardar todo. Si IndexedDB falla (Safari privado), la cola vive en
   memoria y la interfaz lo dice ("Lo pendiente no queda guardado si cerrás
   la app"). Prueba con un `indexedDB` falso en memoria.

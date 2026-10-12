@@ -5,7 +5,9 @@
  * qué pasa con la que quedó a mitad de subir cuando se cerró la app.
  */
 import { describe, it, expect } from 'vitest';
+import { IDBFactory } from 'fake-indexeddb';
 import { encolar, marcar, quitar, retomar, siguiente, type EnCola } from '../mobile/src/lib/cola';
+import { abrirAlmacenCola } from '../mobile/src/lib/cola-local';
 
 function enCola(id: string, estado: EnCola['estado'] = 'PENDIENTE'): EnCola {
   return {
@@ -63,5 +65,71 @@ describe('La cola de lo hecho sin señal', () => {
       ['c', 'REVISAR'],
       ['d', 'PENDIENTE'],
     ]);
+  });
+});
+
+describe('La cola guardada en el teléfono', () => {
+  const a = enCola('a');
+  const b = enCola('b', 'REVISAR');
+
+  it('lo guardado sigue ahí al volver a abrir la app', async () => {
+    const fabrica = new IDBFactory();
+    const antes = await abrirAlmacenCola(fabrica);
+    await antes.guardar('uid-ross', [a, b]);
+
+    const despues = await abrirAlmacenCola(fabrica);
+    expect(despues.persistente).toBe(true);
+    expect(await despues.leer('uid-ross')).toEqual([a, b]);
+  });
+
+  it('cada cuenta tiene su propia cola', async () => {
+    const almacen = await abrirAlmacenCola(new IDBFactory());
+    await almacen.guardar('uid-ross', [a]);
+    expect(await almacen.leer('uid-otra')).toEqual([]);
+  });
+
+  it('sin IndexedDB, la cola vive en memoria y avisa que no queda guardada', async () => {
+    const almacen = await abrirAlmacenCola(undefined);
+    expect(almacen.persistente).toBe(false);
+    await almacen.guardar('uid-ross', [a]);
+    expect(await almacen.leer('uid-ross')).toEqual([a]);
+  });
+
+  it.each([
+    ['tira al abrir', () => { throw new DOMException('No se permite', 'SecurityError'); }],
+    ['falla después de abrir', () => {
+      const pedido = { error: new DOMException('No se permite', 'InvalidStateError') } as { error: DOMException; onerror?: () => void };
+      setTimeout(() => pedido.onerror?.(), 0);
+      return pedido;
+    }],
+  ])('si IndexedDB %s (Safari privado), cae a memoria', async (_caso, open) => {
+    const almacen = await abrirAlmacenCola({ open } as unknown as IDBFactory);
+    expect(almacen.persistente).toBe(false);
+    await almacen.guardar('uid-ross', [a]);
+    expect(await almacen.leer('uid-ross')).toEqual([a]);
+  });
+
+  it('si Safari corta la conexión con la app en segundo plano, la vuelve a abrir', async () => {
+    const real = new IDBFactory();
+    let aperturas = 0;
+    const fabrica = {
+      open(nombre: string, version?: number) {
+        const pedido = real.open(nombre, version);
+        aperturas += 1;
+        if (aperturas === 1) {
+          pedido.addEventListener('success', () => {
+            Object.defineProperty(pedido.result, 'transaction', {
+              value: () => { throw new DOMException('Connection to Indexed Database server lost', 'InvalidStateError'); },
+            });
+          });
+        }
+        return pedido;
+      },
+    } as unknown as IDBFactory;
+
+    const almacen = await abrirAlmacenCola(fabrica);
+    await almacen.guardar('uid-ross', [a]);
+    expect(await almacen.leer('uid-ross')).toEqual([a]);
+    expect(aperturas).toBe(2);
   });
 });
