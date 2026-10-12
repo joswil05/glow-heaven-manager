@@ -311,3 +311,9 @@ API con `gcloud`) antes y después.
   vende sin red y ver "Para revisar". Contarle a Ross lo de "Sin número
   todavía". Actualizar CONTEXTO_SESION, la auditoría y RELEVO. Siguen las
   fases 3 a 6 de la auditoría.
+
+  > **12/10:** documentos actualizados (CONTEXTO_SESION, la auditoría, este
+  > plan y RELEVO). Desde el 11/10 no siguen las fases 3 a 6: sigue el plan
+  > del celular como centro (U1). Queda sin marcar por la prueba física en
+  > el iPhone, que es de Joswill y Ross, y necesita antes la regla
+  > desplegada y la versión publicada.

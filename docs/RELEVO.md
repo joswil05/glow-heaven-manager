@@ -71,10 +71,12 @@ se trabaja**.
 - **Publicado**: **`v2.18.1`** en Windows y celular (11/10): el flete del
   paquete sale de las libras y el impuesto es siempre el de Configuración.
   Etiqueta en `59b525c`. Antes, la `v2.18.0` (C1 y C2, etiqueta `74f42ea`).
-- **Plan vigente**: **Fase C4 · Sin internet: operar**,
-  [superpowers/plans/2026-10-11-c4-sin-internet-operar.md](superpowers/plans/2026-10-11-c4-sin-internet-operar.md):
-  T1 (menos el paso 4), T2, T3, T4 (vender sin señal) y T5 (abonar sin
-  señal) hechas el 12/10; sigue T6.
+- **C4 · Sin internet: operar, cerrada el 12/10, sin publicar**
+  ([plan](superpowers/plans/2026-10-11-c4-sin-internet-operar.md)): sin
+  señal se vende, se abona y se anota un pedido (con clienta nueva), queda
+  en la cola del teléfono y sube sola sin duplicarse; lo que el negocio
+  rechaza queda "Para revisar". Quedan T1 paso 4 (desplegar la regla) y la
+  prueba física de T8 paso 2.
 - **Antes de publicar cualquier versión del celular con C4**: desplegar la
   regla de `operaciones` (C4 · T1 · paso 4, con el "publicalo" de Joswill).
   Desde T4 el celular manda `operacion_id` en cada venta, también con
@@ -100,11 +102,12 @@ se trabaja**.
   limitaban el celular (no editar fichas, no ajustar existencias, encargos
   sólo hasta "Aceptó"). Ese plan tiene decisiones abiertas para Joswill
   (sección 10).
-- **Siguiente paso**: **C4 · T6** ([plan](superpowers/plans/2026-10-11-c4-sin-internet-operar.md)).
-  Joswill pidió concluir C4 sin responder sus dos preguntas: se aplican las
-  recomendaciones (la venta sin red guarda la tasa del momento; "Sin número
-  todavía" hasta subir). Después, U1. Publicar C3 y el paquete nuevo pide su
-  "publicalo".
+- **Siguiente paso**: **U1** del [plan del celular como centro](superpowers/specs/2026-10-11-celular-como-centro-design.md),
+  cuando Joswill responda las decisiones de su sección 10 (letra del
+  sistema, paleta, pestaña Clientas, Historial dentro de "Más", y las demás).
+  **Publicar** C3, C4 y el paquete nuevo pide su "publicalo", y en este
+  orden: (1) desplegar la regla de `operaciones` y comparar las reglas de
+  producción con las del repo; (2) recién ahí el celular y Windows.
 - **C1**: T1 a T4 completas, publicadas en la 2.18.0; cierre documentado
   en `ddc0fc7`. Emulador apagado.
 - **Trampa conocida**: `npm run test:emulador` y `npm run test:interfaz`
@@ -133,6 +136,48 @@ Formato de cada entrada:
 - Sigue: el paso exacto del plan.
 - Para Joswill: lo que necesita decidir o probar (o "nada").
 ```
+
+### 2026-10-12 14:30 · Claude Code
+- Hizo: **C4 · T6 a T8**: C4 cerrada.
+  - T6: "Elegí la clienta" sin señal (o si el guardado se corta) devuelve
+    la clienta provisoria con su propio `operacion_id`; viaja con la venta
+    o el pedido y se crea al subir, antes que ellos. Las clientas anotadas
+    que no subieron se pueden elegir otra vez sin duplicarlas. El pedido
+    usa la cola como la venta; con una clienta provisoria va directo a la
+    cola. "Anotar un pedido" ya no pide señal; cotizar, mandar y aceptar sí.
+  - T7: "Pendientes (n)" en la franja sin señal; con red, una barra si hay
+    algo para revisar o si lo pendiente tarda más de 1,2 s (no parpadea en
+    una subida rápida). La hoja "Pendientes" muestra lo que hay que revisar
+    con su motivo, "Intentar de nuevo" y "Descartar" (pregunta antes), y lo
+    que espera. El Historial muestra arriba "Hecho sin señal" con "sin
+    número todavía", y la fila toma su número al subir; Encargos muestra los
+    pedidos anotados sin señal.
+  - T8: prueba contra el emulador de una tanda entera de la cola subida dos
+    veces, con todas las invariantes; todas las suites en serie.
+  - Documentos: CONTEXTO_SESION, la auditoría (C4 y "las fases 3 a 6 quedan
+    reemplazadas"), el plan de C4 y la memoria.
+- Commits: `07744a9` a este, en `master`, sin push.
+- Pruebas: 742 unitarias; 113 del emulador; 50 casos del celular; 43 de
+  Windows; 10 del corredor sin red, sin errores de consola; tipos de las
+  dos apps; `build:mobile` con sus auditorías; `git diff --check` limpio.
+- Trampas: (1) en el corredor, un patrón como "Pendiente de subir" ahora
+  aparece también en el Historial (vista oculta) y Playwright frena por
+  modo estricto: buscar el texto entero. (2) Un caso que falla con la
+  pantalla de "Venta registrada" abierta arrastraba a los siguientes: cada
+  caso de venta vuelve primero al catálogo. (3) Un "abono de más" resultó
+  ser el pago inicial de una venta de otro caso que subió en el mismo
+  momento: el abono cuenta sólo los pagos de la venta de Ana.
+- Quedó a medias: nada del código. Emulador apagado.
+- Sigue: U1, cuando Joswill responda la sección 10 del plan del celular como
+  centro. Publicar pide "publicalo" (primero la regla).
+- Para Joswill: (1) "publicalo" cuando quieras C3 + C4 + el paquete nuevo
+  en el celular y Windows; primero se despliega la regla. (2) Probar en el
+  iPhone con modo avión: vender, abonar y anotar un pedido con una clienta
+  nueva; cerrar la app; abrirla con señal y ver que suben una vez. (3)
+  Contarle a Ross: una venta sin señal dice "Sin número todavía" y toma su
+  número sola al volver la señal; si algo no se puede subir (por ejemplo,
+  la PC vendió lo último), aparece "Para revisar" arriba. (4) Las decisiones
+  de la sección 10 del plan del rediseño.
 
 ### 2026-10-12 13:40 · Claude Code
 - Hizo: **C4 · T4 y T5**: vender y abonar sin señal.

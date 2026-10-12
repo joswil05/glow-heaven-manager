@@ -19,12 +19,14 @@
 > (inventario por paquete y el inventario y los encargos en el celular), y
 > ese mismo día la **`v2.18.1`**: el flete del paquete sale de las libras y
 > el impuesto es siempre el de Configuración. Después, en `master` sin
-> publicar: **C3 cerrada** (sin internet: consultar) y **"Llegó un paquete"
-> igual al editor de Windows**. El plan de C4 está escrito y espera dos
-> decisiones de Joswill. Claude
-> Code y Codex trabajan **en relevo**: dónde quedó cada uno está en
-> [RELEVO.md](RELEVO.md).
-> **Última actualización**: 11 de octubre de 2026.
+> publicar: **C3 cerrada** (sin internet: consultar), **"Llegó un paquete"
+> igual al editor de Windows** y **C4 cerrada** (sin internet: operar: vender,
+> abonar y anotar pedidos sin señal, con una cola en el teléfono). Antes de
+> publicar el celular con C4 hay que desplegar la regla `operaciones`. Desde
+> el 11/10 el rumbo es **el celular como centro** (plan unificado U1 a U9 y
+> W1). Claude Code y Codex trabajan **en relevo**: dónde quedó cada uno está
+> en [RELEVO.md](RELEVO.md).
+> **Última actualización**: 12 de octubre de 2026.
 
 Leé este archivo primero. Después:
 
@@ -65,10 +67,25 @@ antes de parar. Este apartado es el resto de lo mínimo para retomar.
   el iPhone.
 - **"Llegó un paquete" en el celular es igual de completo que el editor de
   Windows** (pedido de Joswill del 11/10; merge `4ca3acd`, sin publicar).
-- **C4 · Sin internet: operar**: [plan](superpowers/plans/2026-10-11-c4-sin-internet-operar.md)
-  escrito, sin empezar; antes, Joswill decide la tasa de una venta sin red
-  y el número que se fija al subir. Necesita desplegar una regla nueva
-  (`operaciones`) antes que el código.
+- **C4 · Sin internet: operar está cerrada** (12/10, sin publicar):
+  [plan](superpowers/plans/2026-10-11-c4-sin-internet-operar.md). Sin señal
+  se vende, se abona y se anota un pedido (con una clienta nueva si la
+  trae): queda en una cola del teléfono (`mobile/src/lib/cola.ts`,
+  `cola-local.ts`, `subir-cola.ts`, `ColaContext`) y sube sola al volver la
+  red, en orden y sin duplicarse, por la marca `operaciones/<id>` que los
+  repositorios escriben en la misma transacción. La venta pasó a ser **una
+  sola transacción** (vale también para Windows). Lo que el negocio rechaza
+  al subir queda "Para revisar" con el motivo. Se aplicaron las dos
+  recomendaciones: la venta sin red guarda la tasa del momento, y se ve
+  "Sin número todavía" hasta subir. Faltan: desplegar la regla
+  (`firestore.rules`, T1 paso 4, con el "publicalo") **antes** de publicar
+  el celular, porque con la regla vieja toda venta del celular falla por
+  permiso; y la prueba en el iPhone.
+- **Rumbo nuevo (11/10)**: el celular pasa a ser el centro, con la misma
+  funcionalidad que Windows y un diseño nuevo:
+  [superpowers/specs/2026-10-11-celular-como-centro-design.md](superpowers/specs/2026-10-11-celular-como-centro-design.md)
+  (fases U1 a U9 y W1; reemplaza las fases 3 a 6 de la auditoría). Tiene
+  decisiones abiertas para Joswill en su sección 10.
 - El diseño de las cuatro fases del celular (C1 a C4), con las decisiones de
   Joswill, está en
   [superpowers/specs/2026-10-02-fases-del-celular-design.md](superpowers/specs/2026-10-02-fases-del-celular-design.md).
@@ -850,6 +867,20 @@ sin que lo pida.
 ## 4. Las trampas que ya cobraron su precio
 
 Cada una de estas costó una sesión. No hace falta repetirlas.
+
+**La regla de `operaciones` va arriba antes que el celular con C4.** Desde
+C4 el celular manda un `operacion_id` en cada venta, abono, pedido y
+clienta nueva, también con señal, y el repositorio lee
+`operaciones/<id>` antes de escribir. La regla general del final de
+`firestore.rules` cierra toda colección no nombrada: con las reglas viejas
+esa lectura falla por permiso y **ninguna venta del celular se guarda**.
+Windows no manda `operacion_id` y no la necesita. Igual que con los
+índices: primero la regla, después el código.
+
+**En un script de Python que se manda por la terminal, `\\` llega como `\`.**
+Un `'\\n'` escrito para un string de TypeScript llegó como `'\n'`, Python lo
+convirtió en un salto de línea real y el archivo no compiló. Para editar código con barras
+invertidas, el editor, no un script por la terminal.
 
 **En iPhone, la vibración sólo sale de un toque real.** Desde iOS 26.5, nada
 que se dispare por código, con un temporizador o después de un `await` vibra,

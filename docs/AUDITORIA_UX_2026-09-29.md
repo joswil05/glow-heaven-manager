@@ -710,9 +710,20 @@ ni escribe valores de fábrica; lo que escribe avisa en vez de colgarse; la
 letra queda guardada. Corredor nuevo `npm run test:sin-conexion` con el
 build real. Falta la prueba física en el iPhone.
 
-**Estado C4 al 11/10:** [plan escrito](superpowers/plans/2026-10-11-c4-sin-internet-operar.md),
-sin empezar; espera dos decisiones de Joswill (la tasa de una venta sin red
-y el número al subir).
+**Estado C4 al 12/10:** completa en `master`, sin publicar
+([plan](superpowers/plans/2026-10-11-c4-sin-internet-operar.md)). Sin señal
+se vende, se abona y se anota un pedido, con una clienta nueva si la trae:
+queda "Pendiente de subir" en una cola del teléfono y sube sola, en orden y
+sin duplicarse; lo que el negocio rechaza queda "Para revisar" con el
+motivo, y descartarlo pregunta antes. Se aplicaron las recomendaciones (la
+tasa del momento; "Sin número todavía" hasta subir). Antes de publicar hay
+que desplegar la regla `operaciones`; falta la prueba física en el iPhone.
+
+**Desde el 11/10, las fases 3 a 6 de abajo quedan reemplazadas** por el
+plan unificado del celular como centro,
+[superpowers/specs/2026-10-11-celular-como-centro-design.md](superpowers/specs/2026-10-11-celular-como-centro-design.md)
+(fases U1 a U9 y W1). Sus hallazgos siguen valiendo como inventario de lo
+que hay que arreglar; el orden y el alcance los da ese plan.
 
 Los IDs de la tercera columna salieron de las fases 3 a 6: son de pantallas que estas fases rehacen, y no se tocan dos veces. El plan de implementación de C1, tarea por tarea, está en [superpowers/plans/2026-10-02-c1-inventario-por-paquete.md](superpowers/plans/2026-10-02-c1-inventario-por-paquete.md). Reemplazan las versiones 2.17, 2.18 y 2.19 de [PLAN_ENCARGOS_Y_SIN_CONEXION.md](PLAN_ENCARGOS_Y_SIN_CONEXION.md).
 
