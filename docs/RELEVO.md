@@ -71,8 +71,14 @@ se trabaja**.
 - **Publicado**: **`v2.18.1`** en Windows y celular (11/10): el flete del
   paquete sale de las libras y el impuesto es siempre el de Configuración.
   Etiqueta en `59b525c`. Antes, la `v2.18.0` (C1 y C2, etiqueta `74f42ea`).
-- **Plan vigente**: **Fase C3 · Sin internet: consultar**,
-  [superpowers/plans/2026-10-11-c3-sin-internet-consultar.md](superpowers/plans/2026-10-11-c3-sin-internet-consultar.md), escrito el 11/10, sin empezar.
+- **Plan vigente**: **Fase C4 · Sin internet: operar**,
+  [superpowers/plans/2026-10-11-c4-sin-internet-operar.md](superpowers/plans/2026-10-11-c4-sin-internet-operar.md):
+  T1 (menos el paso 4), T2 y T3 hechas el 12/10; sigue T4.
+- **Antes de publicar cualquier versión del celular con C4**: desplegar la
+  regla de `operaciones` (C4 · T1 · paso 4, con el "publicalo" de Joswill).
+  Desde T4 el celular manda `operacion_id` en cada venta, también con
+  señal, y con la regla vieja **toda venta del celular fallaría por
+  permiso**. Windows no la necesita (no manda `operacion_id`).
 - **C2 cerrada el 10/10** y publicada en la 2.18.0: T1 a T7, menos
   el PDF automático (T1 paso 5), aplazado por Joswill; se conserva la
   impresión actual y el mensaje original sin edición.
@@ -93,7 +99,7 @@ se trabaja**.
   limitaban el celular (no editar fichas, no ajustar existencias, encargos
   sólo hasta "Aceptó"). Ese plan tiene decisiones abiertas para Joswill
   (sección 10).
-- **Siguiente paso**: **C4 · T1** ([plan](superpowers/plans/2026-10-11-c4-sin-internet-operar.md)).
+- **Siguiente paso**: **C4 · T4** ([plan](superpowers/plans/2026-10-11-c4-sin-internet-operar.md)).
   Joswill pidió concluir C4 sin responder sus dos preguntas: se aplican las
   recomendaciones (la venta sin red guarda la tasa del momento; "Sin número
   todavía" hasta subir). Después, U1. Publicar C3 y el paquete nuevo pide su
@@ -126,6 +132,40 @@ Formato de cada entrada:
 - Sigue: el paso exacto del plan.
 - Para Joswill: lo que necesita decidir o probar (o "nada").
 ```
+
+### 2026-10-12 00:15 · Claude Code
+- Hizo: **C4 · T1 a T3** (la base de "operar sin señal" en el celular).
+  - **Hallazgo y arreglo (vale también para Windows)**: la venta no era
+    atómica. Sacaba la mercadería con una transacción por línea y escribía
+    la venta después; un corte en el medio dejaba unidades descontadas sin
+    venta. Ahora el número, los lotes, la venta, el pago inicial, los
+    movimientos, los eventos de Deshacer y la marca van en **una sola
+    transacción** (`ventas.repo.ts`, `ProductosRepo.planearSalida`).
+  - La marca `operaciones/<id>` en venta, abono y clienta: con el mismo
+    `operacion_id`, el repositorio devuelve lo que ya quedó guardado. Regla
+    nueva en `firestore.rules` (**sin desplegar**, ver "Estado ahora").
+  - La cola: `mobile/src/lib/cola.ts` (pura), `cola-local.ts` (IndexedDB
+    `gh-cola`, una entrada por cuenta; en memoria si no abre; se reabre si
+    Safari corta la conexión), `subir-cola.ts` (de a una y en orden; sin
+    red frena, error del negocio queda "para revisar"; la clienta nueva con
+    su propio `operacion_id`; candado) y `ColaContext` (montado en
+    `App.tsx`, todavía sin pantallas que encolen).
+  - Dependencia **de desarrollo** nueva: `fake-indexeddb`, sólo para las
+    pruebas de `cola-local`. En la app sigue sin dependencias nuevas.
+- Commits: `9e181c0` a `e8480e2`, en `master`, sin push.
+- Pruebas: unitarias nuevas `c4-operaciones` (10), `c4-cola` (11),
+  `c4-subir` (12), con errores sembrados en cada una; emulador 108 + 4
+  nuevas (`motor-real/c4-operaciones`: la regla, y dos subidas
+  simultáneas de la misma venta quedan una); suite móvil 50 casos y sin
+  errores de consola.
+- Trampas: (1) sembrar en `subir-cola` un `continue` en lugar del `break`
+  de "sin red" deja a vitest colgado en un reintento infinito: correr las
+  mutaciones con `--testTimeout`. (2) El repositorio guarda los nombres
+  de clienta capitalizados ("Clienta de la Cola").
+- Quedó a medias: T1 paso 4 (desplegar la regla), espera "publicalo".
+- Sigue: C4 · T4 (vender sin red).
+- Para Joswill: nada nuevo; el "publicalo" de la regla cuando toque
+  publicar.
 
 ### 2026-10-11 19:50 · Claude Code
 - Hizo: **C3 · sin internet: consultar**, entera, y la integración de
