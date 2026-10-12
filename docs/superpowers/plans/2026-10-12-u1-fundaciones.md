@@ -72,7 +72,7 @@ para no dejar componentes sin uso. Windows es W1.
 
 **Archivos:** `mobile/src/index.css`, `tests/u1-fundaciones.test.ts`.
 
-- [ ] **Paso 1: rojo**: una prueba que lee los tokens de los dos temas y
+- [x] **Paso 1: rojo**: una prueba que lee los tokens de los dos temas y
   mide: los neutros son cálidos (rojo ≥ azul en `fondo`, `superficie-2`,
   `borde`); texto, texto-2 y texto-3 llegan a 4,5:1 sobre `fondo`,
   `superficie` y `superficie-2`; `acento`, `alerta` y `peligro` como texto
