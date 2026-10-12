@@ -25,6 +25,7 @@ export type Vista = 'panel' | 'vender' | 'cobranza' | 'historial' | 'inventario'
 import { ShieldAlert, WifiOff } from 'lucide-react';
 import { usandoEmuladorLocal } from './lib/firebase-mobile';
 import { pedirAlmacenamientoPersistente } from './lib/almacenamiento-movil';
+import { SIN_RED, useExigirConexion } from './lib/useExigirConexion';
 import type { ResultadoAcceso as EstadoAcceso } from '../../src/main/firebase/repositories/accesos.repo';
 
 /**
@@ -214,6 +215,7 @@ function AppContenido() {
 function Navegacion() {
   const { parametros, sinDatosGuardados } = useDatosNegocio();
   const { enLinea, datosDe } = useConexion();
+  const exigirConexion = useExigirConexion();
   const [vista, setVista] = useState<Vista>('panel');
   const [origenEncargos, setOrigenEncargos] = useState<'panel' | 'vender'>('panel');
   const [nuevoEncargoAlEntrar, setNuevoEncargoAlEntrar] = useState(false);
@@ -278,13 +280,13 @@ function Navegacion() {
               />
             </div>
             <div className={`h-full w-full overflow-hidden ${vista === 'vender' ? 'block animate-vista' : 'hidden'}`}>
-              <QuickSaleView onAnotarPedido={() => abrirEncargos('vender', true)} />
+              <QuickSaleView onAnotarPedido={() => exigirConexion(SIN_RED.encargo) && abrirEncargos('vender', true)} />
             </div>
             <div className={`h-full w-full overflow-hidden ${vista === 'cobranza' ? 'block animate-vista' : 'hidden'}`}>
               <CobranzaView />
             </div>
             <div className={`h-full w-full overflow-hidden ${vista === 'inventario' ? 'block animate-vista' : 'hidden'}`}>
-              <InventoryQuickView onRegistrarPaquete={() => setVista('registrar-paquete')} />
+              <InventoryQuickView onRegistrarPaquete={() => exigirConexion(SIN_RED.inventario) && setVista('registrar-paquete')} />
             </div>
             <div className={`h-full w-full overflow-hidden ${vista === 'ajustes' ? 'block animate-vista' : 'hidden'}`}>
               <AjustesView onVolver={() => setVista('panel')} />

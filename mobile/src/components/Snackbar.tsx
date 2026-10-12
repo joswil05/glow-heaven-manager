@@ -2,6 +2,8 @@ import { createContext, useContext, useState, useCallback, useEffect, useRef, ty
 import { CheckCircle2, AlertCircle, Info, X, RotateCcw } from 'lucide-react';
 import { haptics } from '../lib/haptics';
 import { EventosRepoFirestore } from '@repos/eventos.repo';
+import { useConexion } from '../context/ConexionContext';
+import { SIN_RED } from '../lib/useExigirConexion';
 
 export type SnackbarType = 'success' | 'error' | 'info';
 
@@ -42,6 +44,7 @@ const PASO_MS = 250;
 
 export function SnackbarProvider({ children }: { children: ReactNode }) {
   const [mensajes, setMensajes] = useState<MensajeActivo[]>([]);
+  const { enLinea } = useConexion();
   // El tiempo es para leer, no para correr: se para mientras se toca un aviso
   // y mientras la app no está a la vista.
   const [tocando, setTocando] = useState(false);
@@ -100,6 +103,12 @@ export function SnackbarProvider({ children }: { children: ReactNode }) {
   };
 
   const deshacer = async (m: MensajeActivo) => {
+    // Sin red (C3) el aviso de Deshacer sigue ahí; se dice por qué no.
+    if (!enLinea) {
+      haptics.warning();
+      mostrar(SIN_RED.deshacer, 'info');
+      return;
+    }
     // La vibración antes de esperar: en iPhone sólo vibra dentro del toque.
     haptics.impact('medium');
     cerrar(m.id);

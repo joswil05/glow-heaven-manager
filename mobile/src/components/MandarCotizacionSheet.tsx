@@ -6,6 +6,7 @@ import { enlaceWhatsappDocumento, mensajeWhatsappDocumento } from '@core/documen
 import { VentasRepoFirestore } from '@repos/ventas.repo';
 import { useDatosNegocio } from '../context/DataContext';
 import { haptics } from '../lib/haptics';
+import { SIN_RED, useExigirConexion } from '../lib/useExigirConexion';
 import { imprimirDocumento } from '../lib/imprimir-documento';
 import { nuevoGrupoEvento } from '../lib/util';
 import { BottomSheet } from './BottomSheet';
@@ -21,6 +22,7 @@ export function MandarCotizacionSheet({ venta, onCerrar, onMandada }: Props) {
   const { parametros, marcarCambio } = useDatosNegocio();
   const [mostrada, setMostrada] = useState<VentaCompleta | null>(null);
   const [error, setError] = useState('');
+  const exigirConexion = useExigirConexion();
   const [copiado, setCopiado] = useState(false);
   const [obsoleta, setObsoleta] = useState(false);
   const [accion, setAccion] = useState<'copiar' | 'guardar' | 'recargar' | 'imprimir' | null>(null);
@@ -70,6 +72,8 @@ export function MandarCotizacionSheet({ venta, onCerrar, onMandada }: Props) {
 
   async function confirmar() {
     if (accionEnCurso.current || !mostrada || obsoleta || mostrada.estado !== 'COTIZADA') return;
+    // Copiar, WhatsApp e imprimir andan sin red; marcarla como mandada no (C3).
+    if (!exigirConexion(SIN_RED.encargo, setError)) return;
     haptics.impact('medium');
     accionEnCurso.current = true;
     setAccion('guardar');

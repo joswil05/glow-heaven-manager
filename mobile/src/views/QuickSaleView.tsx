@@ -36,6 +36,8 @@ import { BottomSheet } from '../components/BottomSheet';
 import { SeleccionarClientaSheet } from '../components/SeleccionarClientaSheet';
 import { useSnackbar } from '../components/Snackbar';
 import { haptics } from '../lib/haptics';
+import { SIN_RED, useExigirConexion } from '../lib/useExigirConexion';
+import { useConexion } from '../context/ConexionContext';
 import { useScrollReveal } from '../lib/useScrollReveal';
 import { algunoContiene } from '@core/texto';
 
@@ -202,9 +204,14 @@ export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void 
     cliente: ClienteDetalle | null;
   } | null>(null);
   const [deshaciendo, setDeshaciendo] = useState(false);
+  const exigirConexion = useExigirConexion();
+  const { enLinea } = useConexion();
+  /** Sin red (C3): queda junto a "Registrar venta"; el carrito no se toca. */
+  const [avisoSinRed, setAvisoSinRed] = useState('');
 
   async function confirmarVenta() {
     if (carrito.length === 0) return;
+    if (!exigirConexion(SIN_RED.venta, setAvisoSinRed)) return;
     setGuardandoVenta(true);
 
     try {
@@ -353,6 +360,7 @@ export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void 
    */
   async function deshacerVenta() {
     if (!vendida || deshaciendo) return;
+    if (!exigirConexion(SIN_RED.deshacer)) return;
     // La vibración antes de esperar: en iPhone sólo vibra dentro del toque.
     haptics.impact('medium');
     setDeshaciendo(true);
@@ -806,6 +814,11 @@ export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void 
               )}
             </div>
 
+            {avisoSinRed && !enLinea && (
+              <p role="alert" className="rounded-xl bg-alerta-suave px-3 py-2 text-center text-xs font-semibold text-alerta-fuerte">
+                {avisoSinRed}
+              </p>
+            )}
             <button
               type="button"
               onClick={confirmarVenta}

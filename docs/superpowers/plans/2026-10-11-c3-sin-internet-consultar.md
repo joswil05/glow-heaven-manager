@@ -407,6 +407,22 @@ cierra en pantalla igual: Firestore sube la marca al volver y nadie la
 espera. Una hoja que pierde la señal con algo escrito conserva lo escrito y
 dice el mensaje junto al botón, no en un aviso que se va.
 
+> **Estado del 11/10:** aplicado en Vender ("Registrar venta" y su
+> Deshacer), "Anotar un pedido" y la entrada de "Llegó un paquete" (las dos
+> desde `App.tsx`), las tres entradas de "Registrar abono" y el guardado y
+> Deshacer de `AbonoModalSheet`, Historial (corregir, anular, "Fue un
+> error"), la ficha de la clienta (anular un abono), `CorregirVentaSheet`,
+> `CorregirAbonoSheet`, Encargos (nuevo, Cotizar, Aceptó) y el guardado de
+> `NuevoEncargoSheet`, `CotizarEncargoSheet`, "Ya la mandé",
+> `AceptarEncargoSheet` y `SeleccionarClientaSheet`, `CambiarPrecioSheet`
+> y su entrada en la ficha, Ajustes y el Deshacer del `Snackbar`.
+> **Falta**: los guardados de adentro de "Llegó un paquete"
+> (`RegistrarPaqueteView`), que se hacen después de integrar el trabajo
+> del agente que está igualando ese formulario al de Windows (pedido de
+> Joswill del 11/10), para no pisarse. Trampa de la prueba: los avisos
+> también son `role="status"` y empiezan con "Sin conexión:", así que la
+> franja se busca por "Sin conexión ·".
+
 ## T7 · Las fuentes, el cierre y la prueba física
 
 **Archivos:** `mobile/vite.config.ts`, este plan, `docs/CONTEXTO_SESION.md`,

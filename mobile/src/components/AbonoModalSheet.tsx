@@ -12,6 +12,7 @@ import { mensajeReciboAbono, enlaceMensaje } from '@core/mensajes';
 import { useDatosNegocio } from '../context/DataContext';
 import { useSnackbar } from './Snackbar';
 import { haptics } from '../lib/haptics';
+import { SIN_RED, useExigirConexion } from '../lib/useExigirConexion';
 import type { MetodoPago, MonedaPago } from '@shared/types';
 
 export interface VentaCobroItem {
@@ -54,6 +55,7 @@ export function AbonoModalSheet({ venta: ventaAbierta, onCerrar, onAbonoRegistra
   const venta = ventaAbierta ?? ultimaVenta.current;
   const { parametros } = useDatosNegocio();
   const { mostrar } = useSnackbar();
+  const exigirConexion = useExigirConexion();
 
   const [moneda, setMoneda] = useState<MonedaPago>(monedaPorDefecto(parametros));
   const [metodo, setMetodo] = useState<MetodoPago>(metodoPorDefecto(parametros));
@@ -122,6 +124,8 @@ export function AbonoModalSheet({ venta: ventaAbierta, onCerrar, onAbonoRegistra
       montoRef.current?.focus();
       return;
     }
+    // Si la señal se cortó con la hoja abierta, lo escrito queda (C3).
+    if (!exigirConexion(SIN_RED.abono, setError)) return;
 
     haptics.impact('heavy');
     ocupado.current = true;
@@ -177,6 +181,7 @@ export function AbonoModalSheet({ venta: ventaAbierta, onCerrar, onAbonoRegistra
   // corregirlo o anularlo.
   async function deshacerAbono() {
     if (!exito || ocupado.current) return;
+    if (!exigirConexion(SIN_RED.deshacer, setError)) return;
     haptics.impact('medium');
     ocupado.current = true;
     setDeshaciendo(true);

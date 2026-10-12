@@ -8,6 +8,7 @@ import { enfocarPrimerError } from '../../../src/renderer/src/lib/enfocarPrimerE
 import { useDatosNegocio } from '../context/DataContext';
 import { nuevoGrupoEvento } from '../lib/util';
 import { haptics } from '../lib/haptics';
+import { SIN_RED, useExigirConexion } from '../lib/useExigirConexion';
 import { BottomSheet } from './BottomSheet';
 import { useSnackbar } from './Snackbar';
 
@@ -17,6 +18,7 @@ export function CambiarPrecioSheet({ producto, onCerrar }: {
 }) {
   const { recargarProductos, marcarCambio } = useDatosNegocio();
   const { mostrarDeshacer } = useSnackbar();
+  const exigirConexion = useExigirConexion();
   const [precio, setPrecio] = useState('');
   const [inicial, setInicial] = useState(0);
   const [errorPrecio, setErrorPrecio] = useState('');
@@ -59,6 +61,7 @@ export function CambiarPrecioSheet({ producto, onCerrar }: {
       return;
     }
     if (nuevo === inicial) return;
+    if (!exigirConexion(SIN_RED.inventario, setErrorGuardar)) return;
     haptics.impact('medium');
     ocupado.current = true;
     setGuardando(true);

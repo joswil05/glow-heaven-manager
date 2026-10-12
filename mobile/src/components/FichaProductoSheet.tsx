@@ -4,6 +4,7 @@ import type { ProductoConStock } from '@shared/types';
 import { formatearMoneda } from '@core/moneda';
 import { BottomSheet } from './BottomSheet';
 import { haptics } from '../lib/haptics';
+import { SIN_RED, useExigirConexion } from '../lib/useExigirConexion';
 import { mensajeCompartirProducto, enlaceMensaje } from '@core/mensajes';
 import { useDatosNegocio } from '../context/DataContext';
 import { CambiarPrecioSheet } from './CambiarPrecioSheet';
@@ -27,6 +28,7 @@ export function FichaProductoSheet({ producto, tasaCambioCents, onCerrar }: Fich
   // Cerrada, se sigue mostrando lo último mientras la hoja baja: sin esto el
   // componente desaparecía antes de que la hoja pudiera animar su salida.
   const { parametros, productos } = useDatosNegocio();
+  const exigirConexion = useExigirConexion();
   const [precioId, setPrecioId] = useState<number | null>(null);
   const productoActual = producto ? productos.find(p => p.id === producto.id) ?? producto : null;
   const precioAbierto = productos.find(p => p.id === precioId) ?? null;
@@ -64,7 +66,7 @@ export function FichaProductoSheet({ producto, tasaCambioCents, onCerrar }: Fich
       subtitulo={[p.codigo, p.categoria_nombre].filter(Boolean).join(' · ')}
       footer={
         <div className="flex flex-col gap-2"><button type="button"
-          onClick={() => { haptics.selection(); setPrecioId(p.id); }}
+          onClick={() => { if (!exigirConexion(SIN_RED.inventario)) return; haptics.selection(); setPrecioId(p.id); }}
           className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-borde bg-superficie-2 px-4 py-3 text-base font-bold text-texto">
           <Pencil size={18} />Cambiar precio
         </button><button

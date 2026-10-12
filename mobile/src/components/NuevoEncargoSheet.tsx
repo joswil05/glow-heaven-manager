@@ -7,6 +7,7 @@ import { enfocarPrimerError } from '../../../src/renderer/src/lib/enfocarPrimerE
 import { useDatosNegocio } from '../context/DataContext';
 import { hoyISO, nuevoGrupoEvento } from '../lib/util';
 import { haptics } from '../lib/haptics';
+import { SIN_RED, useExigirConexion } from '../lib/useExigirConexion';
 import { BottomSheet } from './BottomSheet';
 import { SeleccionarClientaSheet } from './SeleccionarClientaSheet';
 import { useSnackbar } from './Snackbar';
@@ -34,6 +35,7 @@ function piezaEscrita(pieza: Pieza): boolean {
 export function NuevoEncargoSheet({ abierto, onCerrar, onGuardado }: Props) {
   const { marcarCambio } = useDatosNegocio();
   const { mostrar } = useSnackbar();
+  const exigirConexion = useExigirConexion();
   const secuencia = useRef(1);
   const [clienta, setClienta] = useState<ClienteDetalle | null>(null);
   const [eligiendoClienta, setEligiendoClienta] = useState(false);
@@ -120,6 +122,7 @@ export function NuevoEncargoSheet({ abierto, onCerrar, onGuardado }: Props) {
       enfocarPrimerError(formulario.current);
       return;
     }
+    if (!exigirConexion(SIN_RED.encargo, setErrorGuardar)) return;
     haptics.impact('medium');
     ocupado.current = true;
     setGuardando(true);

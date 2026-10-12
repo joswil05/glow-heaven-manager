@@ -6,6 +6,7 @@ import { BottomSheet } from './BottomSheet';
 import { mensajeCobro, enlaceMensaje } from '@core/mensajes';
 import { useDatosNegocio } from '../context/DataContext';
 import { haptics } from '../lib/haptics';
+import { SIN_RED, useExigirConexion } from '../lib/useExigirConexion';
 
 interface DetalleCobroSheetProps {
   fila: FilaPorCobrar | null;
@@ -37,6 +38,7 @@ export function DetalleCobroSheet({
   // Cerrada, se sigue mostrando lo último mientras la hoja baja: sin esto el
   // componente desaparecía antes de que la hoja pudiera animar su salida.
   const { parametros } = useDatosNegocio();
+  const exigirConexion = useExigirConexion();
   const ultima = useRef(fila);
   if (fila) ultima.current = fila;
   const visto = fila ?? ultima.current;
@@ -69,6 +71,7 @@ export function DetalleCobroSheet({
         <button
           type="button"
           onClick={() => {
+            if (!exigirConexion(SIN_RED.abono)) return;
             haptics.impact('medium');
             onAbonar(f);
           }}

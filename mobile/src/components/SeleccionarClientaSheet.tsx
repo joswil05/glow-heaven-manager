@@ -6,6 +6,7 @@ import { formatearTelefono } from '@core/formatos';
 import { enfocarPrimerError } from '../../../src/renderer/src/lib/enfocarPrimerError';
 import { nuevoGrupoEvento } from '../lib/util';
 import { haptics } from '../lib/haptics';
+import { SIN_RED, useExigirConexion } from '../lib/useExigirConexion';
 import { BottomSheet } from './BottomSheet';
 import { useSnackbar } from './Snackbar';
 
@@ -20,6 +21,7 @@ const campo = 'mt-1 min-h-12 w-full rounded-xl border border-borde bg-superficie
 /** Un selector para Vender y Encargos: guardar la ficha es una acción propia. */
 export function SeleccionarClientaSheet({ abierto, onCerrar, onSeleccionar }: Props) {
   const { mostrar } = useSnackbar();
+  const exigirConexion = useExigirConexion();
   const [query, setQuery] = useState('');
   const [clientas, setClientas] = useState<ClienteDetalle[]>([]);
   const [cargando, setCargando] = useState(false);
@@ -84,6 +86,7 @@ export function SeleccionarClientaSheet({ abierto, onCerrar, onSeleccionar }: Pr
       enfocarPrimerError(formulario.current);
       return;
     }
+    if (!exigirConexion(SIN_RED.clienta, setErrorGuardar)) return;
     haptics.impact('medium');
     ocupado.current = true;
     setGuardando(true);

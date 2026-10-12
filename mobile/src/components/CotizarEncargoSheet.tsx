@@ -9,6 +9,7 @@ import { VentasRepoFirestore } from '@repos/ventas.repo';
 import { enfocarPrimerError } from '../../../src/renderer/src/lib/enfocarPrimerError';
 import { useDatosNegocio } from '../context/DataContext';
 import { haptics } from '../lib/haptics';
+import { SIN_RED, useExigirConexion } from '../lib/useExigirConexion';
 import { nuevoGrupoEvento } from '../lib/util';
 import { BottomSheet } from './BottomSheet';
 import { useSnackbar } from './Snackbar';
@@ -22,6 +23,7 @@ export function CotizarEncargoSheet({ venta, onCerrar, onGuardado }: {
 }) {
   const { parametros, marcarCambio } = useDatosNegocio();
   const { mostrar } = useSnackbar();
+  const exigirConexion = useExigirConexion();
   const [piezas, setPiezas] = useState<Pieza[]>([]);
   const [inicial, setInicial] = useState('');
   const [errores, setErrores] = useState<Record<number, Errores>>({});
@@ -81,6 +83,7 @@ export function CotizarEncargoSheet({ venta, onCerrar, onGuardado }: {
       enfocarPrimerError(formulario.current);
       return;
     }
+    if (!exigirConexion(SIN_RED.encargo, setErrorGuardar)) return;
     haptics.impact('medium');
     ocupado.current = true;
     setGuardando(true);

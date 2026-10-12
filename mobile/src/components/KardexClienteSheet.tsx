@@ -21,6 +21,7 @@ import { nuevoGrupoEvento } from '../lib/util';
 import { mensajeEstadoCuenta, enlaceMensaje } from '@core/mensajes';
 import { useDatosNegocio } from '../context/DataContext';
 import { haptics } from '../lib/haptics';
+import { SIN_RED, useExigirConexion } from '../lib/useExigirConexion';
 import { useSnackbar } from './Snackbar';
 import { Ban, Pencil } from 'lucide-react';
 import { CorregirAbonoSheet } from './CorregirAbonoSheet';
@@ -78,6 +79,7 @@ export function KardexClienteSheet({
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { mostrarDeshacer } = useSnackbar();
+  const exigirConexion = useExigirConexion();
   /**
    * Lo anulado desde que se abrió: el saldo que llegó con la hoja ya no lo
    * cuenta. Vuelve a cero al abrirla.
@@ -140,6 +142,7 @@ export function KardexClienteSheet({
   const deLaVenta = Boolean(cliente.venta_id);
   const saldoCor = Math.round((saldoUsd * tasa) / 100);
   async function anularAbono(p: PagoCompleto) {
+    if (!exigirConexion(SIN_RED.corregir)) return;
     try {
       const grupo = nuevoGrupoEvento();
       await PagosRepoFirestore.anular(p.id, grupo);
@@ -176,6 +179,7 @@ export function KardexClienteSheet({
   const totalAbonadoUsd = pagos.reduce((acc, p) => acc + (p.monto_usd_cents || 0), 0);
 
   function abonar() {
+    if (!exigirConexion(SIN_RED.abono)) return;
     haptics.impact('medium');
     setOfrecerCorrecto(false);
     onAbonar({
@@ -434,6 +438,7 @@ export function KardexClienteSheet({
                       <button
                         type="button"
                         onClick={() => {
+                          if (!exigirConexion(SIN_RED.corregir)) return;
                           haptics.selection();
                           setPagoAAnular(p);
                         }}

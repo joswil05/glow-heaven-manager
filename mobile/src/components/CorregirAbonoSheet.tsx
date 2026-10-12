@@ -10,6 +10,7 @@ import { useSnackbar } from './Snackbar';
 import { BottomSheet } from './BottomSheet';
 import { nuevoGrupoEvento } from '../lib/util';
 import { haptics } from '../lib/haptics';
+import { SIN_RED, useExigirConexion } from '../lib/useExigirConexion';
 
 const montoOriginal = (p: Pago) => ((p.moneda === 'COR' ? p.monto_cor_cents : p.monto_usd_cents) / 100).toFixed(2);
 
@@ -29,6 +30,7 @@ export function CorregirAbonoSheet({
 }) {
   const { marcarCambio } = useDatosNegocio();
   const { mostrar, mostrarDeshacer } = useSnackbar();
+  const exigirConexion = useExigirConexion();
   const [montoTexto, setMontoTexto] = useState('');
   const [moneda, setMoneda] = useState<MonedaPago>('COR');
   const [metodo, setMetodo] = useState<MetodoPago>('EFECTIVO');
@@ -61,6 +63,7 @@ export function CorregirAbonoSheet({
       setError('Escribí cuánto pagó de verdad.');
       return;
     }
+    if (!exigirConexion(SIN_RED.corregir, setError)) return;
     setGuardando(true);
     try {
       const grupo = nuevoGrupoEvento();

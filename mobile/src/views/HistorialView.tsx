@@ -18,6 +18,7 @@ import { DocumentoSheet } from '../components/DocumentoSheet';
 import { CorregirVentaSheet } from '../components/CorregirVentaSheet';
 import { CorregirAbonoSheet } from '../components/CorregirAbonoSheet';
 import { haptics } from '../lib/haptics';
+import { SIN_RED, useExigirConexion } from '../lib/useExigirConexion';
 import { AnularOBorrarPanel } from '../components/AnularOBorrarPanel';
 
 /**
@@ -58,6 +59,7 @@ const TANDA = 50;
 export function HistorialView() {
   const { version, marcarCambio, recargarProductos, parametros } = useDatosNegocio();
   const { mostrar, mostrarDeshacer } = useSnackbar();
+  const exigirConexion = useExigirConexion();
 
   const [ventas, setVentas] = useState<Venta[]>([]);
   const [pagos, setPagos] = useState<PagoCompleto[]>([]);
@@ -147,6 +149,7 @@ export function HistorialView() {
 
   // El panel de "¿Qué pasó?" muestra "Cancelando…" mientras esto corre.
   async function anular(item: Item) {
+    if (!exigirConexion(SIN_RED.corregir)) return;
     try {
       // Con Deshacer, como en Windows (CEL-03).
       const grupo = nuevoGrupoEvento();
@@ -178,6 +181,9 @@ export function HistorialView() {
 
   /** "Fue un error": se borra sin dejar rastro. Devuelve el error, si lo hubo. */
   async function borrar(item: Item, pin: string): Promise<string | null> {
+    // Sin red (C3) el panel lo dice junto a su botón.
+    let sinRed: string | null = null;
+    if (!exigirConexion(SIN_RED.corregir, (m) => { sinRed = m; })) return sinRed;
     try {
       if (item.tipo === 'abono' && item.pago) {
         await BorradoRepoFirestore.abono(item.pago.id, pin || undefined, nuevoGrupoEvento());
@@ -360,7 +366,7 @@ export function HistorialView() {
             // Una venta cancelada que en realidad fue un error también se borra.
             <button
               type="button"
-              onClick={() => setConfirmandoAnular(true)}
+              onClick={() => exigirConexion(SIN_RED.corregir) && setConfirmandoAnular(true)}
               className="m3-press rounded-xl px-4 py-2.5 text-sm font-bold text-peligro cursor-pointer"
             >
               Fue un error: borrarla
@@ -371,6 +377,7 @@ export function HistorialView() {
                 <button
                   type="button"
                   onClick={() => {
+                    if (!exigirConexion(SIN_RED.corregir)) return;
                     haptics.selection();
                     // Una hoja a la vez: la de corregir reemplaza a esta.
                     if (sel.tipo === 'venta') setVentaCorrigiendo(sel.venta?.id ?? null);
@@ -385,7 +392,7 @@ export function HistorialView() {
               )}
               <button
                 type="button"
-                onClick={() => setConfirmandoAnular(true)}
+                onClick={() => exigirConexion(SIN_RED.corregir) && setConfirmandoAnular(true)}
                 className="m3-press rounded-xl px-4 py-2.5 text-sm font-bold text-peligro cursor-pointer"
               >
                 {sel.tipo === 'venta' ? 'Cancelar esta venta' : 'Anular este abono'}

@@ -8,6 +8,7 @@ import { BottomSheet } from './BottomSheet';
 import { useSnackbar } from './Snackbar';
 import { nuevoGrupoEvento } from '../lib/util';
 import { haptics } from '../lib/haptics';
+import { SIN_RED, useExigirConexion } from '../lib/useExigirConexion';
 
 export function puedeAceptarEncargo(venta: VentaCompleta): boolean {
   return venta.estado === 'COTIZADA' && piezasVivas(piezasDe(venta.lineas)) > 0 && !venta.lineas.some(sinPrecio);
@@ -26,6 +27,7 @@ export function AceptarEncargoSheet({ venta, onCerrar, onAceptado, onRegistrarAb
   const [error, setError] = useState('');
   const ocupado = useRef(false);
   const { mostrar, mostrarDeshacer } = useSnackbar();
+  const exigirConexion = useExigirConexion();
   const abierta = venta !== null;
 
   useEffect(() => {
@@ -41,6 +43,7 @@ export function AceptarEncargoSheet({ venta, onCerrar, onAceptado, onRegistrarAb
       setError('Elegí si pagó algo.');
       return;
     }
+    if (!exigirConexion(SIN_RED.encargo, setError)) return;
     haptics.impact('medium');
     ocupado.current = true;
     setGuardando(true);

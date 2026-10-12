@@ -20,6 +20,7 @@ import { useTheme, type ThemeMode } from '../context/ThemeContext';
 import { useDatosNegocio } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { useConexion } from '../context/ConexionContext';
+import { SIN_RED, useExigirConexion } from '../lib/useExigirConexion';
 import { BottomSheet } from '../components/BottomSheet';
 import { useSnackbar } from '../components/Snackbar';
 import { nuevoGrupoEvento } from '../lib/util';
@@ -53,6 +54,7 @@ export function AjustesView({ onVolver }: { onVolver: () => void }) {
 
   const [confirmandoSalida, setConfirmandoSalida] = useState(false);
   const { enLinea } = useConexion();
+  const exigirConexion = useExigirConexion();
   const [guardando, setGuardando] = useState(false);
   /**
    * Sólo lo que la persona escribió. Lo que no tocó se lee de los parámetros
@@ -137,6 +139,7 @@ export function AjustesView({ onVolver }: { onVolver: () => void }) {
       return;
     }
     if (Object.keys(cambios).length === 0) return;
+    if (!exigirConexion(SIN_RED.ajustes)) return;
     setGuardando(true);
     try {
       await ParametrosRepoFirestore.actualizar(cambios, nuevoGrupoEvento());

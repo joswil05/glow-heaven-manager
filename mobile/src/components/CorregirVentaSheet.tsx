@@ -18,6 +18,7 @@ import { useSnackbar } from './Snackbar';
 import { BottomSheet } from './BottomSheet';
 import { nuevoGrupoEvento } from '../lib/util';
 import { haptics } from '../lib/haptics';
+import { SIN_RED, useExigirConexion } from '../lib/useExigirConexion';
 
 interface Linea {
   clave: string;
@@ -51,6 +52,7 @@ export function CorregirVentaSheet({
 }) {
   const { productos, recargarProductos, marcarCambio } = useDatosNegocio();
   const { mostrar, mostrarDeshacer } = useSnackbar();
+  const exigirConexion = useExigirConexion();
 
   const [venta, setVenta] = useState<VentaCompleta | null>(null);
   const [lineas, setLineas] = useState<Linea[]>([]);
@@ -201,6 +203,7 @@ export function CorregirVentaSheet({
 
   async function guardar() {
     if (!venta || lineas.length === 0 || guardando) return;
+    if (!exigirConexion(SIN_RED.corregir)) return;
     setGuardando(true);
     try {
       const grupo = nuevoGrupoEvento();

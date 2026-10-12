@@ -39,7 +39,9 @@ def principal(page: Page):
 
 
 def franja(page: Page):
-    return page.get_by_role("status").filter(has_text=re.compile(r"^Sin conexión"))
+    # "Sin conexión ·": los avisos de lo que no se puede ("Sin conexión: …")
+    # también son `status`.
+    return page.get_by_role("status").filter(has_text=re.compile(r"^Sin conexión ·"))
 
 
 def cargar_con_red(page: Page) -> None:
@@ -149,7 +151,8 @@ def caso_escrituras_sin_red(page: Page, contexto: BrowserContext) -> list[str]:
         expect(page.get_by_text("Sin conexión: la venta se cobra cuando vuelva la señal.", exact=False)).to_be_visible()
         expect(page.get_by_role("dialog").last.get_by_role("button", name="Registrar venta")).to_be_enabled()
         cerrar_hojas(page)
-        expect(principal(page).get_by_text("Cobrar", exact=True)).to_be_visible()
+        # El carrito sigue: la barra de "Cobrar" está, fuera de la hoja.
+        expect(page.locator("span:text-is('Cobrar'):visible").first).to_be_visible()
 
         # Cobros: el abono avisa antes de abrir el formulario.
         ir_a(page, "Cobros")
@@ -163,7 +166,7 @@ def caso_escrituras_sin_red(page: Page, contexto: BrowserContext) -> list[str]:
 
         # Encargos: "Anotar un pedido" avisa y no abre la hoja.
         ir_a(page, "Vender")
-        principal(page).get_by_role("button", name="Anotar un pedido", exact=True).click()
+        page.get_by_role("button", name="Anotar un pedido", exact=True).click()
         expect(page.get_by_text("Sin conexión: los encargos se anotan y se cambian cuando vuelva la señal.")).to_be_visible()
         expect(page.get_by_role("dialog", name="Anotar un pedido")).to_have_count(0)
         if principal(page).get_by_role("button", name="Volver", exact=True).count():

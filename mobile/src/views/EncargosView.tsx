@@ -14,6 +14,7 @@ import { NuevoEncargoSheet } from '../components/NuevoEncargoSheet';
 import { CotizarEncargoSheet } from '../components/CotizarEncargoSheet';
 import { MandarCotizacionSheet } from '../components/MandarCotizacionSheet';
 import { haptics } from '../lib/haptics';
+import { SIN_RED, useExigirConexion } from '../lib/useExigirConexion';
 
 interface Props {
   onVolver: () => void;
@@ -23,6 +24,7 @@ interface Props {
 
 export function EncargosView({ onVolver, abrirNuevoAlEntrar = false }: Props) {
   const { version, marcarCambio } = useDatosNegocio();
+  const exigirConexion = useExigirConexion();
   const [encargos, setEncargos] = useState<Venta[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
@@ -93,7 +95,7 @@ export function EncargosView({ onVolver, abrirNuevoAlEntrar = false }: Props) {
               <p className="text-xs text-texto-2">{encargos.length} en curso</p>
             </div>
           </div>
-          <button type="button" onClick={() => { haptics.selection(); setNuevo(true); }}
+          <button type="button" onClick={() => { if (!exigirConexion(SIN_RED.encargo)) return; haptics.selection(); setNuevo(true); }}
             className="mb-3 min-h-12 w-full rounded-xl bg-acento px-3 py-2 text-sm font-bold text-acento-texto">
             Anotar un pedido
           </button>
@@ -173,13 +175,13 @@ export function EncargosView({ onVolver, abrirNuevoAlEntrar = false }: Props) {
               </button>
             )}
             {faseDetalle === 'ESPERANDO' && puedeAceptarEncargo(detalle) && (
-              <button type="button" onClick={() => { haptics.selection(); setAceptando(detalle); }}
+              <button type="button" onClick={() => { if (!exigirConexion(SIN_RED.encargo)) return; haptics.selection(); setAceptando(detalle); }}
                 className="min-h-12 rounded-xl bg-acento px-4 py-3 text-base font-bold text-acento-texto">
                 Aceptó
               </button>
             )}
             {detalle.estado === 'COTIZADA' && (
-              <button type="button" onClick={() => { haptics.selection(); setCotizando(detalle); }}
+              <button type="button" onClick={() => { if (!exigirConexion(SIN_RED.encargo)) return; haptics.selection(); setCotizando(detalle); }}
                 className={porCotizar
                   ? 'min-h-12 rounded-xl bg-acento px-4 py-3 text-base font-bold text-acento-texto'
                   : 'min-h-12 rounded-xl border border-borde bg-superficie-2 px-4 py-3 text-base font-semibold text-texto'}>
