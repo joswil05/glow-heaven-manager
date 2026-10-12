@@ -66,8 +66,13 @@ export function mensajeWhatsappDocumento(
     .map((c) => `${c.banco} (${c.moneda}): ${c.numero}${c.titular ? ' - ' + c.titular : ''}`)
     .join('\n');
 
+  // Una venta hecha sin señal en el celular no tiene número hasta subir (C4):
+  // el recibo sale sin la línea del número, no con "Factura:" vacío.
+  const sinNumero = (t: string) =>
+    venta.codigo ? t : t.split('\n').filter((linea) => !linea.includes('{codigo}')).join('\n');
+
   const comunes = (t: string) =>
-    t
+    sinNumero(t)
       .replace(/\{cliente\}/g, venta.cliente_nombre ?? 'Clienta')
       .replace(/\{codigo\}/g, venta.codigo)
       .replace(/\{total_usd\}/g, formatearMoneda(venta.total_usd_cents, 'USD'))

@@ -34,12 +34,32 @@ export interface ResumenSubida {
   sinRed: boolean;
 }
 
-/** Errores que se arreglan esperando: la operación vuelve a la fila. */
-const PASAJEROS = new Set(['unavailable', 'deadline-exceeded', 'aborted', 'resource-exhausted', 'cancelled']);
+// `unknown` es el de un servidor que respondió otra cosa (un Wi-Fi con portal
+// de acceso): tampoco es del negocio.
+const PASAJEROS = new Set(['unavailable', 'deadline-exceeded', 'aborted', 'resource-exhausted', 'cancelled', 'unknown']);
 
-function esPasajero(err: unknown): boolean {
+/** Errores que se arreglan esperando: la operación va (o vuelve) a la fila. */
+export function esErrorPasajero(err: unknown): boolean {
   const codigo = (err as { code?: string } | null)?.code ?? '';
   return esErrorSinRed(err) || PASAJEROS.has(codigo);
+}
+
+/**
+ * El tope del primer intento con señal. Con una señal que va y viene, la
+ * venta no se queda en "Guardando…": pasado el tope va a la cola con el mismo
+ * `operacion_id`, y si el intento llegaba igual, la subida encuentra su marca.
+ */
+export const ESPERA_PRIMER_INTENTO_MS = 8000;
+
+export function conEspera<T>(intento: Promise<T>, ms = ESPERA_PRIMER_INTENTO_MS): Promise<T> {
+  let reloj: ReturnType<typeof setTimeout> | undefined;
+  const tope = new Promise<never>((_, rechazar) => {
+    reloj = setTimeout(
+      () => rechazar(Object.assign(new Error('La señal no alcanzó para guardar.'), { code: 'deadline-exceeded' })),
+      ms
+    );
+  });
+  return Promise.race([intento, tope]).finally(() => clearTimeout(reloj));
 }
 
 function motivoDe(err: unknown): string {
@@ -86,7 +106,7 @@ export async function subirCola(cola: ColaViva, repos: ReposCola): Promise<Resum
       await cola.cambiar((c) => marcar(c, operacion_id, { estado: 'SUBIDA', resultado }));
       resumen.subidas += 1;
     } catch (err) {
-      if (esPasajero(err)) {
+      if (esErrorPasajero(err)) {
         await cola.cambiar((c) => marcar(c, operacion_id, { estado: 'PENDIENTE' }));
         resumen.sinRed = true;
         break;

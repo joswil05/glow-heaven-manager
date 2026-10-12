@@ -4,12 +4,11 @@ import { useSnackbar } from '../components/Snackbar';
 import { haptics } from './haptics';
 
 /**
- * Lo que se dice cuando algo que escribe se toca sin señal (C3). Escribir sin
- * red llega en C4, con la cola: hasta entonces se avisa en vez de quedarse en
- * "Guardando…" o fallar con un error técnico.
+ * Lo que se dice cuando algo que escribe se toca sin señal (C3), en vez de
+ * quedarse en "Guardando…" o fallar con un error técnico. Vender ya no está
+ * acá: sin señal, la venta va a la cola del teléfono (C4).
  */
 export const SIN_RED = {
-  venta: 'Sin conexión: la venta se cobra cuando vuelva la señal. El carrito queda como está.',
   abono: 'Sin conexión: el abono se registra cuando vuelva la señal.',
   corregir: 'Sin conexión: corregir o anular se puede cuando vuelva la señal.',
   encargo: 'Sin conexión: los encargos se anotan y se cambian cuando vuelva la señal.',

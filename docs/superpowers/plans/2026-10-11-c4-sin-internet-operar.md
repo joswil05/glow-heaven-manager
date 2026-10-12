@@ -237,11 +237,24 @@ API con `gcloud`) antes y después.
   local baja; al volver la red se sube sola, toma número y en el emulador
   hay **una** venta. Cortar la red a mitad del guardado (`set_offline` justo
   después del toque) tampoco duplica.
-- [ ] **Paso 2: encolar**: sin red, o si `VentasRepo.crear` falla con un
+- [x] **Paso 2: encolar**: sin red, o si `VentasRepo.crear` falla con un
   error de red, la venta va a la cola con el mismo input (y la tasa del
   momento, según la decisión 1). La pantalla "Venta registrada" dice
   "Pendiente de subir · sin número todavía"; Deshacer la saca de la cola y
   devuelve el carrito. El guardián de C3 deja de frenar "Registrar venta".
+
+  > **Cómo quedó (12/10):** el `operacion_id` se genera **antes** del
+  > primer intento, también con señal, y es el mismo que va a la cola: si
+  > la venta llegó y sólo se perdió la respuesta, al subir se encuentra su
+  > marca. El primer intento tiene un tope de 8 s (`conEspera`): con una
+  > señal que va y viene no se queda en "Guardando…". Cuentan como
+  > pasajeros `unavailable` (el "Connection failed." del SDK),
+  > `deadline-exceeded`, `aborted`, `resource-exhausted`, `cancelled` y
+  > `unknown` (un Wi-Fi con portal). El stock que se ve en Vender e
+  > Inventario descuenta las ventas de la cola (`descontarCola`) hasta que
+  > subieron **y** los productos recargados las traen (`reflejada`), para
+  > que no salte. El recibo por WhatsApp sin número sale sin la línea
+  > "Factura:". La pantalla cambia sola a "Comprobante #V-…" al subir.
 
 ## T5 · Abonar sin red
 

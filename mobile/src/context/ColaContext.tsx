@@ -1,11 +1,20 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import type { ProductoConStock } from '@shared/types';
 import { VentasRepoFirestore } from '@repos/ventas.repo';
 import { PagosRepoFirestore } from '@repos/pagos.repo';
 import { ClientesRepoFirestore } from '@repos/clientes.repo';
 import { useAuth } from './AuthContext';
 import { useConexion } from './ConexionContext';
 import { useDatosNegocio } from './DataContext';
-import { encolar as encolarEn, quitar as quitarDe, retomar, type EnCola, type Operacion } from '../lib/cola';
+import {
+  descontarCola,
+  encolar as encolarEn,
+  quitar as quitarDe,
+  reflejar,
+  retomar,
+  type EnCola,
+  type Operacion,
+} from '../lib/cola';
 import { abrirAlmacenCola, type AlmacenCola } from '../lib/cola-local';
 import { crearSubidor, type ColaViva, type ReposCola, type ResumenSubida } from '../lib/subir-cola';
 import { nuevoGrupoEvento } from '../lib/util';
@@ -70,12 +79,8 @@ export function ColaProvider({ children }: { children: ReactNode }) {
   const enLineaRef = useRef(enLinea);
   enLineaRef.current = enLinea;
 
-  const alTerminar = useRef<(r: ResumenSubida) => void>(() => undefined);
-  alTerminar.current = (r) => {
-    if (r.subidas === 0) return;
-    marcarCambio();
-    void recargarProductos(true);
-  };
+  const datos = useRef({ marcarCambio, recargarProductos });
+  datos.current = { marcarCambio, recargarProductos };
 
   const uid = usuario?.uid ?? null;
   useEffect(() => {
@@ -113,7 +118,13 @@ export function ColaProvider({ children }: { children: ReactNode }) {
       cargada: false,
       subir: async () => {
         const resumen = await subidor();
-        if (abierta) alTerminar.current(resumen);
+        if (abierta && resumen.subidas > 0) {
+          datos.current.marcarCambio();
+          await datos.current.recargarProductos(true);
+          // Recién ahora los productos que se ven traen lo subido: deja de
+          // apartarse, sin que el stock salte un instante.
+          if (abierta) await viva.cambiar(reflejar);
+        }
         return resumen;
       },
     };
@@ -220,4 +231,11 @@ export function useCola(): ColaState {
   const ctx = useContext(Contexto);
   if (!ctx) throw new Error('useCola debe usarse dentro de <ColaProvider>');
   return ctx;
+}
+
+/** Los productos con lo que se llevaron las ventas que todavía no subieron. */
+export function useProductosVisibles(): ProductoConStock[] {
+  const { productos } = useDatosNegocio();
+  const { cola } = useCola();
+  return useMemo(() => descontarCola(productos, cola), [productos, cola]);
 }

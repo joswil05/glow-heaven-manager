@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Search,
   Plus,
@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Tag,
   RotateCcw,
+  Clock,
 } from 'lucide-react';
 import { VentasRepoFirestore } from '@repos/ventas.repo';
 import { EventosRepoFirestore } from '@repos/eventos.repo';
@@ -26,6 +27,7 @@ import type {
   VentaCompleta,
   TipoDescuento,
 } from '@shared/types';
+import type { CrearVentaInput } from '@shared/ipc-contracts';
 import { formatearMoneda } from '@core/moneda';
 import { codigoDeVenta } from '@core/codigos';
 import { enlaceWhatsappDocumento } from '@core/documentos/mensajes';
@@ -38,6 +40,8 @@ import { useSnackbar } from '../components/Snackbar';
 import { haptics } from '../lib/haptics';
 import { SIN_RED, useExigirConexion } from '../lib/useExigirConexion';
 import { useConexion } from '../context/ConexionContext';
+import { useCola, useProductosVisibles } from '../context/ColaContext';
+import { conEspera, esErrorPasajero } from '../lib/subir-cola';
 import { useScrollReveal } from '../lib/useScrollReveal';
 import { algunoContiene } from '@core/texto';
 
@@ -56,12 +60,15 @@ export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void 
   const {
     parametros,
     categorias,
-    productos: todosProductos,
     cargandoProductos,
     actualizarStockLocal,
     marcarCambio,
     recargarProductos,
   } = useDatosNegocio();
+  // Con lo que se llevaron las ventas hechas sin señal que todavía no
+  // subieron (C4): esas unidades ya no están en la tienda.
+  const todosProductos = useProductosVisibles();
+  const { cola, encolar, quitar } = useCola();
   const { mostrar } = useSnackbar();
   const tasa = parametros?.tasa_cambio_cents ?? 3662;
 
@@ -196,73 +203,97 @@ export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void 
 
   // --- Confirmar Venta -------------------------------------------------------
   const [guardandoVenta, setGuardandoVenta] = useState(false);
+  /** Dos toques en el mismo instante no arman dos ventas (C4: cada una con su id). */
+  const guardandoRef = useRef(false);
   const [ventaHecha, setVentaHecha] = useState<VentaCompleta | null>(null);
   /** Con qué se hizo la venta: deshacerla vuelve a esto (CEL-03). */
   const [vendida, setVendida] = useState<{
     grupo: string;
     carrito: LineaCarrito[];
     cliente: ClienteDetalle | null;
+    /** Quedó en la cola del teléfono, sin subir todavía (C4). */
+    operacion_id?: string;
   } | null>(null);
   const [deshaciendo, setDeshaciendo] = useState(false);
   const exigirConexion = useExigirConexion();
   const { enLinea } = useConexion();
-  /** Sin red (C3): queda junto a "Registrar venta"; el carrito no se toca. */
-  const [avisoSinRed, setAvisoSinRed] = useState('');
 
   async function confirmarVenta() {
-    if (carrito.length === 0) return;
-    if (!exigirConexion(SIN_RED.venta, setAvisoSinRed)) return;
+    if (carrito.length === 0 || guardandoRef.current) return;
+    guardandoRef.current = true;
     setGuardandoVenta(true);
 
     try {
       const grupo = nuevoGrupoEvento();
+      // El mismo en el intento con señal y en la cola: si la venta llegó y
+      // sólo se perdió la respuesta, al subirla se encuentra su marca (C4).
+      const operacion_id = nuevoGrupoEvento();
       const montoAbonoCents = esCredito ? parsearACentavos(montoAbonoTexto || '0', { min: 0 }) : null;
       if (esCredito && montoAbonoCents === null) {
         throw new Error('Escribí un monto válido, o dejalo en 0 si es fiado.');
       }
 
-      const lineasParaGuardar = carrito.map((l) => ({
-        producto_id: l.producto.id,
-        variante_id: l.variante.id,
-        cantidad: l.cantidad,
-        precio_unitario_usd_cents: l.producto.precio_venta_usd_cents,
-      }));
-
-      const ventaId = await VentasRepoFirestore.crear(
-        {
-          cliente_id: clienteSeleccionado?.id,
-          fecha: hoyISO(),
-          tipo: 'INVENTARIO',
-          entregar_ahora: true,
-          lineas: lineasParaGuardar,
-          descuento_tipo: descuentoCents > 0 ? descTipo : undefined,
-          descuento_valor:
-            descuentoCents > 0
-              ? descTipo === 'PORCENTAJE'
-                ? (parsearDecimal(descValorTexto, { min: 0, max: 100 }) ?? 0)
-                : ((parsearACentavos(descValorTexto, { min: 0 }) ?? 0) / 100)
-              : undefined,
-          pago_inicial: {
-            moneda,
-            metodo,
-            monto_cents: esCredito ? (montoAbonoCents ?? 0) : undefined,
-          },
-        },
-        grupo
-      );
-
-      // Descontar existencias inmediatamente en el estado global
-      // Una venta cambia el panel, las cuentas por cobrar y el stock. Sin
-      // este aviso, el Inicio seguia mostrando el total de ayer hasta
-      // recargar la app entera.
-      marcarCambio();
-      actualizarStockLocal(
-        carrito.map((l) => ({
+      const input: CrearVentaInput = {
+        cliente_id: clienteSeleccionado?.id,
+        fecha: hoyISO(),
+        tipo: 'INVENTARIO',
+        entregar_ahora: true,
+        lineas: carrito.map((l) => ({
           producto_id: l.producto.id,
           variante_id: l.variante.id,
           cantidad: l.cantidad,
-        }))
-      );
+          precio_unitario_usd_cents: l.producto.precio_venta_usd_cents,
+        })),
+        descuento_tipo: descuentoCents > 0 ? descTipo : undefined,
+        descuento_valor:
+          descuentoCents > 0
+            ? descTipo === 'PORCENTAJE'
+              ? (parsearDecimal(descValorTexto, { min: 0, max: 100 }) ?? 0)
+              : ((parsearACentavos(descValorTexto, { min: 0 }) ?? 0) / 100)
+            : undefined,
+        pago_inicial: {
+          moneda,
+          metodo,
+          monto_cents: esCredito ? (montoAbonoCents ?? 0) : undefined,
+        },
+      };
+
+      // Con señal se guarda ya. Sin señal, o si se cae en el medio, la venta
+      // queda en el teléfono y se sube sola cuando vuelva (C4).
+      let ventaId: number | null = null;
+      if (enLinea) {
+        try {
+          ventaId = await conEspera(VentasRepoFirestore.crear(input, grupo, operacion_id));
+        } catch (err) {
+          if (!esErrorPasajero(err)) throw err;
+        }
+      }
+
+      if (ventaId === null) {
+        encolar({
+          operacion_id,
+          grupo,
+          // Con la tasa de ahora: es la que se le dijo a la clienta.
+          operacion: { tipo: 'VENTA', input: { ...input, tasa_cambio_cents: tasa } },
+          resumen: {
+            titulo: clienteSeleccionado?.nombre ?? 'Mostrador',
+            detalle: carrito.map((l) => `${l.cantidad} × ${l.producto.nombre}`).join(', '),
+            monto_usd_cents: totalUsdCents,
+          },
+        });
+      } else {
+        // Una venta cambia el panel, las cuentas por cobrar y el stock. Sin
+        // este aviso, el Inicio seguia mostrando el total de ayer hasta
+        // recargar la app entera.
+        marcarCambio();
+        actualizarStockLocal(
+          carrito.map((l) => ({
+            producto_id: l.producto.id,
+            variante_id: l.variante.id,
+            cantidad: l.cantidad,
+          }))
+        );
+      }
 
       // Construir recibo en memoria al instante sin esperar las 4 lecturas de Firestore de getById
       const pagadoUsd = esCredito
@@ -275,11 +306,12 @@ export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void 
       );
 
       const ventaInmediata: VentaCompleta = {
-        id: ventaId,
+        // Sin subir todavía no tiene número: lo toma al subir (C4).
+        id: ventaId ?? 0,
         // El mismo código que guarda el repositorio. Armado a mano daba
         // "V-24" donde el sistema dice "V-0024", y el recibo de WhatsApp
         // salía con un comprobante que no existe.
-        codigo: codigoDeVenta(ventaId),
+        codigo: ventaId === null ? '' : codigoDeVenta(ventaId),
         cliente_id: clienteSeleccionado?.id,
         cliente: clienteSeleccionado
           ? {
@@ -309,7 +341,7 @@ export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void 
         activo: true,
         lineas: carrito.map((l, idx) => ({
           id: idx + 1,
-          venta_id: ventaId,
+          venta_id: ventaId ?? 0,
           producto_id: l.producto.id,
           variante_id: l.variante.id,
           descripcion: `${l.producto.nombre}${l.variante.color ? ` - ${l.variante.color}` : ''}`,
@@ -328,7 +360,12 @@ export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void 
         cuotas: [],
       };
 
-      setVendida({ grupo, carrito, cliente: clienteSeleccionado });
+      setVendida({
+        grupo,
+        carrito,
+        cliente: clienteSeleccionado,
+        operacion_id: ventaId === null ? operacion_id : undefined,
+      });
       setVentaHecha(ventaInmediata);
       setCarrito([]);
       setSheetCarritoAbierto(false);
@@ -338,6 +375,7 @@ export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void 
       console.error('[QuickSaleView] Error guardando venta:', err);
       mostrar(err?.message || 'No se pudo guardar la venta.', 'error');
     } finally {
+      guardandoRef.current = false;
       setGuardandoVenta(false);
     }
   }
@@ -360,6 +398,23 @@ export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void 
    */
   async function deshacerVenta() {
     if (!vendida || deshaciendo) return;
+
+    // Sin subir todavía (C4): deshacerla es sacarla de la cola, sin señal.
+    const enCola = vendida.operacion_id ? cola.find((o) => o.operacion_id === vendida.operacion_id) : undefined;
+    if (enCola && enCola.estado !== 'SUBIDA') {
+      haptics.impact('medium');
+      if (!quitar(enCola.operacion_id)) {
+        mostrar('Se está subiendo justo ahora. Probá de nuevo en un momento.', 'info');
+        return;
+      }
+      setCarrito(vendida.carrito);
+      setClienteSeleccionado(vendida.cliente);
+      setVentaHecha(null);
+      setVendida(null);
+      mostrar('Venta deshecha. El carrito quedó como estaba.', 'info');
+      return;
+    }
+
     if (!exigirConexion(SIN_RED.deshacer)) return;
     // La vibración antes de esperar: en iPhone sólo vibra dentro del toque.
     haptics.impact('medium');
@@ -388,6 +443,7 @@ export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void 
     return (
       <PantallaExito
         venta={ventaHecha}
+        pendiente={vendida?.operacion_id}
         onNuevaVenta={nuevaVenta}
         onDeshacer={vendida ? () => void deshacerVenta() : undefined}
         deshaciendo={deshaciendo}
@@ -814,9 +870,9 @@ export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void 
               )}
             </div>
 
-            {avisoSinRed && !enLinea && (
-              <p role="alert" className="rounded-xl bg-alerta-suave px-3 py-2 text-center text-xs font-semibold text-alerta-fuerte">
-                {avisoSinRed}
+            {!enLinea && (
+              <p className="text-center text-[11px] font-medium text-texto-3">
+                Sin señal: queda en el teléfono y se sube sola cuando vuelva.
               </p>
             )}
             <button
@@ -1082,26 +1138,39 @@ export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void 
 
 function PantallaExito({
   venta,
+  pendiente,
   onNuevaVenta,
   onDeshacer,
   deshaciendo,
 }: {
   venta: VentaCompleta;
+  /** La venta quedó en la cola del teléfono con este `operacion_id` (C4). */
+  pendiente?: string;
   onNuevaVenta: () => void;
   onDeshacer?: () => void;
   deshaciendo?: boolean;
 }) {
   const { parametros } = useDatosNegocio();
+  const { cola } = useCola();
 
-  const subtotalLineas = venta.lineas.reduce((s, l) => s + l.subtotal_usd_cents, 0);
+  // Hecha sin señal: toma su número cuando sube, sin tocar nada.
+  const enCola = pendiente ? cola.find((o) => o.operacion_id === pendiente) : undefined;
+  const subida = enCola?.estado === 'SUBIDA' ? enCola.resultado : undefined;
+  const mostrada = subida?.venta_id
+    ? { ...venta, id: subida.venta_id, codigo: subida.codigo ?? codigoDeVenta(subida.venta_id) }
+    : venta;
+  const paraRevisar = enCola?.estado === 'REVISAR' ? enCola.motivo ?? 'No se pudo guardar.' : undefined;
+
+  const subtotalLineas = mostrada.lineas.reduce((s, l) => s + l.subtotal_usd_cents, 0);
   const tieneDescuento = Boolean(
-    venta.descuento_valor && subtotalLineas > venta.total_usd_cents
+    mostrada.descuento_valor && subtotalLineas > mostrada.total_usd_cents
   );
   // El mismo mensaje con que Windows manda la factura, con su plantilla de
   // Configuración (CVE-03). Antes era otro, armado acá, que decía "Pagado
   // $16.38" aunque hubiera pagado en córdobas. Sin teléfono (Mostrador), abre
-  // WhatsApp para elegir el chat (CVE-04).
-  const link = enlaceWhatsappDocumento(venta, parametros);
+  // WhatsApp para elegir el chat (CVE-04). Sin número todavía, sale sin esa
+  // línea (C4).
+  const link = enlaceWhatsappDocumento(mostrada, parametros);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-5 bg-fondo px-6 pb-safe-b pt-safe-t text-center animate-m3-fade">
@@ -1109,9 +1178,22 @@ function PantallaExito({
         <CheckCircle2 size={48} />
       </div>
 
-      <div>
+      <div className="flex flex-col items-center">
         <h1 className="text-2xl font-black text-texto">Venta registrada</h1>
-        <p className="text-xs font-medium text-texto-3 mt-0.5">Comprobante #{venta.codigo}</p>
+        {paraRevisar ? (
+          <p key="revisar" className="mt-2 max-w-xs rounded-2xl bg-peligro-suave px-3 py-1.5 text-xs font-semibold text-peligro-fuerte animate-m3-fade">
+            No se pudo subir: {paraRevisar}
+          </p>
+        ) : mostrada.codigo ? (
+          <p key="numero" className={`text-xs font-medium text-texto-3 mt-0.5 ${pendiente ? 'animate-m3-fade' : ''}`}>
+            Comprobante #{mostrada.codigo}
+          </p>
+        ) : (
+          <p key="pendiente" className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-alerta-suave px-3 py-1 text-xs font-semibold text-alerta-fuerte">
+            <Clock size={13} aria-hidden="true" />
+            Pendiente de subir · sin número todavía
+          </p>
+        )}
       </div>
 
       {/* Recibo Tonal M3 */}

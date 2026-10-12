@@ -80,6 +80,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [sinDatosGuardados, setSinDatosGuardados] = useState(false);
 
   const ultimaCargaRef = useRef<number>(0);
+  /** La última recarga pedida: una respuesta vieja no pisa una nueva. */
+  const ultimoPedidoRef = useRef(0);
 
   const recargarParametros = useCallback(async () => {
     setCargando(true);
@@ -116,8 +118,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
 
     setCargandoProductos(productos.length === 0); // Solo muestra spinner si la lista está vacía
+    const pedido = ++ultimoPedidoRef.current;
     try {
       const lista = await ProductosRepoFirestore.listar();
+      // Al volver la red se piden dos recargas casi juntas (la de los datos y
+      // la de la cola al subir): si la primera llega última, traería el stock
+      // de antes de la venta que acaba de subir.
+      if (pedido !== ultimoPedidoRef.current) return;
       setProductos(lista);
       ultimaCargaRef.current = Date.now();
     } catch (err) {

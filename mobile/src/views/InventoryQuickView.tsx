@@ -5,6 +5,7 @@ import { PullToRefresh } from '../components/PullToRefresh';
 import { FichaProductoSheet } from '../components/FichaProductoSheet';
 import { formatearMoneda } from '@core/moneda';
 import { useDatosNegocio } from '../context/DataContext';
+import { useProductosVisibles } from '../context/ColaContext';
 import { haptics } from '../lib/haptics';
 import { useSnackbar } from '../components/Snackbar';
 import { algunoContiene } from '@core/texto';
@@ -17,7 +18,9 @@ export function InventoryQuickView({ onRegistrarPaquete, onCorregirPaquete }: {
   /** Corregir un paquete que ya entró, como "Corregir" en la PC. */
   onCorregirPaquete?: (id: number) => void;
 }) {
-  const { parametros, categorias, productos, cargandoProductos, recargarProductos, version } = useDatosNegocio();
+  const { parametros, categorias, cargandoProductos, recargarProductos, version } = useDatosNegocio();
+  // Lo vendido sin señal ya no está en la bodega, aunque no haya subido (C4).
+  const productos = useProductosVisibles();
 
   const { mostrar } = useSnackbar();
   const [busqueda, setBusqueda] = useState('');

@@ -45,6 +45,8 @@ export interface EnCola {
   motivo?: string;
   /** Lo que quedó guardado, cuando ya subió. */
   resultado?: { venta_id?: number; codigo?: string; pago_id?: number; cliente_id?: number };
+  /** Ya subida y los productos que se ven ya la traen: deja de apartar stock. */
+  reflejada?: boolean;
   /** Lo que se muestra en las listas mientras no tiene número. */
   resumen: { titulo: string; detalle: string; monto_usd_cents: number };
 }
@@ -78,4 +80,52 @@ export function retomar(cola: EnCola[]): EnCola[] {
   return cola
     .filter((o) => o.estado !== 'SUBIDA')
     .map((o) => (o.estado === 'SUBIENDO' ? { ...o, estado: 'PENDIENTE' as const } : o));
+}
+
+/** Después de recargar los productos: lo subido ya está en lo que se ve. */
+export function reflejar(cola: EnCola[]): EnCola[] {
+  const falta = (o: EnCola) => o.estado === 'SUBIDA' && !o.reflejada;
+  return cola.some(falta) ? cola.map((o) => (falta(o) ? { ...o, reflejada: true } : o)) : cola;
+}
+
+interface ConExistencias {
+  id: number;
+  existencias: number;
+  variantes: { id: number; existencias: number }[];
+}
+
+/**
+ * El stock que se ve, menos lo que se llevaron las ventas de la cola.
+ *
+ * Una venta hecha sin señal todavía no está en Firestore, pero la mercadería
+ * ya salió de la tienda: se aparta hasta que sube y los productos que se ven
+ * la traen. Los encargos no sacan de la bodega. Nada baja de cero.
+ */
+export function descontarCola<P extends ConExistencias>(productos: P[], cola: EnCola[]): P[] {
+  const apartado = new Map<number, { total: number; porTono: Map<number, number> }>();
+  for (const op of cola) {
+    if (op.operacion.tipo !== 'VENTA' || (op.estado === 'SUBIDA' && op.reflejada)) continue;
+    for (const linea of op.operacion.input.lineas) {
+      if (!linea.producto_id) continue;
+      const cantidad = Math.max(1, Math.round(linea.cantidad));
+      const deEse = apartado.get(linea.producto_id) ?? { total: 0, porTono: new Map<number, number>() };
+      deEse.total += cantidad;
+      if (linea.variante_id) deEse.porTono.set(linea.variante_id, (deEse.porTono.get(linea.variante_id) ?? 0) + cantidad);
+      apartado.set(linea.producto_id, deEse);
+    }
+  }
+  if (apartado.size === 0) return productos;
+
+  return productos.map((p) => {
+    const deEse = apartado.get(p.id);
+    if (!deEse) return p;
+    return {
+      ...p,
+      existencias: Math.max(0, p.existencias - deEse.total),
+      variantes: p.variantes.map((v) => {
+        const n = deEse.porTono.get(v.id);
+        return n ? { ...v, existencias: Math.max(0, v.existencias - n) } : v;
+      }),
+    };
+  });
 }
