@@ -63,6 +63,37 @@ let base = new BaseFalsa();
 
 export function reiniciarFirestoreFalso(): void {
   base.reiniciar();
+  corteDespuesDe = null;
+}
+
+// ---------------------------------------------------------------------------
+// Corte de red simulado (C4)
+// ---------------------------------------------------------------------------
+
+/**
+ * `cortarRed(n)`: deja pasar `n` confirmaciones (un lote, una transacción o un
+ * `setDoc`) y después cada una falla como sin conexión, sin escribir nada,
+ * hasta `restaurarRed()`. Sirve para probar que una operación cortada a mitad
+ * no deja la base a medias, sin depender de cómo está hecha por dentro.
+ */
+let corteDespuesDe: number | null = null;
+let confirmadasDesdeElCorte = 0;
+
+export function cortarRed(despuesDe: number): void {
+  corteDespuesDe = despuesDe;
+  confirmadasDesdeElCorte = 0;
+}
+
+export function restaurarRed(): void {
+  corteDespuesDe = null;
+}
+
+function confirmar(): void {
+  if (corteDespuesDe === null) return;
+  if (confirmadasDesdeElCorte >= corteDespuesDe) {
+    throw Object.assign(new Error('Sin conexión (simulada).'), { code: 'unavailable' });
+  }
+  confirmadasDesdeElCorte++;
 }
 
 export function contadores(): Contadores {
@@ -296,6 +327,7 @@ export async function setDoc(
   datos: Documento,
   opciones?: { merge?: boolean }
 ): Promise<void> {
+  confirmar();
   base.contadores.escrituras += 1;
   escribir(ref, datos, Boolean(opciones?.merge));
 }
@@ -329,6 +361,7 @@ export function writeBatch(_db: unknown) {
       if (n > 500) {
         throw new Error('Un lote de Firestore admite como máximo 500 operaciones.');
       }
+      confirmar();
       base.contadores.escrituras += n;
       for (const op of operaciones) op();
       operaciones.length = 0;
@@ -378,6 +411,7 @@ export async function runTransaction<T>(
   const resultado = await cuerpo(tx);
 
   // Solo se aplica si el cuerpo terminó sin lanzar.
+  if (escrituras > 0) confirmar();
   base.contadores.escrituras += escrituras;
   for (const op of pendientes) op();
 

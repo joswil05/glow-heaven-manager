@@ -139,7 +139,7 @@ export function quitar(cola: EnCola[], id: string): EnCola[]; // Deshacer o Desc
 repositorios, `firestore.rules`, `tests/c4-operaciones.test.ts`,
 `tests/motor-real/c4-operaciones.test.ts`.
 
-- [ ] **Paso 1: rojo en el Firestore falso**
+- [x] **Paso 1: rojo en el Firestore falso**
 
 Subir dos veces la misma venta con el mismo `operacion_id` deja **una**
 venta, **un** consumo de lotes, **una** marca y el mismo número; lo mismo
@@ -147,13 +147,27 @@ con un abono y con una clienta. Además: una venta que falla por stock no
 deja marca (se puede reintentar). **Error a sembrar** para comprobar la
 prueba: quitar la lectura de la marca tiene que hacerla fallar.
 
-- [ ] **Paso 2: la marca en los tres repositorios**
+> **Hallazgo del paso 1 (11/10):** la venta no era atómica. Sacaba la
+> mercadería con una transacción por línea y escribía la venta después, en
+> otro lote; si la red caía en el medio, la devolución automática tampoco
+> llegaba y quedaban unidades descontadas sin venta (la prueba con
+> `cortarRed` lo muestra: `[2, 3]` en vez de `[3, 3]`). Con la cola, el
+> reintento las descontaba otra vez. `tests/firestore-fake.ts` suma
+> `cortarRed(n)` y `restaurarRed()`.
 
-Leer la marca **antes** de `siguienteId`: si existe, devolver
-`resultado_id` (para la venta, también el código que ya tiene). Venta y
-clienta: la marca va en el mismo lote que el documento, en el primer trozo
-de `aplicarLote`. Abono: dentro de `runTransaction`, `tx.get` de la marca y
-`tx.set` si no estaba. Sin `operacion_id`, nada cambia.
+- [ ] **Paso 2: la venta en una sola transacción, y la marca en los tres**
+
+Venta: **una sola transacción** con todo: el número (`_secuencias`), las
+existencias de cada producto (la cuenta FIFO de `ProductosRepo.salida`,
+extraída a una función pura que usan los dos), la venta, el pago inicial,
+los movimientos de inventario, los eventos de Deshacer (sus ids son
+`idOrdenable()`) y la marca. Después, fuera de la transacción, sólo
+`refrescarTotales`, que se puede recalcular. Leer la marca antes de todo
+(sin gastar número) y otra vez dentro. `tasa_cambio_cents` opcional en
+`CrearVentaInput` (decisión 1). Abono: dentro de su `runTransaction`,
+`tx.get` de la marca y `tx.set` si no estaba; se lee antes de `siguienteId`.
+Clienta: la marca en el mismo lote. Sin `operacion_id`, todo igual que
+antes, pero la venta ya es atómica para todos.
 
 - [ ] **Paso 3: la regla**
 
