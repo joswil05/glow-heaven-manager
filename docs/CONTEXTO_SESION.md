@@ -24,8 +24,10 @@
 > abonar y anotar pedidos sin señal, con una cola en el teléfono). Antes de
 > publicar el celular con C4 hay que desplegar la regla `operaciones`. Desde
 > el 11/10 el rumbo es **el celular como centro** (plan unificado U1 a U9 y
-> W1). Claude Code y Codex trabajan **en relevo**: dónde quedó cada uno está
-> en [RELEVO.md](RELEVO.md).
+> W1). El 12/10 salió la **`v2.19.0` en Windows**; la del celular espera la
+> regla de `operaciones` (`scripts/desplegar-reglas.mjs`). Claude Code y
+> Codex trabajan **en relevo**: dónde quedó cada uno está en
+> [RELEVO.md](RELEVO.md).
 > **Última actualización**: 12 de octubre de 2026.
 
 Leé este archivo primero. Después:
@@ -49,9 +51,10 @@ antes de parar. Este apartado es el resto de lo mínimo para retomar.
 
 **Dónde está todo**:
 
-- La versión publicada es **`v2.18.1`** (etiqueta en `59b525c`), en
-  Windows y en el celular: C1, C2 y el flete por libras. Los commits y el
-  siguiente paso exacto están en RELEVO.
+- Publicado: **`v2.19.0` en Windows** (etiqueta `a47ff4b`, 12/10) y
+  **`v2.18.1` en el celular** (C1, C2 y el flete por libras). El celular
+  2.19.0 sale cuando la regla de `operaciones` esté desplegada. Los commits
+  y el siguiente paso exacto están en RELEVO.
 - **C1 · Inventario por paquete está completa.** Sus casillas están en
   [superpowers/plans/2026-10-02-c1-inventario-por-paquete.md](superpowers/plans/2026-10-02-c1-inventario-por-paquete.md).
 - **C2 · Inventario y encargos en el celular está completa** (10/10), en
@@ -1069,6 +1072,11 @@ Para forzar la actualización de Windows en una máquina: descargarla
 (`window.api.actualizador.verificarManual()` por CDP) y **cerrar la app**, que
 la instala en silencio al cerrarse. Hasta la 2.15.0, "reiniciar e instalar"
 abría el asistente del instalador y se quedaba esperando.
+
+**Las reglas de Firestore sin la CLI**: `node scripts/desplegar-reglas.mjs`
+compara producción con el repo; con `--desplegar` las publica (no lo hace
+si producción tiene líneas que el repo no tiene). Una regla nueva va arriba
+**antes** que el código que la usa.
 
 Si `deploy:mobile` falla con "Your credentials are no longer valid" (la sesión
 de la CLI de Firebase vence y renovarla pide el navegador), la PWA se publica

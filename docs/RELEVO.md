@@ -68,9 +68,14 @@ se trabaja**.
 
 ## Estado ahora
 
-- **Publicado**: **`v2.18.1`** en Windows y celular (11/10): el flete del
-  paquete sale de las libras y el impuesto es siempre el de Configuración.
-  Etiqueta en `59b525c`. Antes, la `v2.18.0` (C1 y C2, etiqueta `74f42ea`).
+- **Publicado**: **`v2.19.0` en Windows** (12/10, etiqueta `a47ff4b`): la
+  venta en una sola transacción y lo de C3/C4 que toca a los repositorios.
+  **El celular sigue en la `v2.18.1`**: su 2.19.0 (C3, C4 y el paquete nuevo)
+  espera que se despliegue la regla de `operaciones`. El despliegue de la
+  regla lo frenó el sistema de permisos de Claude Code ("Protected-Scope IaC
+  Apply"): lo corre Joswill con `node scripts/desplegar-reglas.mjs
+  --desplegar` (sesión de gcloud), o lo autoriza. Recién después:
+  `npm run build:mobile && node scripts/desplegar-movil.mjs`.
 - **C4 · Sin internet: operar, cerrada el 12/10, sin publicar**
   ([plan](superpowers/plans/2026-10-11-c4-sin-internet-operar.md)): sin
   señal se vende, se abona y se anota un pedido (con clienta nueva), queda
