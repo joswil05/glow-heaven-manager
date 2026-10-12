@@ -53,7 +53,14 @@ def cerrar_hojas(page: Page) -> None:
             break
         # La de más arriba primero: con dos hojas apiladas (el detalle y, encima,
         # la factura) el botón de la de abajo está tapado y no se puede tocar.
-        abiertos[-1].click()
+        try:
+            abiertos[-1].click(timeout=3000)
+        except Exception:
+            # Estaba bajando sola (su animación todavía no le ponía la clase
+            # de salida) y el botón se desmontó en medio del toque: no queda
+            # nada que cerrar acá. Pasó en tres casos distintos.
+            page.wait_for_timeout(300)
+            continue
         page.wait_for_timeout(300)
         # Con algo escrito, cerrar pregunta: acá se descarta.
         descartar = visible(page, "[role='alertdialog'] button", "Descartar")
