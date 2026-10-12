@@ -1,6 +1,6 @@
 import { parsearACentavos, parsearDecimal } from '@core/numeros';
 import { formatearMoneda } from '@core/moneda';
-import type { ErroresPieza, TextosPieza } from '../../lib/paquete-movil';
+import { cambiarModo, type ErroresPieza, type TextosPieza } from '../../lib/paquete-movil';
 import { haptics } from '../../lib/haptics';
 import { campo, casilla } from './clases';
 
@@ -56,7 +56,7 @@ export function CamposPieza({
       <div role="radiogroup" aria-labelledby={`${id}-como`} className="mt-1 grid grid-cols-2 gap-1 rounded-xl bg-superficie-2 p-1">
         {([[false, 'Por unidad'], [true, 'En pack']] as const).map(([enPack, etiqueta]) =>
           <button key={etiqueta} type="button" role="radio" aria-checked={t.enPack === enPack} disabled={deshabilitado}
-            onClick={() => { haptics.selection(); cambiar({ enPack }, 'cantidad'); }}
+            onClick={() => { haptics.selection(); onCambiar(cambiarModo(t, enPack)); onCorregido('cantidad'); onCorregido('precio'); }}
             className={`min-h-11 rounded-lg text-base font-semibold ${t.enPack === enPack ? 'bg-superficie text-texto shadow-sm' : 'text-texto-2'}`}>
             {etiqueta}
           </button>)}

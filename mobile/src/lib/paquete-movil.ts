@@ -116,6 +116,32 @@ const enteroDe = (texto: string, min: number): number | null => {
   return v !== null && Number.isSafeInteger(v) ? v : null;
 };
 
+/**
+ * "Por unidad" o "En pack" con lo mismo que ya se escribió: 2 packs de 5 a
+ * $20 pasan a 10 unidades a $4, y al revés. La PC guarda los dos juegos de
+ * campos por separado; acá el campo es uno solo y se convierte. Unidades que
+ * no llenan packs enteros quedan vacías para escribirlas: inventar packs
+ * cambiaría lo que vino.
+ */
+export function cambiarModo(t: TextosPieza, enPack: boolean): TextosPieza {
+  if (t.enPack === enPack) return t;
+  const porPack = enteroDe(t.unidadesPorPack, 1);
+  if (porPack === null) return { ...t, enPack };
+  const filas = t.filas.map((f) => {
+    const n = f.texto.trim() ? enteroDe(f.texto, 0) : null;
+    if (n === null) return f;
+    if (!enPack) return { ...f, texto: String(n * porPack) };
+    return { ...f, texto: n % porPack === 0 ? String(n / porPack) : '' };
+  });
+  const precio = t.precio.trim() ? parsearACentavos(t.precio, { min: 0 }) : null;
+  return {
+    ...t,
+    enPack,
+    filas,
+    precio: precio === null ? t.precio : ((enPack ? precio * porPack : Math.round(precio / porPack)) / 100).toFixed(2),
+  };
+}
+
 /** Lo que define el precio de la línea: si no cambió, el precio guardado se conserva. */
 const firmaDePrecio = (t: TextosPieza) =>
   JSON.stringify([t.enPack, t.filas.map((f) => f.texto.trim()), t.precio.trim(), t.enPack ? t.unidadesPorPack.trim() : '']);

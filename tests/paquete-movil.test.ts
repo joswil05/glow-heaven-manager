@@ -16,6 +16,7 @@ import type { LineaCompraInput } from '../src/shared/ipc-contracts';
 import { calcularPaquete, efectoDeEntradas, idLoteDeLinea } from '../src/core/paquete';
 import {
   calcularVista,
+  cambiarModo,
   consecuenciasDeRecibir,
   efectosDelPaquete,
   claveDeProducto,
@@ -161,6 +162,28 @@ describe('una pieza del paquete: lo mismo que arma la PC', () => {
     const boxers = producto({ id: 8, nombre: 'Boxers', unidades_por_paquete: 3 });
     expect(textosParaProducto(boxers)).toMatchObject({ enPack: true, unidadesPorPack: '3', filas: [{ variante_id: 1, texto: '1' }] });
     expect(textosParaProducto(null)).toMatchObject({ enPack: false, filas: [{ texto: '1' }] });
+  });
+});
+
+describe('pasar de "Por unidad" a "En pack" no cambia lo que vino', () => {
+  it('2 packs de 5 a $20 son 10 unidades a $4, y vuelven', () => {
+    const pack = textos({ enPack: true, filas: [{ texto: '2' }], unidadesPorPack: '5', precio: '20' });
+    const unidad = cambiarModo(pack, false);
+    expect(unidad).toMatchObject({ enPack: false, filas: [{ texto: '10' }], precio: '4.00' });
+    expect(cambiarModo(unidad, true)).toMatchObject({ enPack: true, filas: [{ texto: '2' }], precio: '20.00' });
+  });
+
+  it('si las unidades no llenan packs enteros, la cantidad queda para escribirla', () => {
+    const r = cambiarModo(textos({ filas: [{ texto: '7' }], precio: '3', unidadesPorPack: '5' }), true);
+    expect(r.filas[0].texto).toBe('');
+    expect(r.precio).toBe('15.00');
+  });
+
+  it('lo vacío o mal escrito queda como estaba; con tallas, fila por fila', () => {
+    expect(cambiarModo(textos({ filas: [{ texto: '' }], precio: '' }), true)).toMatchObject({ filas: [{ texto: '' }], precio: '' });
+    const tallas = cambiarModo(textos({ enPack: true, unidadesPorPack: '3', filas: [{ variante_id: 1, texto: '1' }, { variante_id: 2, texto: '' }], precio: 'x' }), false);
+    expect(tallas.filas.map((f) => f.texto)).toEqual(['3', '']);
+    expect(tallas.precio).toBe('x');
   });
 });
 

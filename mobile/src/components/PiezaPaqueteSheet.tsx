@@ -11,6 +11,7 @@ import { campo, casilla, enfocarError } from './paquete/clases';
 import { haptics } from '../lib/haptics';
 import { nuevoGrupoEvento } from '../lib/util';
 import {
+  cambiarModo,
   fichaTieneDatos,
   fichaVacia,
   leerFicha,
@@ -90,6 +91,15 @@ export function PiezaPaqueteSheet({
     haptics.selection();
     setProducto(p); setNuevo(false); setBusqueda(p.nombre); setErrores({}); setErroresFicha({});
     setTextos(textosParaProducto(p));
+  }
+
+  /** Con tallas nuevas, sus cantidades también pasan de unidades a packs y al revés. */
+  function cambiarTextos(t: TextosPieza) {
+    if (tallasNuevas && t.enPack !== textos.enPack) {
+      const convertidas = cambiarModo({ ...textos, filas: ficha.tallas.map((x) => ({ texto: x.cantidad })) }, t.enPack);
+      setFicha((f) => ({ ...f, tallas: f.tallas.map((x, i) => ({ ...x, cantidad: convertidas.filas[i]?.texto ?? x.cantidad })) }));
+    }
+    setTextos(t);
   }
 
   const cambiarFicha = (parcial: Partial<TextosFicha>, corregido?: keyof ErroresFicha) => {
@@ -341,7 +351,7 @@ export function PiezaPaqueteSheet({
           </details>
         </section>}
 
-        {(producto || nuevo) && <CamposPieza id="pieza" textos={textos} onCambiar={setTextos} errores={errores}
+        {(producto || nuevo) && <CamposPieza id="pieza" textos={textos} onCambiar={cambiarTextos} errores={errores}
           onCorregido={(c) => setErrores((e) => ({ ...e, [c]: undefined, ...(c === 'cantidad' ? { fila: undefined } : {}) }))}
           deshabilitado={guardando} permitirPack taxBp={taxBp} sinCantidades={tallasNuevas} />}
       </div>
