@@ -3,6 +3,7 @@ import { Loader2 } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
 import { DataProvider, useDatosNegocio } from './context/DataContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { ConexionProvider } from './context/ConexionContext';
 import { LoginView } from './views/LoginView';
 import { DashboardView } from './views/DashboardView';
 import { QuickSaleView } from './views/QuickSaleView';
@@ -248,7 +249,9 @@ function Navegacion() {
 export function App() {
   return (
     <ThemeProvider>
-      <AppContenido />
+      <ConexionProvider>
+        <AppContenido />
+      </ConexionProvider>
     </ThemeProvider>
   );
 }

@@ -202,7 +202,7 @@ it('avisa a los suscriptores al cambiar y deja de avisar al desuscribir', () => 
 it('textoDatosDe: "de las 10:42", "de ayer a las 18:05", "del 3 oct a las 18:05"', () => { /* … */ });
 ```
 
-- [ ] **Paso 2: implementar y proveer**
+- [x] **Paso 2: implementar y proveer**
 
 `crearConexion` sin React. `ConexionProvider` crea una sola instancia con el
 entorno real (`navigator.onLine`, `window.addEventListener`, `localStorage`

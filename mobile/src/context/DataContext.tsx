@@ -2,7 +2,10 @@ import { createContext, useContext, useEffect, useState, useCallback, useRef, ty
 import type { ParametrosSistema, ProductoConStock, Categoria } from '@shared/types';
 import { ParametrosRepoFirestore } from '@repos/parametros.repo';
 import { ProductosRepoFirestore } from '@repos/productos.repo';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { getFirestoreDb } from '@firebase-client';
 import { useAuth } from './AuthContext';
+import { useConexion, useControlConexion } from './ConexionContext';
 import { invalidarCacheDashboard } from '../lib/panel-movil';
 
 interface DataState {
@@ -153,6 +156,35 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setCargando(true);
     }
   }, [usuario, recargarParametros, recargarProductos]);
+
+  // De cuándo son los datos (C3): los metadatos de un documento chico dicen
+  // si lo que se ve vino del servidor o de la caché del teléfono. Sin red el
+  // error del listener es normal: no se muestra.
+  const conexion = useControlConexion();
+  useEffect(() => {
+    if (!usuario) return;
+    return onSnapshot(
+      doc(getFirestoreDb(), 'parametros', 'sistema'),
+      { includeMetadataChanges: true },
+      (s) => (s.metadata.fromCache ? conexion.desdeCache() : conexion.sincronizado()),
+      () => undefined
+    );
+  }, [usuario, conexion]);
+
+  // Al volver la red, cada pantalla trae lo nuevo sola, sin recargar la app.
+  const { enLinea } = useConexion();
+  const estuvoSinRed = useRef(!enLinea);
+  useEffect(() => {
+    if (!enLinea) {
+      estuvoSinRed.current = true;
+      return;
+    }
+    if (!estuvoSinRed.current || !usuario) return;
+    estuvoSinRed.current = false;
+    void recargarParametros();
+    void recargarProductos(true);
+    marcarCambio();
+  }, [enLinea, usuario, recargarParametros, recargarProductos, marcarCambio]);
 
   return (
     <DataContext.Provider
