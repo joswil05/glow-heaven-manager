@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Loader2, Copy, Check, Smartphone, ExternalLink, AlertCircle, Share, RefreshCw } from 'lucide-react';
+import { Loader2, Copy, Check, Smartphone, ExternalLink, AlertCircle, Share, RefreshCw, WifiOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useConexion } from '../context/ConexionContext';
 import {
   esNavegadorInterno,
   esDispositivoIOS,
@@ -24,6 +25,7 @@ function IconoGoogle() {
 export function LoginView() {
   const { ingresar, error, repararSesion } = useAuth();
   const [entrando, setEntrando] = useState(false);
+  const { enLinea } = useConexion();
   const [esInterno, setEsInterno] = useState(false);
   const [esIOS, setEsIOS] = useState(false);
   const [copiado, setCopiado] = useState(false);
@@ -147,6 +149,14 @@ export function LoginView() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* C3: la primera entrada pasa por Google y necesita internet. */}
+        {!enLinea && (
+          <p role="status" className="flex w-full items-start gap-2 rounded-xl bg-alerta-suave px-3 py-2.5 text-left text-xs font-semibold text-alerta-fuerte">
+            <WifiOff size={16} className="mt-px shrink-0" aria-hidden="true" />
+            <span>Para entrar hace falta internet. Después, la app abre aunque no haya señal.</span>
+          </p>
         )}
 
         <button

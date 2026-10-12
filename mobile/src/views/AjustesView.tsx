@@ -19,6 +19,7 @@ import { parsearDecimal } from '@core/numeros';
 import { useTheme, type ThemeMode } from '../context/ThemeContext';
 import { useDatosNegocio } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
+import { useConexion } from '../context/ConexionContext';
 import { BottomSheet } from '../components/BottomSheet';
 import { useSnackbar } from '../components/Snackbar';
 import { nuevoGrupoEvento } from '../lib/util';
@@ -51,6 +52,7 @@ export function AjustesView({ onVolver }: { onVolver: () => void }) {
   const { mostrar } = useSnackbar();
 
   const [confirmandoSalida, setConfirmandoSalida] = useState(false);
+  const { enLinea } = useConexion();
   const [guardando, setGuardando] = useState(false);
   /**
    * Sólo lo que la persona escribió. Lo que no tocó se lee de los parámetros
@@ -398,7 +400,11 @@ export function AjustesView({ onVolver }: { onVolver: () => void }) {
         abierto={confirmandoSalida}
         onCerrar={() => setConfirmandoSalida(false)}
         titulo="¿Cerrar sesión?"
-        subtitulo="Vas a tener que volver a entrar con Google."
+        subtitulo={
+          enLinea
+            ? 'Vas a tener que volver a entrar con Google.'
+            : 'Sin señal no vas a poder volver a entrar hasta tener internet.'
+        }
         footer={
           <div className="grid grid-cols-2 gap-2">
             <button

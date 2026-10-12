@@ -3,7 +3,8 @@ import { Loader2 } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
 import { DataProvider, useDatosNegocio } from './context/DataContext';
 import { ThemeProvider } from './context/ThemeContext';
-import { ConexionProvider } from './context/ConexionContext';
+import { ConexionProvider, useConexion } from './context/ConexionContext';
+import { accesoRecordado, decidirAcceso, olvidarAcceso, recordarAcceso } from './lib/acceso-movil';
 import { LoginView } from './views/LoginView';
 import { DashboardView } from './views/DashboardView';
 import { QuickSaleView } from './views/QuickSaleView';
@@ -55,25 +56,61 @@ function AppContenido() {
   const [acceso, setAcceso] = useState<EstadoAcceso | null>(null);
   /** Sube para volver a preguntar cuando la conexión falló. */
   const [reintento, setReintento] = useState(0);
+  const { enLinea } = useConexion();
+  /** Entró sin señal por el recuerdo: al volver la red se confirma. */
+  const entroPorRecuerdo = useRef(false);
 
   useEffect(() => {
     if (!usuario) {
       setAcceso(null);
       return;
     }
+    const sinRed = navigator.onLine === false;
+    const recordado = accesoRecordado(usuario.uid);
+    // Sin red y con el acceso recordado (C3), se entra sin esperar a que
+    // Firestore se rinda.
+    const sinPreguntar = decidirAcceso({ enLinea: !sinRed, recordado, resultado: null });
+    if (sinPreguntar !== 'preguntar') {
+      entroPorRecuerdo.current = true;
+      setAcceso(sinPreguntar);
+      return;
+    }
     let vivo = true;
     setAcceso(null);
     puedeEntrar(usuario.uid, usuario.email ?? null)
-      .then((r) => vivo && setAcceso(r))
       // Si ni siquiera se pudo preguntar, es un problema de conexión, no un
       // veto. Decirle "no tenés acceso" a quien sí lo tiene es peor que no
-      // decir nada.
-      .catch(() => vivo && setAcceso('sin-conexion'))
-      .finally(() => undefined);
+      // decir nada; y si esta cuenta ya entró en este teléfono, entra.
+      .catch((): EstadoAcceso => 'sin-conexion')
+      .then((resultado) => {
+        if (!vivo) return;
+        if (resultado === 'autorizado') recordarAcceso(usuario.uid);
+        if (resultado === 'sin-permiso') olvidarAcceso(usuario.uid);
+        const decision = decidirAcceso({ enLinea: navigator.onLine !== false, recordado, resultado });
+        if (decision === 'autorizado' && resultado === 'sin-conexion') entroPorRecuerdo.current = true;
+        setAcceso(decision === 'preguntar' ? 'sin-conexion' : decision);
+      });
     return () => {
       vivo = false;
     };
   }, [usuario, reintento]);
+
+  // Volvió la red después de entrar por el recuerdo: se pregunta en segundo
+  // plano, sin sacar a nadie de lo que está haciendo. Sólo un "sin permiso"
+  // del servidor cierra la puerta.
+  useEffect(() => {
+    if (!enLinea || !usuario || !entroPorRecuerdo.current) return;
+    entroPorRecuerdo.current = false;
+    puedeEntrar(usuario.uid, usuario.email ?? null)
+      .then((resultado) => {
+        if (resultado === 'autorizado') recordarAcceso(usuario.uid);
+        if (resultado === 'sin-permiso') {
+          olvidarAcceso(usuario.uid);
+          setAcceso('sin-permiso');
+        }
+      })
+      .catch(() => undefined);
+  }, [enLinea, usuario]);
 
   if (cargando) {
     return (

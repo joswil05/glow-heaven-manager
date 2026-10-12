@@ -282,7 +282,7 @@ que T4 y T5 resuelven. Commit del corredor y del caso rojo.
 Más: recordar, leer y olvidar por `uid` en un `Storage` falso; con el
 almacén roto (lanza), nada revienta y `accesoRecordado` da `false`.
 
-- [ ] **Paso 2: usarla en la puerta**
+- [x] **Paso 2: usarla en la puerta**
 
 En `AppContenido`: sin red y con el acceso recordado, entrar sin llamar a
 `puedeEntrar` (evita esperar a que Firestore se rinda). Con red, preguntar

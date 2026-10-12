@@ -9,6 +9,7 @@ import {
   resolverRedireccionPendiente,
   traducirErrorAuth,
 } from '../lib/firebase-mobile';
+import { olvidarAcceso } from '../lib/acceso-movil';
 
 interface AuthState {
   usuario: User | null;
@@ -93,6 +94,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function salir() {
+    // Quien cierra la sesión no entra después sin señal por el recuerdo (C3).
+    if (usuario) olvidarAcceso(usuario.uid);
     await cerrarSesion();
   }
 
