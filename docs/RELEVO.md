@@ -77,6 +77,11 @@ se trabaja**.
 - **C2 cerrada el 10/10** y publicada en la 2.18.0: T1 a T7, menos
   el PDF automático (T1 paso 5), aplazado por Joswill; se conserva la
   impresión actual y el mensaje original sin edición.
+- **Cambio pedido por Joswill el 11/10, sin publicar**: en los paquetes de
+  las dos apps se escriben las libras de la caja y el flete sale de la tarifa
+  por libra de Configuración; el impuesto es siempre el porcentaje de
+  Configuración, sin campo para el del recibo (`fleteDePeso` y
+  `fleteDelPaquete` en `src/core/paquete.ts`). Publicarlo pide su "publicalo".
 - **Siguiente paso**: **escribir el plan de C3** (sin internet: consultar)
   en `docs/superpowers/plans/`, con el formato del de C2 y desde la sección
   C3 del diseño. Escribirlo y commitearlo; **no implementarlo ni publicar**
@@ -109,6 +114,55 @@ Formato de cada entrada:
 - Sigue: el paso exacto del plan.
 - Para Joswill: lo que necesita decidir o probar (o "nada").
 ```
+
+### 2026-10-11 18:16 · Claude Code
+- Hizo: **flete por libras e impuesto fijo en los paquetes**, pedido por
+  Joswill ("solo debo ingresar las libras"; "el impuesto es siempre 7%").
+  Núcleo: `fleteDePeso(peso_mlb, tarifa)` y `fleteDelPaquete(peso, tarifa,
+  guardado?)`: un paquete ya guardado conserva su flete mientras no cambie
+  el peso (pudo escribirse a mano antes, o cambiar la tarifa), y uno de
+  antes sin peso lo conserva hasta que le escriban las libras. Celular
+  ("Llegó un paquete"): "Peso de la caja (lb)" en lugar de "Flete pagado",
+  la cuenta debajo ("Flete: $14.00, a $7.00 la libra.") y sin "Impuesto del
+  recibo"; el resumen dice "Impuesto (7%)". Windows (`PaqueteEditor`): el
+  flete se muestra calculado (un `output`, no un campo), "Impuesto del
+  recibo" salió de "Más costos" (ahora "Otros gastos") y pasar al
+  inventario sin peso lo pide en su campo; el borrador puede esperarlo.
+  Un paquete con impuesto de recibo guardado lo conserva al corregirse.
+- Commits: `69775bc`. No pusheado.
+- Pruebas: `tests/flete-por-peso.test.ts` (7, vistas en rojo antes de
+  existir las funciones); casos de interfaz de paquete actualizados en las
+  dos suites (pedían campos que no existían). Todo verde: unitarias, tipos
+  de las dos apps, `build:mobile`, emulador, 46 casos móvil y 43
+  Windows, `git diff --check`.
+  **Para vigilar**: en una de cuatro corridas completas del celular, "un
+  abono vacío, en cero o con letras no se registra" se cortó porque la
+  página se recargó sola en medio ("waiting for navigation to
+  localhost:5174/"). No se repitió. Sospecha, sin comprobar: la guardia de
+  historial de `BottomSheet` (un `back()` diferido que se cruza con otra
+  hoja que se abre) sale de la app. Si vuelve a pasar, reproducirlo antes
+  de tocar nada.
+- Quedó a medias: el plan de C3, que se pausó por este pedido. Lo
+  investigado, para no repetirlo:
+  - Ya existen la caché persistente de Firestore (`client.ts`
+    `persistentLocalCache`), la sesión en IndexedDB (`firebase-mobile.ts`
+    `initializeAuth`) y el service worker con la app precacheada. Las
+    fuentes de Google no se cachean: sin red cambia la letra.
+  - Frenan sin red: el acceso (`App.tsx` `puedeEntrar`; la dueña pasa
+    directo, el resto cae en "No pudimos comprobar tu acceso"); los
+    parámetros (`DataContext` pone `DEFAULT_PARAMS` si fallan: una tasa
+    inventada); y `ParametrosRepo.getParametros` escribe los defectos si no
+    encuentra el documento, que sin red quedaría en cola y pisaría los
+    reales al volver.
+  - Unas 20 escrituras del celular cuelgan o fallan sin red (Vender,
+    abono, corregir, anular, encargos, precio, paquete, Ajustes, Deshacer,
+    resumen visto): tienen que avisar en la entrada y conservar lo escrito.
+  - La suite móvil corre sobre `vite` de desarrollo, sin service worker:
+    probar "abrir sin red" pide un corredor nuevo con el build real y
+    `vite preview` apuntado al emulador.
+- Sigue: escribir el plan de C3 con esas notas, sin implementarlo.
+- Para Joswill: probar el paquete nuevo (las libras y el 7%) y decir si se
+  publica.
 
 ### 2026-10-11 17:07 · Claude Code
 - Hizo: **publicó la 2.18.0** (C1 y C2) con el "publicalo" de Joswill.
