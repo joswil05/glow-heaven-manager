@@ -271,7 +271,7 @@ API con `gcloud`) antes y después.
 - [x] **Paso 1: rojo**: sin señal, anotar un pedido con una clienta nueva
   deja el pedido y la clienta pendientes; al subir se crea **una** clienta y
   **un** encargo con ella.
-- [ ] **Paso 2: encolar** en `NuevoEncargoSheet`. `SeleccionarClientaSheet`
+- [x] **Paso 2: encolar** en `NuevoEncargoSheet`. `SeleccionarClientaSheet`
   sin red no guarda la clienta: devuelve sus datos para que viajen con la
   operación (`clienta_nueva`). Cotizar, mandar y "Aceptó" siguen pidiendo
   red.

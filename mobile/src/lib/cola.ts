@@ -10,6 +10,7 @@
  * Guardarla en el teléfono es de `cola-local.ts`.
  */
 import type { CrearVentaInput, GuardarClienteInput, RegistrarPagoInput } from '@shared/ipc-contracts';
+import type { ClienteDetalle } from '@shared/types';
 
 /**
  * PENDIENTE espera señal; SUBIENDO está en camino; SUBIDA ya tiene número;
@@ -80,6 +81,33 @@ export function retomar(cola: EnCola[]): EnCola[] {
   return cola
     .filter((o) => o.estado !== 'SUBIDA')
     .map((o) => (o.estado === 'SUBIENDO' ? { ...o, estado: 'PENDIENTE' as const } : o));
+}
+
+/** Cómo se ve una clienta anotada sin señal mientras viaja con su operación. */
+export function clientaProvisoria(nueva: ClientaNueva): ClienteDetalle {
+  return {
+    id: 0,
+    nombre: nueva.datos.nombre,
+    telefono: nueva.datos.telefono,
+    activo: true,
+    compras_count: 0,
+    total_comprado_usd_cents: 0,
+    saldo_pendiente_usd_cents: 0,
+  };
+}
+
+/**
+ * Las clientas anotadas sin señal que todavía no subieron, una vez cada una:
+ * elegirlas otra vez comparte su `operacion_id`, y se crean una sola vez.
+ */
+export function clientasNuevasEnCola(cola: EnCola[]): ClientaNueva[] {
+  const vistas = new Map<string, ClientaNueva>();
+  for (const op of cola) {
+    if (op.estado === 'SUBIDA' || op.operacion.tipo === 'ABONO') continue;
+    const nueva = op.operacion.clienta_nueva;
+    if (nueva && !vistas.has(nueva.operacion_id)) vistas.set(nueva.operacion_id, nueva);
+  }
+  return [...vistas.values()];
 }
 
 /** Después de recargar los productos: lo subido ya está en lo que se ve. */

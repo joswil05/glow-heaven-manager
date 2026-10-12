@@ -285,7 +285,8 @@ function Navegacion() {
               />
             </div>
             <div className={`h-full w-full overflow-hidden ${vista === 'vender' ? 'block animate-vista' : 'hidden'}`}>
-              <QuickSaleView onAnotarPedido={() => exigirConexion(SIN_RED.encargo) && abrirEncargos('vender', true)} />
+              {/* Anotar un pedido no pide señal: queda en el teléfono (C4). */}
+              <QuickSaleView onAnotarPedido={() => abrirEncargos('vender', true)} />
             </div>
             <div className={`h-full w-full overflow-hidden ${vista === 'cobranza' ? 'block animate-vista' : 'hidden'}`}>
               <CobranzaView />

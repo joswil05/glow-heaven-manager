@@ -42,6 +42,7 @@ import { SIN_RED, useExigirConexion } from '../lib/useExigirConexion';
 import { useConexion } from '../context/ConexionContext';
 import { useCola, useProductosVisibles } from '../context/ColaContext';
 import { conEspera, esErrorPasajero } from '../lib/subir-cola';
+import type { ClientaNueva } from '../lib/cola';
 import { useScrollReveal } from '../lib/useScrollReveal';
 import { algunoContiene } from '@core/texto';
 
@@ -183,6 +184,8 @@ export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void 
 
   // --- Clienta ---------------------------------------------------------------
   const [clienteSeleccionado, setClienteSeleccionado] = useState<ClienteDetalle | null>(null);
+  /** Anotada sin señal: todavía no existe, se crea al subir la venta (C4). */
+  const [clientaNueva, setClientaNueva] = useState<ClientaNueva | null>(null);
   const [sheetClienteAbierto, setSheetClienteAbierto] = useState(false);
 
   // --- Cobro -----------------------------------------------------------------
@@ -211,6 +214,7 @@ export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void 
     grupo: string;
     carrito: LineaCarrito[];
     cliente: ClienteDetalle | null;
+    clientaNueva: ClientaNueva | null;
     /** Quedó en la cola del teléfono, sin subir todavía (C4). */
     operacion_id?: string;
   } | null>(null);
@@ -234,7 +238,8 @@ export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void 
       }
 
       const input: CrearVentaInput = {
-        cliente_id: clienteSeleccionado?.id,
+        // Una clienta anotada sin señal todavía no tiene id: lo pone la cola.
+        cliente_id: clientaNueva ? undefined : clienteSeleccionado?.id,
         fecha: hoyISO(),
         tipo: 'INVENTARIO',
         entregar_ahora: true,
@@ -259,9 +264,10 @@ export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void 
       };
 
       // Con señal se guarda ya. Sin señal, o si se cae en el medio, la venta
-      // queda en el teléfono y se sube sola cuando vuelva (C4).
+      // queda en el teléfono y se sube sola cuando vuelva (C4). Con una
+      // clienta anotada sin señal va por la cola, que la crea primero.
       let ventaId: number | null = null;
-      if (enLinea) {
+      if (enLinea && !clientaNueva) {
         try {
           ventaId = await conEspera(VentasRepoFirestore.crear(input, grupo, operacion_id));
         } catch (err) {
@@ -274,7 +280,11 @@ export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void 
           operacion_id,
           grupo,
           // Con la tasa de ahora: es la que se le dijo a la clienta.
-          operacion: { tipo: 'VENTA', input: { ...input, tasa_cambio_cents: tasa } },
+          operacion: {
+            tipo: 'VENTA',
+            input: { ...input, tasa_cambio_cents: tasa },
+            clienta_nueva: clientaNueva ?? undefined,
+          },
           resumen: {
             titulo: clienteSeleccionado?.nombre ?? 'Mostrador',
             detalle: carrito.map((l) => `${l.cantidad} × ${l.producto.nombre}`).join(', '),
@@ -364,6 +374,7 @@ export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void 
         grupo,
         carrito,
         cliente: clienteSeleccionado,
+        clientaNueva,
         operacion_id: ventaId === null ? operacion_id : undefined,
       });
       setVentaHecha(ventaInmediata);
@@ -384,6 +395,7 @@ export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void 
     setVentaHecha(null);
     setVendida(null);
     setClienteSeleccionado(null);
+    setClientaNueva(null);
     setEsCredito(false);
     setMontoAbonoTexto('');
     setDescValorTexto('');
@@ -409,6 +421,7 @@ export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void 
       }
       setCarrito(vendida.carrito);
       setClienteSeleccionado(vendida.cliente);
+      setClientaNueva(vendida.clientaNueva);
       setVentaHecha(null);
       setVendida(null);
       mostrar('Venta deshecha. El carrito quedó como estaba.', 'info');
@@ -427,6 +440,7 @@ export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void 
       }
       setCarrito(vendida.carrito);
       setClienteSeleccionado(vendida.cliente);
+      setClientaNueva(vendida.clientaNueva);
       setVentaHecha(null);
       setVendida(null);
       marcarCambio();
@@ -949,10 +963,16 @@ export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void 
                   {clienteSeleccionado.telefono && (
                     <p className="text-[11px] text-acento">{clienteSeleccionado.telefono}</p>
                   )}
+                  {clientaNueva && (
+                    <p className="text-[11px] font-semibold text-alerta-fuerte">Nueva · se guarda al subir la venta</p>
+                  )}
                 </div>
                 <button
                   type="button"
-                  onClick={() => setClienteSeleccionado(null)}
+                  onClick={() => {
+                    setClienteSeleccionado(null);
+                    setClientaNueva(null);
+                  }}
                   className="text-xs font-bold text-peligro hover:underline px-2 py-1 cursor-pointer"
                 >
                   Cambiar
@@ -1126,8 +1146,9 @@ export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void 
       <SeleccionarClientaSheet
         abierto={sheetClienteAbierto}
         onCerrar={() => setSheetClienteAbierto(false)}
-        onSeleccionar={(clienta) => {
+        onSeleccionar={(clienta, nueva) => {
           setClienteSeleccionado(clienta);
+          setClientaNueva(nueva ?? null);
           setSheetClienteAbierto(false);
         }}
       />

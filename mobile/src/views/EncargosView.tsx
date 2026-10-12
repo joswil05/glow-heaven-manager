@@ -95,7 +95,8 @@ export function EncargosView({ onVolver, abrirNuevoAlEntrar = false }: Props) {
               <p className="text-xs text-texto-2">{encargos.length} en curso</p>
             </div>
           </div>
-          <button type="button" onClick={() => { if (!exigirConexion(SIN_RED.encargo)) return; haptics.selection(); setNuevo(true); }}
+          {/* Sin señal también: el pedido queda en el teléfono (C4). */}
+          <button type="button" onClick={() => { haptics.selection(); setNuevo(true); }}
             className="mb-3 min-h-12 w-full rounded-xl bg-acento px-3 py-2 text-sm font-bold text-acento-texto">
             Anotar un pedido
           </button>

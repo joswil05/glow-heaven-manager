@@ -3,17 +3,25 @@ import { Search, UserPlus } from 'lucide-react';
 import { ClientesRepoFirestore } from '@repos/clientes.repo';
 import type { ClienteDetalle } from '@shared/types';
 import { formatearTelefono } from '@core/formatos';
+import { algunoContiene } from '@core/texto';
 import { enfocarPrimerError } from '../../../src/renderer/src/lib/enfocarPrimerError';
 import { nuevoGrupoEvento } from '../lib/util';
 import { haptics } from '../lib/haptics';
-import { SIN_RED, useExigirConexion } from '../lib/useExigirConexion';
+import { clientaProvisoria, clientasNuevasEnCola, type ClientaNueva } from '../lib/cola';
+import { conEspera, esErrorPasajero } from '../lib/subir-cola';
+import { useConexion } from '../context/ConexionContext';
+import { useCola } from '../context/ColaContext';
 import { BottomSheet } from './BottomSheet';
 import { useSnackbar } from './Snackbar';
 
 interface Props {
   abierto: boolean;
   onCerrar: () => void;
-  onSeleccionar: (clienta: ClienteDetalle) => void;
+  /**
+   * Con `nueva`, la clienta se anotó sin señal y todavía no existe: viaja con
+   * la operación que la use y se crea al subir, antes que ella (C4).
+   */
+  onSeleccionar: (clienta: ClienteDetalle, nueva?: ClientaNueva) => void;
 }
 
 const campo = 'mt-1 min-h-12 w-full rounded-xl border border-borde bg-superficie px-3 py-2 text-base text-texto outline-none focus:border-acento';
@@ -21,7 +29,8 @@ const campo = 'mt-1 min-h-12 w-full rounded-xl border border-borde bg-superficie
 /** Un selector para Vender y Encargos: guardar la ficha es una acción propia. */
 export function SeleccionarClientaSheet({ abierto, onCerrar, onSeleccionar }: Props) {
   const { mostrar } = useSnackbar();
-  const exigirConexion = useExigirConexion();
+  const { enLinea } = useConexion();
+  const { cola } = useCola();
   const [query, setQuery] = useState('');
   const [clientas, setClientas] = useState<ClienteDetalle[]>([]);
   const [cargando, setCargando] = useState(false);
@@ -36,6 +45,8 @@ export function SeleccionarClientaSheet({ abierto, onCerrar, onSeleccionar }: Pr
   const [idCreado, setIdCreado] = useState<number | null>(null);
   const ocupado = useRef(false);
   const idGuardado = useRef<number | null>(null);
+  /** El mismo en el intento con señal y en la cola, mientras el alta esté abierta (C4). */
+  const operacionClienta = useRef<string | null>(null);
   const sigueAbierto = useRef(abierto);
   sigueAbierto.current = abierto;
   const formulario = useRef<HTMLDivElement>(null);
@@ -52,6 +63,7 @@ export function SeleccionarClientaSheet({ abierto, onCerrar, onSeleccionar }: Pr
     setErrorGuardar('');
     setIdCreado(null);
     idGuardado.current = null;
+    operacionClienta.current = null;
   }, [abierto]);
 
   useEffect(() => {
@@ -86,17 +98,28 @@ export function SeleccionarClientaSheet({ abierto, onCerrar, onSeleccionar }: Pr
       enfocarPrimerError(formulario.current);
       return;
     }
-    if (!exigirConexion(SIN_RED.clienta, setErrorGuardar)) return;
     haptics.impact('medium');
+    const datos = { nombre: nombre.trim(), telefono: telefono.trim() || undefined };
+    // Si se guardó y sólo se perdió la respuesta, al subir se encuentra su
+    // marca y no se crea otra (C4).
+    const operacion_id = (operacionClienta.current ??= nuevoGrupoEvento());
+    if (!enLinea && idGuardado.current === null) {
+      anotarSinSenal({ operacion_id, datos });
+      return;
+    }
     ocupado.current = true;
     setGuardando(true);
     setErrorGuardar('');
     try {
       // Si guardar funcionó y leer la ficha falló, reintentar no crea otra.
       if (idGuardado.current === null) {
-        idGuardado.current = await ClientesRepoFirestore.guardar({
-          nombre: nombre.trim(), telefono: telefono.trim() || undefined,
-        }, nuevoGrupoEvento());
+        try {
+          idGuardado.current = await conEspera(ClientesRepoFirestore.guardar(datos, nuevoGrupoEvento(), operacion_id));
+        } catch (error) {
+          if (!esErrorPasajero(error)) throw error;
+          if (sigueAbierto.current) anotarSinSenal({ operacion_id, datos });
+          return;
+        }
         setIdCreado(idGuardado.current);
       }
       const clienta = await ClientesRepoFirestore.getById(idGuardado.current);
@@ -115,6 +138,23 @@ export function SeleccionarClientaSheet({ abierto, onCerrar, onSeleccionar }: Pr
     }
   }
 
+  /** Sin señal no se guarda: viaja con lo que se anote y se crea al subir (C4). */
+  function anotarSinSenal(nueva: ClientaNueva) {
+    onSeleccionar(clientaProvisoria(nueva), nueva);
+    mostrar(`Clienta "${nueva.datos.nombre}" anotada: se guarda cuando vuelva la señal`, 'info');
+  }
+
+  function elegirAnotada(nueva: ClientaNueva) {
+    haptics.selection();
+    onSeleccionar(clientaProvisoria(nueva), nueva);
+  }
+
+  // Las anotadas sin señal que todavía no subieron, para elegirlas otra vez
+  // sin crearlas dos veces.
+  const anotadas = clientasNuevasEnCola(cola).filter(
+    (n) => !query.trim() || algunoContiene([n.datos.nombre, n.datos.telefono], query)
+  );
+
   function cerrarAlta() {
     setCrear(false);
     setNombre('');
@@ -123,6 +163,7 @@ export function SeleccionarClientaSheet({ abierto, onCerrar, onSeleccionar }: Pr
     setErrorGuardar('');
     setIdCreado(null);
     idGuardado.current = null;
+    operacionClienta.current = null;
   }
 
   return <>
@@ -138,6 +179,14 @@ export function SeleccionarClientaSheet({ abierto, onCerrar, onSeleccionar }: Pr
         className="min-h-12 rounded-xl border border-acento-suave bg-acento-suave px-3 text-sm font-bold text-acento-fuerte">
         <UserPlus size={17} className="mr-2 inline" />+ Crear nueva clienta ahora
       </button>
+      {anotadas.length > 0 && <div className="flex flex-col divide-y divide-borde">
+        {anotadas.map((nueva) => <button key={nueva.operacion_id} type="button" onClick={() => elegirAnotada(nueva)}
+          className="flex min-h-12 items-center justify-between gap-3 rounded-xl px-2 py-3 text-left">
+          <span><span className="block text-sm font-bold">{nueva.datos.nombre}</span>
+            <span className="block text-xs text-alerta-fuerte">Anotada sin señal · se guarda al subir</span>
+          </span><span className="text-xs font-bold text-acento-fuerte">Elegir</span>
+        </button>)}
+      </div>}
       {cargando ? <p role="status" className="py-3 text-sm text-texto-2">Buscando clientas…</p>
         : errorBusqueda ? <div role="alert" className="text-sm text-peligro-fuerte">
           <p>{errorBusqueda}</p>

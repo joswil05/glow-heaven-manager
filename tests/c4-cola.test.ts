@@ -6,7 +6,17 @@
  */
 import { describe, it, expect } from 'vitest';
 import { IDBFactory } from 'fake-indexeddb';
-import { encolar, marcar, quitar, retomar, siguiente, type EnCola } from '../mobile/src/lib/cola';
+import {
+  clientaProvisoria,
+  clientasNuevasEnCola,
+  encolar,
+  marcar,
+  quitar,
+  retomar,
+  siguiente,
+  type ClientaNueva,
+  type EnCola,
+} from '../mobile/src/lib/cola';
 import { abrirAlmacenCola } from '../mobile/src/lib/cola-local';
 
 function enCola(id: string, estado: EnCola['estado'] = 'PENDIENTE'): EnCola {
@@ -131,5 +141,27 @@ describe('La cola guardada en el teléfono', () => {
     await almacen.guardar('uid-ross', [a]);
     expect(await almacen.leer('uid-ross')).toEqual([a]);
     expect(aperturas).toBe(2);
+  });
+});
+
+describe('Las clientas anotadas sin señal', () => {
+  const clienta = { operacion_id: 'c1', datos: { nombre: 'Maritza', telefono: '88001122' } };
+  const venta = (id: string, estado: EnCola['estado'], nueva: ClientaNueva = clienta): EnCola => ({
+    ...enCola(id, estado),
+    operacion: {
+      tipo: 'VENTA',
+      input: { fecha: '2026-10-11', tipo: 'INVENTARIO', lineas: [{ descripcion: 'Suelto', cantidad: 1, precio_unitario_usd_cents: 500 }] },
+      clienta_nueva: nueva,
+    },
+  });
+
+  it('se ofrecen una vez cada una, mientras no subieron', () => {
+    const otra = { operacion_id: 'c2', datos: { nombre: 'Lucía' } };
+    const cola = [venta('a', 'PENDIENTE'), venta('b', 'REVISAR'), venta('c', 'SUBIDA', otra), enCola('d')];
+    expect(clientasNuevasEnCola(cola)).toEqual([clienta]);
+  });
+
+  it('se muestran con el nombre escrito y sin id todavía', () => {
+    expect(clientaProvisoria(clienta)).toMatchObject({ id: 0, nombre: 'Maritza', telefono: '88001122', activo: true });
   });
 });

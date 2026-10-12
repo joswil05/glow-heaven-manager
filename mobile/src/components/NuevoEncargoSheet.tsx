@@ -1,13 +1,17 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { Plus, Trash2, UserRound } from 'lucide-react';
 import type { ClienteDetalle } from '@shared/types';
+import type { CrearVentaInput } from '@shared/ipc-contracts';
 import { VentasRepoFirestore } from '@repos/ventas.repo';
 import { parsearACentavos } from '@core/numeros';
 import { enfocarPrimerError } from '../../../src/renderer/src/lib/enfocarPrimerError';
 import { useDatosNegocio } from '../context/DataContext';
+import { useConexion } from '../context/ConexionContext';
+import { useCola } from '../context/ColaContext';
 import { hoyISO, nuevoGrupoEvento } from '../lib/util';
 import { haptics } from '../lib/haptics';
-import { SIN_RED, useExigirConexion } from '../lib/useExigirConexion';
+import type { ClientaNueva } from '../lib/cola';
+import { conEspera, esErrorPasajero } from '../lib/subir-cola';
 import { BottomSheet } from './BottomSheet';
 import { SeleccionarClientaSheet } from './SeleccionarClientaSheet';
 import { useSnackbar } from './Snackbar';
@@ -15,7 +19,8 @@ import { useSnackbar } from './Snackbar';
 interface Props {
   abierto: boolean;
   onCerrar: () => void;
-  onGuardado: (id: number) => void;
+  /** El número del pedido, o `null` si quedó en la cola sin señal (C4). */
+  onGuardado: (id: number | null) => void;
 }
 
 interface Pieza {
@@ -35,9 +40,12 @@ function piezaEscrita(pieza: Pieza): boolean {
 export function NuevoEncargoSheet({ abierto, onCerrar, onGuardado }: Props) {
   const { marcarCambio } = useDatosNegocio();
   const { mostrar } = useSnackbar();
-  const exigirConexion = useExigirConexion();
+  const { enLinea } = useConexion();
+  const { encolar } = useCola();
   const secuencia = useRef(1);
   const [clienta, setClienta] = useState<ClienteDetalle | null>(null);
+  /** Anotada sin señal: todavía no existe, se crea al subir el pedido (C4). */
+  const [clientaNueva, setClientaNueva] = useState<ClientaNueva | null>(null);
   const [eligiendoClienta, setEligiendoClienta] = useState(false);
   const [piezas, setPiezas] = useState<Pieza[]>([{ clave: 0, descripcion: '', cantidad: '1', precio: '' }]);
   const [notas, setNotas] = useState('');
@@ -54,6 +62,7 @@ export function NuevoEncargoSheet({ abierto, onCerrar, onGuardado }: Props) {
   useEffect(() => {
     if (!abierto) return;
     setClienta(null);
+    setClientaNueva(null);
     setEligiendoClienta(false);
     setPiezas([{ clave: secuencia.current++, descripcion: '', cantidad: '1', precio: '' }]);
     setNotas('');
@@ -122,16 +131,50 @@ export function NuevoEncargoSheet({ abierto, onCerrar, onGuardado }: Props) {
       enfocarPrimerError(formulario.current);
       return;
     }
-    if (!exigirConexion(SIN_RED.encargo, setErrorGuardar)) return;
     haptics.impact('medium');
     ocupado.current = true;
     setGuardando(true);
     setErrorGuardar('');
     try {
-      const ventaId = await VentasRepoFirestore.crear({
-        tipo: 'ENCARGO', cliente_id: clienta.id, fecha: hoyISO(),
-        lineas, notas: notas.trim() || undefined,
-      }, nuevoGrupoEvento());
+      const grupo = nuevoGrupoEvento();
+      // El mismo en el intento con señal y en la cola (C4).
+      const operacion_id = nuevoGrupoEvento();
+      const input: CrearVentaInput = {
+        tipo: 'ENCARGO',
+        // Una clienta anotada sin señal todavía no tiene id: lo pone la cola.
+        cliente_id: clientaNueva ? undefined : clienta.id,
+        fecha: hoyISO(),
+        lineas,
+        notas: notas.trim() || undefined,
+      };
+
+      // Con señal se guarda ya. Sin señal, o si se cae en el medio, queda en
+      // el teléfono y se sube solo; con una clienta anotada sin señal va por
+      // la cola, que la crea primero.
+      let ventaId: number | null = null;
+      if (enLinea && !clientaNueva) {
+        try {
+          ventaId = await conEspera(VentasRepoFirestore.crear(input, grupo, operacion_id));
+        } catch (error) {
+          if (!esErrorPasajero(error)) throw error;
+        }
+      }
+
+      if (ventaId === null) {
+        encolar({
+          operacion_id,
+          grupo,
+          operacion: { tipo: 'ENCARGO', input, clienta_nueva: clientaNueva ?? undefined },
+          resumen: {
+            titulo: clienta.nombre,
+            detalle: lineas.map((l) => `${l.cantidad} × ${l.descripcion}`).join(', '),
+            monto_usd_cents: total,
+          },
+        });
+        mostrar(enLinea ? 'Pedido anotado. Se está subiendo.' : 'Pedido anotado. Se sube solo cuando vuelva la señal.', 'info');
+        onGuardado(null);
+        return;
+      }
       marcarCambio();
       mostrar('Pedido anotado', 'success');
       onGuardado(ventaId);
@@ -163,6 +206,7 @@ export function NuevoEncargoSheet({ abierto, onCerrar, onGuardado }: Props) {
             className="mt-1 flex min-h-12 w-full items-center gap-3 rounded-xl border border-borde bg-superficie-2 px-3 py-2 text-left text-base font-semibold disabled:opacity-60">
             <UserRound size={18} className="shrink-0 text-texto-2" />{clienta?.nombre || 'Elegir clienta'}
           </button>
+          {clientaNueva && <p className="mt-1 text-sm font-semibold text-alerta-fuerte">Nueva · se guarda al subir el pedido</p>}
           {errorClienta && <p id={`${id}-error-clienta`} className="mt-1 text-sm text-peligro-fuerte">{errorClienta}</p>}
         </div>
 
@@ -219,7 +263,7 @@ export function NuevoEncargoSheet({ abierto, onCerrar, onGuardado }: Props) {
       </div>
     </BottomSheet>
     <SeleccionarClientaSheet abierto={abierto && eligiendoClienta} onCerrar={() => setEligiendoClienta(false)}
-      onSeleccionar={(elegida) => { setClienta(elegida); setErrorClienta(''); setEligiendoClienta(false); }} />
+      onSeleccionar={(elegida, nueva) => { setClienta(elegida); setClientaNueva(nueva ?? null); setErrorClienta(''); setEligiendoClienta(false); }} />
     <BottomSheet abierto={abierto && quitar !== null} rol="alertdialog" titulo="¿Quitar esta pieza?"
       onCerrar={() => setQuitar(null)} footer={<div className="grid grid-cols-2 gap-2">
         <button type="button" autoFocus onClick={() => { haptics.selection(); setQuitar(null); }}
