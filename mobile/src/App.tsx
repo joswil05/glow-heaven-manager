@@ -17,6 +17,8 @@ import { RegistrarPaqueteView } from './views/RegistrarPaqueteView';
 import { EncargosView } from './views/EncargosView';
 import { BottomNav } from './components/BottomNav';
 import { FranjaSinConexion } from './components/FranjaSinConexion';
+import { BarraCola, BotonPendientes, useAvisoCola } from './components/AvisoCola';
+import { PendientesSheet } from './components/PendientesSheet';
 import { SnackbarProvider } from './components/Snackbar';
 
 // `ajustes` no esta en el dock: se toca cada varias semanas y el dock es
@@ -218,6 +220,10 @@ function AppContenido() {
 function Navegacion() {
   const { parametros, sinDatosGuardados } = useDatosNegocio();
   const { enLinea, datosDe } = useConexion();
+  // Lo que espera subir y lo que hay que revisar (C4): en la franja sin red,
+  // en una barra con red.
+  const aviso = useAvisoCola();
+  const hayFranjaArriba = !enLinea || aviso.barraConRed;
   const exigirConexion = useExigirConexion();
   const [vista, setVista] = useState<Vista>('panel');
   const [origenEncargos, setOrigenEncargos] = useState<'panel' | 'vender'>('panel');
@@ -256,10 +262,17 @@ function Navegacion() {
 
   return (
         <div className="flex flex-col h-[100dvh] overflow-hidden bg-fondo text-texto transition-colors duration-200">
-          {!enLinea && <FranjaSinConexion datosDe={datosDe} />}
+          {!enLinea && (
+            <FranjaSinConexion datosDe={datosDe}>
+              {aviso.texto && <BotonPendientes texto={aviso.texto} onAbrir={aviso.abrirPendientes} />}
+            </FranjaSinConexion>
+          )}
+          {aviso.barraConRed && aviso.texto && (
+            <BarraCola texto={aviso.texto} revisar={aviso.hayParaRevisar} onAbrir={aviso.abrirPendientes} />
+          )}
           <div
             className="flex-1 min-h-0 relative"
-            style={enLinea ? undefined : ({ '--safe-t': '0px' } as CSSProperties)}
+            style={hayFranjaArriba ? ({ '--safe-t': '0px' } as CSSProperties) : undefined}
           >
             {sinDatosGuardados && !parametros && (
               <div className="absolute inset-0 z-10 flex items-center justify-center bg-fondo p-6">
@@ -323,6 +336,7 @@ function Navegacion() {
             )}
           </div>
           {vista !== 'ajustes' && vista !== 'registrar-paquete' && vista !== 'encargos' && <BottomNav actual={vista} onCambiar={setVista} />}
+          <PendientesSheet />
         </div>
   );
 }

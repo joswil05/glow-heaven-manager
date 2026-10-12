@@ -58,6 +58,10 @@ interface ColaState {
   /** Vuelve a la fila una que había que revisar. */
   reintentar: (operacion_id: string) => void;
   subir: () => Promise<ResumenSubida | null>;
+  /** La hoja de "Pendientes": una sola para toda la app (C4 · T7). */
+  hojaAbierta: boolean;
+  abrirPendientes: () => void;
+  cerrarPendientes: () => void;
 }
 
 interface Sesion {
@@ -75,6 +79,9 @@ export function ColaProvider({ children }: { children: ReactNode }) {
   const { marcarCambio, recargarProductos } = useDatosNegocio();
   const [cola, setCola] = useState<EnCola[]>([]);
   const [persistente, setPersistente] = useState(true);
+  const [hojaAbierta, setHojaAbierta] = useState(false);
+  const abrirPendientes = useCallback(() => setHojaAbierta(true), []);
+  const cerrarPendientes = useCallback(() => setHojaAbierta(false), []);
   const sesion = useRef<Sesion | null>(null);
   const enLineaRef = useRef(enLinea);
   enLineaRef.current = enLinea;
@@ -223,7 +230,11 @@ export function ColaProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <Contexto.Provider value={{ cola, persistente, encolar, quitar, reintentar, subir }}>{children}</Contexto.Provider>
+    <Contexto.Provider
+      value={{ cola, persistente, encolar, quitar, reintentar, subir, hojaAbierta, abrirPendientes, cerrarPendientes }}
+    >
+      {children}
+    </Contexto.Provider>
   );
 }
 

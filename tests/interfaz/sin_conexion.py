@@ -70,6 +70,18 @@ def registrar_venta(page: Page) -> None:
     page.get_by_role("dialog").last.get_by_role("button", name="Registrar venta").click()
 
 
+def cerrar_venta_hecha(page: Page) -> None:
+    """
+    Si un caso anterior dejó la pantalla de "Venta registrada", vuelve al
+    catálogo: si no, un caso que falla arrastra a los que vienen después.
+    """
+    ir_a(page, "Vender")
+    otra = visible(page, "button", "Nueva venta rápida")
+    if otra is not None:
+        otra.click()
+        page.wait_for_timeout(500)
+
+
 def cargar_con_red(page: Page) -> None:
     """Recorre lo que después se va a mirar sin red, para que quede en la caché."""
     for pestania in ("Cobros", "Inventario", "Inicio"):
@@ -184,6 +196,7 @@ def caso_venta_sin_red(page: Page, contexto: BrowserContext) -> list[str]:
     se sube sola, toma su número y en la base hay una sola.
     """
     fallas = []
+    cerrar_venta_hecha(page)
     ventas_antes = len(listar_coleccion("ventas"))
     en_bodega = stock_en_catalogo(page, "Labial Mate Rojo")
     problema = poner_en_el_carrito(page, "Labial Mate Rojo")
@@ -225,6 +238,7 @@ def caso_venta_cortada(page: Page, contexto: BrowserContext) -> list[str]:
     llegó. Queda en la cola con el mismo identificador y, al volver, la base
     tiene una sola, haya llegado o no la primera vez.
     """
+    cerrar_venta_hecha(page)
     ventas_antes = len(listar_coleccion("ventas"))
     problema = poner_en_el_carrito(page, "Labial Mate Rojo")
     if problema:
@@ -232,7 +246,8 @@ def caso_venta_cortada(page: Page, contexto: BrowserContext) -> list[str]:
     registrar_venta(page)
     contexto.set_offline(True)
     try:
-        expect(page.get_by_text(re.compile(r"Comprobante #V-\d{4}|Pendiente de subir"))).to_be_visible(timeout=20000)
+        # El texto entero: el Historial también dice "Pendiente de subir".
+        expect(page.get_by_text(re.compile(r"Comprobante #V-\d{4}|Pendiente de subir · sin número todavía"))).to_be_visible(timeout=20000)
     finally:
         contexto.set_offline(False)
 
@@ -245,8 +260,18 @@ def caso_venta_cortada(page: Page, contexto: BrowserContext) -> list[str]:
     return [] if nuevas == 1 else [f"con el corte quedaron {nuevas} ventas nuevas y tendría que haber una"]
 
 
+def venta_de_ana() -> dict:
+    return next(v for v in listar_coleccion("ventas") if v.get("codigo") == "V-0001")
+
+
 def saldo_de_ana() -> int:
-    return next(v for v in listar_coleccion("ventas") if v.get("codigo") == "V-0001")["saldo_usd_cents"]
+    return venta_de_ana()["saldo_usd_cents"]
+
+
+def pagos_de_ana() -> list[dict]:
+    """Los de su venta: otra venta que sube a la vez trae su propio pago inicial."""
+    venta = venta_de_ana()["id"]
+    return [p for p in listar_coleccion("pagos") if p.get("venta_id") == venta]
 
 
 def ficha_de_ana(page: Page):
@@ -263,7 +288,7 @@ def caso_abono_sin_red(page: Page, contexto: BrowserContext) -> list[str]:
     la red se sube una vez y el saldo baja lo que se pagó.
     """
     fallas = []
-    pagos_antes = {p.get("id") for p in listar_coleccion("pagos")}
+    pagos_antes = {p.get("id") for p in pagos_de_ana()}
     saldo_antes = saldo_de_ana()
     contexto.set_offline(True)
     try:
@@ -288,12 +313,12 @@ def caso_abono_sin_red(page: Page, contexto: BrowserContext) -> list[str]:
     expect(franja(page)).to_be_hidden(timeout=20000)
     nuevos = []
     for _ in range(60):
-        nuevos = [p for p in listar_coleccion("pagos") if p.get("id") not in pagos_antes]
+        nuevos = [p for p in pagos_de_ana() if p.get("id") not in pagos_antes]
         if nuevos:
             break
         page.wait_for_timeout(500)
     page.wait_for_timeout(2000)
-    nuevos = [p for p in listar_coleccion("pagos") if p.get("id") not in pagos_antes]
+    nuevos = [p for p in pagos_de_ana() if p.get("id") not in pagos_antes]
     if len(nuevos) != 1:
         return [f"al volver la red quedaron {len(nuevos)} abonos nuevos y tendría que haber uno"]
     saldo_despues = saldo_de_ana()
@@ -336,6 +361,7 @@ def caso_pedido_sin_red(page: Page, contexto: BrowserContext) -> list[str]:
     crean una clienta y un encargo con ella, una sola vez.
     """
     fallas = []
+    cerrar_venta_hecha(page)
     ventas_antes = len(listar_coleccion("ventas"))
     clientas_antes = len(listar_coleccion("clientes"))
     contexto.set_offline(True)
@@ -382,6 +408,7 @@ def caso_pedido_sin_red(page: Page, contexto: BrowserContext) -> list[str]:
 def caso_venta_clienta_nueva_sin_red(page: Page, contexto: BrowserContext) -> list[str]:
     """El mismo selector de clienta en Vender: la clienta nueva sube antes que la venta."""
     fallas = []
+    cerrar_venta_hecha(page)
     ventas_antes = len(listar_coleccion("ventas"))
     clientas_antes = len(listar_coleccion("clientes"))
     problema = poner_en_el_carrito(page, "Labial Mate Rojo")
@@ -437,15 +464,6 @@ def dejar_sin_stock(nombre: str) -> None:
         metodo="PATCH", cuerpo={"fields": campos}, cabeceras=duenia,
     )
     assert "error" not in respuesta, respuesta
-
-
-def cerrar_venta_hecha(page: Page) -> None:
-    """Si un caso anterior dejó la pantalla de "Venta registrada", vuelve al catálogo."""
-    ir_a(page, "Vender")
-    otra = visible(page, "button", "Nueva venta rápida")
-    if otra is not None:
-        otra.click()
-        page.wait_for_timeout(500)
 
 
 def aviso_de_la_cola(page: Page, texto: str):

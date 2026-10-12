@@ -9,11 +9,14 @@ import { IDBFactory } from 'fake-indexeddb';
 import {
   clientaProvisoria,
   clientasNuevasEnCola,
+  contarCola,
   encolar,
   marcar,
   quitar,
   retomar,
   siguiente,
+  sinMostrarEnHistorial,
+  textoAviso,
   type ClientaNueva,
   type EnCola,
 } from '../mobile/src/lib/cola';
@@ -163,5 +166,29 @@ describe('Las clientas anotadas sin señal', () => {
 
   it('se muestran con el nombre escrito y sin id todavía', () => {
     expect(clientaProvisoria(clienta)).toMatchObject({ id: 0, nombre: 'Maritza', telefono: '88001122', activo: true });
+  });
+});
+
+describe('Lo que se ve de la cola', () => {
+  it('cuenta lo que espera (pendiente o subiendo) y lo que hay que revisar', () => {
+    const cola = [enCola('a'), enCola('b', 'SUBIENDO'), enCola('c', 'REVISAR'), enCola('d', 'SUBIDA')];
+    expect(contarCola(cola)).toEqual({ pendientes: 2, revisar: 1 });
+    expect(contarCola([])).toEqual({ pendientes: 0, revisar: 0 });
+  });
+
+  it('el aviso pone primero lo que hay que revisar, y sin nada no dice nada', () => {
+    expect(textoAviso({ pendientes: 2, revisar: 1 })).toBe('Para revisar (1) · Pendientes (2)');
+    expect(textoAviso({ pendientes: 1, revisar: 0 })).toBe('Pendientes (1)');
+    expect(textoAviso({ pendientes: 0, revisar: 0 })).toBeNull();
+  });
+
+  it('el Historial muestra lo subido hasta que lo trae, y después no lo repite', () => {
+    const subidaVenta: EnCola = { ...enCola('v', 'SUBIDA'), resultado: { venta_id: 12, codigo: 'V-0012' } };
+    subidaVenta.operacion = { tipo: 'VENTA', input: { fecha: '2026-10-11', tipo: 'INVENTARIO', lineas: [] } };
+    const subidoAbono: EnCola = { ...enCola('p', 'SUBIDA'), resultado: { pago_id: 7 } };
+    const cola = [enCola('a'), subidaVenta, subidoAbono];
+
+    expect(sinMostrarEnHistorial(cola, [], []).map((o) => o.operacion_id)).toEqual(['a', 'v', 'p']);
+    expect(sinMostrarEnHistorial(cola, [{ id: 12 }], [{ id: 7 }]).map((o) => o.operacion_id)).toEqual(['a']);
   });
 });

@@ -15,6 +15,8 @@ import { CotizarEncargoSheet } from '../components/CotizarEncargoSheet';
 import { MandarCotizacionSheet } from '../components/MandarCotizacionSheet';
 import { haptics } from '../lib/haptics';
 import { SIN_RED, useExigirConexion } from '../lib/useExigirConexion';
+import { useCola } from '../context/ColaContext';
+import { sinMostrarEnHistorial } from '../lib/cola';
 
 interface Props {
   onVolver: () => void;
@@ -40,6 +42,9 @@ export function EncargosView({ onVolver, abrirNuevoAlEntrar = false }: Props) {
   const [mandando, setMandando] = useState<VentaCompleta | null>(null);
   const [abono, setAbono] = useState<VentaCobroItem | null>(null);
   const [nuevo, setNuevo] = useState(abrirNuevoAlEntrar);
+  // Los pedidos anotados sin señal (C4), hasta que la lista recargada los trae.
+  const { cola, abrirPendientes } = useCola();
+  const pedidosEnCola = sinMostrarEnHistorial(cola, encargos, []).filter((o) => o.operacion.tipo === 'ENCARGO');
 
   useEffect(() => {
     let vivo = true;
@@ -115,6 +120,28 @@ export function EncargosView({ onVolver, abrirNuevoAlEntrar = false }: Props) {
         </header>
 
         <div className="flex flex-col gap-4 p-3.5">
+          {pedidosEnCola.length > 0 && (
+            <section aria-label="Hecho sin señal">
+              <h2 className="mb-2 px-1 text-sm font-bold text-texto-2">Hecho sin señal</h2>
+              <div className="flex flex-col gap-2">
+                {pedidosEnCola.map((o) => (
+                  <button key={o.operacion_id} type="button" onClick={() => { haptics.selection(); abrirPendientes(); }}
+                    className="tocable flex w-full items-center justify-between gap-3 rounded-2xl border border-dashed border-borde bg-superficie p-3.5 text-left">
+                    <span className="min-w-0">
+                      <span className="block text-xs font-semibold text-texto-3">{o.resultado?.codigo ?? 'Sin número todavía'} · {o.resumen.titulo}</span>
+                      <span className="mt-1 block truncate text-sm font-bold text-texto">{o.resumen.detalle}</span>
+                    </span>
+                    {o.estado !== 'SUBIDA' && (
+                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-bold ${o.estado === 'REVISAR'
+                        ? 'bg-peligro-suave text-peligro-fuerte' : 'bg-alerta-suave text-alerta-fuerte'}`}>
+                        {o.estado === 'REVISAR' ? 'Para revisar' : o.estado === 'SUBIENDO' ? 'Subiendo…' : 'Pendiente de subir'}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
           {cargando ? <p role="status" className="py-8 text-center text-sm text-texto-2">Cargando encargos…</p>
             : error ? <div role="alert" className="rounded-xl border border-peligro-suave bg-peligro-suave p-4 text-peligro-fuerte">
               <p className="text-sm">{error}</p>

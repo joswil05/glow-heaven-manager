@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { History, ShoppingBag, HandCoins, Loader2, FileText, Pencil, Search, X } from 'lucide-react';
+import { History, ShoppingBag, HandCoins, Loader2, FileText, Pencil, Search, X, Package } from 'lucide-react';
 import type { Venta, PagoCompleto } from '@shared/types';
 import { VentasRepoFirestore } from '@repos/ventas.repo';
 import { PagosRepoFirestore } from '@repos/pagos.repo';
@@ -20,6 +20,52 @@ import { CorregirAbonoSheet } from '../components/CorregirAbonoSheet';
 import { haptics } from '../lib/haptics';
 import { SIN_RED, useExigirConexion } from '../lib/useExigirConexion';
 import { AnularOBorrarPanel } from '../components/AnularOBorrarPanel';
+import { useCola } from '../context/ColaContext';
+import { sinMostrarEnHistorial, type EnCola } from '../lib/cola';
+
+/**
+ * Una operación hecha sin señal (C4 · T7). Mientras no sube, "sin número
+ * todavía"; al subir, la misma fila muestra su número hasta que el Historial
+ * recargado la trae.
+ */
+function FilaEnCola({ op, onAbrir }: { op: EnCola; onAbrir: () => void }) {
+  const { tipo } = op.operacion;
+  const Icono = tipo === 'ABONO' ? HandCoins : tipo === 'ENCARGO' ? Package : ShoppingBag;
+  const numero = op.estado === 'SUBIDA' ? op.resultado?.codigo : undefined;
+  const detalle = tipo === 'ABONO' ? op.resumen.detalle : `${tipo === 'ENCARGO' ? 'Pedido' : 'Venta'} · ${numero ?? 'sin número todavía'}`;
+  const estado =
+    op.estado === 'REVISAR'
+      ? { texto: 'Para revisar', clase: 'bg-peligro-suave text-peligro-fuerte' }
+      : op.estado === 'SUBIDA'
+        ? null
+        : { texto: op.estado === 'SUBIENDO' ? 'Subiendo…' : 'Pendiente de subir', clase: 'bg-alerta-suave text-alerta-fuerte' };
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        haptics.selection();
+        onAbrir();
+      }}
+      className="mb-2 flex w-full items-center gap-3 rounded-2xl border border-dashed border-borde bg-superficie p-3 text-left shadow-xs active:scale-[0.99] transition-transform cursor-pointer"
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-superficie-2 text-texto-2">
+        <Icono size={16} aria-hidden="true" />
+      </span>
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="truncate text-body font-bold leading-tight text-texto">{op.resumen.titulo}</span>
+        <span className="truncate text-caption font-medium text-texto-3">{detalle}</span>
+      </div>
+      <div className="flex shrink-0 flex-col items-end gap-0.5">
+        <span className="text-base font-black tabular-nums leading-none text-texto">
+          {formatearMoneda(op.resumen.monto_usd_cents, 'USD')}
+        </span>
+        {estado && (
+          <span className={`rounded-full px-2 py-0.5 text-caption font-bold ${estado.clase}`}>{estado.texto}</span>
+        )}
+      </div>
+    </button>
+  );
+}
 
 /**
  * Historial: qué pasó, y dónde se corrige.
@@ -141,6 +187,19 @@ export function HistorialView() {
   }, [ventas, pagos, filtro, busqueda, corte]);
 
   const hoy = hoyISO();
+
+  // Lo hecho sin señal que el Historial todavía no trae (C4), con el mismo
+  // filtro y la misma búsqueda que el resto.
+  const { cola, abrirPendientes } = useCola();
+  const enCola = useMemo(() => {
+    let lista = sinMostrarEnHistorial(cola, ventas, pagos);
+    if (filtro === 'ventas') lista = lista.filter((o) => o.operacion.tipo !== 'ABONO');
+    if (filtro === 'abonos') lista = lista.filter((o) => o.operacion.tipo === 'ABONO');
+    if (busqueda.trim()) {
+      lista = lista.filter((o) => algunoContiene([o.resumen.titulo, o.resumen.detalle, o.resultado?.codigo], busqueda));
+    }
+    return lista;
+  }, [cola, ventas, pagos, filtro, busqueda]);
 
   function cerrarDetalle() {
     setSeleccionado(null);
@@ -278,10 +337,19 @@ export function HistorialView() {
             </div>
           )}
 
-          {!cargando && items.length === 0 && (
+          {!cargando && items.length === 0 && enCola.length === 0 && (
             <p className="py-16 text-center text-body text-texto-3">
               {busqueda.trim() ? 'Nada coincide con esa búsqueda.' : 'Todavía no hay movimientos.'}
             </p>
+          )}
+
+          {enCola.length > 0 && (
+            <div>
+              <h2 className="px-1 pb-1.5 pt-3 text-caption font-bold uppercase tracking-wider text-texto-3">Hecho sin señal</h2>
+              {enCola.map((o) => (
+                <FilaEnCola key={o.operacion_id} op={o} onAbrir={abrirPendientes} />
+              ))}
+            </div>
           )}
 
           {items.map((it, i) => {

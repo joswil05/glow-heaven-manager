@@ -83,6 +83,44 @@ export function retomar(cola: EnCola[]): EnCola[] {
     .map((o) => (o.estado === 'SUBIENDO' ? { ...o, estado: 'PENDIENTE' as const } : o));
 }
 
+/** Lo que espera señal (o está subiendo) y lo que hay que revisar. */
+export function contarCola(cola: EnCola[]): { pendientes: number; revisar: number } {
+  let pendientes = 0;
+  let revisar = 0;
+  for (const o of cola) {
+    if (o.estado === 'PENDIENTE' || o.estado === 'SUBIENDO') pendientes += 1;
+    else if (o.estado === 'REVISAR') revisar += 1;
+  }
+  return { pendientes, revisar };
+}
+
+/** "Para revisar (1) · Pendientes (2)": lo que necesita a Ross va primero. */
+export function textoAviso(cuenta: { pendientes: number; revisar: number }): string | null {
+  const partes: string[] = [];
+  if (cuenta.revisar > 0) partes.push(`Para revisar (${cuenta.revisar})`);
+  if (cuenta.pendientes > 0) partes.push(`Pendientes (${cuenta.pendientes})`);
+  return partes.length > 0 ? partes.join(' · ') : null;
+}
+
+/**
+ * Lo de la cola que el Historial todavía no trae. Una subida sigue en la
+ * lista, ya con su número, hasta que el Historial recargado la tiene: así la
+ * fila no desaparece y vuelve a aparecer.
+ */
+export function sinMostrarEnHistorial(
+  cola: EnCola[],
+  ventas: { id: number }[],
+  pagos: { id: number }[]
+): EnCola[] {
+  const ventasVistas = new Set(ventas.map((v) => v.id));
+  const pagosVistos = new Set(pagos.map((p) => p.id));
+  return cola.filter((o) => {
+    if (o.estado !== 'SUBIDA') return true;
+    if (o.operacion.tipo === 'ABONO') return !pagosVistos.has(o.resultado?.pago_id ?? -1);
+    return !ventasVistas.has(o.resultado?.venta_id ?? -1);
+  });
+}
+
 /** Cómo se ve una clienta anotada sin señal mientras viaja con su operación. */
 export function clientaProvisoria(nueva: ClientaNueva): ClienteDetalle {
   return {
