@@ -123,7 +123,7 @@ export interface Conexion {
   detener(): void;
 }
 export function crearConexion(entorno: EntornoConexion): Conexion;
-/** "10:42" si es de hoy; "ayer 18:05"; "3 oct 18:05" si es más viejo. */
+/** Lo que sigue a "datos": "de las 10:42", "de ayer a las 18:05", "del 3 oct a las 18:05". */
 export function textoDatosDe(ms: number, ahora: Date): string;
 
 // mobile/src/lib/acceso-movil.ts
@@ -179,7 +179,7 @@ un `navigator` falso: se pide una vez, y sin `storage` no rompe.
 `tests/c3-conexion.test.ts`; `App.tsx`, `DataContext.tsx`.
 **Produce:** `useConexion(): EstadoConexion` y `conexion.sincronizado/desdeCache`.
 
-- [ ] **Paso 1: pruebas rojas del estado**
+- [x] **Paso 1: pruebas rojas del estado**
 
 `tests/c3-conexion.test.ts` con un `EntornoConexion` falso (reloj, almacén
 y eventos en memoria):
@@ -199,7 +199,7 @@ it('al cortarse la red estando sincronizada, guarda ese instante', () => {
 it('si nunca hubo datos del servidor, datosDe es null', () => { /* … */ });
 it('desdeCache no adelanta la hora', () => { /* … */ });
 it('avisa a los suscriptores al cambiar y deja de avisar al desuscribir', () => { /* … */ });
-it('textoDatosDe: hoy "10:42", ayer "ayer 18:05", antes "3 oct 18:05"', () => { /* … */ });
+it('textoDatosDe: "de las 10:42", "de ayer a las 18:05", "del 3 oct a las 18:05"', () => { /* … */ });
 ```
 
 - [ ] **Paso 2: implementar y proveer**
@@ -323,7 +323,7 @@ hoy no cambia.
 `FranjaSinConexion` arriba de `Navegacion` (y de las vistas a pantalla
 completa: Encargos y "Llegó un paquete"), con `pt-safe-t`:
 `role="status"`, icono `WifiOff` de 16 px, `bg-alerta-suave
-text-alerta-fuerte`, texto `Sin conexión · datos de las ${textoDatosDe(...)}`
+text-alerta-fuerte`, texto `Sin conexión · datos ${textoDatosDe(...)}`
 o `Sin conexión · todavía no hay datos guardados`. Sin animación. No tapa
 nada: empuja el contenido. Pasar el caso rojo de T3.
 
