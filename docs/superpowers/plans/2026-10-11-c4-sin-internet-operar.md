@@ -203,7 +203,7 @@ API con `gcloud`) antes y después.
   llegada; `siguiente` da la PENDIENTE más vieja e ignora REVISAR y
   SUBIDA; `quitar` saca sólo esa; una operación SUBIENDO al abrir la app
   (se cerró a mitad) vuelve a PENDIENTE.
-- [ ] **Paso 2: implementar `cola.ts`**, sin React ni IndexedDB.
+- [x] **Paso 2: implementar `cola.ts`**, sin React ni IndexedDB.
 - [ ] **Paso 3: `cola-local.ts`**: una base `gh-cola` con un almacén; leer
   todo, guardar todo. Si IndexedDB falla (Safari privado), la cola vive en
   memoria y la interfaz lo dice ("Lo pendiente no queda guardado si cerrás
