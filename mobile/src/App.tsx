@@ -21,6 +21,7 @@ export type Vista = 'panel' | 'vender' | 'cobranza' | 'historial' | 'inventario'
 
 import { ShieldAlert, WifiOff } from 'lucide-react';
 import { usandoEmuladorLocal } from './lib/firebase-mobile';
+import { pedirAlmacenamientoPersistente } from './lib/almacenamiento-movil';
 import type { ResultadoAcceso as EstadoAcceso } from '../../src/main/firebase/repositories/accesos.repo';
 
 /**
@@ -189,6 +190,12 @@ function Navegacion() {
    * estuviera haciendo.
    */
   const inicioAplicado = useRef(false);
+
+  // Una vez por sesión, ya adentro: que el teléfono no borre lo guardado,
+  // que es lo que la app muestra sin señal (C3).
+  useEffect(() => {
+    void pedirAlmacenamientoPersistente(navigator);
+  }, []);
 
   useEffect(() => {
     if (inicioAplicado.current || !parametros) return;

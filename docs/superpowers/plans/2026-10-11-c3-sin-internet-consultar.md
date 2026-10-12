@@ -166,7 +166,7 @@ desde Safari. Es lo que el diseño deja abierto: cuánto aguanta la caché en
 un iPhone. Con la cuenta de la dueña el acceso ya pasa sin red, así que lo
 que se mide es la caché y la sesión.
 
-- [ ] **Paso 2: pedir que el teléfono no borre los datos**
+- [x] **Paso 2: pedir que el teléfono no borre los datos**
 
 Después de entrar, una vez por sesión y sin esperar el resultado:
 `navigator.storage?.persist?.()`. En un iPhone con la app instalada suele
