@@ -207,6 +207,13 @@ export function leerPieza(
   return { errores, lineas };
 }
 
+/** "3 unidades", o "2 packs × 5 = 10 unidades". */
+export function textoCantidad(l: Pick<LineaCompraInput, 'cantidad' | 'es_multipack' | 'packs_comprados' | 'unidades_por_pack'>): string {
+  const unidades = `${l.cantidad} ${l.cantidad === 1 ? 'unidad' : 'unidades'}`;
+  if (!l.es_multipack || !l.packs_comprados || !l.unidades_por_pack) return unidades;
+  return `${l.packs_comprados} ${l.packs_comprados === 1 ? 'pack' : 'packs'} × ${l.unidades_por_pack} = ${unidades}`;
+}
+
 /**
  * Una línea guardada, de vuelta como se escribió. El peso que salió del
  * reparto no es un peso escrito: vuelve vacío para que se siga estimando
@@ -318,6 +325,8 @@ export function efectosDelPaquete(
 
   for (const [k, suyas] of grupos) {
     const p = k.startsWith('p') ? productos.find((x) => `p${x.id}` === k) : undefined;
+    // Sin sus datos no hay de dónde sacar el precio: mejor no decir nada.
+    if (k.startsWith('p') && !p) continue;
     // Uno que nace al recibir: sin categoría, por margen, como lo crea `recibir`.
     const antes: ProductoAntesDelPaquete = p
       ? {

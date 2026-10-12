@@ -28,6 +28,7 @@ import {
   lineaDeGuardada,
   piezasQuePuedenVenir,
   resumenParaRecibir,
+  textoCantidad,
   textosDeLinea,
   textosParaProducto,
   type TextosPieza,
@@ -176,6 +177,13 @@ describe('editar una línea que ya está en el paquete', () => {
     expect(leerPieza({ ...t, precio: '4' }, linea, { original: linea }).lineas[0].precio_linea_usd_cents).toBe(1200);
   });
 
+  it('la lista dice cuántas vinieron y cómo', () => {
+    expect(textoCantidad({ ...linea, cantidad: 1 })).toBe('1 unidad');
+    expect(textoCantidad(linea)).toBe('3 unidades');
+    expect(textoCantidad({ ...linea, cantidad: 10, es_multipack: true, packs_comprados: 2, unidades_por_pack: 5 })).toBe('2 packs × 5 = 10 unidades');
+    expect(textoCantidad({ ...linea, cantidad: 3, es_multipack: true, packs_comprados: 1, unidades_por_pack: 3 })).toBe('1 pack × 3 = 3 unidades');
+  });
+
   it('una línea en pack vuelve en pack', () => {
     const pack: LineaCompraInput = { ...linea, cantidad: 10, precio_linea_usd_cents: 4000, es_multipack: true, packs_comprados: 2, unidades_por_pack: 5, precio_por_pack_usd_cents: 2000 };
     expect(textosDeLinea(pack)).toMatchObject({ enPack: true, filas: [{ variante_id: 1, texto: '2' }], unidadesPorPack: '5', precio: '20.00' });
@@ -264,6 +272,11 @@ describe('cómo queda cada producto: el precio antes y después', () => {
     const existente = producto({ id: 9, nombre: 'cartera nueva', precio_venta_usd_cents: 2000, modo_precio: 'MANUAL', precio_manual_usd_cents: 2000 });
     expect(claveDeProducto(lineas[0], [existente])).toBe('p9');
     expect(efectosDelPaquete(lineas, calc, [existente], ctx).get('p9')?.precio_despues_usd_cents).toBe(2000);
+  });
+
+  it('si el producto de una línea todavía no se cargó, no inventa un precio: no dice nada', () => {
+    const lineas: LineaCompraInput[] = [{ id: 1, ...BASE, cantidad: 1, precio_linea_usd_cents: 1000, destino: 'INVENTARIO' }];
+    expect(efectosDelPaquete(lineas, calcularVista(lineas, datos), [], ctx).size).toBe(0);
   });
 
   it('al corregir, el cambio de costo va al lote de la línea, sólo en lo que queda de él', () => {
