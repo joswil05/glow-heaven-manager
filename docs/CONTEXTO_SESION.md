@@ -18,8 +18,10 @@
 > reconstruidos), el 11/10 la **`v2.18.0`**, con las fases C1 y C2
 > (inventario por paquete y el inventario y los encargos en el celular), y
 > ese mismo día la **`v2.18.1`**: el flete del paquete sale de las libras y
-> el impuesto es siempre el de Configuración. El plan de C3 (sin internet:
-> consultar) está escrito y sin empezar. Claude
+> el impuesto es siempre el de Configuración. Después, en `master` sin
+> publicar: **C3 cerrada** (sin internet: consultar) y **"Llegó un paquete"
+> igual al editor de Windows**. El plan de C4 está escrito y espera dos
+> decisiones de Joswill. Claude
 > Code y Codex trabajan **en relevo**: dónde quedó cada uno está en
 > [RELEVO.md](RELEVO.md).
 > **Última actualización**: 11 de octubre de 2026.
@@ -56,8 +58,17 @@ antes de parar. Este apartado es el resto de lo mínimo para retomar.
   paso 5, el PDF automático: Joswill decidió el 2/10 a las 22:52 conservar
   la impresión actual. No integrar la candidata (html2pdf) ni retomar su
   investigación sin que él lo pida.
-- **C3 · Sin internet: consultar** tiene su plan, escrito el 11/10 y sin
-  empezar: [superpowers/plans/2026-10-11-c3-sin-internet-consultar.md](superpowers/plans/2026-10-11-c3-sin-internet-consultar.md). Se empieza cuando Joswill lo diga.
+- **C3 · Sin internet: consultar está cerrada** (11/10, sin publicar):
+  [superpowers/plans/2026-10-11-c3-sin-internet-consultar.md](superpowers/plans/2026-10-11-c3-sin-internet-consultar.md).
+  Sus pruebas sin red corren con `npm run test:sin-conexion` (build real
+  con `vite preview` en el 5175, apuntado al emulador). Falta la prueba en
+  el iPhone.
+- **"Llegó un paquete" en el celular es igual de completo que el editor de
+  Windows** (pedido de Joswill del 11/10; merge `4ca3acd`, sin publicar).
+- **C4 · Sin internet: operar**: [plan](superpowers/plans/2026-10-11-c4-sin-internet-operar.md)
+  escrito, sin empezar; antes, Joswill decide la tasa de una venta sin red
+  y el número que se fija al subir. Necesita desplegar una regla nueva
+  (`operaciones`) antes que el código.
 - El diseño de las cuatro fases del celular (C1 a C4), con las decisiones de
   Joswill, está en
   [superpowers/specs/2026-10-02-fases-del-celular-design.md](superpowers/specs/2026-10-02-fases-del-celular-design.md).

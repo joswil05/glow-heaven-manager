@@ -702,10 +702,17 @@ Joswill (2/10): se usa la impresión actual. Verificación conjunta: 628 unitari
 Falta la prueba física en el iPhone de Ross (impresión, WhatsApp,
 Deshacer).
 
-**Estado C3 al 11/10:** [plan escrito](superpowers/plans/2026-10-11-c3-sin-internet-consultar.md), sin implementar. La caché
-de Firestore, la sesión y el service worker ya existen; faltan el acceso
-sin red, no inventar parámetros, la franja, los avisos de cada escritura,
-las fuentes en caché y un corredor de pruebas con el build real.
+**Estado C3 al 11/10:** completa en `master`, sin publicar
+([plan](superpowers/plans/2026-10-11-c3-sin-internet-consultar.md)). Sin
+señal el celular abre con lo último que cargó y la franja "Sin conexión ·
+datos de las 10:42"; entra con el acceso recordado; no inventa parámetros
+ni escribe valores de fábrica; lo que escribe avisa en vez de colgarse; la
+letra queda guardada. Corredor nuevo `npm run test:sin-conexion` con el
+build real. Falta la prueba física en el iPhone.
+
+**Estado C4 al 11/10:** [plan escrito](superpowers/plans/2026-10-11-c4-sin-internet-operar.md),
+sin empezar; espera dos decisiones de Joswill (la tasa de una venta sin red
+y el número al subir).
 
 Los IDs de la tercera columna salieron de las fases 3 a 6: son de pantallas que estas fases rehacen, y no se tocan dos veces. El plan de implementación de C1, tarea por tarea, está en [superpowers/plans/2026-10-02-c1-inventario-por-paquete.md](superpowers/plans/2026-10-02-c1-inventario-por-paquete.md). Reemplazan las versiones 2.17, 2.18 y 2.19 de [PLAN_ENCARGOS_Y_SIN_CONEXION.md](PLAN_ENCARGOS_Y_SIN_CONEXION.md).
 

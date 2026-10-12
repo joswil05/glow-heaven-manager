@@ -23,8 +23,11 @@ vite-plugin-pwa (`generateSW`), Vitest, Playwright Python.
 **Diseño:** [2026-10-02-fases-del-celular-design.md](../specs/2026-10-02-fases-del-celular-design.md),
 sección C3, "Criterios de diseño" y "Lo que queda abierto".
 
-**Estado:** plan escrito el 11/10/2026, sin implementar. C1 y C2 están
-publicadas en la 2.18.0; la 2.18.1 trajo el flete por libras.
+**Estado:** **cerrada el 11/10/2026 en `master`, sin publicar.** Falta sólo
+la prueba física en el iPhone (T1 paso 1 y la de T7 paso 2), que Playwright
+no cubre. Siguiente: C4, con su
+[plan](2026-10-11-c4-sin-internet-operar.md), cuando Joswill responda sus
+dos decisiones.
 
 ## Reglas para todas las tareas
 
@@ -445,7 +448,7 @@ da `true` (con red se cargó al menos una vez).
 > control) y se vacía el caché HTTP antes de cortar la red. Vista en rojo
 > sin la regla de las fuentes.
 
-- [ ] **Paso 2: verificar y cerrar C3**
+- [x] **Paso 2: verificar y cerrar C3**
 
 Correr en serie: `npm test`, `npm run typecheck`,
 `npx tsc -p mobile/tsconfig.json --noEmit`, `npm run test:emulador`,
@@ -463,3 +466,9 @@ igual); cortar la señal con una hoja de abono abierta y ver el aviso.
 Actualizar CONTEXTO_SESION, el estado de C3 en la auditoría y RELEVO.
 **Siguiente paso: escribir el plan de C4**, sin implementarlo ni publicar.
 Commit de cierre.
+
+> **Cerrado el 11/10 (Claude Code).** Todas las suites en verde con el
+> paquete nuevo integrado: 694 unitarias, 108 emulador, 50 casos móvil,
+> 4 sin red, 43 Windows, tipos y `build:mobile`. Capturas a 390 px en
+> claro y oscuro: la franja no tapa título ni barra. El plan de C4 quedó
+> escrito antes del cierre (`a668e6d`).

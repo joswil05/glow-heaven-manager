@@ -81,9 +81,11 @@ se trabaja**.
   por libra de Configuración; el impuesto es siempre el porcentaje de
   Configuración, sin campo para el del recibo (`fleteDePeso` y
   `fleteDelPaquete` en `src/core/paquete.ts`).
-- **Siguiente paso**: **C3 · T2 · paso 1** (pruebas rojas del estado de la
-  conexión), cuando Joswill diga de empezar C3. T1 paso 1 es la prueba de
-  Joswill en el iPhone con la 2.18.1 y no bloquea el resto.
+- **C3 cerrada el 11/10, sin publicar** ([plan](superpowers/plans/2026-10-11-c3-sin-internet-consultar.md)):
+  falta sólo la prueba física en el iPhone (T1 paso 1 y la de T7 paso 2).
+- **"Llegó un paquete" igual al editor de Windows** (pedido de Joswill del
+  11/10), integrado en `master` (merge `4ca3acd`), sin publicar.
+- **Siguiente paso**: **C4 · T1**, cuando Joswill responda las dos decisiones del [plan de C4](superpowers/plans/2026-10-11-c4-sin-internet-operar.md) (la tasa de una venta sin red y el número al subir). Publicar C3 y el paquete nuevo pide su "publicalo".
 - **C1**: T1 a T4 completas, publicadas en la 2.18.0; cierre documentado
   en `ddc0fc7`. Emulador apagado.
 - **Trampa conocida**: `npm run test:emulador` y `npm run test:interfaz`
@@ -112,6 +114,53 @@ Formato de cada entrada:
 - Sigue: el paso exacto del plan.
 - Para Joswill: lo que necesita decidir o probar (o "nada").
 ```
+
+### 2026-10-11 19:50 · Claude Code
+- Hizo: **C3 · sin internet: consultar**, entera, y la integración de
+  **"Llegó un paquete" igual al editor de Windows**, que hizo un agente en
+  su worktree por pedido de Joswill.
+  - C3: almacenamiento persistente (T1 p2); estado de la conexión con la
+    hora de los datos (`lib/conexion-movil.ts`, `ConexionContext`; T2);
+    corredor `npm run test:sin-conexion` con el build real y `vite preview`
+    en el 5175 (T3); entrar sin señal con el acceso recordado por cuenta
+    (`lib/acceso-movil.ts`; T4); sin valores inventados (`getParametros` y
+    `getCategorias` no escriben defectos sin red ni desde la caché;
+    `DataContext` no usa `DEFAULT_PARAMS` sin red), la franja "Sin
+    conexión · datos de las 10:42" y cada pantalla con lo suyo (T5); el
+    guardián `useExigirConexion` en cada escritura (T6); las fuentes en la
+    caché del service worker (T7 p1).
+  - Cambio de diseño: "en línea" también cuenta a Firestore (más de 3 s
+    sirviendo desde la caché es sin conexión), porque `navigator.onLine`
+    miente con un Wi-Fi sin internet. Está en el plan.
+  - El paquete del agente (rama `worktree-agent-a882854084b446241`, 5
+    commits): packs, impuesto por línea, tallas en una hoja, producto nuevo
+    con ficha, editar una pieza, piezas de encargo, otros gastos, cuenta en
+    vivo, confirmar antes de recibir, resumen, corregir un paquete ya
+    recibido y eliminar un borrador con Deshacer. Las cuentas salen del
+    núcleo. Le puse el guardián sin red por dentro.
+- Commits: de `d4620ab` a este, en `master`, sin push.
+- Pruebas: 694 unitarias, 108 emulador, 50 casos móvil (con los 4 nuevos del paquete), 4 sin red y sin errores de consola, 43 Windows; tipos de las dos apps, build:mobile y git diff --check. Capturas a 390 px en claro y oscuro: la franja no tapa título ni barra.
+- Trampas nuevas: (1) en la suite móvil de desarrollo no se puede tocar
+  `mobile/src` ni `vite.config.ts` mientras corre: Vite recarga la página y
+  rompe casos. (2) `cerrar_hojas` ahora tolera una hoja que se cierra sola
+  (pasó en tres casos). (3) En el corredor sin red, la franja se busca por
+  "Sin conexión ·": los avisos también son `status`. (4) Al recargar,
+  Chromium no pasa por el service worker para la hoja de fuentes: se usan
+  pestañas nuevas.
+- Quedó a medias: nada. C3 cerrada salvo la prueba física en el iPhone.
+  Emulador apagado. Plan de C4 escrito (`a668e6d`).
+- Sigue: **C4 · T1**, cuando Joswill responda las dos decisiones del [plan de C4](superpowers/plans/2026-10-11-c4-sin-internet-operar.md) (la tasa de una venta sin red y el número al subir). Publicar C3 y el paquete nuevo pide su "publicalo".
+- Para Joswill: decisiones que dejó el agente sobre el paquete (está
+  también en el commit de integración): (a) un producto nuevo con ficha
+  (categoría, tallas, precio, pack, foto o notas) se crea al agregarlo, como
+  en Windows; con sólo el nombre, al recibir. (b) "Corregir PQ-…" está en el
+  Inventario filtrado por ese paquete; podría ir en la tarjeta de Inicio.
+  (c) Recibir ahora pregunta antes, como Windows: un toque más. (d) Hallazgo
+  en Windows sin tocar: "Agregar encargo" mete también las piezas que salen
+  de la bodega y las de "No se consiguió"; el celular las filtra
+  (`piezasQuePuedenVenir`), y se podría pasar al núcleo. (e) `ProductoModal`
+  de Windows toma una ganancia mal escrita como 0%. Probar C3 en el iPhone:
+  modo avión, abrir, mirar, cerrar sesión no.
 
 ### 2026-10-11 18:16 · Claude Code
 - Hizo: **flete por libras e impuesto fijo en los paquetes**, pedido por
