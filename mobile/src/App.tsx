@@ -219,6 +219,8 @@ function Navegacion() {
   const [vista, setVista] = useState<Vista>('panel');
   const [origenEncargos, setOrigenEncargos] = useState<'panel' | 'vender'>('panel');
   const [nuevoEncargoAlEntrar, setNuevoEncargoAlEntrar] = useState(false);
+  /** "Llegó un paquete" abre vacío; con un número, corrige ese paquete. */
+  const [paqueteACorregir, setPaqueteACorregir] = useState<number | null>(null);
   function abrirEncargos(origen: 'panel' | 'vender', nuevo = false) {
     setOrigenEncargos(origen);
     setNuevoEncargoAlEntrar(nuevo);
@@ -286,7 +288,18 @@ function Navegacion() {
               <CobranzaView />
             </div>
             <div className={`h-full w-full overflow-hidden ${vista === 'inventario' ? 'block animate-vista' : 'hidden'}`}>
-              <InventoryQuickView onRegistrarPaquete={() => exigirConexion(SIN_RED.inventario) && setVista('registrar-paquete')} />
+              <InventoryQuickView
+                onRegistrarPaquete={() => {
+                  if (!exigirConexion(SIN_RED.inventario)) return;
+                  setPaqueteACorregir(null);
+                  setVista('registrar-paquete');
+                }}
+                onCorregirPaquete={(id) => {
+                  if (!exigirConexion(SIN_RED.inventario)) return;
+                  setPaqueteACorregir(id);
+                  setVista('registrar-paquete');
+                }}
+              />
             </div>
             <div className={`h-full w-full overflow-hidden ${vista === 'ajustes' ? 'block animate-vista' : 'hidden'}`}>
               <AjustesView onVolver={() => setVista('panel')} />
@@ -294,7 +307,13 @@ function Navegacion() {
             <div className={`h-full w-full overflow-hidden ${vista === 'historial' ? 'block animate-vista' : 'hidden'}`}>
               <HistorialView />
             </div>
-            {vista === 'registrar-paquete' && <RegistrarPaqueteView onVolver={() => setVista('inventario')} />}
+            {vista === 'registrar-paquete' && (
+              <RegistrarPaqueteView
+                key={paqueteACorregir ?? 'nuevo'}
+                corregirId={paqueteACorregir}
+                onVolver={() => { setPaqueteACorregir(null); setVista('inventario'); }}
+              />
+            )}
             {vista === 'encargos' && (
               <EncargosView onVolver={() => setVista(origenEncargos)} abrirNuevoAlEntrar={nuevoEncargoAlEntrar} />
             )}
