@@ -232,7 +232,7 @@ API con `gcloud`) antes y después.
 
 **Archivos:** `QuickSaleView.tsx`, `tests/interfaz/sin_conexion.py`.
 
-- [ ] **Paso 1: rojo en el corredor sin red**: sin señal, cobrar una venta
+- [x] **Paso 1: rojo en el corredor sin red**: sin señal, cobrar una venta
   la deja "Pendiente de subir" (sin número), el carrito se vacía y el stock
   local baja; al volver la red se sube sola, toma número y en el emulador
   hay **una** venta. Cortar la red a mitad del guardado (`set_offline` justo

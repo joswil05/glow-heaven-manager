@@ -1,5 +1,5 @@
 """
-Pruebas sin red de la PWA móvil (C3 · sin internet: consultar).
+Pruebas sin red de la PWA móvil (C3 · consultar, C4 · operar).
 
 Corren contra el build de producción apuntado al emulador, servido con
 `vite preview` (`npm run test:sin-conexion`): en desarrollo no hay service
@@ -21,7 +21,15 @@ sys.path.insert(0, str(Path(__file__).parent))
 from playwright.sync_api import sync_playwright, Page, BrowserContext, expect  # noqa: E402
 
 import arnes  # noqa: E402
-from pruebas import cerrar_hojas, ir_a, listar_coleccion, poner_en_el_carrito, visible  # noqa: E402
+from pruebas import (  # noqa: E402
+    cerrar_hojas,
+    ir_a,
+    listar_coleccion,
+    poner_en_el_carrito,
+    stock_en_base,
+    stock_en_catalogo,
+    visible,
+)
 
 CASOS = []
 
@@ -42,6 +50,22 @@ def franja(page: Page):
     # "Sin conexión ·": los avisos de lo que no se puede ("Sin conexión: …")
     # también son `status`.
     return page.get_by_role("status").filter(has_text=re.compile(r"^Sin conexión ·"))
+
+
+def esperar_ventas(page: Page, cuantas: int, segundos: int = 30) -> int:
+    """Espera a que la base tenga `cuantas` ventas; devuelve las que hay."""
+    hay = len(listar_coleccion("ventas"))
+    for _ in range(segundos * 2):
+        if hay >= cuantas:
+            break
+        page.wait_for_timeout(500)
+        hay = len(listar_coleccion("ventas"))
+    return hay
+
+
+def registrar_venta(page: Page) -> None:
+    visible(page, "span:text-is('Cobrar')").click()
+    page.get_by_role("dialog").last.get_by_role("button", name="Registrar venta").click()
 
 
 def cargar_con_red(page: Page) -> None:
@@ -150,7 +174,76 @@ def caso_pantallas_sin_red(page: Page, contexto: BrowserContext) -> list[str]:
     return []
 
 
-@caso("sin señal, vender, cobrar y anotar lo dicen y no escriben")
+@caso("sin señal, la venta queda pendiente y al volver la red se sube una vez")
+def caso_venta_sin_red(page: Page, contexto: BrowserContext) -> list[str]:
+    """
+    C4: sin señal la venta no se frena. Queda anotada en el teléfono, sin
+    número; el carrito se vacía y el stock que se ve baja. Al volver la red
+    se sube sola, toma su número y en la base hay una sola.
+    """
+    fallas = []
+    ventas_antes = len(listar_coleccion("ventas"))
+    en_bodega = stock_en_catalogo(page, "Labial Mate Rojo")
+    problema = poner_en_el_carrito(page, "Labial Mate Rojo")
+    if problema:
+        return [problema]
+    contexto.set_offline(True)
+    try:
+        expect(franja(page)).to_be_visible(timeout=10000)
+        registrar_venta(page)
+        expect(page.get_by_text("Pendiente de subir · sin número todavía")).to_be_visible(timeout=10000)
+        expect(page.locator("span:text-is('Cobrar'):visible")).to_have_count(0)
+
+        # Lo vendido ya salió de la tienda, aunque la venta no haya subido.
+        sin_red = stock_en_catalogo(page, "Labial Mate Rojo")
+        if en_bodega is not None and sin_red != en_bodega - 1:
+            fallas.append(f"sin red, el Inventario muestra {sin_red} labiales y tendría que mostrar {en_bodega - 1}")
+        ir_a(page, "Vender")
+    finally:
+        contexto.set_offline(False)
+
+    expect(franja(page)).to_be_hidden(timeout=20000)
+    # Sube sola: la pantalla cambia a su número, sin tocar nada.
+    expect(page.get_by_text(re.compile(r"Comprobante #V-\d{4}"))).to_be_visible(timeout=30000)
+    esperar_ventas(page, ventas_antes + 1)
+    page.wait_for_timeout(2000)
+    nuevas = len(listar_coleccion("ventas")) - ventas_antes
+    if nuevas != 1:
+        fallas.append(f"al volver la red quedaron {nuevas} ventas nuevas y tendría que haber una")
+    if en_bodega is not None and stock_en_base("Labial Mate Rojo") != en_bodega - 1:
+        fallas.append("la bodega no descontó la venta que subió")
+    page.get_by_role("button", name="Nueva venta rápida").click()
+    return fallas
+
+
+@caso("si la red se corta justo al registrar la venta, al volver queda una sola")
+def caso_venta_cortada(page: Page, contexto: BrowserContext) -> list[str]:
+    """
+    El toque salió con red y la red se cayó en medio: no se sabe si la venta
+    llegó. Queda en la cola con el mismo identificador y, al volver, la base
+    tiene una sola, haya llegado o no la primera vez.
+    """
+    ventas_antes = len(listar_coleccion("ventas"))
+    problema = poner_en_el_carrito(page, "Labial Mate Rojo")
+    if problema:
+        return [problema]
+    registrar_venta(page)
+    contexto.set_offline(True)
+    try:
+        expect(page.get_by_text(re.compile(r"Comprobante #V-\d{4}|Pendiente de subir"))).to_be_visible(timeout=20000)
+    finally:
+        contexto.set_offline(False)
+
+    expect(franja(page)).to_be_hidden(timeout=20000)
+    expect(page.get_by_text(re.compile(r"Comprobante #V-\d{4}"))).to_be_visible(timeout=30000)
+    esperar_ventas(page, ventas_antes + 1)
+    page.wait_for_timeout(3000)
+    nuevas = len(listar_coleccion("ventas")) - ventas_antes
+    page.get_by_role("button", name="Nueva venta rápida").click()
+    return [] if nuevas == 1 else [f"con el corte quedaron {nuevas} ventas nuevas y tendría que haber una"]
+
+
+@caso("sin señal, abonar y anotar lo dicen y no escriben")
 def caso_escrituras_sin_red(page: Page, contexto: BrowserContext) -> list[str]:
     """
     Lo que escribe no se cuelga en "Guardando…" ni falla con un error
@@ -158,25 +251,9 @@ def caso_escrituras_sin_red(page: Page, contexto: BrowserContext) -> list[str]:
     """
     ventas_antes = len(listar_coleccion("ventas"))
     pagos_antes = len(listar_coleccion("pagos"))
-    problema = poner_en_el_carrito(page, "Labial Mate Rojo")
-    if problema:
-        return [problema]
     contexto.set_offline(True)
     try:
         expect(franja(page)).to_be_visible(timeout=10000)
-
-        # Vender: la hoja de cobro se puede mirar (dice cuánto cobrar); lo que
-        # no se puede es registrar la venta. El carrito queda como estaba.
-        ir_a(page, "Vender")
-        visible(page, "span:text-is('Cobrar')").click()
-        registrar = page.get_by_role("dialog").last.get_by_role("button", name="Registrar venta")
-        expect(registrar).to_be_visible()
-        registrar.click()
-        expect(page.get_by_text("Sin conexión: la venta se cobra cuando vuelva la señal.", exact=False)).to_be_visible()
-        expect(page.get_by_role("dialog").last.get_by_role("button", name="Registrar venta")).to_be_enabled()
-        cerrar_hojas(page)
-        # El carrito sigue: la barra de "Cobrar" está, fuera de la hoja.
-        expect(page.locator("span:text-is('Cobrar'):visible").first).to_be_visible()
 
         # Cobros: el abono avisa antes de abrir el formulario.
         ir_a(page, "Cobros")
@@ -203,7 +280,7 @@ def caso_escrituras_sin_red(page: Page, contexto: BrowserContext) -> list[str]:
     page.wait_for_timeout(3000)
     fallas = []
     if len(listar_coleccion("ventas")) != ventas_antes:
-        fallas.append("sin red se registró una venta (o quedó en cola y se subió al volver)")
+        fallas.append("sin red se anotó un pedido (o quedó en cola y se subió al volver)")
     if len(listar_coleccion("pagos")) != pagos_antes:
         fallas.append("sin red se registró un abono")
     return fallas
