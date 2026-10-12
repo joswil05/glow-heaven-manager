@@ -9,6 +9,7 @@ import { BottomSheet } from './BottomSheet';
 import { CamposPieza } from './paquete/CamposPieza';
 import { campo, casilla, enfocarError } from './paquete/clases';
 import { haptics } from '../lib/haptics';
+import { SIN_RED, useExigirConexion } from '../lib/useExigirConexion';
 import { nuevoGrupoEvento } from '../lib/util';
 import {
   cambiarModo,
@@ -68,6 +69,7 @@ export function PiezaPaqueteSheet({
   const [errores, setErrores] = useState<ErroresPieza>({});
   const [erroresFicha, setErroresFicha] = useState<ErroresFicha & { producto?: string; foto?: string }>({});
   const [errorGuardar, setErrorGuardar] = useState('');
+  const exigirConexion = useExigirConexion();
   const [agregada, setAgregada] = useState('');
   const [guardando, setGuardando] = useState(false);
   /** "Precio de venta, pack, foto y notas": plegado, se abre solo con un error adentro. */
@@ -141,6 +143,8 @@ export function PiezaPaqueteSheet({
       enfocarError(formulario.current);
       return;
     }
+    // Sin red (C3) no se crea el producto ni se guarda la pieza: lo escrito queda.
+    if (!exigirConexion(SIN_RED.inventario, setErrorGuardar)) return;
 
     haptics.impact('medium');
     ocupado.current = true;

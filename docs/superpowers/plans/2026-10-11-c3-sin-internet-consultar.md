@@ -388,7 +388,7 @@ export function useExigirConexion() {
 }
 ```
 
-- [ ] **Paso 3: aplicarlo en la entrada y al guardar**
+- [x] **Paso 3: aplicarlo en la entrada y al guardar**
 
 | Dónde | Entrada | Al guardar | Mensaje |
 |---|---|---|---|
@@ -416,10 +416,10 @@ dice el mensaje junto al botón, no en un aviso que se va.
 > `NuevoEncargoSheet`, `CotizarEncargoSheet`, "Ya la mandé",
 > `AceptarEncargoSheet` y `SeleccionarClientaSheet`, `CambiarPrecioSheet`
 > y su entrada en la ficha, Ajustes y el Deshacer del `Snackbar`.
-> **Falta**: los guardados de adentro de "Llegó un paquete"
-> (`RegistrarPaqueteView`), que se hacen después de integrar el trabajo
-> del agente que está igualando ese formulario al de Windows (pedido de
-> Joswill del 11/10), para no pisarse. Trampa de la prueba: los avisos
+> "Llegó un paquete", ya igual al editor de Windows (merge `4ca3acd`),
+> tiene el guardián en `guardar()` (cada paso, agregar, editar o quitar),
+> recibir, corregir, eliminar el borrador y crear un producto nuevo; sin
+> red, el primer "Volver" con algo sin guardar avisa y el segundo sale. Trampa de la prueba: los avisos
 > también son `role="status"` y empiezan con "Sin conexión:", así que la
 > franja se busca por "Sin conexión ·".
 

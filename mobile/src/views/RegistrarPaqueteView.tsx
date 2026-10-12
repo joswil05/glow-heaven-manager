@@ -24,6 +24,8 @@ import {
 } from '../lib/paquete-movil';
 import { useDatosNegocio } from '../context/DataContext';
 import { useSnackbar } from '../components/Snackbar';
+import { useConexion } from '../context/ConexionContext';
+import { SIN_RED, useExigirConexion } from '../lib/useExigirConexion';
 import { PiezaPaqueteSheet } from '../components/PiezaPaqueteSheet';
 import { EditarPiezaSheet } from '../components/paquete/EditarPiezaSheet';
 import { EncargosPaqueteSheet, type ModoEncargos } from '../components/paquete/EncargosPaqueteSheet';
@@ -45,6 +47,11 @@ const PASOS = ['El paquete', 'Las piezas', 'Revisar'];
 export function RegistrarPaqueteView({ onVolver, corregirId = null }: { onVolver: () => void; corregirId?: number | null }) {
   const { parametros, categorias, recargarProductos, marcarCambio } = useDatosNegocio();
   const { mostrarDeshacer } = useSnackbar();
+  // Sin red no se guarda nada (C3): cada guardado lo dice junto a su botón.
+  const { enLinea } = useConexion();
+  const exigirConexion = useExigirConexion();
+  /** Sin red, el primer "Volver" con algo sin guardar avisa; el segundo sale. */
+  const avisoSalidaSinRed = useRef(false);
   const esCorreccion = corregirId !== null;
   const [paso, setPaso] = useState(esCorreccion ? 2 : 1);
   const [fecha, setFecha] = useState(hoyISO);
@@ -217,6 +224,8 @@ export function RegistrarPaqueteView({ onVolver, corregirId = null }: { onVolver
   }
 
   async function guardar(input: GuardarCompraInput) {
+    // Pasar de paso, agregar, editar o quitar una pieza: todo guarda acá.
+    if (!enLinea) throw new Error(SIN_RED.inventario);
     const numero = await ComprasRepoFirestore.guardar(input, nuevoGrupoEvento());
     id.current = numero;
     setCodigo(`PQ-${String(numero).padStart(4, '0')}`);
@@ -292,6 +301,7 @@ export function RegistrarPaqueteView({ onVolver, corregirId = null }: { onVolver
 
   async function recibir() {
     if (ocupado.current || !id.current) return;
+    if (!exigirConexion(SIN_RED.inventario, (m) => { setConfirmar(false); setError(m); })) return;
     haptics.impact('heavy');
     ocupado.current = true; setGuardando(true); setError('');
     try {
@@ -307,6 +317,7 @@ export function RegistrarPaqueteView({ onVolver, corregirId = null }: { onVolver
     if (ocupado.current || corregirId === null) return;
     const input = entrada();
     if (!input) { setConfirmar(false); haptics.error(); return; }
+    if (!exigirConexion(SIN_RED.inventario, (m) => { setConfirmar(false); setError(m); })) return;
     haptics.impact('heavy');
     ocupado.current = true; setGuardando(true); setError('');
     try {
@@ -320,6 +331,7 @@ export function RegistrarPaqueteView({ onVolver, corregirId = null }: { onVolver
 
   async function eliminarBorrador() {
     if (ocupado.current || !id.current) return;
+    if (!exigirConexion(SIN_RED.inventario, (m) => { setEliminar(false); setError(m); })) return;
     haptics.impact('medium');
     const grupo = nuevoGrupoEvento();
     ocupado.current = true; setGuardando(true); setError('');
@@ -341,6 +353,15 @@ export function RegistrarPaqueteView({ onVolver, corregirId = null }: { onVolver
     }
     // Lo que ya se guardó sigue en BORRADOR; al salir se guarda la cabecera editada.
     if (!guardado && (peso || otros || notas || lineas.length)) {
+      if (!enLinea) {
+        // Sin red el borrador no se puede guardar: nadie queda atrapado acá,
+        // pero tampoco se pierde lo escrito sin saberlo.
+        if (avisoSalidaSinRed.current) { onVolver(); return; }
+        avisoSalidaSinRed.current = true;
+        haptics.warning();
+        setError('Sin conexión: lo último que escribiste no se pudo guardar. Tocá Volver otra vez para salir igual.');
+        return;
+      }
       const input = entrada();
       if (!input) return;
       ocupado.current = true; setGuardando(true); setError('');
