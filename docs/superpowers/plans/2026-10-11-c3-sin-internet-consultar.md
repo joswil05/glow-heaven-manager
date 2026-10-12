@@ -373,7 +373,7 @@ el aviso, vibra, el carrito sigue igual y no aparece ninguna venta nueva en
 el emulador (leer con red al final). Lo mismo con "Registrar abono" desde la
 ficha de Ana Prueba y con "Anotar un pedido".
 
-- [ ] **Paso 2: el guardián**
+- [x] **Paso 2: el guardián**
 
 ```ts
 export function useExigirConexion() {
