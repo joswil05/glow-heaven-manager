@@ -32,6 +32,11 @@ responder las dos preguntas de abajo: se aplican las dos recomendaciones
 (la venta sin red guarda la tasa del momento; "Sin número todavía" hasta
 subir). Si las cambia, se corrige.
 
+**Cerrada el 12/10/2026**, sin publicar. Quedan dos cosas que no dependen
+del código: **T1 paso 4** (desplegar la regla de `operaciones`, con el
+"publicalo" de Joswill, **antes** de publicar el celular) y la prueba
+física de **T8 paso 2** en el iPhone.
+
 ## Decisiones para Joswill (antes de empezar)
 
 1. **La tasa de cambio de una venta hecha sin red.** Hoy la venta toma la
@@ -290,9 +295,16 @@ API con `gcloud`) antes y después.
 
 ## T8 · Cierre de C4
 
-- [ ] **Paso 1: verificar**: todas las suites en serie, más
+- [x] **Paso 1: verificar**: todas las suites en serie, más
   `test:sin-conexion` con los casos nuevos; invariante de la bodega
   (`tests/motor-real/invariantes.ts`) con ventas que pasan por la cola.
+
+  > **12/10:** 742 unitarias; 113 del emulador, con una tanda de la cola
+  > (ventas, una clienta nueva compartida, un abono y una venta que ya no
+  > alcanza) subida dos veces y todas las invariantes en verde; 50 casos
+  > del celular; 43 de Windows; 10 del corredor sin red y sin errores de
+  > consola; tipos de las dos apps; `build:mobile` con sus auditorías;
+  > `git diff --check` limpio.
 - [ ] **Paso 2: prueba física y documentos**: en el iPhone, vender, abonar
   y anotar en modo avión, cerrar la app, abrirla con señal y ver que suben
   una vez; vender lo último de un producto en la PC mientras el celular lo
