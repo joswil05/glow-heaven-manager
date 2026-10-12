@@ -428,13 +428,22 @@ dice el mensaje junto al botón, no en un aviso que se va.
 **Archivos:** `mobile/vite.config.ts`, este plan, `docs/CONTEXTO_SESION.md`,
 `docs/AUDITORIA_UX_2026-09-29.md`, `docs/RELEVO.md`.
 
-- [ ] **Paso 1: cachear las fuentes**
+- [x] **Paso 1: cachear las fuentes**
 
 En `workbox.runtimeCaching`: `fonts.googleapis.com` con
 `StaleWhileRevalidate` (`gh-fuentes-css`) y `fonts.gstatic.com` con
 `CacheFirst` (`gh-fuentes`, un año, `cacheableResponse: { statuses: [0, 200] }`).
 Caso en `sin_conexion.py`: sin red, `document.fonts.check('16px "Plus Jakarta Sans"')`
 da `true` (con red se cargó al menos una vez).
+
+> **Cómo quedó la prueba (11/10):** `document.fonts.check` no sirve (da
+> `true` aunque la fuente no esté declarada). Se mide el ancho de un texto
+> sin cortar el renglón con "Plus Jakarta Sans" y con la de respaldo,
+> después de `document.fonts.load`. Al recargar, Chromium toma la hoja y la
+> fuente de su memoria sin pasar por el service worker: se usan pestañas
+> nuevas (`calentar_cache` con red apenas el service worker toma el
+> control) y se vacía el caché HTTP antes de cortar la red. Vista en rojo
+> sin la regla de las fuentes.
 
 - [ ] **Paso 2: verificar y cerrar C3**
 

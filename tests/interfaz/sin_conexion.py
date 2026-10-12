@@ -62,10 +62,34 @@ def esperar_service_worker(page: Page) -> None:
         "el service worker no tomó la página"
 
 
+CARGAR_FUENTES = """async () => {
+    const caras = await document.fonts.load("32px 'Plus Jakarta Sans'");
+    await document.fonts.load("32px Roboto");
+    return caras.length > 0;
+}"""
+
+
+def calentar_cache(contexto: BrowserContext) -> None:
+    """
+    Una pestaña nueva con red, ya con el service worker andando, para que
+    guarde la hoja de estilos y las fuentes. Al recargar, Chromium las toma
+    de su memoria sin pasar por el service worker; una pestaña nueva no
+    (como reabrir la app en el teléfono).
+    """
+    nueva = contexto.new_page()
+    try:
+        nueva.goto(arnes.URL_APP)
+        nueva.wait_for_selector("nav", timeout=30000)
+        nueva.evaluate(CARGAR_FUENTES)
+    finally:
+        nueva.close()
+
+
 @caso("sin señal, la app abre con lo último que cargó")
 def caso_abre_sin_red(page: Page, contexto: BrowserContext) -> list[str]:
     cargar_con_red(page)
     esperar_service_worker(page)
+    calentar_cache(contexto)
     contexto.set_offline(True)
     try:
         page.reload()
@@ -183,6 +207,56 @@ def caso_escrituras_sin_red(page: Page, contexto: BrowserContext) -> list[str]:
     if len(listar_coleccion("pagos")) != pagos_antes:
         fallas.append("sin red se registró un abono")
     return fallas
+
+
+@caso("sin señal, la letra es la misma")
+def caso_fuentes_sin_red(page: Page, contexto: BrowserContext) -> list[str]:
+    """
+    Las fuentes vienen de Google Fonts: si el service worker no las guarda,
+    sin red la app cambia de letra.
+
+    Dos trampas de la prueba, no de la app. Al recargar, Chromium toma la
+    hoja de estilos y la fuente de su memoria sin pasar por el service
+    worker: por eso se abren pestañas nuevas, que comparten el service worker
+    y no esa memoria (como reabrir la app en el teléfono). Y se vacía el
+    caché HTTP antes de cortar la red, para que lo único que quede sea lo que
+    guardó el service worker. La letra se mide: el mismo texto con "Plus
+    Jakarta Sans" y con la de respaldo; si miden igual, la fuente no está.
+    """
+    medir = """async () => {
+        // La fuente se baja cuando algo la usa: hay que esperarla.
+        if ((await document.fonts.load("32px 'Plus Jakarta Sans'")).length === 0) return false;
+        const ancho = (familia) => {
+            const s = document.createElement('span');
+            s.textContent = 'Glow Heaven 0123456789 mmmmwwwwiiii';
+            // Sin cortar el renglón: un texto más ancho que la pantalla mide lo mismo con cualquier letra.
+            s.style.cssText = `position:absolute;visibility:hidden;white-space:nowrap;font-size:24px;font-family:${familia}`;
+            document.body.appendChild(s);
+            const w = s.getBoundingClientRect().width;
+            s.remove();
+            return w;
+        };
+        return ancho("'Plus Jakarta Sans', monospace") !== ancho('monospace');
+    }"""
+    con_red = contexto.new_page()
+    con_red.goto(arnes.URL_APP)
+    con_red.wait_for_selector("nav", timeout=30000)
+    if not con_red.evaluate(medir):
+        con_red.close()
+        return ["con red, la fuente Plus Jakarta Sans no cargó: la prueba no puede medir"]
+    con_red.close()
+
+    contexto.new_cdp_session(page).send("Network.clearBrowserCache")
+    contexto.set_offline(True)
+    sin_red = contexto.new_page()
+    try:
+        sin_red.goto(arnes.URL_APP)
+        sin_red.wait_for_selector("nav", timeout=30000)
+        cargada = sin_red.evaluate(medir)
+    finally:
+        sin_red.close()
+        contexto.set_offline(False)
+    return [] if cargada else ["sin red, la fuente Plus Jakarta Sans no cargó: la letra cambia"]
 
 
 def main() -> int:

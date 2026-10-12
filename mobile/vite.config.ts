@@ -60,6 +60,23 @@ export default defineConfig({
             handler: 'CacheFirst',
             options: { cacheName: 'gh-iconos' },
           },
+          // La letra viene de Google Fonts: sin guardarla, sin red la app
+          // cambia de letra (C3). La hoja de estilos se refresca cuando hay
+          // red; los archivos de la fuente no cambian y se guardan un año.
+          {
+            urlPattern: ({ url }) => url.origin === 'https://fonts.googleapis.com',
+            handler: 'StaleWhileRevalidate',
+            options: { cacheName: 'gh-fuentes-css' },
+          },
+          {
+            urlPattern: ({ url }) => url.origin === 'https://fonts.gstatic.com',
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'gh-fuentes',
+              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
         ],
       },
       devOptions: { enabled: false },
