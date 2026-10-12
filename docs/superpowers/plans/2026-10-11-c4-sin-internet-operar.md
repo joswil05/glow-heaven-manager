@@ -199,7 +199,7 @@ API con `gcloud`) antes y después.
 **Archivos:** `mobile/src/lib/cola.ts`, `mobile/src/lib/cola-local.ts`,
 `tests/c4-cola.test.ts`.
 
-- [ ] **Paso 1: rojo de la parte pura**: encolar conserva el orden de
+- [x] **Paso 1: rojo de la parte pura**: encolar conserva el orden de
   llegada; `siguiente` da la PENDIENTE más vieja e ignora REVISAR y
   SUBIDA; `quitar` saca sólo esa; una operación SUBIENDO al abrir la app
   (se cerró a mitad) vuelve a PENDIENTE.
