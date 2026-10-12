@@ -308,7 +308,7 @@ para el teléfono (T7).
 `components/FranjaSinConexion.tsx`, `App.tsx`, `tests/c3-parametros.test.ts`,
 `tests/interfaz/sin_conexion.py`.
 
-- [ ] **Paso 1: rojo de los parámetros**
+- [x] **Paso 1: rojo de los parámetros**
 
 `tests/c3-parametros.test.ts` con el Firestore falso
 (`reiniciarFirestoreFalso`) y `navigator.onLine` en `false`: sin el
