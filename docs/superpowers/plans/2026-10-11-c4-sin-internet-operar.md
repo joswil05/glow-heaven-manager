@@ -155,7 +155,7 @@ prueba: quitar la lectura de la marca tiene que hacerla fallar.
 > reintento las descontaba otra vez. `tests/firestore-fake.ts` suma
 > `cortarRed(n)` y `restaurarRed()`.
 
-- [ ] **Paso 2: la venta en una sola transacción, y la marca en los tres**
+- [x] **Paso 2: la venta en una sola transacción, y la marca en los tres**
 
 Venta: **una sola transacción** con todo: el número (`_secuencias`), las
 existencias de cada producto (la cuenta FIFO de `ProductosRepo.salida`,

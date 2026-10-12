@@ -934,6 +934,80 @@ export class ProductosRepoFirestore {
    * una unidad le cambiaba el precio a las que quedaban: $39 antes de vender,
    * $42 después, sin que nadie lo tocara.
    */
+  /**
+   * La cuenta de una salida, sin leer ni escribir: valida las unidades, saca
+   * del lote más viejo de esa talla (FIFO) y devuelve lo que hay que escribir
+   * en el producto. La usan `salida` y la venta, que saca todas sus líneas en
+   * UNA transacción (C4); por eso devuelve también cómo queda el producto,
+   * para que la línea siguiente del mismo producto parta de ahí.
+   */
+  static planearSalida(
+    p: ProductoDoc,
+    params: {
+      producto_id: number;
+      variante_id?: number;
+      cantidad: number;
+      permitirNegativo?: boolean;
+      ingreso_usd_cents?: number;
+      motivo?: MotivoSalida;
+    }
+  ): {
+    escritura: Record<string, unknown>;
+    productoDespues: ProductoDoc;
+    existenciasDespues: number;
+    varianteUsada: number;
+    salida: { costo_salida_usd_cents: number; insuficiente: boolean; unidades_retiradas: number; consumos: Consumo[] };
+  } {
+    const variantes = [...(p.variantes || [])];
+    const varianteId =
+      params.variante_id ?? variantes.find((v) => v.activo !== false)?.id ?? 1;
+
+    const total = existenciasDe({ variantes });
+    if (params.cantidad > total && !params.permitirNegativo) {
+      throw new Error(
+        `No hay suficientes unidades de '${p.nombre}'. Disponibles: ${total}, pedidas: ${params.cantidad}.`
+      );
+    }
+
+    const idx = variantes.findIndex((v) => v.id === varianteId);
+    if (idx === -1) {
+      throw new Error(
+        `Variante #${varianteId} no encontrada en producto #${params.producto_id}.`
+      );
+    }
+
+    const existenciasVariante = variantes[idx].existencias || 0;
+    if (params.cantidad > existenciasVariante && !params.permitirNegativo) {
+      throw new Error(
+        `No hay suficientes existencias de la variante seleccionada en '${p.nombre}'. Disponibles: ${existenciasVariante}, pedidas: ${params.cantidad}.`
+      );
+    }
+
+    // Del lote más viejo de esa talla. La venta se lleva el costo de esas
+    // unidades y guarda de qué lotes salieron, para devolverlas exactas.
+    const r = sacarFIFO(
+      lotesDe(p),
+      varianteId,
+      params.cantidad,
+      params.motivo ?? 'VENTA',
+      params.ingreso_usd_cents
+    );
+    const escritura = escrituraDeLotes(p, r.lotes) as Record<string, unknown>;
+
+    return {
+      escritura,
+      productoDespues: { ...p, ...escritura } as ProductoDoc,
+      existenciasDespues: unidadesDeLotes(r.lotes),
+      varianteUsada: varianteId,
+      salida: {
+        costo_salida_usd_cents: r.costo_usd_cents,
+        insuficiente: r.faltantes > 0,
+        unidades_retiradas: r.retiradas,
+        consumos: r.consumos,
+      },
+    };
+  }
+
   static async salida(params: {
     producto_id: number;
     variante_id?: number;
@@ -970,57 +1044,16 @@ export class ProductosRepoFirestore {
       const snap = await tx.get(productoRef);
       if (!snap.exists()) throw new Error(`El producto #${params.producto_id} no existe.`);
 
-      const p = snap.data() as ProductoDoc;
-      const variantes = [...(p.variantes || [])];
-      const varianteId =
-        params.variante_id ?? variantes.find((v) => v.activo !== false)?.id ?? 1;
-      varianteUsada = varianteId;
-
-      const total = existenciasDe({ variantes });
-      if (params.cantidad > total && !params.permitirNegativo) {
-        throw new Error(
-          `No hay suficientes unidades de '${p.nombre}'. Disponibles: ${total}, pedidas: ${params.cantidad}.`
-        );
-      }
-
-      const idx = variantes.findIndex((v) => v.id === varianteId);
-      if (idx === -1) {
-        throw new Error(
-          `Variante #${varianteId} no encontrada en producto #${params.producto_id}.`
-        );
-      }
-
-      const existenciasVariante = variantes[idx].existencias || 0;
-      if (params.cantidad > existenciasVariante && !params.permitirNegativo) {
-        throw new Error(
-          `No hay suficientes existencias de la variante seleccionada en '${p.nombre}'. Disponibles: ${existenciasVariante}, pedidas: ${params.cantidad}.`
-        );
-      }
-
-      // Del lote más viejo de esa talla. La venta se lleva el costo de esas
-      // unidades y guarda de qué lotes salieron, para devolverlas exactas.
-      const r = sacarFIFO(
-        lotesDe(p),
-        varianteId,
-        params.cantidad,
-        params.motivo ?? 'VENTA',
-        params.ingreso_usd_cents
-      );
-      const escritura = escrituraDeLotes(p, r.lotes);
-      existenciasDespues = unidadesDeLotes(r.lotes);
+      const plan = this.planearSalida(snap.data() as ProductoDoc, params);
+      varianteUsada = plan.varianteUsada;
+      existenciasDespues = plan.existenciasDespues;
+      salida = plan.salida;
 
       tx.set(
         productoRef,
-        sinUndefined({ ...escritura, actualizado_en: new Date().toISOString() }),
+        sinUndefined({ ...plan.escritura, actualizado_en: new Date().toISOString() }),
         { merge: true }
       );
-
-      salida = {
-        costo_salida_usd_cents: r.costo_usd_cents,
-        insuficiente: r.faltantes > 0,
-        unidades_retiradas: r.retiradas,
-        consumos: r.consumos,
-      };
     });
 
     await aplicarLote([
@@ -1204,6 +1237,11 @@ export class ProductosRepoFirestore {
   static async operacionMovimiento(
     mov: Omit<MovimientoInventario, 'id' | 'fecha'>
   ): Promise<OperacionLote> {
+    return this.movimientoParaLote(mov);
+  }
+
+  /** El mismo movimiento, sin `async`: para escribirlo dentro de una transacción (C4). */
+  static movimientoParaLote(mov: Omit<MovimientoInventario, 'id' | 'fecha'>): OperacionLote {
     const id = idOrdenable();
     return {
       coleccion: 'movimientos_inventario',

@@ -97,8 +97,10 @@ describe('Una venta con operacion_id', () => {
       { producto_id: b, cantidad: 1, precio_unitario_usd_cents: 1500 },
     ]);
 
+    // Según dónde caiga el corte, la venta falla o alcanza a guardarse entera
+    // (lo que se corta después, como los totales de la clienta, no la deshace).
     cortarRed(n);
-    await expect(Ventas.crear(input, g(), 'op-corte')).rejects.toThrow();
+    await Ventas.crear(input, g(), 'op-corte').catch(() => undefined);
     restaurarRed();
 
     // O no se hizo nada, o se hizo todo: nunca unidades descontadas sin venta.

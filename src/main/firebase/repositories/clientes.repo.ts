@@ -1,5 +1,6 @@
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { getFirestoreDb, siguienteId, leerDoc, aplicarLote } from '../client';
+import { leerMarca, marcaParaLote } from '../operaciones';
 import { EventosRepoFirestore } from './eventos.repo';
 import type { ClienteDetalle } from '../../../shared/types';
 import { formatearMoneda } from '../../../core/moneda';
@@ -91,7 +92,11 @@ export class ClientesRepoFirestore {
     return mapear(d);
   }
 
-  static async guardar(input: GuardarClienteInput, evento_grupo_id: string): Promise<number> {
+  static async guardar(
+    input: GuardarClienteInput,
+    evento_grupo_id: string,
+    operacion_id?: string
+  ): Promise<number> {
     // Se guarda con un solo formato, venga de la pantalla que venga
     // (`core/formatos.ts`): "maría josé" queda "María José", y el teléfono
     // "+505 8601 2442". Un teléfono que no encaja se rechaza antes de escribir.
@@ -132,7 +137,15 @@ export class ClientesRepoFirestore {
       return input.id;
     }
 
+    // Subida de la cola del celular (C4): si ya se guardó, es la misma clienta.
+    if (operacion_id) {
+      const marca = await leerMarca(operacion_id);
+      if (marca) return marca.resultado_id;
+    }
+
     const nuevoId = await siguienteId('clientes');
+    // La clienta, su evento y la marca en el mismo lote: o están los tres, o
+    // ninguno.
     await aplicarLote([
       {
         coleccion: 'clientes',
@@ -149,15 +162,17 @@ export class ClientesRepoFirestore {
           ultima_compra: null,
         },
       },
+      ...EventosRepoFirestore.operacionesDeEventos([
+        {
+          evento_grupo_id,
+          entidad_tipo: 'clientes',
+          entidad_id: nuevoId,
+          tipo_evento: 'CREACION',
+          detalle: `Cliente '${nombre}' agregado`,
+        },
+      ]),
+      ...(operacion_id ? [marcaParaLote(operacion_id, 'CLIENTA', nuevoId)] : []),
     ]);
-
-    await EventosRepoFirestore.registrarEvento({
-      evento_grupo_id,
-      entidad_tipo: 'clientes',
-      entidad_id: nuevoId,
-      tipo_evento: 'CREACION',
-      detalle: `Cliente '${nombre}' agregado`,
-    });
 
     return nuevoId;
   }

@@ -15,6 +15,7 @@ import {
   writeBatch,
   runTransaction,
   type DocumentData,
+  type Transaction,
 } from 'firebase/firestore';
 import { FIREBASE_CONFIG } from '../../shared/firebase-config';
 import type { Autor } from '../../shared/types';
@@ -98,6 +99,26 @@ export async function siguienteId(entidad: string): Promise<number> {
     tx.set(seqRef, { valor: nuevo, actualizado_en: new Date().toISOString() }, { merge: true });
     return nuevo;
   });
+}
+
+/**
+ * La secuencia dentro de una transacción ajena, en dos tiempos: Firestore
+ * exige que una transacción haga todas sus lecturas antes de escribir. Se lee
+ * con `leerSecuenciaEn` junto con lo demás, y al final `escribirSecuenciaEn`
+ * deja el último número usado. Así el número y lo que numera se guardan juntos
+ * (C4: una venta cortada a mitad no gasta número ni queda a medias).
+ */
+export async function leerSecuenciaEn(tx: Transaction, entidad: string): Promise<number> {
+  const snap = await tx.get(doc(getFirestoreDb(), '_secuencias', entidad));
+  return snap.exists() ? Number((snap.data() as DocumentData).valor ?? 0) : 0;
+}
+
+export function escribirSecuenciaEn(tx: Transaction, entidad: string, valor: number): void {
+  tx.set(
+    doc(getFirestoreDb(), '_secuencias', entidad),
+    { valor, actualizado_en: new Date().toISOString() },
+    { merge: true }
+  );
 }
 
 /**
@@ -248,6 +269,19 @@ export async function aplicarLote(operaciones: OperacionLote[]): Promise<number>
   }
 
   return operaciones.length;
+}
+
+/**
+ * Lo mismo que `aplicarLote`, dentro de una transacción: se guarda todo o
+ * nada, junto con las demás escrituras de esa transacción.
+ */
+export function escribirEnTransaccion(tx: Transaction, operaciones: OperacionLote[]): void {
+  const db = getFirestoreDb();
+  for (const op of operaciones) {
+    const ref = doc(db, op.coleccion, String(op.id));
+    if (op.borrar) tx.delete(ref);
+    else tx.set(ref, op.datos ?? {}, { merge: op.merge !== false });
+  }
 }
 
 /**

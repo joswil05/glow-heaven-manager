@@ -8,7 +8,8 @@ import {
   doc,
   runTransaction,
 } from 'firebase/firestore';
-import { getFirestoreDb, siguienteId, leerDoc, leerVarios, sinUndefined, autorActual } from '../client';
+import { getFirestoreDb, siguienteId, leerDoc, leerVarios, sinUndefined, autorActual, escribirEnTransaccion } from '../client';
+import { leerMarca, leerMarcaEn, marcaParaLote } from '../operaciones';
 
 import { type VentaDoc } from './ventas.repo';
 import { ClientesRepoFirestore } from './clientes.repo';
@@ -62,12 +63,19 @@ export class PagosRepoFirestore {
    */
   static async registrar(
     input: RegistrarPagoInput,
-    evento_grupo_id: string
+    evento_grupo_id: string,
+    operacion_id?: string
   ): Promise<ResultadoPago> {
     const db = getFirestoreDb();
 
     const monto = Math.max(0, Math.round(input.monto_cents));
     if (monto === 0) throw new Error('El monto del pago tiene que ser mayor que cero.');
+
+    // Subida de la cola del celular (C4): si ya se guardó, es el mismo abono.
+    if (operacion_id) {
+      const marca = await leerMarca(operacion_id);
+      if (marca) return this.resultadoGuardado(marca.resultado_id);
+    }
 
     const pagoId = await siguienteId('pagos');
     const now = new Date().toISOString();
@@ -81,6 +89,10 @@ export class PagosRepoFirestore {
     // ya había pagado. La transacción reintenta sola si alguien tocó la venta
     // en el medio.
     const resultado = await runTransaction(db, async (tx) => {
+      if (operacion_id) {
+        const marca = await leerMarcaEn(tx, operacion_id);
+        if (marca) return { yaEstaba: true as const, pago_id: marca.resultado_id };
+      }
       const ventaRef = doc(db, 'ventas', String(input.venta_id));
       const snap = await tx.get(ventaRef);
       if (!snap.exists()) throw new Error(`La venta #${input.venta_id} no existe.`);
@@ -155,7 +167,35 @@ export class PagosRepoFirestore {
       );
       tx.set(ventaRef, cambiosVenta, { merge: true });
 
+      // Los eventos de Deshacer y la marca, en la misma transacción: un abono
+      // subido desde la cola del celular se deshace igual que cualquier otro.
+      escribirEnTransaccion(tx, [
+        ...EventosRepoFirestore.operacionesDeEventos([
+          ...(acepta
+            ? [
+                {
+                  evento_grupo_id,
+                  entidad_tipo: 'ventas',
+                  entidad_id: input.venta_id,
+                  tipo_evento: 'ACTUALIZACION' as const,
+                  valor_anterior: venta as unknown as Record<string, unknown>,
+                  detalle: `${venta.codigo}: aceptó, con el pago`,
+                },
+              ]
+            : []),
+          {
+            evento_grupo_id,
+            entidad_tipo: 'pagos',
+            entidad_id: pagoId,
+            tipo_evento: 'CREACION' as const,
+            detalle: `Abono de ${formatearMoneda(monto, input.moneda === 'COR' ? 'COR' : 'USD')} en ${venta.codigo}`,
+          },
+        ]),
+        ...(operacion_id ? [marcaParaLote(operacion_id, 'ABONO', pagoId)] : []),
+      ]);
+
       return {
+        yaEstaba: false as const,
         pagado,
         saldo,
         anticipoCubierto,
@@ -168,26 +208,16 @@ export class PagosRepoFirestore {
       };
     });
 
-    const { pagado, saldo, anticipoCubierto } = resultado;
-    await ClientesRepoFirestore.refrescarTotales(resultado.cliente_id);
+    if (resultado.yaEstaba) return this.resultadoGuardado(resultado.pago_id);
 
-    if (resultado.ventaAntes) {
-      await EventosRepoFirestore.registrarEvento({
-        evento_grupo_id,
-        entidad_tipo: 'ventas',
-        entidad_id: input.venta_id,
-        tipo_evento: 'ACTUALIZACION',
-        valor_anterior: resultado.ventaAntes as unknown as Record<string, unknown>,
-        detalle: `${resultado.codigo}: aceptó, con el pago`,
-      });
+    const { pagado, saldo, anticipoCubierto } = resultado;
+    // Los totales de la clienta se pueden volver a calcular: su falla no
+    // deshace el abono, que ya está guardado.
+    try {
+      await ClientesRepoFirestore.refrescarTotales(resultado.cliente_id);
+    } catch (err) {
+      console.warn(`[PagosRepo] El abono #${pagoId} quedó guardado; los totales de la clienta se actualizan después:`, err);
     }
-    await EventosRepoFirestore.registrarEvento({
-      evento_grupo_id,
-      entidad_tipo: 'pagos',
-      entidad_id: pagoId,
-      tipo_evento: 'CREACION',
-      detalle: `Abono de ${formatearMoneda(monto, input.moneda === 'COR' ? 'COR' : 'USD')} en ${resultado.codigo}`,
-    });
 
     return {
       pago_id: pagoId,
@@ -498,6 +528,22 @@ export class PagosRepoFirestore {
    * a sus ventas con saldo por antigüedad, con `repartirAbono`: la misma
    * función con que la ventana muestra antes a qué ventas va.
    */
+  /** Lo que devuelve un abono que ya estaba guardado (C4): cómo quedó su venta. */
+  private static async resultadoGuardado(pago_id: number): Promise<ResultadoPago> {
+    const pago = await leerDoc<Pago>('pagos', pago_id);
+    const venta = pago ? await leerDoc<VentaDoc>('ventas', pago.venta_id) : null;
+    const pagado = venta?.pagado_usd_cents ?? 0;
+    const saldo = venta?.saldo_usd_cents ?? 0;
+    const anticipo = venta?.anticipo_esperado_usd_cents ?? 0;
+    return {
+      pago_id,
+      pagado_usd_cents: pagado,
+      saldo_usd_cents: saldo,
+      excedente_usd_cents: Math.max(0, -saldo),
+      anticipo_cubierto: anticipo > 0 && pagado >= anticipo,
+    };
+  }
+
   static async registrarAbonoCliente(
     input: AbonoClienteInput,
     evento_grupo_id: string

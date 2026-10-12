@@ -243,6 +243,8 @@ export interface CrearVentaInput {
   descuento_tipo?: TipoDescuento;
   descuento_valor?: number;
   descuento_motivo?: string;
+  /** La tasa con que se vendió; sólo la manda la cola del celular (C4). */
+  tasa_cambio_cents?: number;
 }
 
 /**

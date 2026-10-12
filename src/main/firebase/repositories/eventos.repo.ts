@@ -75,10 +75,18 @@ export class EventosRepoFirestore {
    */
   static async registrarVarios(eventos: RegistrarEventoInput[]): Promise<void> {
     if (eventos.length === 0) return;
+    await aplicarLote(this.operacionesDeEventos(eventos));
+  }
 
+  /**
+   * Las escrituras de unos eventos, sin escribirlas: para guardarlos en la
+   * misma transacción que lo que registran (una venta, C4). Sus ids los
+   * genera el cliente, así que no hace falta leer nada antes.
+   */
+  static operacionesDeEventos(eventos: RegistrarEventoInput[]): OperacionLote[] {
     const now = new Date().toISOString();
 
-    const operaciones: OperacionLote[] = eventos.map((evento) => {
+    return eventos.map((evento) => {
       const id = idOrdenable();
       return {
       coleccion: 'eventos',
@@ -98,8 +106,6 @@ export class EventosRepoFirestore {
       },
       };
     });
-
-    await aplicarLote(operaciones);
   }
 
   static async ultimoGrupoId(): Promise<string | null> {

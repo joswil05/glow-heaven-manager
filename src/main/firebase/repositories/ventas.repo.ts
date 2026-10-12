@@ -14,14 +14,17 @@ import {
 } from 'firebase/firestore';
 import {
   getFirestoreDb,
-  siguienteId,
   leerDoc,
   leerVarios,
   aplicarLote,
   sinUndefined,
   autorActual,
+  leerSecuenciaEn,
+  escribirSecuenciaEn,
+  escribirEnTransaccion,
   type OperacionLote,
 } from '../client';
+import { leerMarca, leerMarcaEn, marcaParaLote } from '../operaciones';
 import { ParametrosRepoFirestore } from './parametros.repo';
 import { ProductosRepoFirestore, type ProductoDoc } from './productos.repo';
 import { ClientesRepoFirestore } from './clientes.repo';
@@ -103,6 +106,12 @@ export interface CrearVentaInput {
   descuento_tipo?: TipoDescuento;
   descuento_valor?: number;
   descuento_motivo?: string;
+  /**
+   * La tasa con que se vendió. Sólo la manda la cola del celular: una venta
+   * hecha sin señal se sube después y conserva la tasa que se le dijo a la
+   * clienta (C4). Sin ella, la de Configuración.
+   */
+  tasa_cambio_cents?: number;
 }
 
 export interface FiltrosVenta {
@@ -388,104 +397,130 @@ export class VentasRepoFirestore {
    * línea no tenía stock, las dos primeras ya habían restado unidades y no
    * quedaba ninguna venta que lo explicara. La mercadería desaparecía.
    */
-  static async crear(input: CrearVentaInput, evento_grupo_id: string): Promise<number> {
+  static async crear(
+    input: CrearVentaInput,
+    evento_grupo_id: string,
+    operacion_id?: string
+  ): Promise<number> {
     if (input.lineas.length === 0) {
       throw new Error('Una venta necesita al menos un producto.');
     }
 
+    // Subida de la cola del celular (C4): si ya se guardó, es la misma venta.
+    // Se mira antes de todo para no gastar ni un número.
+    if (operacion_id) {
+      const marca = await leerMarca(operacion_id);
+      if (marca) return marca.resultado_id;
+    }
+
+    const db = getFirestoreDb();
     const esEncargo = input.tipo === 'ENCARGO';
     const idsProductos = [
       ...new Set(input.lineas.map((l) => l.producto_id).filter(Boolean)),
     ] as number[];
+    const params = await ParametrosRepoFirestore.getParametros();
+    // La tasa del momento en que se vendió: una venta hecha sin señal la trae
+    // en el input y se sube horas después (C4, decisión 1).
+    const tasa = input.tasa_cambio_cents ?? params.tasa_cambio_cents ?? 3662;
 
-    const [ventaId, params, productos] = await Promise.all([
-      siguienteId('ventas'),
-      ParametrosRepoFirestore.getParametros(),
-      leerVarios<ProductoDoc>('productos', idsProductos),
-    ]);
+    // TODO en una transacción: el número, las existencias de cada producto,
+    // la venta, el pago inicial, los movimientos, los eventos de Deshacer y la
+    // marca. Antes la mercadería salía con una transacción por línea y la
+    // venta se escribía después: si la red caía en el medio, quedaban unidades
+    // descontadas sin venta que las explicara (`tests/c4-operaciones.test.ts`).
+    const hecho = await runTransaction(db, async (tx) => {
+      // 1. Leer todo antes de escribir: Firestore lo exige.
+      if (operacion_id) {
+        const marca = await leerMarcaEn(tx, operacion_id);
+        if (marca) return { yaEstaba: true, ventaId: marca.resultado_id };
+      }
+      const ultimaVenta = await leerSecuenciaEn(tx, 'ventas');
+      const ultimoPago = input.pago_inicial ? await leerSecuenciaEn(tx, 'pagos') : 0;
+      const productos = new Map<number, ProductoDoc>();
+      for (const id of idsProductos) {
+        const snap = await tx.get(doc(db, 'productos', String(id)));
+        if (snap.exists()) productos.set(id, snap.data() as ProductoDoc);
+      }
 
-    const codigo = codigoDeVenta(ventaId, esEncargo ? 'ENCARGO' : 'INVENTARIO');
-    const tasa = params.tasa_cambio_cents ?? 3662;
+      const ventaId = ultimaVenta + 1;
+      const codigo = codigoDeVenta(ventaId, esEncargo ? 'ENCARGO' : 'INVENTARIO');
 
-    // 1. Validar todo antes de escribir. Se acumula lo pedido por producto
-    //    porque dos líneas pueden apuntar al mismo.
-    const pedidoPorProducto = new Map<number, number>();
-    for (const linea of input.lineas) {
-      const cantidad = Math.max(1, Math.round(linea.cantidad));
-      if (!linea.producto_id) {
-        if (!linea.descripcion?.trim()) {
-          throw new Error('Cada línea de la venta necesita un producto o una descripción.');
+      // 2. Validar todo antes de calcular. Se acumula lo pedido por producto
+      //    porque dos líneas pueden apuntar al mismo.
+      const pedidoPorProducto = new Map<number, number>();
+      for (const linea of input.lineas) {
+        const cantidad = Math.max(1, Math.round(linea.cantidad));
+        if (!linea.producto_id) {
+          if (!linea.descripcion?.trim()) {
+            throw new Error('Cada línea de la venta necesita un producto o una descripción.');
+          }
+          continue;
         }
-        continue;
+
+        const prod = productos.get(linea.producto_id);
+        if (!prod) throw new Error(`El producto #${linea.producto_id} no existe.`);
+
+        if (!esEncargo) {
+          pedidoPorProducto.set(
+            linea.producto_id,
+            (pedidoPorProducto.get(linea.producto_id) ?? 0) + cantidad
+          );
+        }
       }
 
-      const prod = productos.get(String(linea.producto_id));
-      if (!prod) throw new Error(`El producto #${linea.producto_id} no existe.`);
+      for (const [productoId, pedido] of pedidoPorProducto) {
+        const prod = productos.get(productoId)!;
+        const disponible = (prod.variantes || [])
+          .filter((v) => v.activo !== false)
+          .reduce((s, v) => s + (v.existencias || 0), 0);
 
-      if (!esEncargo) {
-        pedidoPorProducto.set(
-          linea.producto_id,
-          (pedidoPorProducto.get(linea.producto_id) ?? 0) + cantidad
-        );
+        if (pedido > disponible) {
+          throw new Error(
+            `No hay suficientes unidades de '${prod.nombre}'. Disponibles: ${disponible}, pedidas: ${pedido}.`
+          );
+        }
       }
-    }
 
-    for (const [productoId, pedido] of pedidoPorProducto) {
-      const prod = productos.get(String(productoId))!;
-      const disponible = (prod.variantes || [])
-        .filter((v) => v.activo !== false)
-        .reduce((s, v) => s + (v.existencias || 0), 0);
-
-      if (pedido > disponible) {
-        throw new Error(
-          `No hay suficientes unidades de '${prod.nombre}'. Disponibles: ${disponible}, pedidas: ${pedido}.`
-        );
+      // 3. Los precios y el descuento se calculan ANTES de sacar mercadería: lo
+      //    que se cobra por cada línea, ya con su parte del descuento, queda
+      //    anotado en los lotes de los que sale. Es lo que después dice cuánto
+      //    dejó un paquete.
+      const precios = input.lineas.map((linea) => {
+        const cantidad = Math.max(1, Math.round(linea.cantidad));
+        const prod = linea.producto_id ? productos.get(linea.producto_id) : undefined;
+        const precioUnitario = linea.precio_unitario_usd_cents ?? prod?.precio_venta_usd_cents ?? 0;
+        return { cantidad, prod, precioUnitario, subtotal: precioUnitario * cantidad };
+      });
+      const subtotalVenta = precios.reduce((s, p) => s + p.subtotal, 0);
+      let descuentoUsdCents = 0;
+      if (input.descuento_tipo === 'PORCENTAJE' && input.descuento_valor && input.descuento_valor > 0) {
+        descuentoUsdCents = Math.round((subtotalVenta * input.descuento_valor) / 100);
+      } else if (input.descuento_tipo === 'MONTO_FIJO' && input.descuento_valor && input.descuento_valor > 0) {
+        descuentoUsdCents = Math.round(input.descuento_valor * 100);
       }
-    }
+      descuentoUsdCents = Math.min(subtotalVenta, Math.max(0, descuentoUsdCents));
+      const descuentoPorLinea = repartirMayorResiduo(
+        descuentoUsdCents,
+        precios.map((p, i) => ({ id: i, base_valor: p.subtotal }))
+      );
 
-    // 2. Aplicar. Con el stock ya validado, las salidas no fallan por falta
-    //    de unidades.
-    let total = 0;
-    let costoTotal = 0;
-    const lineasGuardadas: VentaLinea[] = [];
-    const salidasRealizadas: Array<{
-      producto_id: number;
-      variante_id?: number;
-      cantidad: number;
-      costo_salida_usd_cents: number;
-      consumos: Consumo[];
-    }> = [];
+      // Un pedido: piezas anotadas sin precio, porque ella todavía no sabe
+      // cuánto valen. Nace cotizado y sin pago; se cotiza después.
+      const piezasSinPrecio = esEncargo ? precios.filter((p) => p.precioUnitario <= 0).length : 0;
+      if (piezasSinPrecio > 0 && input.pago_inicial && (input.pago_inicial.monto_cents ?? 1) > 0) {
+        throw new Error('Un pedido sin precio todavía no lleva pago: cotizalo primero.');
+      }
 
-    // Los precios y el descuento se calculan ANTES de sacar mercadería: lo que
-    // se cobra por cada línea, ya con su parte del descuento, queda anotado en
-    // los lotes de los que sale. Es lo que después dice cuánto dejó un paquete.
-    const precios = input.lineas.map((linea) => {
-      const cantidad = Math.max(1, Math.round(linea.cantidad));
-      const prod = linea.producto_id ? productos.get(String(linea.producto_id)) : undefined;
-      const precioUnitario = linea.precio_unitario_usd_cents ?? prod?.precio_venta_usd_cents ?? 0;
-      return { cantidad, prod, precioUnitario, subtotal: precioUnitario * cantidad };
-    });
-    const subtotalVenta = precios.reduce((s, p) => s + p.subtotal, 0);
-    let descuentoUsdCents = 0;
-    if (input.descuento_tipo === 'PORCENTAJE' && input.descuento_valor && input.descuento_valor > 0) {
-      descuentoUsdCents = Math.round((subtotalVenta * input.descuento_valor) / 100);
-    } else if (input.descuento_tipo === 'MONTO_FIJO' && input.descuento_valor && input.descuento_valor > 0) {
-      descuentoUsdCents = Math.round(input.descuento_valor * 100);
-    }
-    descuentoUsdCents = Math.min(subtotalVenta, Math.max(0, descuentoUsdCents));
-    const descuentoPorLinea = repartirMayorResiduo(
-      descuentoUsdCents,
-      precios.map((p, i) => ({ id: i, base_valor: p.subtotal }))
-    );
+      // 4. Sacar la mercadería sobre lo leído. Cada línea parte de cómo dejó
+      //    al producto la anterior, y al final se escribe una vez por producto.
+      let total = 0;
+      let costoTotal = 0;
+      let salidas = 0;
+      const lineasGuardadas: VentaLinea[] = [];
+      const enMemoria = new Map(productos);
+      const escrituras = new Map<number, Record<string, unknown>>();
+      const movimientos: OperacionLote[] = [];
 
-    // Un pedido: piezas anotadas sin precio, porque ella todavía no sabe
-    // cuánto valen. Nace cotizado y sin pago; se cotiza después.
-    const piezasSinPrecio = esEncargo ? precios.filter((p) => p.precioUnitario <= 0).length : 0;
-    if (piezasSinPrecio > 0 && input.pago_inicial && (input.pago_inicial.monto_cents ?? 1) > 0) {
-      throw new Error('Un pedido sin precio todavía no lleva pago: cotizalo primero.');
-    }
-
-    try {
       for (let i = 0; i < input.lineas.length; i++) {
         const linea = input.lineas[i];
         const { cantidad, prod, precioUnitario, subtotal } = precios[i];
@@ -496,25 +531,31 @@ export class VentasRepoFirestore {
         let consumos: Consumo[] | undefined;
 
         if (prod && !esEncargo) {
-          const salida = await ProductosRepoFirestore.salida({
+          const plan = ProductosRepoFirestore.planearSalida(enMemoria.get(linea.producto_id!)!, {
             producto_id: linea.producto_id!,
             variante_id: linea.variante_id,
             cantidad,
-            referencia_tipo: 'VENTA',
-            referencia_id: ventaId,
-            detalle: `Venta ${codigo}`,
             ingreso_usd_cents: subtotal - (descuentoPorLinea.get(i) ?? 0),
           });
-          salidasRealizadas.push({
-            producto_id: linea.producto_id!,
-            variante_id: linea.variante_id,
-            cantidad,
-            costo_salida_usd_cents: salida.costo_salida_usd_cents,
-            consumos: salida.consumos,
-          });
-          costoLinea = salida.costo_salida_usd_cents;
+          enMemoria.set(linea.producto_id!, plan.productoDespues);
+          escrituras.set(linea.producto_id!, plan.escritura);
+          movimientos.push(
+            ProductosRepoFirestore.movimientoParaLote({
+              producto_id: linea.producto_id!,
+              variante_id: plan.varianteUsada,
+              tipo: 'SALIDA',
+              cantidad: plan.salida.unidades_retiradas,
+              costo_total_usd_cents: plan.salida.costo_salida_usd_cents,
+              existencias_despues: plan.existenciasDespues,
+              referencia_tipo: 'VENTA',
+              referencia_id: ventaId,
+              detalle: `Venta ${codigo}`,
+            })
+          );
+          salidas++;
+          costoLinea = plan.salida.costo_salida_usd_cents;
           costoUnitario = Math.round(costoLinea / cantidad);
-          consumos = salida.consumos;
+          consumos = plan.salida.consumos;
         }
 
         total += subtotal;
@@ -567,9 +608,8 @@ export class VentasRepoFirestore {
         pagadoUsdCents = Math.min(total, Math.max(0, montoUsd));
 
         if (pagadoUsdCents > 0) {
-          const pagoId = await siguienteId('pagos');
           pagoDoc = {
-            id: pagoId,
+            id: ultimoPago + 1,
             venta_id: ventaId,
             cliente_id: input.cliente_id,
             fecha: input.fecha,
@@ -640,80 +680,79 @@ export class VentasRepoFirestore {
         registrado_por: autorActual(),
       };
 
-      const operacionesLote: OperacionLote[] = [
+      // 5. Escribir todo junto.
+      const ahora = new Date().toISOString();
+      for (const [id, escritura] of escrituras) {
+        tx.set(
+          doc(db, 'productos', String(id)),
+          sinUndefined({ ...escritura, actualizado_en: ahora }),
+          { merge: true }
+        );
+      }
+      escribirSecuenciaEn(tx, 'ventas', ventaId);
+      if (pagoDoc) escribirSecuenciaEn(tx, 'pagos', pagoDoc.id);
+
+      const eventos = EventosRepoFirestore.operacionesDeEventos([
+        ...(pagoDoc
+          ? [
+              {
+                evento_grupo_id,
+                entidad_tipo: 'pagos',
+                entidad_id: pagoDoc.id,
+                tipo_evento: 'CREACION' as const,
+                detalle: `Pago inicial de $${(pagoDoc.monto_usd_cents / 100).toFixed(2)} registrado en venta ${codigo}`,
+              },
+            ]
+          : []),
+        {
+          evento_grupo_id,
+          // Una venta que sacó mercadería no se deshace borrando el documento:
+          // las unidades no volverían solas. Se anula, que sí las devuelve.
+          reversible: salidas === 0,
+          entidad_tipo: 'ventas',
+          entidad_id: ventaId,
+          tipo_evento: 'CREACION' as const,
+          detalle: `${esEncargo ? 'Encargo' : 'Venta'} ${codigo} registrada`,
+        },
+      ]);
+
+      escribirEnTransaccion(tx, [
         {
           coleccion: 'ventas',
           id: ventaId,
           merge: false,
           datos: sinUndefined(nuevaVenta as unknown as Record<string, unknown>),
         },
-      ];
+        ...(pagoDoc
+          ? [
+              {
+                coleccion: 'pagos',
+                id: pagoDoc.id,
+                merge: false,
+                datos: sinUndefined(pagoDoc as unknown as Record<string, unknown>),
+              },
+            ]
+          : []),
+        ...movimientos,
+        ...eventos,
+        ...(operacion_id ? [marcaParaLote(operacion_id, 'VENTA', ventaId)] : []),
+      ]);
 
-      if (pagoDoc) {
-        operacionesLote.push({
-          coleccion: 'pagos',
-          id: pagoDoc.id,
-          merge: false,
-          datos: sinUndefined(pagoDoc as unknown as Record<string, unknown>),
-        });
-      }
+      return { yaEstaba: false, ventaId };
+    });
 
-      await aplicarLote(operacionesLote);
+    if (hecho.yaEstaba) return hecho.ventaId;
 
-      if (pagoDoc) {
-        await EventosRepoFirestore.registrarEvento({
-          evento_grupo_id,
-          entidad_tipo: 'pagos',
-          entidad_id: pagoDoc.id,
-          tipo_evento: 'CREACION',
-          detalle: `Pago inicial de $${(pagoDoc.monto_usd_cents / 100).toFixed(2)} registrado en venta ${codigo}`,
-        });
-      }
-
-      // Los totales del cliente se derivan de sus ventas; en Firestore hay que
-      // refrescarlos a mano después de cada una.
+    // Los totales de la clienta se derivan de sus ventas y se pueden volver a
+    // calcular: van después y su falla no deshace la venta, que ya está
+    // guardada. Avisar "no se pudo" acá invitaba a cargarla otra vez.
+    try {
       await ClientesRepoFirestore.refrescarTotales(input.cliente_id);
-
-      await EventosRepoFirestore.registrarEvento({
-        evento_grupo_id,
-        // Una venta que sacó mercadería no se deshace borrando el documento:
-        // las unidades no volverían solas. Se anula, que sí las devuelve.
-        reversible: salidasRealizadas.length === 0,
-        entidad_tipo: 'ventas',
-        entidad_id: ventaId,
-        tipo_evento: 'CREACION',
-        detalle: `${esEncargo ? 'Encargo' : 'Venta'} ${codigo} registrada`,
-      });
-
-      return ventaId;
     } catch (err) {
-      if (salidasRealizadas.length > 0) {
-        console.warn(
-          `[VentasRepo] Revirtiendo ${salidasRealizadas.length} salidas de inventario debido a fallo en creación de venta #${ventaId}:`,
-          err
-        );
-        for (const s of salidasRealizadas) {
-          try {
-            await ProductosRepoFirestore.entrada({
-              producto_id: s.producto_id,
-              variante_id: s.variante_id,
-              cantidad: s.cantidad,
-              costo_total_usd_cents: s.costo_salida_usd_cents,
-              consumos: s.consumos,
-              referencia_tipo: 'VENTA',
-              referencia_id: ventaId,
-              detalle: `Reversión automática por venta fallida ${codigo}`,
-            });
-          } catch (revertErr) {
-            console.error(
-              `[VentasRepo] Error crítico al revertir salida de producto #${s.producto_id}:`,
-              revertErr
-            );
-          }
-        }
-      }
-      throw err;
+      console.warn(`[VentasRepo] La venta #${hecho.ventaId} quedó guardada; los totales de la clienta se actualizan después:`, err);
     }
+
+    return hecho.ventaId;
   }
 
   /**
