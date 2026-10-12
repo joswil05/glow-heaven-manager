@@ -64,7 +64,7 @@ para no dejar componentes sin uso. Windows es W1.
   la del sistema. En el corredor sin red, el caso de la letra cambia: al
   abrir la app (con red y sin ella) no sale ningún pedido a
   `fonts.googleapis.com` ni a `fonts.gstatic.com`.
-- [ ] **Paso 2: la letra del sistema**: `-apple-system, BlinkMacSystemFont,
+- [x] **Paso 2: la letra del sistema**: `-apple-system, BlinkMacSystemFont,
   "Segoe UI", Roboto, system-ui, sans-serif`. La caché de workbox se queda
   (la usan los documentos).
 
