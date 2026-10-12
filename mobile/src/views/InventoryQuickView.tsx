@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Search, X, Package, PackagePlus } from 'lucide-react';
+import { Search, X, Package, PackagePlus, Pencil } from 'lucide-react';
 import type { ProductoConStock } from '@shared/types';
 import { PullToRefresh } from '../components/PullToRefresh';
 import { FichaProductoSheet } from '../components/FichaProductoSheet';
@@ -12,7 +12,11 @@ import { ComprasRepoFirestore } from '../../../src/main/firebase/repositories/co
 
 type Filtro = { tipo: 'todos' } | { tipo: 'categoria'; id: number } | { tipo: 'paquete'; id: number };
 
-export function InventoryQuickView({ onRegistrarPaquete }: { onRegistrarPaquete: () => void }) {
+export function InventoryQuickView({ onRegistrarPaquete, onCorregirPaquete }: {
+  onRegistrarPaquete: () => void;
+  /** Corregir un paquete que ya entró, como "Corregir" en la PC. */
+  onCorregirPaquete?: (id: number) => void;
+}) {
   const { parametros, categorias, productos, cargandoProductos, recargarProductos, version } = useDatosNegocio();
 
   const { mostrar } = useSnackbar();
@@ -27,7 +31,7 @@ export function InventoryQuickView({ onRegistrarPaquete }: { onRegistrarPaquete:
    * nuevo que renueva el inventario. Estando en el mostrador, "¿esto vino en
    * el último paquete?" es una pregunta de todos los días.
    */
-  const [paquetes, setPaquetes] = useState<{ id: number; codigo: string }[]>([]);
+  const [paquetes, setPaquetes] = useState<{ id: number; codigo: string; recibido: boolean }[]>([]);
 
   // Volver a recibir un paquete invalida la lista. Un cambio de precio o de
   // stock no cambia por sí solo los paquetes a los que apunta el inventario.
@@ -45,7 +49,7 @@ export function InventoryQuickView({ onRegistrarPaquete }: { onRegistrarPaquete:
         setPaquetes(
           lista
             .filter((c) => c.estado === 'RECIBIDA' || referenciados.has(c.id))
-            .map((c) => ({ id: c.id, codigo: c.codigo }))
+            .map((c) => ({ id: c.id, codigo: c.codigo, recibido: c.estado === 'RECIBIDA' }))
         );
       })
       .catch(() => {
@@ -283,6 +287,13 @@ export function InventoryQuickView({ onRegistrarPaquete }: { onRegistrarPaquete:
             </optgroup>}
           </select>
         </label>
+        {/* Un costo mal cargado se arregla corrigiendo el paquete, no la ficha. */}
+        {filtro.tipo === 'paquete' && onCorregirPaquete && paquetes.some(paq => paq.id === filtro.id && paq.recibido) && (
+          <button type="button" onClick={() => { haptics.selection(); onCorregirPaquete(filtro.id); }}
+            className="mt-2 flex min-h-11 items-center gap-2 text-base font-semibold text-acento-fuerte">
+            <Pencil size={18} />Corregir {paquetes.find(paq => paq.id === filtro.id)?.codigo}
+          </button>
+        )}
       </header>
 
       {/* Lista de productos con Pull-to-Refresh */}
