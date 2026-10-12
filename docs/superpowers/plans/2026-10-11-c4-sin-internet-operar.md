@@ -27,8 +27,10 @@ Playwright con el corredor `test:sin-conexion` de C3.
 sección C4. Antecedente: [PLAN_ENCARGOS_Y_SIN_CONEXION.md](../../PLAN_ENCARGOS_Y_SIN_CONEXION.md),
 sección 4.3 (escrita para las dos apps; desde el 2/10 es sólo el celular).
 
-**Estado:** plan escrito el 11/10/2026, sin empezar. Antes de T1, Joswill
-decide las dos preguntas de abajo.
+**Estado:** plan escrito el 11/10/2026. Joswill pidió concluir C4 sin
+responder las dos preguntas de abajo: se aplican las dos recomendaciones
+(la venta sin red guarda la tasa del momento; "Sin número todavía" hasta
+subir). Si las cambia, se corrige.
 
 ## Decisiones para Joswill (antes de empezar)
 

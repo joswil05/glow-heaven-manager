@@ -62,6 +62,11 @@ Consecuencias, para no equivocarse:
     (buscador de todo). Si Joswill tiene cuenta, conviene que guarde ahí
     una colección y la usemos en U1.
 - **Criterios**: los de Emil Kowalski (sección 5) y la auditoría del 29/9.
+- **Propuesta visual**: ocho pantallas (Inicio, Vender, Cobrar, Clientas,
+  ficha de clienta, ficha de producto, detalle de encargo y Más) en claro y
+  oscuro, con los colores, la letra y la navegación de este plan:
+  <https://claude.ai/artifact/Leh74th1SdWu3i13f687qQ> (privada: la abre
+  Joswill; un agente sin acceso se guía por este documento).
 
 ## 3. Inventario de funciones: Windows, el celular hoy y el plan
 

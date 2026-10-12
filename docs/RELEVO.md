@@ -85,7 +85,19 @@ se trabaja**.
   falta sólo la prueba física en el iPhone (T1 paso 1 y la de T7 paso 2).
 - **"Llegó un paquete" igual al editor de Windows** (pedido de Joswill del
   11/10), integrado en `master` (merge `4ca3acd`), sin publicar.
-- **Siguiente paso**: **C4 · T1**, cuando Joswill responda las dos decisiones del [plan de C4](superpowers/plans/2026-10-11-c4-sin-internet-operar.md) (la tasa de una venta sin red y el número al subir). Publicar C3 y el paquete nuevo pide su "publicalo".
+- **Rumbo nuevo (11/10, Joswill)**: el celular pasa a ser el centro, con la
+  misma funcionalidad que Windows y un diseño nuevo. Las fases 3 a 6 de la
+  auditoría se reemplazan por el plan unificado
+  [superpowers/specs/2026-10-11-celular-como-centro-design.md](superpowers/specs/2026-10-11-celular-como-centro-design.md)
+  (fases U1 a U9 y W1). Quedan sin efecto las decisiones del 2/10 que
+  limitaban el celular (no editar fichas, no ajustar existencias, encargos
+  sólo hasta "Aceptó"). Ese plan tiene decisiones abiertas para Joswill
+  (sección 10).
+- **Siguiente paso**: **C4 · T1** ([plan](superpowers/plans/2026-10-11-c4-sin-internet-operar.md)).
+  Joswill pidió concluir C4 sin responder sus dos preguntas: se aplican las
+  recomendaciones (la venta sin red guarda la tasa del momento; "Sin número
+  todavía" hasta subir). Después, U1. Publicar C3 y el paquete nuevo pide su
+  "publicalo".
 - **C1**: T1 a T4 completas, publicadas en la 2.18.0; cierre documentado
   en `ddc0fc7`. Emulador apagado.
 - **Trampa conocida**: `npm run test:emulador` y `npm run test:interfaz`
