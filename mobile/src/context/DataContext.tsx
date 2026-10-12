@@ -7,6 +7,7 @@ import { getFirestoreDb } from '@firebase-client';
 import { useAuth } from './AuthContext';
 import { useConexion, useControlConexion } from './ConexionContext';
 import { invalidarCacheDashboard } from '../lib/panel-movil';
+import { esErrorSinRed } from '../lib/conexion-movil';
 
 interface DataState {
   parametros: ParametrosSistema | null;
@@ -23,6 +24,11 @@ interface DataState {
   cargandoProductos: boolean;
   cargando: boolean;
   error: string | null;
+  /**
+   * Sin red y sin los parámetros guardados en este teléfono (C3): nunca se
+   * usaron todavía con señal. No se inventan valores: se dice.
+   */
+  sinDatosGuardados: boolean;
   recargar: () => Promise<void>;
   recargarProductos: (forzar?: boolean) => Promise<void>;
   actualizarStockLocal: (lineas: { producto_id: number; variante_id?: number; cantidad: number }[]) => void;
@@ -71,6 +77,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [cargandoProductos, setCargandoProductos] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sinDatosGuardados, setSinDatosGuardados] = useState(false);
 
   const ultimaCargaRef = useRef<number>(0);
 
@@ -84,7 +91,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
       ]);
       setParametros(p);
       setCategorias(cats);
+      setSinDatosGuardados(false);
     } catch (err) {
+      if (navigator.onLine === false || esErrorSinRed(err)) {
+        // Sin red no se inventa una tasa ni un nombre (C3): lo que ya estaba
+        // en pantalla sigue, y si no había nada, se dice que falta conectarse.
+        console.warn('[DataContext] Sin red y sin parámetros guardados en este teléfono.');
+        setSinDatosGuardados(true);
+        return;
+      }
       console.error('[DataContext] Error cargando parámetros:', err);
       setError('No se pudieron cargar los parámetros del negocio. Usando valores por defecto.');
       setParametros(DEFAULT_PARAMS);
@@ -195,6 +210,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         cargandoProductos,
         cargando,
         error,
+        sinDatosGuardados,
         recargar: recargarParametros,
         recargarProductos,
         actualizarStockLocal,

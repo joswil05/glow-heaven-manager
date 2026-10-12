@@ -149,6 +149,17 @@ con `includeMetadataChanges` sobre `parametros/sistema` llama a
 `sincronizado()` o `desdeCache()`, y al pasar a sin red, si estaba
 sincronizado, se guarda la hora de ese instante.
 
+> **Cambio del 11/10, al hacer T5:** `navigator.onLine` miente con un Wi-Fi
+> sin internet o con señal débil (y en Playwright, después de recargar sin
+> red, dice `true`). Por eso "en línea" también cuenta a Firestore: si sirve
+> desde la caché más de `ESPERA_SERVIDOR_MS` (3 s) sin confirmar el
+> servidor, es sin conexión; menos que eso es el arranque normal y la franja
+> no parpadea. El entorno suma `programar(fn, ms)`. Las guardas de
+> `getParametros` y `getCategorias` miran además `metadata.fromCache`, y
+> `DataContext` reconoce el error de Firestore "offline" (`esErrorSinRed`).
+> La franja ocupa el margen del notch y pone `--safe-t: 0px` a las
+> pantallas; `pt-safe-t` lee `var(--safe-t, env(safe-area-inset-top))`.
+
 ---
 
 ## T1 · Línea base en el iPhone y almacenamiento persistente
@@ -315,7 +326,7 @@ para el teléfono (T7).
 documento, `getParametros()` rechaza y **no escribe** nada en `parametros`.
 Con red sigue creando los defectos como hoy (prueba de que no se rompió).
 
-- [ ] **Paso 2: sin defectos sin red**
+- [x] **Paso 2: sin defectos sin red**
 
 En `getParametros`, antes de `aplicarLote` de los defectos: si
 `typeof navigator !== 'undefined' && navigator.onLine === false`, lanzar
@@ -326,7 +337,7 @@ principal: no cambia nada allá. En `DataContext`, si falla sin red, no usar
 después la app abre aunque no haya señal." Con red, el comportamiento de
 hoy no cambia.
 
-- [ ] **Paso 3: la franja**
+- [x] **Paso 3: la franja**
 
 `FranjaSinConexion` arriba de `Navegacion` (y de las vistas a pantalla
 completa: Encargos y "Llegó un paquete"), con `pt-safe-t`:

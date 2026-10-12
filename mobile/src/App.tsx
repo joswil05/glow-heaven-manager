@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type CSSProperties } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
 import { DataProvider, useDatosNegocio } from './context/DataContext';
@@ -15,6 +15,7 @@ import { HistorialView } from './views/HistorialView';
 import { RegistrarPaqueteView } from './views/RegistrarPaqueteView';
 import { EncargosView } from './views/EncargosView';
 import { BottomNav } from './components/BottomNav';
+import { FranjaSinConexion } from './components/FranjaSinConexion';
 import { SnackbarProvider } from './components/Snackbar';
 
 // `ajustes` no esta en el dock: se toca cada varias semanas y el dock es
@@ -211,7 +212,8 @@ function AppContenido() {
  * tanto no puede consultarlo.
  */
 function Navegacion() {
-  const { parametros } = useDatosNegocio();
+  const { parametros, sinDatosGuardados } = useDatosNegocio();
+  const { enLinea, datosDe } = useConexion();
   const [vista, setVista] = useState<Vista>('panel');
   const [origenEncargos, setOrigenEncargos] = useState<'panel' | 'vender'>('panel');
   const [nuevoEncargoAlEntrar, setNuevoEncargoAlEntrar] = useState(false);
@@ -247,7 +249,24 @@ function Navegacion() {
 
   return (
         <div className="flex flex-col h-[100dvh] overflow-hidden bg-fondo text-texto transition-colors duration-200">
-          <div className="flex-1 min-h-0 relative">
+          {!enLinea && <FranjaSinConexion datosDe={datosDe} />}
+          <div
+            className="flex-1 min-h-0 relative"
+            style={enLinea ? undefined : ({ '--safe-t': '0px' } as CSSProperties)}
+          >
+            {sinDatosGuardados && !parametros && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-fondo p-6">
+                <div className="flex max-w-sm flex-col items-center gap-3 text-center">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-full bg-superficie-2 text-texto-3">
+                    <WifiOff size={24} aria-hidden="true" />
+                  </span>
+                  <h2 className="text-lg font-bold text-texto">Todavía no hay datos en este teléfono</h2>
+                  <p className="text-sm text-texto-2">
+                    Conectate una vez y después la app abre aunque no haya señal.
+                  </p>
+                </div>
+              </div>
+            )}
             <div className={`h-full w-full overflow-hidden ${vista === 'panel' ? 'block animate-vista' : 'hidden'}`}>
               <DashboardView
                 onIrAAjustes={() => setVista('ajustes')}

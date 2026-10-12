@@ -8,6 +8,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   CLAVE_DATOS_DE,
+  ESPERA_SERVIDOR_MS,
   crearConexion,
   textoDatosDe,
   type EntornoConexion,
@@ -18,6 +19,7 @@ function entornoFalso(inicial: { enLinea: boolean; ahora?: number; guardado?: Re
   let ahora = inicial.ahora ?? 0;
   const guardado: Record<string, string> = { ...(inicial.guardado ?? {}) };
   const oyentes: Record<string, Set<() => void>> = { online: new Set(), offline: new Set() };
+  let pendientes: { cuando: number; fn: () => void }[] = [];
   const entorno: EntornoConexion = {
     enLinea: () => enLinea,
     escuchar(evento, fn) {
@@ -29,12 +31,22 @@ function entornoFalso(inicial: { enLinea: boolean; ahora?: number; guardado?: Re
       guardado[clave] = valor;
     },
     ahora: () => ahora,
+    programar(fn, ms) {
+      const p = { cuando: ahora + ms, fn };
+      pendientes.push(p);
+      return () => {
+        pendientes = pendientes.filter((x) => x !== p);
+      };
+    },
   };
   return {
     entorno,
     guardado,
     avanzar(ms: number) {
       ahora += ms;
+      const vencidos = pendientes.filter((p) => p.cuando <= ahora);
+      pendientes = pendientes.filter((p) => p.cuando > ahora);
+      vencidos.forEach((p) => p.fn());
     },
     disparar(evento: 'online' | 'offline') {
       enLinea = evento === 'online';
@@ -106,6 +118,53 @@ describe('El estado de la conexión', () => {
     expect(f.oyentes()).toBe(2);
     c.detener();
     expect(f.oyentes()).toBe(0);
+  });
+});
+
+describe('Cuando el navegador dice que hay red y no la hay', () => {
+  // Un Wi-Fi sin internet o la señal débil: `navigator.onLine` dice que sí,
+  // y Firestore sigue sirviendo desde la caché. Si dura más que la espera,
+  // es sin conexión; menos que eso es el arranque normal, mientras conecta.
+  it('Firestore en la caché más que la espera: sin conexión', () => {
+    const f = entornoFalso({ enLinea: true });
+    const c = crearConexion(f.entorno);
+    c.desdeCache();
+    f.avanzar(ESPERA_SERVIDOR_MS - 1);
+    expect(c.estado().enLinea).toBe(true);
+    f.avanzar(1);
+    expect(c.estado().enLinea).toBe(false);
+  });
+
+  it('si el servidor confirma antes, no parpadea', () => {
+    const f = entornoFalso({ enLinea: true });
+    const c = crearConexion(f.entorno);
+    const vistos: boolean[] = [];
+    c.suscribir((e) => vistos.push(e.enLinea));
+    c.desdeCache();
+    f.avanzar(500);
+    c.sincronizado();
+    f.avanzar(ESPERA_SERVIDOR_MS);
+    expect(vistos.every(Boolean)).toBe(true);
+  });
+
+  it('al confirmar el servidor, vuelve a haber conexión', () => {
+    const f = entornoFalso({ enLinea: true });
+    const c = crearConexion(f.entorno);
+    c.desdeCache();
+    f.avanzar(ESPERA_SERVIDOR_MS);
+    c.sincronizado();
+    expect(c.estado().enLinea).toBe(true);
+  });
+
+  it('con el evento online pero Firestore todavía en la caché, sigue sin conexión', () => {
+    const f = entornoFalso({ enLinea: false });
+    const c = crearConexion(f.entorno);
+    c.desdeCache();
+    f.avanzar(ESPERA_SERVIDOR_MS);
+    f.disparar('online');
+    expect(c.estado().enLinea).toBe(false);
+    c.sincronizado();
+    expect(c.estado().enLinea).toBe(true);
   });
 });
 

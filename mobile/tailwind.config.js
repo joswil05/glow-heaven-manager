@@ -93,7 +93,9 @@ export default {
         '2xl': 'var(--sombra-3)',
       },
       spacing: {
-        'safe-t': 'env(safe-area-inset-top)',
+        // `--safe-t` lo pone en 0 la franja "Sin conexión" (C3), que ocupa
+        // el margen del notch: así ningún encabezado lo tiene dos veces.
+        'safe-t': 'var(--safe-t, env(safe-area-inset-top))',
         'safe-b': 'env(safe-area-inset-bottom)',
       },
     },

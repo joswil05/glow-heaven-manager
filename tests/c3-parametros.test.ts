@@ -28,6 +28,14 @@ describe('Los parámetros sin red', () => {
     expect(volcar('parametros')).toEqual([]);
   });
 
+  it('sin red y sin categorías en la caché, falla y no siembra las de fábrica', async () => {
+    // Las nueve categorías de la clienta, con sus márgenes, no se tocan: una
+    // siembra en cola las pisaría o duplicaría al volver la señal.
+    vi.stubGlobal('navigator', { onLine: false });
+    await expect(Parametros.getCategorias()).rejects.toThrow('sin-conexion');
+    expect(volcar('categorias')).toEqual([]);
+  });
+
   it('con red y sin el documento, crea los valores por defecto como siempre', async () => {
     vi.stubGlobal('navigator', { onLine: true });
     const p = await Parametros.getParametros();

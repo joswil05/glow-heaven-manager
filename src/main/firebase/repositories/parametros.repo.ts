@@ -1,4 +1,4 @@
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import {
   getFirestoreDb,
   siguienteId,
@@ -66,6 +66,16 @@ const TTL_CACHE_MS = 30_000;
 let cacheParametros: { valor: ParametrosSistema; expira: number } | null = null;
 let cacheCategorias: { valor: Categoria[]; expira: number } | null = null;
 
+/**
+ * Sin red, en el celular, "no está" quiere decir "este teléfono todavía no lo
+ * guardó", no "la base es nueva": crear los defectos dejaría una escritura en
+ * cola que, al volver la señal, pisa los datos reales (C3). En Windows, en el
+ * proceso principal, `navigator` no existe y esto da `false`.
+ */
+function sinRedEnElNavegador(): boolean {
+  return typeof navigator !== 'undefined' && navigator.onLine === false;
+}
+
 function invalidarCache(): void {
   cacheParametros = null;
   cacheCategorias = null;
@@ -80,9 +90,14 @@ export class ParametrosRepoFirestore {
       return cacheParametros.valor;
     }
 
-    let data = await leerDoc<Record<string, unknown>>('parametros', 'sistema');
+    const leido = await getDoc(doc(getFirestoreDb(), 'parametros', 'sistema'));
+    let data = leido.exists() ? (leido.data() as Record<string, unknown>) : null;
 
     if (!data) {
+      // Que no esté en la caché no dice que no exista (C3): con el navegador
+      // sin red, o con Firestore respondiendo desde la caché (un Wi-Fi sin
+      // internet), no se crean los defectos.
+      if (sinRedEnElNavegador() || leido.metadata?.fromCache) throw new Error('sin-conexion');
       data = { ...DEFECTOS };
       await aplicarLote([
         { coleccion: 'parametros', id: 'sistema', datos: data, merge: false },
@@ -232,6 +247,9 @@ export class ParametrosRepoFirestore {
     let snap = await getDocs(query(colRef, where('activa', '==', true)));
 
     if (snap.empty) {
+      // Las categorías de la clienta no se pisan con las de fábrica (C3):
+      // una lista vacía que viene de la caché no dice que no haya ninguna.
+      if (sinRedEnElNavegador() || snap.metadata?.fromCache) throw new Error('sin-conexion');
       await this.sembrarCategorias();
       snap = await getDocs(query(colRef, where('activa', '==', true)));
     }
