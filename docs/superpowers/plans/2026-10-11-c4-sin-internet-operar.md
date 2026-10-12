@@ -213,7 +213,7 @@ API con `gcloud`) antes y después.
 
 **Archivos:** `mobile/src/lib/subir-cola.ts`, `tests/c4-subir.test.ts`.
 
-- [ ] **Paso 1: rojo**, con repositorios falsos inyectados:
+- [x] **Paso 1: rojo**, con repositorios falsos inyectados:
   - en orden, de a una;
   - error de red: queda PENDIENTE y la subida se frena;
   - error de negocio (sin stock): REVISAR con el motivo, y la siguiente sube;
