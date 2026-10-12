@@ -1,6 +1,8 @@
 /**
- * Sistema de Diseño Móvil Nativo (Material 3 + Vivid Emerald)
- * Optimizado para pantallas táctiles de Android y PWA móvil.
+ * El sistema visual del celular (U1, docs/superpowers/specs/2026-10-11-celular-como-centro-design.md):
+ * neutros cálidos, el verde de la marca para las acciones y la letra del
+ * sistema. La marca es una boutique (el logo es un hongo-casita crema, rojo
+ * suave y verde): la app ya no tiene que parecer de banco.
  */
 /**
  * ---------------------------------------------------------------------------
@@ -38,43 +40,51 @@
  */
 :root {
   /* En claro la elevación se expresa con SOMBRA, así que las superficies
-     elevadas siguen siendo blancas. */
-  --fondo: 244 246 249;
+     elevadas siguen siendo blancas. Los neutros son cálidos (U1): un papel
+     crema en vez del gris azulado de antes, que hacía parecer la app de
+     banco. El contraste de cada par está medido en tests/u1-fundaciones. */
+  --fondo: 247 245 242;
   --superficie: 255 255 255;
-  --superficie-2: 238 242 248;
+  --superficie-2: 240 237 232;
   --superficie-3: 255 255 255;
-  --borde: 222 229 238;
-  --borde-fuerte: 195 205 218;
+  --borde: 229 224 216;
+  --borde-fuerte: 203 196 185;
 
-  --texto: 15 23 42;
-  --texto-2: 51 65 85;
-  --texto-3: 90 105 130;
+  --texto: 27 26 24;
+  --texto-2: 95 91 84;
+  --texto-3: 112 106 98;
 
-  --acento: 5 128 90;
-  --acento-fuerte: 4 108 74;
-  --acento-suave: 230 252 243;
+  /* El verde de la marca, más profundo que el esmeralda de antes. */
+  --acento: 30 107 82;
+  --acento-fuerte: 23 87 63;
+  --acento-suave: 227 241 234;
   --acento-texto: 255 255 255;
 
-  --exito: 5 128 90;
-  --exito-fuerte: 4 108 74;
-  --exito-suave: 228 250 240;
+  --exito: 30 107 82;
+  --exito-fuerte: 23 87 63;
+  --exito-suave: 227 241 234;
   --exito-texto: 255 255 255;
   /* El naranja sobre blanco es el color más difícil de hacer legible: el
-     ámbar anterior (234 130 0) daba 2.73 como texto. Este da 5.02. */
+     ámbar anterior (234 130 0) daba 2.73 como texto. Este da 5.02. Es el
+     color de la deuda: lo que te deben, lo vencido, lo pendiente. */
   --alerta: 180 83 9;
-  --alerta-fuerte: 146 78 0;
-  --alerta-suave: 255 242 215;
+  --alerta-fuerte: 138 63 7;
+  --alerta-suave: 254 243 226;
   --alerta-texto: 255 255 255;
-  --peligro: 225 29 72;
-  --peligro-fuerte: 170 18 52;
-  --peligro-suave: 255 228 235;
+  --peligro: 194 47 59;
+  --peligro-fuerte: 155 29 41;
+  --peligro-suave: 252 233 233;
   --peligro-texto: 255 255 255;
 
-  --inverso: 15 23 42;
-  --inverso-2: 30 41 59;
-  --inverso-texto: 248 250 252;
-  --inverso-texto-2: 148 163 184;
-  --velo: 15 23 42;
+  --inverso: 27 26 24;
+  --inverso-2: 44 42 38;
+  --inverso-texto: 247 245 242;
+  --inverso-texto-2: 181 176 167;
+  --velo: 27 26 24;
+
+  /* Sólo la marca (la entrada y los documentos), nunca una acción: el
+     rojo suave del logo. */
+  --marca: 201 97 79;
 
   /* Las sombras también son tokens, porque tienen que cambiar con el tema.
      En claro son suaves: el papel blanco ya separa por sí solo. */
@@ -104,13 +114,13 @@
      Que los neutros no tengan cromacidad es lo que hace sonar al verde: si
      es el único color saturado de la pantalla, no necesita gritar para que
      lo veas. */
-  --fondo: 11 10 10;
-  --superficie: 22 21 21;
-  --superficie-2: 32 31 30;
-  --superficie-3: 44 42 41;
+  --fondo: 18 17 16;
+  --superficie: 28 27 25;
+  --superficie-2: 38 36 32;
+  --superficie-3: 46 44 40;
   /* Sin sombras, el borde es lo único que define una superficie: pesa más. */
-  --borde: 48 46 45;
-  --borde-fuerte: 73 70 68;
+  --borde: 54 50 45;
+  --borde-fuerte: 77 72 65;
 
   /* Blanco puro sobre casi negro produce halo y cansa: se baja un punto. */
   /* Texto principal al 92% de blanco, no al 96%.
@@ -125,38 +135,40 @@
    * principal en oscuro justo en esta zona; Apple reserva el blanco puro para
    * etiquetas cortas, no para bloques de cifras.
    */
-  --texto: 234 232 230;
-  --texto-2: 172 169 166;
-  --texto-3: 142 139 136;
+  --texto: 234 232 228;
+  --texto-2: 181 176 167;
+  --texto-3: 157 151 141;
 
   /* Un verde saturado sobre casi negro vibra y el ojo no lo enfoca: en
      oscuro el acento sube en luz y baja en saturación. Y al ser claro, su
      texto encima pasa a ser oscuro. */
-  --acento: 62 203 157;
-  --acento-fuerte: 125 233 193;
-  --acento-suave: 6 47 37;
-  --acento-texto: 11 10 10;
+  --acento: 95 203 159;
+  --acento-fuerte: 143 224 190;
+  --acento-suave: 24 58 46;
+  --acento-texto: 18 17 16;
 
   /* Igual que con el verde: en oscuro estos colores son claros, así que el
      texto encima de un relleno tiene que ser oscuro, no blanco. */
-  --exito: 62 203 157;
-  --exito-fuerte: 125 233 193;
-  --exito-suave: 6 47 37;
-  --exito-texto: 11 10 10;
-  --alerta: 240 170 60;
-  --alerta-fuerte: 252 205 121;
-  --alerta-suave: 58 36 6;
-  --alerta-texto: 11 10 10;
-  --peligro: 244 98 120;
-  --peligro-fuerte: 253 164 175;
-  --peligro-suave: 66 12 26;
-  --peligro-texto: 11 10 10;
+  --exito: 95 203 159;
+  --exito-fuerte: 143 224 190;
+  --exito-suave: 24 58 46;
+  --exito-texto: 18 17 16;
+  --alerta: 245 178 86;
+  --alerta-fuerte: 249 203 134;
+  --alerta-suave: 58 42 18;
+  --alerta-texto: 18 17 16;
+  --peligro: 242 118 127;
+  --peligro-fuerte: 248 163 169;
+  --peligro-suave: 61 21 25;
+  --peligro-texto: 18 17 16;
 
-  --inverso: 246 245 244;
-  --inverso-2: 224 222 220;
-  --inverso-texto: 11 10 10;
-  --inverso-texto-2: 90 87 84;
+  --inverso: 243 241 237;
+  --inverso-2: 218 214 207;
+  --inverso-texto: 18 17 16;
+  --inverso-texto-2: 95 91 84;
   --velo: 0 0 0;
+
+  --marca: 226 139 123;
 
   /* En oscuro la sombra ya no es quien eleva (eso lo hace --superficie-N),
      pero sigue sirviendo para asentar un elemento flotante contra lo que
