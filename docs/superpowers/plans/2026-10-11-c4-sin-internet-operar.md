@@ -261,7 +261,7 @@ API con `gcloud`) antes y después.
 - [x] **Paso 1: rojo**: sin señal, un abono desde la ficha de la clienta
   queda pendiente; la ficha dice "1 abono pendiente de subir" sin cambiar el
   saldo; al volver la red, sube una vez y el saldo baja.
-- [ ] **Paso 2: encolar** en `AbonoModalSheet` (sólo "Registrar abono";
+- [x] **Paso 2: encolar** en `AbonoModalSheet` (sólo "Registrar abono";
   "Aceptó" con pago sigue pidiendo red). No se puede abonar a una venta que
   todavía está en la cola: esa venta no aparece en Cobros hasta subir; el
   pago al vender ya va dentro de la venta.

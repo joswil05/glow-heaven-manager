@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { DollarSign, MessageCircle, CheckCircle2, Loader2, RotateCcw } from 'lucide-react';
+import { DollarSign, MessageCircle, CheckCircle2, Loader2, RotateCcw, Clock } from 'lucide-react';
 import { BottomSheet } from './BottomSheet';
 import { VentasRepoFirestore } from '@repos/ventas.repo';
 import { registrarAbonoMovil } from '../lib/registrar-abono-movil';
@@ -13,6 +13,9 @@ import { useDatosNegocio } from '../context/DataContext';
 import { useSnackbar } from './Snackbar';
 import { haptics } from '../lib/haptics';
 import { SIN_RED, useExigirConexion } from '../lib/useExigirConexion';
+import { useConexion } from '../context/ConexionContext';
+import { useCola } from '../context/ColaContext';
+import { conEspera, esErrorPasajero } from '../lib/subir-cola';
 import type { MetodoPago, MonedaPago } from '@shared/types';
 
 export interface VentaCobroItem {
@@ -56,6 +59,8 @@ export function AbonoModalSheet({ venta: ventaAbierta, onCerrar, onAbonoRegistra
   const { parametros } = useDatosNegocio();
   const { mostrar } = useSnackbar();
   const exigirConexion = useExigirConexion();
+  const { enLinea } = useConexion();
+  const { cola, encolar, quitar } = useCola();
 
   const [moneda, setMoneda] = useState<MonedaPago>(monedaPorDefecto(parametros));
   const [metodo, setMetodo] = useState<MetodoPago>(metodoPorDefecto(parametros));
@@ -72,6 +77,8 @@ export function AbonoModalSheet({ venta: ventaAbierta, onCerrar, onAbonoRegistra
     montoFormateado: string;
     nuevoSaldoUsdCents: number;
     grupo: string;
+    /** Quedó en la cola del teléfono con este `operacion_id` (C4). */
+    pendiente?: string;
   } | null>(null);
 
   // Al abrirse, con la moneda y el método que ella eligió en Configuración:
@@ -124,8 +131,9 @@ export function AbonoModalSheet({ venta: ventaAbierta, onCerrar, onAbonoRegistra
       montoRef.current?.focus();
       return;
     }
-    // Si la señal se cortó con la hoja abierta, lo escrito queda (C3).
-    if (!exigirConexion(SIN_RED.abono, setError)) return;
+    // "Aceptó" con pago también cambia el encargo: eso sigue pidiendo señal
+    // (C4). Lo escrito queda (C3).
+    if (aceptarEncargo && !exigirConexion(SIN_RED.encargo, setError)) return;
 
     haptics.impact('heavy');
     ocupado.current = true;
@@ -133,26 +141,50 @@ export function AbonoModalSheet({ venta: ventaAbierta, onCerrar, onAbonoRegistra
     setError(null);
     try {
       const grupo = nuevoGrupoEvento();
-      const res = await registrarAbonoMovil(
-        {
-          venta_id: venta!.venta_id,
-          fecha,
-          monto_cents: centavos,
-          moneda,
-          metodo,
-          referencia: referencia.trim() || undefined,
-        },
-        grupo,
-        aceptarEncargo
-      );
+      // El mismo en el intento con señal y en la cola (C4).
+      const operacion_id = nuevoGrupoEvento();
+      const input = {
+        venta_id: venta!.venta_id,
+        fecha,
+        monto_cents: centavos,
+        moneda,
+        metodo,
+        referencia: referencia.trim() || undefined,
+      };
+
+      let saldo: number | null = null;
+      if (aceptarEncargo) {
+        saldo = (await registrarAbonoMovil(input, grupo, true)).saldo_usd_cents;
+      } else {
+        if (enLinea) {
+          try {
+            saldo = (await conEspera(registrarAbonoMovil(input, grupo, false, operacion_id))).saldo_usd_cents;
+          } catch (err) {
+            if (!esErrorPasajero(err)) throw err;
+          }
+        }
+        if (saldo === null) {
+          // Sin señal: queda en el teléfono y se sube sola (C4).
+          encolar({
+            operacion_id,
+            grupo,
+            operacion: { tipo: 'ABONO', input },
+            resumen: { titulo: venta!.cliente_nombre, detalle: `Abono a ${venta!.codigo}`, monto_usd_cents: montoUsd },
+          });
+        }
+      }
 
       setExito({
         montoFormateado: formatearMoneda(centavos, moneda),
-        nuevoSaldoUsdCents: res.saldo_usd_cents,
+        // En la cola, el que va a quedar: el de verdad lo calcula la subida.
+        nuevoSaldoUsdCents: saldo ?? Math.max(0, venta!.saldo_usd_cents - montoUsd),
         grupo,
+        pendiente: saldo === null ? operacion_id : undefined,
       });
       haptics.success();
-      onAbonoRegistrado();
+      // Cobros saca la fila y recarga: con el abono en la cola no hay nada
+      // nuevo que traer todavía.
+      if (saldo !== null) onAbonoRegistrado();
     } catch (err: any) {
       haptics.error();
       console.error('[AbonoModalSheet] Error registrando abono:', err);
@@ -181,6 +213,20 @@ export function AbonoModalSheet({ venta: ventaAbierta, onCerrar, onAbonoRegistra
   // corregirlo o anularlo.
   async function deshacerAbono() {
     if (!exito || ocupado.current) return;
+
+    // Sin subir todavía (C4): deshacerlo es sacarlo de la cola, sin señal.
+    const enCola = exito.pendiente ? cola.find((o) => o.operacion_id === exito.pendiente) : undefined;
+    if (enCola && enCola.estado !== 'SUBIDA') {
+      haptics.impact('medium');
+      if (!quitar(enCola.operacion_id)) {
+        mostrar('Se está subiendo justo ahora. Probá de nuevo en un momento.', 'info');
+        return;
+      }
+      mostrar('Abono deshecho.', 'info');
+      cerrarTodo();
+      return;
+    }
+
     if (!exigirConexion(SIN_RED.deshacer, setError)) return;
     haptics.impact('medium');
     ocupado.current = true;
@@ -219,6 +265,10 @@ export function AbonoModalSheet({ venta: ventaAbierta, onCerrar, onAbonoRegistra
 
   const otra = moneda === 'COR' ? formatearMoneda(montoUsd, 'USD') : formatearMoneda(usdCentavosACorCentavos(centavos ?? 0, tasa), 'COR');
 
+  // Hecho sin señal (C4): mientras no sube, el saldo es el que va a quedar.
+  const enCola = exito?.pendiente ? cola.find((o) => o.operacion_id === exito.pendiente) : undefined;
+  const sinSubir = enCola && enCola.estado !== 'SUBIDA' ? enCola : undefined;
+
   return (
     <BottomSheet
       abierto={Boolean(ventaAbierta)}
@@ -243,16 +293,28 @@ export function AbonoModalSheet({ venta: ventaAbierta, onCerrar, onAbonoRegistra
             <p className="text-xs text-texto-3 mt-1 tabular-nums">
               {exito.nuevoSaldoUsdCents > 0 ? (
                 <>
-                  Queda debiendo{' '}
+                  {sinSubir ? 'Cuando suba, queda debiendo' : 'Queda debiendo'}{' '}
                   <strong className="text-texto-2 font-semibold">
                     {formatearMoneda(exito.nuevoSaldoUsdCents, 'USD')}
                   </strong>{' '}
                   (≈ {formatearMoneda(usdCentavosACorCentavos(exito.nuevoSaldoUsdCents, tasa), 'COR')})
                 </>
+              ) : sinSubir ? (
+                'Cuando suba, la venta queda saldada.'
               ) : (
                 'La venta quedó saldada.'
               )}
             </p>
+            {sinSubir?.estado === 'REVISAR' ? (
+              <p className="mt-2 rounded-2xl bg-peligro-suave px-3 py-1.5 text-xs font-semibold text-peligro-fuerte animate-m3-fade">
+                No se pudo subir: {sinSubir.motivo ?? 'No se pudo guardar.'}
+              </p>
+            ) : sinSubir ? (
+              <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-alerta-suave px-3 py-1 text-xs font-semibold text-alerta-fuerte">
+                <Clock size={13} aria-hidden="true" />
+                Pendiente de subir
+              </p>
+            ) : null}
           </div>
 
           <div className="flex flex-col w-full gap-2 mt-2">

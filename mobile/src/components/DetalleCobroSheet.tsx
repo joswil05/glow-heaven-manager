@@ -1,12 +1,12 @@
 import { useRef } from 'react';
-import { MessageCircle, Clock3, DollarSign, AlertTriangle } from 'lucide-react';
+import { MessageCircle, Clock3, DollarSign, AlertTriangle, Clock } from 'lucide-react';
 import type { FilaPorCobrar } from '@shared/types';
 import { formatearMoneda } from '@core/moneda';
 import { BottomSheet } from './BottomSheet';
 import { mensajeCobro, enlaceMensaje } from '@core/mensajes';
 import { useDatosNegocio } from '../context/DataContext';
 import { haptics } from '../lib/haptics';
-import { SIN_RED, useExigirConexion } from '../lib/useExigirConexion';
+import { useCola } from '../context/ColaContext';
 
 interface DetalleCobroSheetProps {
   fila: FilaPorCobrar | null;
@@ -38,7 +38,7 @@ export function DetalleCobroSheet({
   // Cerrada, se sigue mostrando lo último mientras la hoja baja: sin esto el
   // componente desaparecía antes de que la hoja pudiera animar su salida.
   const { parametros } = useDatosNegocio();
-  const exigirConexion = useExigirConexion();
+  const { cola } = useCola();
   const ultima = useRef(fila);
   if (fila) ultima.current = fila;
   const visto = fila ?? ultima.current;
@@ -49,6 +49,14 @@ export function DetalleCobroSheet({
   const pagado = f.pagado_usd_cents || 0;
   const porcentaje = Math.min(100, Math.max(0, Math.round((pagado / total) * 100)));
   const vencida = f.cuotas_vencidas > 0;
+
+  // Abonos hechos sin señal a esta venta (C4). El saldo de arriba es el de la
+  // base: baja cuando suben.
+  const abonosEnCola = cola.filter(
+    (o) => o.operacion.tipo === 'ABONO' && o.operacion.input.venta_id === f.venta_id && o.estado !== 'SUBIDA'
+  );
+  const porSubir = abonosEnCola.filter((o) => o.estado !== 'REVISAR');
+  const porRevisar = abonosEnCola.filter((o) => o.estado === 'REVISAR');
 
   // El recordatorio de todos los botones, con la plantilla de Configuración y
   // la tasa de esta venta. Antes era otro texto, y le hablaba de vos a la clienta.
@@ -71,7 +79,7 @@ export function DetalleCobroSheet({
         <button
           type="button"
           onClick={() => {
-            if (!exigirConexion(SIN_RED.abono)) return;
+            // Sin señal también: el abono queda en el teléfono (C4).
             haptics.impact('medium');
             onAbonar(f);
           }}
@@ -106,6 +114,29 @@ export function DetalleCobroSheet({
             </span>
           </div>
         </div>
+
+        {porSubir.length > 0 && (
+          <div className="flex items-center gap-2.5 rounded-2xl bg-alerta-suave px-4 py-3 text-alerta-fuerte">
+            <Clock size={16} className="shrink-0" aria-hidden="true" />
+            <span className="text-xs font-bold">
+              {porSubir.length === 1 ? '1 abono pendiente de subir' : `${porSubir.length} abonos pendientes de subir`}
+              {' · '}
+              <span className="tabular-nums">
+                {formatearMoneda(porSubir.reduce((s, o) => s + o.resumen.monto_usd_cents, 0), 'USD')}
+              </span>
+            </span>
+          </div>
+        )}
+        {porRevisar.length > 0 && (
+          <div className="flex items-start gap-2.5 rounded-2xl bg-peligro-suave px-4 py-3 text-peligro-fuerte">
+            <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+            <span className="text-xs font-bold">
+              {porRevisar.length === 1 ? 'Un abono no se pudo subir' : `${porRevisar.length} abonos no se pudieron subir`}
+              {': '}
+              {porRevisar[0].motivo ?? 'No se pudo guardar.'}
+            </span>
+          </div>
+        )}
 
         {/* Acá la barra sí aporta: es lo único que muestra el avance. En la
             lista repetía el porcentaje que ya estaba escrito al lado. */}

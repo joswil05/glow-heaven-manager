@@ -179,7 +179,7 @@ export function KardexClienteSheet({
   const totalAbonadoUsd = pagos.reduce((acc, p) => acc + (p.monto_usd_cents || 0), 0);
 
   function abonar() {
-    if (!exigirConexion(SIN_RED.abono)) return;
+    // Sin señal también: el abono queda en el teléfono (C4).
     haptics.impact('medium');
     setOfrecerCorrecto(false);
     onAbonar({

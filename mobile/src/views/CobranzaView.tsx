@@ -22,14 +22,12 @@ import { AbonoSelectorSheet } from '../components/AbonoSelectorSheet';
 import { KardexClienteSheet, type ClienteKardexInfo } from '../components/KardexClienteSheet';
 import { DetalleCobroSheet } from '../components/DetalleCobroSheet';
 import { haptics } from '../lib/haptics';
-import { SIN_RED, useExigirConexion } from '../lib/useExigirConexion';
 import { useScrollReveal } from '../lib/useScrollReveal';
 import { algunoContiene } from '@core/texto';
 import { cordobasQueSeDeben } from '@core/mensajes';
 
 export function CobranzaView() {
   const { parametros, version, marcarCambio } = useDatosNegocio();
-  const exigirConexion = useExigirConexion();
   const tasa = parametros?.tasa_cambio_cents ?? 3662;
 
   const [cuentas, setCuentas] = useState<FilaPorCobrar[]>(cacheDashboardGlobal.panel?.por_cobrar ?? []);
@@ -289,7 +287,7 @@ export function CobranzaView() {
                 <button
                   type="button"
                   onClick={() => {
-                    if (!exigirConexion(SIN_RED.abono)) return;
+                    // Sin señal también: el abono queda en el teléfono (C4).
                     haptics.impact('medium');
                     setSheetAbonoSelectorAbierto(true);
                   }}
