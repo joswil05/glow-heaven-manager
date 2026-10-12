@@ -268,7 +268,7 @@ API con `gcloud`) antes y después.
 
 ## T6 · Anotar un pedido sin red
 
-- [ ] **Paso 1: rojo**: sin señal, anotar un pedido con una clienta nueva
+- [x] **Paso 1: rojo**: sin señal, anotar un pedido con una clienta nueva
   deja el pedido y la clienta pendientes; al subir se crea **una** clienta y
   **un** encargo con ella.
 - [ ] **Paso 2: encolar** en `NuevoEncargoSheet`. `SeleccionarClientaSheet`

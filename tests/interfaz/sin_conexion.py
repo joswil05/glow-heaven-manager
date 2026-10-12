@@ -308,33 +308,113 @@ def caso_abono_sin_red(page: Page, contexto: BrowserContext) -> list[str]:
     return fallas
 
 
-@caso("sin señal, anotar un pedido lo dice y no escribe")
-def caso_escrituras_sin_red(page: Page, contexto: BrowserContext) -> list[str]:
+def crear_clienta_sin_red(page: Page, nombre: str, telefono: str = "") -> None:
+    """Desde "Elegí la clienta", el alta: sin señal no se guarda, viaja con la operación."""
+    selector = page.get_by_role("dialog", name="Elegí la clienta", exact=True)
+    selector.get_by_role("button", name=re.compile("Crear nueva clienta")).click()
+    alta = page.get_by_role("dialog", name="Clienta nueva", exact=True)
+    alta.get_by_label("Nombre", exact=True).fill(nombre)
+    if telefono:
+        alta.get_by_label("Teléfono", exact=True).fill(telefono)
+    alta.get_by_role("button", name="Guardar y elegir", exact=True).click()
+    expect(alta).not_to_be_visible(timeout=10000)
+
+
+def volver_a_la_barra(page: Page) -> None:
+    cerrar_hojas(page)
+    volver = principal(page).get_by_role("button", name="Volver", exact=True)
+    if volver.count():
+        volver.click()
+    expect(page.locator("nav button:visible")).to_have_count(5)
+
+
+@caso("sin señal, un pedido con clienta nueva queda pendiente y al subir se crean una vez")
+def caso_pedido_sin_red(page: Page, contexto: BrowserContext) -> list[str]:
     """
-    Lo que escribe no se cuelga en "Guardando…" ni falla con un error
-    técnico: dice que se puede cuando vuelva la señal y conserva lo escrito.
+    C4: sin señal, anotar un pedido no se frena, ni con una clienta nueva: la
+    clienta viaja con el pedido y no se guarda sola. Al volver la red se
+    crean una clienta y un encargo con ella, una sola vez.
     """
+    fallas = []
     ventas_antes = len(listar_coleccion("ventas"))
+    clientas_antes = len(listar_coleccion("clientes"))
     contexto.set_offline(True)
     try:
         expect(franja(page)).to_be_visible(timeout=10000)
-
-        # Encargos: "Anotar un pedido" avisa y no abre la hoja.
         ir_a(page, "Vender")
         page.get_by_role("button", name="Anotar un pedido", exact=True).click()
-        expect(page.get_by_text("Sin conexión: los encargos se anotan y se cambian cuando vuelva la señal.")).to_be_visible()
-        expect(page.get_by_role("dialog", name="Anotar un pedido")).to_have_count(0)
-        if principal(page).get_by_role("button", name="Volver", exact=True).count():
-            principal(page).get_by_role("button", name="Volver", exact=True).click()
+        hoja = page.get_by_role("dialog", name="Anotar un pedido", exact=True)
+        expect(hoja).to_be_visible(timeout=10000)
+        hoja.get_by_role("button", name="Elegir clienta", exact=True).click()
+        crear_clienta_sin_red(page, "Clienta sin señal C4", "88776655")
+        expect(hoja).to_contain_text("Clienta sin señal C4")
+        pieza = hoja.get_by_role("group", name="Pieza 1", exact=True)
+        pieza.get_by_label("Qué quiere", exact=True).fill("Bolso pedido sin señal C4")
+        hoja.get_by_role("button", name="Guardar pedido", exact=True).click()
+        expect(page.get_by_text(re.compile(r"Pedido anotado"))).to_be_visible(timeout=10000)
+        expect(hoja).not_to_be_visible(timeout=10000)
+        if len(listar_coleccion("clientes")) != clientas_antes:
+            fallas.append("sin red la clienta nueva se guardó sola en la base")
     finally:
         contexto.set_offline(False)
 
-    # Con la red de vuelta, que nada haya quedado en cola y se suba solo.
     expect(franja(page)).to_be_hidden(timeout=20000)
-    page.wait_for_timeout(3000)
+    esperar_ventas(page, ventas_antes + 1)
+    page.wait_for_timeout(2000)
+    pedidos = [v for v in listar_coleccion("ventas")
+               if any(l.get("descripcion") == "Bolso pedido sin señal C4" for l in v.get("lineas", []))]
+    clientas_nuevas = len(listar_coleccion("clientes")) - clientas_antes
+    if len(pedidos) != 1:
+        fallas.append(f"al volver la red quedaron {len(pedidos)} pedidos y tendría que haber uno")
+    if clientas_nuevas != 1:
+        fallas.append(f"al volver la red quedaron {clientas_nuevas} clientas nuevas y tendría que haber una")
+    if len(pedidos) == 1 and clientas_nuevas == 1:
+        clienta = next((c for c in listar_coleccion("clientes") if c.get("id") == pedidos[0].get("cliente_id")), None)
+        if clienta is None or "sin señal c4" not in clienta.get("nombre", "").lower():
+            fallas.append("el pedido no quedó con la clienta nueva")
+        if pedidos[0].get("tipo") != "ENCARGO":
+            fallas.append("lo que subió no es un encargo")
+    volver_a_la_barra(page)
+    return fallas
+
+
+@caso("sin señal, una venta a una clienta nueva sube con ella")
+def caso_venta_clienta_nueva_sin_red(page: Page, contexto: BrowserContext) -> list[str]:
+    """El mismo selector de clienta en Vender: la clienta nueva sube antes que la venta."""
     fallas = []
-    if len(listar_coleccion("ventas")) != ventas_antes:
-        fallas.append("sin red se anotó un pedido (o quedó en cola y se subió al volver)")
+    ventas_antes = len(listar_coleccion("ventas"))
+    clientas_antes = len(listar_coleccion("clientes"))
+    problema = poner_en_el_carrito(page, "Labial Mate Rojo")
+    if problema:
+        return [problema]
+    contexto.set_offline(True)
+    try:
+        expect(franja(page)).to_be_visible(timeout=10000)
+        visible(page, "span:text-is('Cobrar')").click()
+        carrito = page.get_by_role("dialog", name="Carrito", exact=True)
+        carrito.get_by_role("button", name=re.compile("elegir clienta")).click()
+        crear_clienta_sin_red(page, "Compradora sin señal C4")
+        expect(carrito).to_contain_text("Compradora sin señal C4")
+        carrito.get_by_role("button", name="Registrar venta").click()
+        expect(page.get_by_text("Pendiente de subir · sin número todavía")).to_be_visible(timeout=10000)
+    finally:
+        contexto.set_offline(False)
+
+    expect(franja(page)).to_be_hidden(timeout=20000)
+    expect(page.get_by_text(re.compile(r"Comprobante #V-\d{4}"))).to_be_visible(timeout=30000)
+    esperar_ventas(page, ventas_antes + 1)
+    page.wait_for_timeout(2000)
+    ventas = listar_coleccion("ventas")
+    clientas = listar_coleccion("clientes")
+    if len(ventas) - ventas_antes != 1:
+        fallas.append(f"al volver la red quedaron {len(ventas) - ventas_antes} ventas nuevas y tendría que haber una")
+    if len(clientas) - clientas_antes != 1:
+        fallas.append(f"al volver la red quedaron {len(clientas) - clientas_antes} clientas nuevas y tendría que haber una")
+    nueva = next((c for c in clientas if "compradora sin señal c4" in c.get("nombre", "").lower()), None)
+    ultima = max(ventas, key=lambda v: v.get("id", 0))
+    if nueva is None or ultima.get("cliente_id") != nueva.get("id"):
+        fallas.append("la venta no quedó con la clienta nueva")
+    page.get_by_role("button", name="Nueva venta rápida").click()
     return fallas
 
 
