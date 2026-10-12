@@ -366,7 +366,7 @@ la franja desaparece y los datos se actualizan sin recargar.
 **Archivos:** nuevo `lib/useExigirConexion.ts` y las vistas de la tabla;
 `tests/interfaz/sin_conexion.py`.
 
-- [ ] **Paso 1: caso rojo**
+- [x] **Paso 1: caso rojo**
 
 Sin red: en Vender, con un producto en el carrito, tocar "Cobrar" muestra
 el aviso, vibra, el carrito sigue igual y no aparece ninguna venta nueva en
@@ -392,7 +392,7 @@ export function useExigirConexion() {
 
 | Dónde | Entrada | Al guardar | Mensaje |
 |---|---|---|---|
-| `QuickSaleView` | Cobrar | crear la venta (`:224`) | Sin conexión: la venta se cobra cuando vuelva la señal. El carrito queda como está. |
+| `QuickSaleView` | (la hoja de cobro se puede abrir: dice cuánto cobrar) | "Registrar venta" (`:224`), junto al botón | Sin conexión: la venta se cobra cuando vuelva la señal. El carrito queda como está. |
 | Cobros, `DetalleCobroSheet`, `KardexClienteSheet` | Registrar abono | `AbonoModalSheet` (`:132`) | Sin conexión: el abono se registra cuando vuelva la señal. |
 | `HistorialView`, `KardexClienteSheet` | Corregir, Anular | `CorregirVentaSheet:207`, `CorregirAbonoSheet:67`, `anular` (`HistorialView:158`, `KardexClienteSheet:145`) | Sin conexión: corregir o anular se puede cuando vuelva la señal. |
 | Vender y Encargos | Anotar un pedido, Cotizar, Mandar cotización, Aceptó | `NuevoEncargoSheet:128`, `CotizarEncargoSheet:89`, "Ya la mandé" (`MandarCotizacionSheet:79`), `AceptarEncargoSheet:50` | Sin conexión: los encargos se anotan y se cambian cuando vuelva la señal. |

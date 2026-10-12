@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from playwright.sync_api import sync_playwright, Page, BrowserContext, expect  # noqa: E402
 
 import arnes  # noqa: E402
-from pruebas import cerrar_hojas, ir_a, visible  # noqa: E402
+from pruebas import cerrar_hojas, ir_a, listar_coleccion, poner_en_el_carrito, visible  # noqa: E402
 
 CASOS = []
 
@@ -122,6 +122,64 @@ def caso_pantallas_sin_red(page: Page, contexto: BrowserContext) -> list[str]:
     expect(franja(page)).to_be_hidden(timeout=20000)
     expect(page.locator("nav")).to_be_visible()
     return []
+
+
+@caso("sin señal, vender, cobrar y anotar lo dicen y no escriben")
+def caso_escrituras_sin_red(page: Page, contexto: BrowserContext) -> list[str]:
+    """
+    Lo que escribe no se cuelga en "Guardando…" ni falla con un error
+    técnico: dice que se puede cuando vuelva la señal y conserva lo escrito.
+    """
+    ventas_antes = len(listar_coleccion("ventas"))
+    pagos_antes = len(listar_coleccion("pagos"))
+    problema = poner_en_el_carrito(page, "Labial Mate Rojo")
+    if problema:
+        return [problema]
+    contexto.set_offline(True)
+    try:
+        expect(franja(page)).to_be_visible(timeout=10000)
+
+        # Vender: la hoja de cobro se puede mirar (dice cuánto cobrar); lo que
+        # no se puede es registrar la venta. El carrito queda como estaba.
+        ir_a(page, "Vender")
+        visible(page, "span:text-is('Cobrar')").click()
+        registrar = page.get_by_role("dialog").last.get_by_role("button", name="Registrar venta")
+        expect(registrar).to_be_visible()
+        registrar.click()
+        expect(page.get_by_text("Sin conexión: la venta se cobra cuando vuelva la señal.", exact=False)).to_be_visible()
+        expect(page.get_by_role("dialog").last.get_by_role("button", name="Registrar venta")).to_be_enabled()
+        cerrar_hojas(page)
+        expect(principal(page).get_by_text("Cobrar", exact=True)).to_be_visible()
+
+        # Cobros: el abono avisa antes de abrir el formulario.
+        ir_a(page, "Cobros")
+        visible(page, "button", "Ana Prueba").click()
+        abono = page.get_by_role("dialog").last.get_by_role("button", name="Registrar abono")
+        expect(abono).to_be_visible()
+        abono.click()
+        expect(page.get_by_text("Sin conexión: el abono se registra cuando vuelva la señal.")).to_be_visible()
+        expect(page.get_by_role("dialog", name=re.compile("abono", re.I))).to_have_count(0)
+        cerrar_hojas(page)
+
+        # Encargos: "Anotar un pedido" avisa y no abre la hoja.
+        ir_a(page, "Vender")
+        principal(page).get_by_role("button", name="Anotar un pedido", exact=True).click()
+        expect(page.get_by_text("Sin conexión: los encargos se anotan y se cambian cuando vuelva la señal.")).to_be_visible()
+        expect(page.get_by_role("dialog", name="Anotar un pedido")).to_have_count(0)
+        if principal(page).get_by_role("button", name="Volver", exact=True).count():
+            principal(page).get_by_role("button", name="Volver", exact=True).click()
+    finally:
+        contexto.set_offline(False)
+
+    # Con la red de vuelta, que nada haya quedado en cola y se suba solo.
+    expect(franja(page)).to_be_hidden(timeout=20000)
+    page.wait_for_timeout(3000)
+    fallas = []
+    if len(listar_coleccion("ventas")) != ventas_antes:
+        fallas.append("sin red se registró una venta (o quedó en cola y se subió al volver)")
+    if len(listar_coleccion("pagos")) != pagos_antes:
+        fallas.append("sin red se registró un abono")
+    return fallas
 
 
 def main() -> int:
