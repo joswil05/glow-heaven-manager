@@ -15,10 +15,11 @@
 > la Fase 2 de la auditoría (un solo abono, lo pagado en su moneda y un solo
 > WhatsApp) y "Fue un error" (sección 3). El 3/10 salió **v2.17.1** en
 > ambas apps (correcciones de «Fue un error» y del impuesto de paquetes
-> reconstruidos), y el 11/10 la **`v2.18.0`**, con las fases C1 y C2:
-> inventario por paquete y el inventario y los encargos en el celular.
-> Sigue escribir el plan de C3 (sin internet: consultar), sin
-> implementarlo ni publicar por inercia. Claude
+> reconstruidos), el 11/10 la **`v2.18.0`**, con las fases C1 y C2
+> (inventario por paquete y el inventario y los encargos en el celular), y
+> ese mismo día la **`v2.18.1`**: el flete del paquete sale de las libras y
+> el impuesto es siempre el de Configuración. El plan de C3 (sin internet:
+> consultar) está escrito y sin empezar. Claude
 > Code y Codex trabajan **en relevo**: dónde quedó cada uno está en
 > [RELEVO.md](RELEVO.md).
 > **Última actualización**: 11 de octubre de 2026.
@@ -44,9 +45,9 @@ antes de parar. Este apartado es el resto de lo mínimo para retomar.
 
 **Dónde está todo**:
 
-- La versión publicada es **`v2.18.0`** (etiqueta en `74f42ea`), con C1 y
-  C2, en Windows y en el celular. Los commits y el siguiente paso exacto
-  están en RELEVO.
+- La versión publicada es **`v2.18.1`** (etiqueta en `59b525c`), en
+  Windows y en el celular: C1, C2 y el flete por libras. Los commits y el
+  siguiente paso exacto están en RELEVO.
 - **C1 · Inventario por paquete está completa.** Sus casillas están en
   [superpowers/plans/2026-10-02-c1-inventario-por-paquete.md](superpowers/plans/2026-10-02-c1-inventario-por-paquete.md).
 - **C2 · Inventario y encargos en el celular está completa** (10/10), en
@@ -55,8 +56,8 @@ antes de parar. Este apartado es el resto de lo mínimo para retomar.
   paso 5, el PDF automático: Joswill decidió el 2/10 a las 22:52 conservar
   la impresión actual. No integrar la candidata (html2pdf) ni retomar su
   investigación sin que él lo pida.
-- **Lo que sigue es escribir el plan de C3** (sin internet: consultar), con
-  el formato de los de C1 y C2. Escribirlo, no implementarlo ni publicar.
+- **C3 · Sin internet: consultar** tiene su plan, escrito el 11/10 y sin
+  empezar: [superpowers/plans/2026-10-11-c3-sin-internet-consultar.md](superpowers/plans/2026-10-11-c3-sin-internet-consultar.md). Se empieza cuando Joswill lo diga.
 - El diseño de las cuatro fases del celular (C1 a C4), con las decisiones de
   Joswill, está en
   [superpowers/specs/2026-10-02-fases-del-celular-design.md](superpowers/specs/2026-10-02-fases-del-celular-design.md).

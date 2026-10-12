@@ -68,24 +68,22 @@ se trabaja**.
 
 ## Estado ahora
 
-- **Publicado**: **`v2.18.0`** en Windows y celular (11/10), con C1 y C2.
-  Etiqueta en `74f42ea`; el celular salió de `ec518a4`, que da el mismo
-  build (el commit siguiente sólo saca html2pdf del instalador).
-  `master` local = `origin/master`.
-- **Plan vigente**: Fase C2 · Inventario y encargos en el celular,
-  [superpowers/plans/2026-10-02-c2-inventario-y-encargos.md](superpowers/plans/2026-10-02-c2-inventario-y-encargos.md).
+- **Publicado**: **`v2.18.1`** en Windows y celular (11/10): el flete del
+  paquete sale de las libras y el impuesto es siempre el de Configuración.
+  Etiqueta en `59b525c`. Antes, la `v2.18.0` (C1 y C2, etiqueta `74f42ea`).
+- **Plan vigente**: **Fase C3 · Sin internet: consultar**,
+  [superpowers/plans/2026-10-11-c3-sin-internet-consultar.md](superpowers/plans/2026-10-11-c3-sin-internet-consultar.md), escrito el 11/10, sin empezar.
 - **C2 cerrada el 10/10** y publicada en la 2.18.0: T1 a T7, menos
   el PDF automático (T1 paso 5), aplazado por Joswill; se conserva la
   impresión actual y el mensaje original sin edición.
-- **Cambio pedido por Joswill el 11/10, sin publicar**: en los paquetes de
+- **Flete por libras (11/10, publicado en la 2.18.1)**: en los paquetes de
   las dos apps se escriben las libras de la caja y el flete sale de la tarifa
   por libra de Configuración; el impuesto es siempre el porcentaje de
   Configuración, sin campo para el del recibo (`fleteDePeso` y
-  `fleteDelPaquete` en `src/core/paquete.ts`). Publicarlo pide su "publicalo".
-- **Siguiente paso**: **escribir el plan de C3** (sin internet: consultar)
-  en `docs/superpowers/plans/`, con el formato del de C2 y desde la sección
-  C3 del diseño. Escribirlo y commitearlo; **no implementarlo ni publicar**
-  sin que Joswill lo pida.
+  `fleteDelPaquete` en `src/core/paquete.ts`).
+- **Siguiente paso**: **C3 · T2 · paso 1** (pruebas rojas del estado de la
+  conexión), cuando Joswill diga de empezar C3. T1 paso 1 es la prueba de
+  Joswill en el iPhone con la 2.18.1 y no bloquea el resto.
 - **C1**: T1 a T4 completas, publicadas en la 2.18.0; cierre documentado
   en `ddc0fc7`. Emulador apagado.
 - **Trampa conocida**: `npm run test:emulador` y `npm run test:interfaz`
@@ -163,6 +161,24 @@ Formato de cada entrada:
 - Sigue: escribir el plan de C3 con esas notas, sin implementarlo.
 - Para Joswill: probar el paquete nuevo (las libras y el 7%) y decir si se
   publica.
+
+### 2026-10-11 18:27 · Claude Code
+- Hizo: **publicó la 2.18.1** con el "publica" de Joswill (flete por libras
+  e impuesto fijo). Celular por `scripts/desplegar-movil.mjs`: los dos
+  sitios sirven `index-CEFkSR0H.js`. Windows: `build:exe` (106.173.038
+  bytes, sha512 igual al de `latest.yml`), release en borrador, exe solo,
+  después blockmap y `latest.yml`, y publicada como latest; la descarga
+  pública da el mismo tamaño. Reglas e índices sin cambios desde la 2.18.0.
+  Después **escribió el plan de C3** ([superpowers/plans/2026-10-11-c3-sin-internet-consultar.md](superpowers/plans/2026-10-11-c3-sin-internet-consultar.md)): siete tareas,
+  con un corredor nuevo (`test:sin-conexion`, build real con `vite preview`)
+  porque el servidor de desarrollo recarga la página al volver la red.
+- Commits: `59b525c` (versión 2.18.1), pusheado; el plan y esta entrada en
+  un commit de docs.
+- Pruebas: las del cambio del flete (635, 108, 46, 43, tipos y build).
+- Quedó a medias: nada.
+- Sigue: C3 · T2 · paso 1, con la orden de Joswill.
+- Para Joswill: reabrir la app de Windows para que tome la 2.18.1; la
+  prueba de T1 paso 1 en el iPhone (modo avión) cuando pueda.
 
 ### 2026-10-11 17:07 · Claude Code
 - Hizo: **publicó la 2.18.0** (C1 y C2) con el "publicalo" de Joswill.

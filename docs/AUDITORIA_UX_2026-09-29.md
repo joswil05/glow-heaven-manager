@@ -700,7 +700,12 @@ sólo "Ya la mandé" la marca) y "Aceptó", con abono opcional en el mismo
 formulario y Deshacer. El PDF automático quedó aplazado por decisión de
 Joswill (2/10): se usa la impresión actual. Verificación conjunta: 628 unitarias, 108 del emulador, 43 casos de interfaz Windows y 46 del celular; tipos de las dos apps y `build:mobile` con sus auditorías aprobados; `git diff --check` limpio.
 Falta la prueba física en el iPhone de Ross (impresión, WhatsApp,
-Deshacer). Sigue escribir el plan de C3.
+Deshacer).
+
+**Estado C3 al 11/10:** [plan escrito](superpowers/plans/2026-10-11-c3-sin-internet-consultar.md), sin implementar. La caché
+de Firestore, la sesión y el service worker ya existen; faltan el acceso
+sin red, no inventar parámetros, la franja, los avisos de cada escritura,
+las fuentes en caché y un corredor de pruebas con el build real.
 
 Los IDs de la tercera columna salieron de las fases 3 a 6: son de pantallas que estas fases rehacen, y no se tocan dos veces. El plan de implementación de C1, tarea por tarea, está en [superpowers/plans/2026-10-02-c1-inventario-por-paquete.md](superpowers/plans/2026-10-02-c1-inventario-por-paquete.md). Reemplazan las versiones 2.17, 2.18 y 2.19 de [PLAN_ENCARGOS_Y_SIN_CONEXION.md](PLAN_ENCARGOS_Y_SIN_CONEXION.md).
 
