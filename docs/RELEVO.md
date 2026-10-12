@@ -73,7 +73,8 @@ se trabaja**.
   Etiqueta en `59b525c`. Antes, la `v2.18.0` (C1 y C2, etiqueta `74f42ea`).
 - **Plan vigente**: **Fase C4 · Sin internet: operar**,
   [superpowers/plans/2026-10-11-c4-sin-internet-operar.md](superpowers/plans/2026-10-11-c4-sin-internet-operar.md):
-  T1 (menos el paso 4), T2 y T3 hechas el 12/10; sigue T4.
+  T1 (menos el paso 4), T2, T3, T4 (vender sin señal) y T5 (abonar sin
+  señal) hechas el 12/10; sigue T6.
 - **Antes de publicar cualquier versión del celular con C4**: desplegar la
   regla de `operaciones` (C4 · T1 · paso 4, con el "publicalo" de Joswill).
   Desde T4 el celular manda `operacion_id` en cada venta, también con
@@ -99,7 +100,7 @@ se trabaja**.
   limitaban el celular (no editar fichas, no ajustar existencias, encargos
   sólo hasta "Aceptó"). Ese plan tiene decisiones abiertas para Joswill
   (sección 10).
-- **Siguiente paso**: **C4 · T4** ([plan](superpowers/plans/2026-10-11-c4-sin-internet-operar.md)).
+- **Siguiente paso**: **C4 · T6** ([plan](superpowers/plans/2026-10-11-c4-sin-internet-operar.md)).
   Joswill pidió concluir C4 sin responder sus dos preguntas: se aplican las
   recomendaciones (la venta sin red guarda la tasa del momento; "Sin número
   todavía" hasta subir). Después, U1. Publicar C3 y el paquete nuevo pide su
@@ -132,6 +133,34 @@ Formato de cada entrada:
 - Sigue: el paso exacto del plan.
 - Para Joswill: lo que necesita decidir o probar (o "nada").
 ```
+
+### 2026-10-12 13:40 · Claude Code
+- Hizo: **C4 · T4 y T5**: vender y abonar sin señal.
+  - Venta: el `operacion_id` se arma antes del primer intento (también
+    con señal) y es el mismo de la cola; el primer intento tiene un tope de
+    8 s (`conEspera`). Sin señal, la pantalla dice "Pendiente de subir ·
+    sin número todavía" y cambia sola a su comprobante al subir; Deshacer
+    la saca de la cola. Vender e Inventario descuentan lo que se llevó la
+    cola hasta que los productos recargados lo traen (`descontarCola`,
+    `reflejada`). El recibo de WhatsApp sin número sale sin la línea
+    "Factura:". Guarda contra dos toques en el mismo instante.
+  - Abono: igual que la venta. La ficha de cobro dice "1 abono pendiente
+    de subir · $10.00" sin tocar el saldo. "Aceptó" con pago sigue pidiendo
+    señal.
+  - Ya no hay `SIN_RED.venta` ni `SIN_RED.abono`.
+- Commits: `4d2fba8` a `940adf5`.
+- Pruebas: corredor sin red 7 casos (los nuevos: venta pendiente, corte
+  justo al tocar, abono pendiente) y sin errores de consola; suite móvil
+  50 casos después de T4; 737 unitarias.
+- Trampas: (1) en los scripts de Python que se mandan por la terminal, la
+  barra invertida doble llega simple: un `'\n'` terminó siendo un salto de
+  línea real dentro de un string de TypeScript. Para código con barras,
+  usar el editor. (2) Al reiniciarse la sesión se cayó el emulador: se
+  levantó de nuevo (puertos libres antes).
+- Limitación conocida: el Inicio ("Ventas de hoy") no cuenta las ventas que
+  todavía están en la cola; las cuenta cuando suben.
+- Sigue: C4 · T6 (anotar un pedido sin red, y la clienta nueva sin red).
+- Para Joswill: nada nuevo.
 
 ### 2026-10-12 00:15 · Claude Code
 - Hizo: **C4 · T1 a T3** (la base de "operar sin señal" en el celular).
