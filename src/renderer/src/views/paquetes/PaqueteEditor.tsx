@@ -28,6 +28,8 @@ import { parsearDecimal, parsearACentavos } from '@core/numeros';
 import { formatearMoneda, formatearPeso } from '@core/moneda';
 import {
   calcularPaquete,
+  fleteDelPaquete,
+  fleteDePeso,
   efectoDeEntradas,
   efectoDeCorreccion,
   lotesDeLinea,
@@ -230,13 +232,14 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
   const taxBp = parametros?.tax_bp ?? 700;
 
   const [fecha, setFecha] = useState(() => hoyISO());
+  // Desde el 11/10 se escriben las libras: el flete sale de la tarifa de
+  // Configuración y el impuesto es siempre su porcentaje (Joswill: "el
+  // impuesto es siempre 7%"). Ni el flete ni el impuesto del recibo se
+  // escriben; un paquete ya guardado conserva los suyos (`fleteDelPaquete`).
   const [pesoTotalTexto, setPesoTotalTexto] = useState('');
-  const [envioTexto, setEnvioTexto] = useState('');
-  const [envioManual, setEnvioManual] = useState(false);
   const [otrosTexto, setOtrosTexto] = useState('');
-  const [taxReciboTexto, setTaxReciboTexto] = useState('');
-  // Otros gastos e impuesto del recibo se usan de vez en cuando: quedan
-  // plegados, y se abren solos si el paquete ya trae alguno.
+  // Otros gastos se usan de vez en cuando: quedan plegados, y se abren solos
+  // si el paquete ya trae alguno.
   const [verMasCostos, setVerMasCostos] = useState(false);
   const [notas, setNotas] = useState('');
   const [lineas, setLineas] = useState<LineaEnPantalla[]>([]);
@@ -306,26 +309,15 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
       if (compra) {
         setFecha(compra.fecha);
         setPesoTotalTexto(compra.peso_total_mlb ? String(compra.peso_total_mlb / 1000) : '');
-        setEnvioTexto((compra.envio_total_usd_cents / 100).toFixed(2));
-        setEnvioManual(true);
         setOtrosTexto(
           compra.otros_costos_usd_cents > 0 ? (compra.otros_costos_usd_cents / 100).toFixed(2) : ''
-        );
-        setTaxReciboTexto(
-          compra.tax_total_override_usd_cents !== undefined &&
-            compra.tax_total_override_usd_cents !== null
-            ? (compra.tax_total_override_usd_cents / 100).toFixed(2)
-            : ''
         );
         setNotas(compra.notas ?? '');
         setLineas(compra.lineas.map((l) => desdeGuardada(l, compra.estado === 'RECIBIDA', mapa)));
       } else {
         setFecha(hoyISO());
         setPesoTotalTexto('');
-        setEnvioTexto('');
-        setEnvioManual(false);
         setOtrosTexto('');
-        setTaxReciboTexto('');
         setNotas('');
         setLineas([]);
       }
@@ -342,19 +334,10 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [abierto, compra]);
 
-  // Si cambia el peso y el flete no se escribió a mano, se calcula solo.
-  useEffect(() => {
-    if (!abierto || envioManual) return;
-    const libras = parsearDecimal(pesoTotalTexto, { min: 0 }) ?? 0;
-    setEnvioTexto(libras > 0 ? (Math.round(libras * tarifaLb) / 100).toFixed(2) : '');
-  }, [abierto, pesoTotalTexto, tarifaLb, envioManual]);
-
   const firma = JSON.stringify([
       fecha,
       pesoTotalTexto,
-      envioTexto,
       otrosTexto,
-      taxReciboTexto,
       notas,
       lineas.map((l) => [
         l.producto_id,
@@ -393,9 +376,12 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
   // ---------------------------------------------------------------------------
 
   const pesoTotalMlb = Math.round((parsearDecimal(pesoTotalTexto, { min: 0 }) ?? 0) * 1000);
-  const envioCents = parsearACentavos(envioTexto, { min: 0 }) ?? 0;
+  const envioCents = fleteDelPaquete(pesoTotalMlb, tarifaLb, compra ?? undefined);
+  /** El flete no es el de la tarifa: se guardó así antes y el peso no cambió. */
+  const fleteComoSeGuardo = envioCents !== fleteDePeso(pesoTotalMlb, tarifaLb);
   const otrosCents = parsearACentavos(otrosTexto, { min: 0 }) ?? 0;
-  const taxRecibo = taxReciboTexto.trim() ? parsearACentavos(taxReciboTexto, { min: 0 }) : null;
+  // Sólo un paquete de antes del 11/10 trae el impuesto copiado del recibo.
+  const taxRecibo = compra?.tax_total_override_usd_cents ?? null;
 
   const calc = useMemo(() => {
     const paraCalcular: LineaPaquete[] = lineas.map((l) => ({
@@ -630,14 +616,13 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
     if (pesoTotalTexto.trim() && parsearDecimal(pesoTotalTexto, { min: 0 }) === null) {
       return falla('peso', 'No es un número válido.');
     }
-    if (envioTexto.trim() && parsearACentavos(envioTexto, { min: 0 }) === null) {
-      return falla('flete', 'No es un monto válido.');
+    // El borrador puede esperar el peso; pasar al inventario no, porque sin
+    // él el flete queda en cero. Uno de antes, sin peso, conserva su flete.
+    if (exigirLineas && !pesoTotalTexto.trim() && !(compra && !compra.peso_total_mlb)) {
+      return falla('peso', 'Escribí cuántas libras pesó la caja; si no pagaste flete, escribí 0.');
     }
     if (otrosTexto.trim() && parsearACentavos(otrosTexto, { min: 0 }) === null) {
       return falla('otros', 'No es un monto válido.');
-    }
-    if (taxReciboTexto.trim() && taxRecibo === null) {
-      return falla('tax', 'No es un monto válido.');
     }
     if (exigirLineas && lineas.length === 0) {
       return falla('lineas', 'Agregá lo que trajo el paquete antes de pasarlo al inventario.');
@@ -785,8 +770,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
       ? 'El flete se reparte por unidades porque ningún producto tiene peso.'
       : null;
   void estimados;
-  const masCostosVisibles =
-    verMasCostos || otrosTexto.trim() !== '' || taxReciboTexto.trim() !== '';
+  const masCostosVisibles = verMasCostos || otrosTexto.trim() !== '';
 
   const titulo = resumen
     ? 'Listo'
@@ -856,12 +840,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                 )}
 
                 {/* Cabecera: lo que dice el recibo del courier */}
-                <section
-                  className={cn(
-                    'grid grid-cols-2 gap-3 items-start',
-                    masCostosVisibles ? 'lg:grid-cols-5' : 'lg:grid-cols-4'
-                  )}
-                >
+                <section className="grid grid-cols-2 gap-3 items-start lg:grid-cols-4">
                   <Field label="Fecha de llegada" error={errorCampo === 'fecha' ? (error ?? undefined) : undefined}>
                     <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
                   </Field>
@@ -874,21 +853,15 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                       className="text-right"
                     />
                   </Field>
+                  {/* El flete no se escribe: sale de las libras. Se muestra
+                      como dato, no como un campo que invite a cambiarlo. */}
                   <Field
-                    label="Flete pagado"
-                    hint={envioManual ? 'Escrito a mano' : `A ${$(tarifaLb)} la libra`}
-                    error={errorCampo === 'flete' ? (error ?? undefined) : undefined}
+                    label="Flete"
+                    hint={fleteComoSeGuardo ? 'Como se guardó; cambiá el peso para calcularlo' : `A ${$(tarifaLb)} la libra`}
                   >
-                    <Input
-                      value={envioTexto}
-                      onChange={(e) => {
-                        setEnvioTexto(e.target.value);
-                        setEnvioManual(true);
-                      }}
-                      placeholder="0.00"
-                      inputMode="decimal"
-                      className="text-right"
-                    />
+                    <output className="block w-full rounded-md border border-borde bg-superficie-2 px-3 py-2 text-right text-body text-texto tabular-nums">
+                      {$(envioCents)}
+                    </output>
                   </Field>
                   {masCostosVisibles ? (
                     <>
@@ -897,15 +870,6 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                           value={otrosTexto}
                           onChange={(e) => setOtrosTexto(e.target.value)}
                           placeholder="Aduana, reempaque"
-                          inputMode="decimal"
-                          className="text-right"
-                        />
-                      </Field>
-                      <Field label="Impuesto del recibo" error={errorCampo === 'tax' ? (error ?? undefined) : undefined}>
-                        <Input
-                          value={taxReciboTexto}
-                          onChange={(e) => setTaxReciboTexto(e.target.value)}
-                          placeholder={`${taxBp / 100}% por línea`}
                           inputMode="decimal"
                           className="text-right"
                         />
@@ -919,7 +883,7 @@ export const PaqueteEditor: React.FC<PaqueteEditorProps> = ({
                         className="text-texto-3 hover:text-texto"
                       >
                         <Plus className="w-4 h-4" />
-                        <span>Más costos</span>
+                        <span>Otros gastos</span>
                       </Button>
                     </div>
                   )}

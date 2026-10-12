@@ -118,6 +118,32 @@ const entero = (n: unknown, defecto = 0): number => {
 };
 
 /**
+ * Lo que cobra el courier por el peso de la caja, a la tarifa por libra de
+ * Configuración. Desde el 11/10 el flete no se escribe: se escriben las libras.
+ */
+export function fleteDePeso(peso_mlb: number, tarifa_cents_lb: number): number {
+  return Math.round((Math.max(0, entero(peso_mlb)) * Math.max(0, entero(tarifa_cents_lb))) / 1000);
+}
+
+/**
+ * El flete de un paquete. Uno ya guardado conserva el que tenía mientras no le
+ * cambien el peso: pudo haberse escrito a mano antes del 11/10, o la tarifa
+ * pudo cambiar después, y corregir otra cosa no tiene por qué mover el costo
+ * de lo que ya entró a la bodega. Uno de antes, sin peso, lo conserva hasta
+ * que le escriban las libras.
+ */
+export function fleteDelPaquete(
+  peso_mlb: number,
+  tarifa_cents_lb: number,
+  guardado?: { peso_total_mlb?: number | null; envio_total_usd_cents: number }
+): number {
+  if (guardado && entero(guardado.peso_total_mlb ?? 0) === Math.max(0, entero(peso_mlb))) {
+    return guardado.envio_total_usd_cents;
+  }
+  return fleteDePeso(peso_mlb, tarifa_cents_lb);
+}
+
+/**
  * Calcula el paquete completo: impuesto por línea, peso de cada línea y la
  * parte del flete que le toca, con la suma cuadrando al centavo.
  *

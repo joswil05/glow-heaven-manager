@@ -1310,7 +1310,13 @@ def caso_c1_llego_un_paquete(page: Page) -> list[str]:
         return ["el Inventario no ofrece 'Llegó un paquete'"]
     boton.click()
     page.wait_for_timeout(800)
-    campo_de(page, "Flete pagado").fill("10")
+    # Desde el 11/10 se escriben las libras: el flete sale de la tarifa de
+    # Configuración ($7.00 la libra en el decorado) y el impuesto es siempre
+    # el 7%, sin campo para el del recibo.
+    pantalla_visible = page.locator("main:visible").last
+    expect(pantalla_visible.get_by_label("Impuesto del recibo ($)")).to_have_count(0)
+    campo_de(page, "Peso de la caja (lb)").fill("2")
+    expect(pantalla_visible).to_contain_text("Flete: $14.00, a $7.00 la libra.")
     visible(page, "button", "Seguir").click()
     # Seguir guarda el borrador antes de abrir el siguiente paso.
     page.get_by_role("button", name="Agregar pieza", exact=True).click()
@@ -1345,6 +1351,12 @@ def caso_c1_llego_un_paquete(page: Page) -> list[str]:
     recibidas = [c for c in listar_coleccion("compras") if c.get("estado") == "RECIBIDA"]
     if len(recibidas) != antes + 1:
         fallas.append("el paquete no quedó recibido")
+    recibido = next((c for c in recibidas if c.get("id") == borrador["id"]), None)
+    if recibido is not None:
+        if recibido.get("envio_total_usd_cents") != 1400 or recibido.get("peso_total_mlb") != 2000:
+            fallas.append(f"flete y peso guardados: {recibido.get('envio_total_usd_cents')} y {recibido.get('peso_total_mlb')}, no 1400 y 2000")
+        if recibido.get("tax_total_override_usd_cents") is not None:
+            fallas.append("el paquete guardó un impuesto de recibo en vez del 7%")
     producto = next((p for p in listar_coleccion("productos") if p.get("nombre") == "Cartera Llegada"), None)
     if producto is None:
         fallas.append("el producto nuevo no se creó")
@@ -1369,11 +1381,12 @@ def caso_c1_paquete_validacion(page: Page) -> list[str]:
     ir_a(page, "Inventario")
     page.get_by_role("button", name="Llegó un paquete", exact=True).click()
     page.get_by_role("button", name="Seguir", exact=True).click()
-    flete = page.get_by_label("Flete pagado ($)", exact=True)
-    expect(flete).to_have_attribute("aria-invalid", "true")
-    expect(flete).to_be_focused()
-    flete.fill("10")
-    expect(flete).to_have_attribute("aria-invalid", "false")
+    peso = page.get_by_label("Peso de la caja (lb)", exact=True)
+    expect(peso).to_have_attribute("aria-invalid", "true")
+    expect(peso).to_be_focused()
+    peso.fill("1,5")
+    expect(peso).to_have_attribute("aria-invalid", "false")
+    expect(page.locator("main:visible").last).to_contain_text("Flete: $10.50, a $7.00 la libra.")
     page.get_by_role("button", name="Seguir", exact=True).click()
     page.get_by_role("button", name="Agregar pieza", exact=True).click()
     hoja = page.get_by_role("dialog").last
@@ -1952,6 +1965,9 @@ def caso_c2_anotar_validacion(page: Page) -> list[str]:
     assert listar_coleccion("eventos") == eventos_antes
     hoja.get_by_role("button", name="Cerrar", exact=True).click()
     page.get_by_role("alertdialog").get_by_role("button", name="Descartar", exact=True).click()
+    # Esperar a que baje: si `cerrar_hojas` la encuentra todavía sin su clase
+    # de salida, toca un "Cerrar" que se desmonta en medio del toque.
+    expect(hoja).not_to_be_visible()
     volver_desde_encargos_c2(page)
     return []
 

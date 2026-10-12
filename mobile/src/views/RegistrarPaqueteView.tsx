@@ -4,8 +4,8 @@ import { ComprasRepoFirestore, type GuardarCompraInput, type LineaCompraInput } 
 import { ProductosRepoFirestore } from '@repos/productos.repo';
 import type { Compra, ProductoConStock } from '@shared/types';
 import { formatearMoneda } from '@core/moneda';
-import { parsearACentavos } from '@core/numeros';
-import { precioParaCosto } from '@core/paquete';
+import { parsearDecimal } from '@core/numeros';
+import { fleteDelPaquete, fleteDePeso, precioParaCosto } from '@core/paquete';
 import { margenEfectivo } from '@core/precios';
 import { normalizar } from '@core/texto';
 import { hoyISO, nuevoGrupoEvento } from '../lib/util';
@@ -24,11 +24,13 @@ export function RegistrarPaqueteView({ onVolver }: { onVolver: () => void }) {
   const { parametros, categorias, recargarProductos, marcarCambio } = useDatosNegocio();
   const [paso, setPaso] = useState(1);
   const [fecha, setFecha] = useState(hoyISO);
-  const [flete, setFlete] = useState('');
-  const [impuesto, setImpuesto] = useState('');
+  /** Las libras de la caja: el flete sale de acá y de la tarifa de Configuración. */
+  const [peso, setPeso] = useState('');
   const [notas, setNotas] = useState('');
   const [lineas, setLineas] = useState<LineaCompraInput[]>([]);
-  const [extras, setExtras] = useState<Pick<GuardarCompraInput, 'otros_costos_usd_cents' | 'peso_total_mlb'>>({});
+  // Lo que el borrador ya traía y esta pantalla no edita: otros costos de la
+  // PC y, en uno de antes del 11/10, el impuesto que se copió del recibo.
+  const [extras, setExtras] = useState<Pick<GuardarCompraInput, 'otros_costos_usd_cents' | 'tax_total_override_usd_cents'>>({});
   const [codigo, setCodigo] = useState('');
   const [borradores, setBorradores] = useState<Compra[]>([]);
   const [errorBorradores, setErrorBorradores] = useState('');
@@ -46,6 +48,24 @@ export function RegistrarPaqueteView({ onVolver }: { onVolver: () => void }) {
   const proximaLinea = useRef(1);
   const ocupado = useRef(false);
   const formulario = useRef<HTMLElement>(null);
+  /** El flete y el peso con que se guardó el borrador que se retomó. */
+  const fleteGuardado = useRef<{ peso_total_mlb?: number | null; envio_total_usd_cents: number } | undefined>(undefined);
+
+  const tarifa = parametros?.tarifa_envio_cents_lb ?? 700;
+  // Un borrador de antes, sin peso, conserva su flete aunque el campo quede vacío.
+  const sinPesoGuardado = fleteGuardado.current !== undefined && !fleteGuardado.current.peso_total_mlb;
+  const libras = !peso.trim() && sinPesoGuardado ? 0 : parsearDecimal(peso, { min: 0 });
+  const pesoMlb = libras === null ? null : Math.round(libras * 1000);
+  const flete = pesoMlb === null || !Number.isSafeInteger(pesoMlb) ? null : fleteDelPaquete(pesoMlb, tarifa, fleteGuardado.current);
+
+  function ayudaPeso(): string {
+    const porLibra = `${formatearMoneda(tarifa, 'USD')} la libra`;
+    if (flete === null || pesoMlb === null) return `El flete se calcula a ${porLibra}.`;
+    if (flete !== fleteDePeso(pesoMlb, tarifa)) {
+      return `Flete: ${formatearMoneda(flete, 'USD')}, como se guardó.${pesoMlb ? '' : ' Escribí las libras para calcularlo.'}`;
+    }
+    return `Flete: ${formatearMoneda(flete, 'USD')}, a ${porLibra}.`;
+  }
 
   useEffect(() => {
     let vivo = true;
@@ -57,19 +77,21 @@ export function RegistrarPaqueteView({ onVolver }: { onVolver: () => void }) {
   }, [reintento]);
 
   function entrada(nuevas = lineas): GuardarCompraInput | null {
-    const envio = parsearACentavos(flete, { min: 0 });
-    const tax = impuesto.trim() ? parsearACentavos(impuesto, { min: 0 }) : null;
     const fallas: Record<string, string> = {};
     if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) fallas.fecha = 'Elegí la fecha en que llegó.';
-    if (envio === null || !Number.isSafeInteger(envio)) fallas.flete = 'Escribí cuánto pagaste de flete; si no pagaste, escribí 0.';
-    if (impuesto.trim() && (tax === null || !Number.isSafeInteger(tax))) fallas.impuesto = 'Escribí un monto válido o dejalo vacío.';
+    if (flete === null) fallas.peso = 'Escribí cuántas libras pesó la caja; si no pagaste flete, escribí 0.';
     setErrores(fallas);
     if (Object.keys(fallas).length) {
       setPaso(1);
       requestAnimationFrame(() => formulario.current?.querySelector<HTMLInputElement>('[aria-invalid="true"]')?.focus());
       return null;
     }
-    return { ...extras, id: id.current, fecha, envio_total_usd_cents: envio!, tax_total_override_usd_cents: tax, notas, lineas: nuevas };
+    // El impuesto es el porcentaje de Configuración (null): sólo un borrador
+    // de antes conserva el del recibo que ya tenía.
+    return {
+      ...extras, id: id.current, fecha, peso_total_mlb: pesoMlb!, envio_total_usd_cents: flete!,
+      tax_total_override_usd_cents: extras.tax_total_override_usd_cents ?? null, notas, lineas: nuevas,
+    };
   }
 
   async function guardar(input: GuardarCompraInput) {
@@ -137,11 +159,11 @@ export function RegistrarPaqueteView({ onVolver }: { onVolver: () => void }) {
       if (!compra || compra.estado !== 'BORRADOR') throw new Error('Ese borrador ya no está disponible.');
       id.current = compra.id;
       setCodigo(compra.codigo); setFecha(compra.fecha);
-      setFlete((compra.envio_total_usd_cents / 100).toFixed(2));
-      setImpuesto(compra.tax_total_override_usd_cents == null ? '' : (compra.tax_total_override_usd_cents / 100).toFixed(2));
+      fleteGuardado.current = { peso_total_mlb: compra.peso_total_mlb, envio_total_usd_cents: compra.envio_total_usd_cents };
+      setPeso(compra.peso_total_mlb ? String(compra.peso_total_mlb / 1000) : '');
       setNotas(compra.notas ?? '');
       // Se conservan los datos que la PC ofrece y esta pantalla no edita.
-      setExtras({ otros_costos_usd_cents: compra.otros_costos_usd_cents, peso_total_mlb: compra.peso_total_mlb });
+      setExtras({ otros_costos_usd_cents: compra.otros_costos_usd_cents, tax_total_override_usd_cents: compra.tax_total_override_usd_cents ?? null });
       setLineas(compra.lineas.map((l) => ({ ...l, peso_linea_mlb: l.peso_estimado ? null : l.peso_linea_mlb })));
       proximaLinea.current = Math.max(0, ...compra.lineas.map((l) => l.id)) + 1;
       setErrores({}); setGuardado(true); setPaso(2);
@@ -166,7 +188,7 @@ export function RegistrarPaqueteView({ onVolver }: { onVolver: () => void }) {
     if (ocupado.current) return;
     haptics.selection();
     // Lo que ya se guardó sigue en BORRADOR; al salir se guarda la cabecera editada.
-    if (!guardado && (flete || impuesto || notas || lineas.length)) {
+    if (!guardado && (peso || notas || lineas.length)) {
       const input = entrada();
       if (!input) return;
       ocupado.current = true; setGuardando(true); setError('');
@@ -214,15 +236,14 @@ export function RegistrarPaqueteView({ onVolver }: { onVolver: () => void }) {
     <main ref={formulario} className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4">
       {error && <p role="alert" className="rounded-xl border border-peligro-suave bg-peligro-suave p-3 text-sm text-peligro-fuerte">{error}</p>}
       {paso === 1 && <>
-        {!id.current && !flete && !notas && !impuesto && borradores.length > 0 && <section className="rounded-2xl border border-borde bg-superficie p-4">
+        {!id.current && !peso && !notas && borradores.length > 0 && <section className="rounded-2xl border border-borde bg-superficie p-4">
           <h2 className="font-bold">Tenés paquetes empezados</h2><p className="mt-1 text-sm text-texto-2">Podés seguir uno o cargar otro abajo.</p>
           {borradores.map((c) => <button type="button" key={c.id} disabled={guardando} onClick={() => continuar(c.id)} className="mt-2 min-h-12 w-full rounded-xl border border-borde px-3 py-2 text-left text-base font-semibold">Continuar {c.codigo}<span className="block text-sm font-normal text-texto-2">{c.fecha}{c.notas ? ` · ${c.notas}` : ''}</span></button>)}
         </section>}
         {!id.current && errorBorradores && <p role="alert" className="text-sm text-peligro-fuerte">{errorBorradores} <button type="button" className="min-h-11 underline" onClick={() => { haptics.selection(); setReintento((n) => n + 1); }}>Reintentar</button></p>}
         {([
           ['fecha', 'Fecha de llegada', fecha, setFecha, 'date'],
-          ['flete', 'Flete pagado ($)', flete, setFlete, 'text'],
-          ['impuesto', 'Impuesto del recibo ($)', impuesto, setImpuesto, 'text'],
+          ['peso', 'Peso de la caja (lb)', peso, setPeso, 'text'],
         ] as const).map(([nombre, titulo, valor, cambiar, tipo]) => <div key={nombre}>
           <label className="block text-sm font-semibold">{titulo}<input className={campo} type={tipo} inputMode={tipo === 'text' ? 'decimal' : undefined}
             value={valor} disabled={guardando} onChange={(e) => {
@@ -230,7 +251,7 @@ export function RegistrarPaqueteView({ onVolver }: { onVolver: () => void }) {
               setErrores((actual) => { const restantes = { ...actual }; delete restantes[nombre]; return restantes; });
             }}
             aria-invalid={Boolean(errores[nombre])} aria-describedby={`paquete-${nombre}-ayuda`} /></label>
-          <p id={`paquete-${nombre}-ayuda`} className={`mt-1 text-sm ${errores[nombre] ? 'text-peligro-fuerte' : 'text-texto-2'}`}>{errores[nombre] ?? (nombre === 'impuesto' ? `Opcional. Vacío: se calcula el ${(parametros?.tax_bp ?? 700) / 100}%. Escribí 0 si no te cobraron impuesto.` : '')}</p>
+          <p id={`paquete-${nombre}-ayuda`} className={`mt-1 text-sm ${errores[nombre] ? 'text-peligro-fuerte' : 'text-texto-2'}`}>{errores[nombre] ?? (nombre === 'peso' ? ayudaPeso() : '')}</p>
         </div>)}
         <label className="block text-sm font-semibold">Notas <span className="font-normal text-texto-2">(opcional)</span>
           <textarea className={`${campo} min-h-24`} value={notas} disabled={guardando} onChange={(e) => { setNotas(e.target.value); setGuardado(false); }} /></label>
@@ -256,7 +277,7 @@ export function RegistrarPaqueteView({ onVolver }: { onVolver: () => void }) {
           </li>;
         })}</ul>
         <dl className="space-y-2 rounded-2xl border border-borde bg-superficie p-4 text-sm">
-          {([['Mercadería', preview.subtotal_productos_usd_cents], ['Impuesto', preview.tax_total_usd_cents], ['Flete', preview.envio_total_usd_cents], ...(preview.otros_costos_usd_cents ? [['Otros costos', preview.otros_costos_usd_cents] as const] : [])] as const).map(([titulo, monto]) => <div key={titulo} className="flex justify-between gap-3"><dt className="text-texto-2">{titulo}</dt><dd className="font-semibold">{formatearMoneda(monto, 'USD')}</dd></div>)}
+          {([['Mercadería', preview.subtotal_productos_usd_cents], [extras.tax_total_override_usd_cents == null ? `Impuesto (${(parametros?.tax_bp ?? 700) / 100}%)` : 'Impuesto del recibo', preview.tax_total_usd_cents], ['Flete', preview.envio_total_usd_cents], ...(preview.otros_costos_usd_cents ? [['Otros costos', preview.otros_costos_usd_cents] as const] : [])] as const).map(([titulo, monto]) => <div key={titulo} className="flex justify-between gap-3"><dt className="text-texto-2">{titulo}</dt><dd className="font-semibold">{formatearMoneda(monto, 'USD')}</dd></div>)}
           <div className="flex justify-between gap-3 border-t border-borde pt-3 text-lg font-bold"><dt>Total del paquete</dt><dd>{formatearMoneda(preview.total_pagado_usd_cents, 'USD')}</dd></div>
         </dl>
         <p className="text-sm text-texto-2">{preview.criterio_flete === 'UNIDADES' ? 'Sin pesos conocidos, el flete se reparte por cantidad de unidades.' : preview.criterio_flete === 'PESO' ? 'El flete se reparte por peso entre las piezas.' : 'Este paquete no tiene flete.'} Los precios escritos a mano se conservan.</p>

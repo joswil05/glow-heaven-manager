@@ -377,12 +377,27 @@ def caso_registrar_paquete(page: Page) -> list[str]:
     resultado.click()
     page.get_by_label("Unidades de Crema Nivea de prueba").fill("10")
     page.get_by_label("Precio por unidad en la tienda").fill("5.00")
-    page.get_by_label("Flete pagado").fill("10.00")
+    # Desde el 11/10 el flete no se escribe: sale de las libras, a $7.00 la
+    # libra, y el impuesto del recibo ya no se pide (siempre el 7%).
+    if page.get_by_label("Impuesto del recibo").count() > 0:
+        fallas.append("el paquete todavía pide el impuesto del recibo")
+    # Sin peso el flete quedaría en cero: pasar al inventario lo pide en su campo.
+    page.get_by_role("button", name="Pasar al inventario").click()
+    peso = page.get_by_label("Peso de la caja (lb)")
+    page.wait_for_timeout(300)
+    if peso.get_attribute("aria-invalid") != "true":
+        fallas.append("pasar al inventario sin peso no lo pide en su campo")
+    if page.get_by_role("button", name="Sí, pasarlo al inventario").count() > 0:
+        fallas.append("pasar al inventario sin peso pidió confirmar en vez de pedir el peso")
+    peso.fill("2")
     page.wait_for_timeout(400)
+    flete = page.get_by_label("Flete", exact=True)
+    if flete.evaluate("n => n.tagName") != "OUTPUT" or flete.inner_text() != "$14.00":
+        fallas.append("el flete no se muestra calculado: 2 lb a $7.00 tienen que ser $14.00")
 
-    # La cuenta completa a la vista: $50 de tienda + $3.50 + $10 de flete.
+    # La cuenta completa a la vista: $50 de tienda + $3.50 + $14 de flete.
     pie = page.inner_text("footer")
-    for esperado in ("Mercadería $50.00", "Impuesto $3.50", "Flete $10.00", "Pagado $63.50"):
+    for esperado in ("Mercadería $50.00", "Impuesto $3.50", "Flete $14.00", "Pagado $67.50"):
         if esperado not in pie:
             fallas.append(f"el pie del paquete no dice '{esperado}' (dice: {pie[:160]!r})")
 
@@ -395,9 +410,9 @@ def caso_registrar_paquete(page: Page) -> list[str]:
     p = page.evaluate("async (id) => (await window.api.productos.get(id)).data", pid)
     if p["existencias"] != 10:
         fallas.append(f"entraron {p['existencias']} unidades, no 10")
-    if p["valor_inventario_usd_cents"] != 6350:
-        fallas.append(f"la bodega del producto vale {p['valor_inventario_usd_cents']} centavos, no 6350")
-    if p["precio_venta_usd_cents"] <= 635:
+    if p["valor_inventario_usd_cents"] != 6750:
+        fallas.append(f"la bodega del producto vale {p['valor_inventario_usd_cents']} centavos, no 6750")
+    if p["precio_venta_usd_cents"] <= 675:
         fallas.append("el precio no se calculó con el costo que trajo el paquete")
     return fallas
 
@@ -1497,7 +1512,7 @@ VENTANAS = [
     # (nombre, abrir, escribir o None si no tiene nada que escribir)
     ("Nueva venta", abrir_nueva_venta, escribir_en_venta),
     ("Registrar paquete", abrir_paquete,
-     lambda page, dlg: dlg.get_by_label("Flete pagado").fill("12.00")),
+     lambda page, dlg: dlg.get_by_label("Peso de la caja (lb)").fill("3")),
     ("Producto nuevo", abrir_producto,
      lambda page, dlg: dlg.get_by_label("Nombre").first.fill("Algo escrito")),
     ("Agregar clienta", abrir_clienta,
@@ -1755,6 +1770,9 @@ def caso_errores_en_su_campo(page: Page) -> list[str]:
     if unidades.count() == 0:
         fallas.append("Registrar paquete: Enter en el buscador no agregó la línea")
     else:
+        # Con el peso escrito, para que el primer error sea el de la línea:
+        # sin peso, pasar al inventario lo pide antes, porque está más arriba.
+        dlg.get_by_label("Peso de la caja (lb)").fill("2")
         unidades.fill("")
         pasar.click()
         page.wait_for_timeout(200)
