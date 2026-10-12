@@ -265,16 +265,19 @@ que T4 y T5 resuelven. Commit del corredor y del caso rojo.
 **Archivos:** nuevo `lib/acceso-movil.ts`, `tests/c3-acceso.test.ts`;
 `App.tsx`, `AuthContext.tsx`, `LoginView.tsx`, `AjustesView.tsx`.
 
-- [ ] **Paso 1: pruebas rojas de `decidirAcceso` y la memoria**
+- [x] **Paso 1: pruebas rojas de `decidirAcceso` y la memoria**
 
 | enLinea | recordado | resultado | decide |
 |---|---|---|---|
 | no | sí | (sin preguntar) | `autorizado` |
-| no | no | (sin preguntar) | `sin-conexion` |
+| no | no | `null` | `preguntar` (la dueña pasa sola; las demás prueban la caché) |
 | sí | cualquiera | `null` | `preguntar` |
-| sí | no | `sin-conexion` | `sin-conexion` |
-| sí | sí | `sin-conexion` | `autorizado` |
-| sí | cualquiera | `autorizado` / `sin-permiso` | ese mismo |
+| cualquiera | no | `sin-conexion` | `sin-conexion` |
+| cualquiera | sí | `sin-conexion` | `autorizado` |
+| cualquiera | cualquiera | `autorizado` / `sin-permiso` | ese mismo |
+
+(Corregido al escribir las pruebas: sin red y sin recuerdo decía
+`sin-conexion`, y eso le cerraba la puerta a la dueña, que hoy pasa sin red.)
 
 Más: recordar, leer y olvidar por `uid` en un `Storage` falso; con el
 almacén roto (lanza), nada revienta y `accesoRecordado` da `false`.
