@@ -59,7 +59,7 @@ para no dejar componentes sin uso. Windows es W1.
 `mobile/tailwind.config.js`, `tests/u1-fundaciones.test.ts`,
 `tests/interfaz/sin_conexion.py`.
 
-- [ ] **Paso 1: rojo**: la app no pide letras a Google (ni `<link>` en
+- [x] **Paso 1: rojo**: la app no pide letras a Google (ni `<link>` en
   `index.html` ni "Plus Jakarta Sans" en sus estilos) y su pila empieza por
   la del sistema. En el corredor sin red, el caso de la letra cambia: al
   abrir la app (con red y sin ella) no sale ningún pedido a
