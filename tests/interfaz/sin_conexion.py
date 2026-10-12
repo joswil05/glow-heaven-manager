@@ -418,6 +418,114 @@ def caso_venta_clienta_nueva_sin_red(page: Page, contexto: BrowserContext) -> li
     return fallas
 
 
+def dejar_sin_stock(nombre: str) -> None:
+    """Como si la PC hubiera vendido lo último: cada tono del producto queda en cero."""
+    duenia = {"Authorization": "Bearer owner"}
+    base = f"http://{arnes.HOST_FIRESTORE}/v1/projects/{arnes.PROYECTO}/databases/(default)/documents"
+    documentos = arnes._peticion(f"{base}/productos?pageSize=300", cabeceras=duenia).get("documents", [])
+    doc = next(d for d in documentos if d["fields"].get("nombre", {}).get("stringValue") == nombre)
+    variantes = doc["fields"]["variantes"]
+    for variante in variantes.get("arrayValue", {}).get("values", []):
+        variante["mapValue"]["fields"]["existencias"] = {"integerValue": "0"}
+    campos = {"variantes": variantes}
+    mascara = "updateMask.fieldPaths=variantes"
+    if "existencias" in doc["fields"]:
+        campos["existencias"] = {"integerValue": "0"}
+        mascara += "&updateMask.fieldPaths=existencias"
+    respuesta = arnes._peticion(
+        f"http://{arnes.HOST_FIRESTORE}/v1/{doc['name']}?{mascara}",
+        metodo="PATCH", cuerpo={"fields": campos}, cabeceras=duenia,
+    )
+    assert "error" not in respuesta, respuesta
+
+
+def cerrar_venta_hecha(page: Page) -> None:
+    """Si un caso anterior dejó la pantalla de "Venta registrada", vuelve al catálogo."""
+    ir_a(page, "Vender")
+    otra = visible(page, "button", "Nueva venta rápida")
+    if otra is not None:
+        otra.click()
+        page.wait_for_timeout(500)
+
+
+def aviso_de_la_cola(page: Page, texto: str):
+    """El botón que dice cuánto espera ("Pendientes (1)", "Para revisar (1)") y abre la hoja."""
+    return page.get_by_role("button", name=re.compile(texto))
+
+
+@caso("lo que no se puede subir queda para revisar, con su motivo, y descartar pregunta antes")
+def caso_para_revisar(page: Page, contexto: BrowserContext) -> list[str]:
+    """
+    C4 · T7: una venta sin señal de lo último que quedaba, que la PC vendió
+    mientras tanto, no se pierde en silencio. Junto a la franja se ve cuánto
+    espera; al subir, el negocio la rechaza y queda "Para revisar" con el
+    motivo, también con red. "Descartar" pregunta antes, y entonces se va.
+    """
+    fallas = []
+    cerrar_venta_hecha(page)
+    ventas_antes = len(listar_coleccion("ventas"))
+    problema = poner_en_el_carrito(page, "Ultimo Disponible")
+    if problema:
+        return [problema]
+    contexto.set_offline(True)
+    try:
+        expect(franja(page)).to_be_visible(timeout=10000)
+        registrar_venta(page)
+        expect(page.get_by_text("Pendiente de subir · sin número todavía")).to_be_visible(timeout=10000)
+        expect(aviso_de_la_cola(page, r"^Pendientes \(1\)")).to_be_visible(timeout=10000)
+        dejar_sin_stock("Ultimo Disponible")
+    finally:
+        contexto.set_offline(False)
+
+    expect(franja(page)).to_be_hidden(timeout=20000)
+    revisar = aviso_de_la_cola(page, r"^Para revisar \(1\)")
+    expect(revisar).to_be_visible(timeout=30000)
+    expect(page.get_by_text(re.compile(r"No se pudo subir: No hay suficientes unidades de 'Ultimo Disponible'"))).to_be_visible()
+    page.get_by_role("button", name="Nueva venta rápida").click()
+
+    revisar.click()
+    hoja = page.get_by_role("dialog", name="Pendientes", exact=True)
+    expect(hoja).to_contain_text("No hay suficientes unidades de 'Ultimo Disponible'")
+    expect(hoja.get_by_role("button", name="Intentar de nuevo")).to_be_visible()
+    hoja.get_by_role("button", name="Descartar").click()
+    confirmar = page.get_by_role("alertdialog", name="¿Descartar esta venta?", exact=True)
+    expect(confirmar).to_be_visible()
+    confirmar.get_by_role("button", name="Sí, descartar").click()
+    expect(aviso_de_la_cola(page, r"^Para revisar")).to_have_count(0, timeout=10000)
+    cerrar_hojas(page)
+    page.wait_for_timeout(1500)
+    if len(listar_coleccion("ventas")) != ventas_antes:
+        fallas.append("la venta que no se pudo subir igual quedó guardada")
+    return fallas
+
+
+@caso("lo pendiente se ve arriba en el Historial, sin número, y al subir toma su número")
+def caso_historial_pendiente(page: Page, contexto: BrowserContext) -> list[str]:
+    cerrar_venta_hecha(page)
+    ventas_antes = len(listar_coleccion("ventas"))
+    problema = poner_en_el_carrito(page, "Labial Mate Rojo")
+    if problema:
+        return [problema]
+    contexto.set_offline(True)
+    try:
+        expect(franja(page)).to_be_visible(timeout=10000)
+        registrar_venta(page)
+        expect(page.get_by_text("Pendiente de subir · sin número todavía")).to_be_visible(timeout=10000)
+        page.get_by_role("button", name="Nueva venta rápida").click()
+        ir_a(page, "Historial")
+        expect(principal(page)).to_contain_text("Pendiente de subir", timeout=10000)
+        expect(principal(page).get_by_text("sin número todavía")).to_be_visible()
+    finally:
+        contexto.set_offline(False)
+
+    expect(franja(page)).to_be_hidden(timeout=20000)
+    esperar_ventas(page, ventas_antes + 1)
+    nueva = max(listar_coleccion("ventas"), key=lambda v: v.get("id", 0))
+    expect(principal(page)).to_contain_text(nueva["codigo"], timeout=20000)
+    expect(principal(page)).not_to_contain_text("Pendiente de subir", timeout=20000)
+    return []
+
+
 @caso("sin señal, la letra es la misma")
 def caso_fuentes_sin_red(page: Page, contexto: BrowserContext) -> list[str]:
     """

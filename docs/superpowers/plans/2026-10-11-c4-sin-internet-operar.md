@@ -281,7 +281,7 @@ API con `gcloud`) antes y después.
 **Archivos:** `PendientesSheet.tsx`, `App.tsx`, `HistorialView.tsx`,
 `CobranzaView.tsx`, `EncargosView.tsx`.
 
-- [ ] **Paso 1: rojo**: con una operación pendiente se ve "Pendientes (1)"
+- [x] **Paso 1: rojo**: con una operación pendiente se ve "Pendientes (1)"
   junto a la franja (y con red mientras sube); una en REVISAR muestra su
   motivo con "Intentar de nuevo" y "Descartar" (que pide confirmar).
 - [ ] **Paso 2: la hoja de pendientes** y el estado "Pendiente de subir"
