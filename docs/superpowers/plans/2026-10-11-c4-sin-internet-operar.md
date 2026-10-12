@@ -169,18 +169,23 @@ los movimientos de inventario, los eventos de Deshacer (sus ids son
 Clienta: la marca en el mismo lote. Sin `operacion_id`, todo igual que
 antes, pero la venta ya es atómica para todos.
 
-- [ ] **Paso 3: la regla**
+- [x] **Paso 3: la regla**
 
 ```
 match /operaciones/{id} {
-  allow read: if autenticado();
-  allow create: if autenticado() && !exists(/databases/$(database)/documents/operaciones/$(id));
+  allow read, create: if autenticado();
   allow update, delete: if false;
 }
 ```
 
+(Sin el `!exists(...)` del borrador: `create` ya exige que el documento no
+exista, y ese `exists` costaba una lectura más por marca.)
+
 Caso en `tests/motor-real/c4-operaciones.test.ts` contra el emulador:
-crear dos veces la misma marca falla la segunda; nadie la borra.
+crear dos veces la misma marca falla la segunda; nadie la borra. Además, la
+venta, el abono y la clienta subidos dos veces quedan una vez con las reglas
+de verdad, y dos subidas de la misma venta **al mismo tiempo** terminan en
+una (la segunda transacción choca, se reintenta y encuentra la marca).
 
 - [ ] **Paso 4: desplegar la regla (con el "publicalo" de Joswill)**
 

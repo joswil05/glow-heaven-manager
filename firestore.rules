@@ -184,6 +184,18 @@ service cloud.firestore {
                    && centavosValidos('ganancia_usd_cents');
     }
 
+    match /operaciones/{id} {
+      // La marca de una venta, un abono o una clienta que subió desde la cola
+      // del celular sin señal. Va en la misma escritura que lo que marca, y es
+      // lo que hace que una operación mandada dos veces quede una sola.
+      //
+      // Se crea y no se toca más: pisarla o borrarla dejaría pasar el
+      // duplicado. `create` ya exige que el documento no exista, así que dos
+      // subidas al mismo tiempo no pueden dejar dos marcas.
+      allow read, create: if autenticado();
+      allow update, delete: if false;
+    }
+
     // Cualquier colección que no esté nombrada arriba queda cerrada. Si el
     // modelo crece, la regla nueva se agrega acá a propósito.
     match /{document=**} {
