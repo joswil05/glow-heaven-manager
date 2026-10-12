@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from playwright.sync_api import sync_playwright, Page, BrowserContext, expect  # noqa: E402
 
 import arnes  # noqa: E402
-from pruebas import ir_a  # noqa: E402
+from pruebas import cerrar_hojas, ir_a, visible  # noqa: E402
 
 CASOS = []
 
@@ -75,6 +75,52 @@ def caso_abre_sin_red(page: Page, contexto: BrowserContext) -> list[str]:
         expect(principal(page)).to_contain_text("Labial Mate Rojo")
     finally:
         contexto.set_offline(False)
+    return []
+
+
+@caso("sin señal, cada pantalla muestra lo suyo y al volver la red se actualiza")
+def caso_pantallas_sin_red(page: Page, contexto: BrowserContext) -> list[str]:
+    """
+    Lo que se vio con red se ve sin red: ninguna pantalla dice "No se pudo"
+    ni queda vacía si con red tenía datos. Al volver la red, la franja se va
+    sola y la app no se recarga.
+    """
+    contexto.set_offline(True)
+    try:
+        expect(franja(page)).to_be_visible(timeout=10000)
+        esperas = [
+            ("Inicio", "Ventas de hoy"),
+            ("Vender", "Labial Mate Rojo"),
+            ("Cobros", "Ana Prueba"),
+            ("Historial", "Ana Prueba"),
+            ("Inventario", "Perfume Carolina Herrera"),
+        ]
+        for pestania, texto in esperas:
+            ir_a(page, pestania)
+            expect(principal(page)).to_contain_text(texto, timeout=15000)
+            expect(principal(page)).not_to_contain_text("No se pudo")
+
+        ir_a(page, "Cobros")
+        visible(page, "button", "Ana Prueba").click()
+        expect(page.get_by_role("dialog").last).to_contain_text("Ana Prueba", timeout=15000)
+        cerrar_hojas(page)
+
+        ir_a(page, "Inventario")
+        principal(page).get_by_text("Labial Mate Rojo", exact=True).first.click()
+        expect(page.get_by_role("dialog").last).to_contain_text("Labial Mate Rojo", timeout=15000)
+        cerrar_hojas(page)
+
+        ir_a(page, "Inicio")
+        principal(page).get_by_role("button", name=re.compile(r"^Encargos")).click()
+        expect(principal(page)).to_contain_text("Clienta C2", timeout=15000)
+        expect(principal(page)).not_to_contain_text("No se pudo")
+        principal(page).get_by_role("button", name="Volver", exact=True).click()
+        expect(page.locator("nav button:visible")).to_have_count(5)
+    finally:
+        contexto.set_offline(False)
+
+    expect(franja(page)).to_be_hidden(timeout=20000)
+    expect(page.locator("nav")).to_be_visible()
     return []
 
 

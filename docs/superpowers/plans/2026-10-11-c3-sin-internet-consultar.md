@@ -346,7 +346,7 @@ text-alerta-fuerte`, texto `Sin conexión · datos ${textoDatosDe(...)}`
 o `Sin conexión · todavía no hay datos guardados`. Sin animación. No tapa
 nada: empuja el contenido. Pasar el caso rojo de T3.
 
-- [ ] **Paso 4: cada pantalla con lo suyo**
+- [x] **Paso 4: cada pantalla con lo suyo**
 
 Agregar a `sin_conexion.py` un recorrido sin red por Inicio, Vender,
 Cobros (abrir la ficha de Ana Prueba), Historial, Inventario (abrir una
@@ -355,6 +355,11 @@ cargar" ni muestra una lista vacía que con red tenía datos. La pantalla que
 falle se arregla para leer de la caché (un `getDocs` que no espere al
 servidor; nunca reemplazar el error por un vacío). Después, `set_offline(False)`:
 la franja desaparece y los datos se actualizan sin recargar.
+
+> **Resultado del 11/10:** ninguna pantalla falló. Sin red, Inicio, Vender,
+> Cobros (con la ficha de Ana Prueba), Historial, Inventario (con la ficha
+> de un producto) y Encargos muestran lo sembrado, sin "No se pudo"; al
+> volver la red la franja se va sola. No hubo que tocar ninguna vista.
 
 ## T6 · Lo que escribe lo dice
 
