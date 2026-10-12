@@ -22,6 +22,7 @@ Cómo correrlo
 from __future__ import annotations
 
 import json
+import os
 import urllib.request
 import urllib.error
 
@@ -30,7 +31,8 @@ HOST_FIRESTORE = "127.0.0.1:8080"
 HOST_AUTH = "127.0.0.1:9099"
 # Vite escucha en `localhost`, que en Windows resuelve a IPv6: con
 # 127.0.0.1 la conexión se rechaza.
-URL_APP = "http://localhost:5174"
+# `test:sin-conexion` sirve el build de producción en otro puerto.
+URL_APP = os.environ.get("URL_APP_PRUEBAS", "http://localhost:5174")
 
 CORREO = "pruebas@glowheaven.local"
 CLAVE = "prueba1234"

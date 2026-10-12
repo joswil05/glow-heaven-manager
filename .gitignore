@@ -5,6 +5,7 @@ node_modules/
 dist/
 dist-electron/
 dist-mobile/
+dist-mobile-pruebas/
 release/
 
 # Base de datos local (datos sensibles)

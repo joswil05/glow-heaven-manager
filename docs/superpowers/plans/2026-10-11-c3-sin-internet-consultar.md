@@ -219,7 +219,7 @@ cada pantalla traiga lo nuevo sola.
 **Archivos:** nuevos `scripts/test-sin-conexion.mjs`,
 `tests/interfaz/sin_conexion.py`; `package.json`, `.gitignore`.
 
-- [ ] **Paso 1: el corredor**
+- [x] **Paso 1: el corredor**
 
 Copiar el armado de `scripts/test-interfaz.mjs` (comprobar el emulador, el
 mismo `entorno` con `FIRESTORE_EMULATOR_HOST` y
@@ -237,7 +237,7 @@ adentro y nunca se tiene que publicar (`desplegar-movil.mjs` sólo lee
 la suite actual). El contexto de Playwright igual que el de `pruebas.py`
 (390 × 844, `is_mobile`), con service workers permitidos.
 
-- [ ] **Paso 2: caso rojo "sin señal, la app abre con lo último que cargó"**
+- [x] **Paso 2: caso rojo "sin señal, la app abre con lo último que cargó"**
 
 ```python
 arnes.abrir_app(page)                       # con red: entra y carga
@@ -246,7 +246,7 @@ page.evaluate("() => navigator.serviceWorker.ready")
 page.reload(); arnes.esperar_datos(page)    # ahora la controla el SW
 contexto.set_offline(True)
 page.reload()                               # abrir sin red
-expect(page.get_by_role("status", name=re.compile("^Sin conexión"))).to_be_visible()
+expect(page.get_by_role("status").filter(has_text=re.compile("^Sin conexión"))).to_be_visible()
 expect(page.locator("nav")).to_be_visible()
 ir_a(page, "Cobros");     expect(page.locator("main:visible").last).to_contain_text("Ana Prueba")
 ir_a(page, "Inventario"); expect(page.locator("main:visible").last).to_contain_text("Labial Mate Rojo")
@@ -254,6 +254,11 @@ ir_a(page, "Inventario"); expect(page.locator("main:visible").last).to_contain_t
 
 Rojo esperado: no hay franja. Si además la app no abre, anotarlo: es lo
 que T4 y T5 resuelven. Commit del corredor y del caso rojo.
+
+> **Resultado del 11/10:** rojo sólo por la franja. Sin red, el build real
+> ya abre, entra y muestra Inicio con sus datos (caché, sesión y service
+> worker andan). La franja se busca con `get_by_role("status")` filtrado
+> por texto: `status` no toma su nombre del contenido.
 
 ## T4 · Entrar sin señal
 
