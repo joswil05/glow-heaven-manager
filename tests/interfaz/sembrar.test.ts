@@ -144,6 +144,16 @@ describe('decorado para las pruebas de interfaz', () => {
       }, g());
       await Ventas.aceptar(listo, g());
 
+      // C1 (11/10, el paquete del celular como el de la PC): un encargo con
+      // una pieza ya comprada que espera paquete. Cotizado y sin anticipo, no
+      // es deuda; "Llegó un paquete" la ofrece primero ("Agregarla").
+      const clientaPaquete = await Clientes.guardar({ nombre: 'Clienta Paquete C1' }, g());
+      const conPieza = await Ventas.crear({ fecha: HOY, tipo: 'ENCARGO', cliente_id: clientaPaquete,
+        lineas: [{ descripcion: 'Sandalias Encargo C1', cantidad: 1, precio_unitario_usd_cents: 4000 }],
+      }, g());
+      const sandalias = (await Ventas.getById(conPieza))!.lineas[0].id;
+      await Ventas.marcarCompradas(conPieza, [sandalias], true, g());
+
       // eslint-disable-next-line no-console
       console.log(`  decorado listo: venta ${v.codigo} con saldo $100 de ${'Ana Prueba'}`);
     },

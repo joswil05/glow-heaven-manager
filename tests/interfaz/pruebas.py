@@ -1347,6 +1347,10 @@ def caso_c1_llego_un_paquete(page: Page) -> list[str]:
     if "Cartera Llegada" not in pantalla(page):
         fallas.append("el paso de revisar no lista la pieza")
     visible(page, "button", "Recibir").click()
+    # Recibir pregunta antes, con lo que entra (como "Pasar al inventario" en la PC).
+    confirmacion = page.get_by_role("dialog", name="¿Pasar el paquete al inventario?", exact=True)
+    expect(confirmacion).to_contain_text("Entran 2 unidades de 1 producto")
+    confirmacion.get_by_role("button", name="Sí, pasarlo al inventario", exact=True).click()
     page.wait_for_timeout(3000)
     recibidas = [c for c in listar_coleccion("compras") if c.get("estado") == "RECIBIDA"]
     if len(recibidas) != antes + 1:
@@ -1391,7 +1395,8 @@ def caso_c1_paquete_validacion(page: Page) -> list[str]:
     page.get_by_role("button", name="Agregar pieza", exact=True).click()
     hoja = page.get_by_role("dialog").last
     hoja.get_by_label("Producto", exact=True).fill("Labial Mate Rojo")
-    hoja.get_by_role("button", name="Labial Mate Rojo", exact=True).click()
+    # La sugerencia también dice cuántas hay en bodega, como la PC.
+    hoja.get_by_role("button", name=re.compile(r"^Labial Mate Rojo")).click()
     hoja.get_by_label("Pagó por unidad ($)", exact=True).fill("15")
     cantidad = hoja.get_by_label("Cantidad", exact=True)
     cantidad.fill("0")
@@ -1415,6 +1420,223 @@ def caso_c1_paquete_validacion(page: Page) -> list[str]:
     guardado = next((c for c in listar_coleccion("compras") if c.get("codigo") == codigo), None)
     fallas = [] if guardado and not guardado.get("lineas") else ["quitar la pieza no actualizó el borrador"]
     page.get_by_role("button", name="Volver al inventario", exact=True).click()
+    return fallas
+
+
+@caso("C1 · el paquete del celular hace lo de la PC: tallas, pack, sin impuesto, otros gastos y editar")
+def caso_c1_paquete_como_la_pc(page: Page) -> list[str]:
+    fallas = []
+    ir_a(page, "Inventario")
+    page.get_by_role("button", name="Llegó un paquete", exact=True).click()
+    principal = page.locator("main:visible").last
+    page.get_by_label("Peso de la caja (lb)", exact=True).fill("3")
+    # Otros gastos se usan de vez en cuando: plegados, como en la PC.
+    page.get_by_role("button", name="Otros gastos (aduana, reempaque)", exact=True).click()
+    page.get_by_label("Otros gastos ($)", exact=True).fill("2")
+    page.get_by_role("button", name="Seguir", exact=True).click()
+    page.get_by_role("button", name="Agregar pieza", exact=True).click()
+    hoja = page.get_by_role("dialog", name="Agregar pieza", exact=True)
+    # Un producto nuevo con tallas: su ficha se crea al agregarlo, como en la PC,
+    # y cada talla que vino es una línea.
+    hoja.get_by_label("Producto", exact=True).fill("Blusa Paquete C1")
+    hoja.get_by_role("button", name="Nuevo: Blusa Paquete C1", exact=True).click()
+    hoja.get_by_label("Tiene tallas o tonos", exact=True).check()
+    hoja.get_by_label("Talla 1", exact=True).fill("S")
+    hoja.get_by_label("Cantidad de la talla 1", exact=True).fill("2")
+    hoja.get_by_role("button", name="Agregar otra", exact=True).click()
+    hoja.get_by_label("Talla 2", exact=True).fill("M")
+    hoja.get_by_label("Cantidad de la talla 2", exact=True).fill("1")
+    hoja.get_by_label("Pagó por unidad ($)", exact=True).fill("10")
+    hoja.get_by_role("button", name="Agregar", exact=True).click()
+    expect(hoja.get_by_role("status")).to_contain_text("Blusa Paquete C1: agregada al paquete.")
+    # Un pack que la tienda no le cobró impuesto, de un producto que nace al recibir.
+    hoja.get_by_label("Producto", exact=True).fill("Boxers Paquete C1")
+    hoja.get_by_role("button", name="Nuevo: Boxers Paquete C1", exact=True).click()
+    hoja.get_by_role("radio", name="En pack", exact=True).click()
+    hoja.get_by_label("Packs", exact=True).fill("2")
+    hoja.get_by_label("Unidades por pack", exact=True).fill("5")
+    hoja.get_by_label("Pagó por pack ($)", exact=True).fill("20")
+    hoja.get_by_label(re.compile(r"^La tienda cobró el impuesto")).uncheck()
+    hoja.get_by_role("button", name="Agregar", exact=True).click()
+    expect(hoja.get_by_role("status")).to_contain_text("Boxers Paquete C1: agregada al paquete.")
+    hoja.get_by_role("button", name="Cerrar", exact=True).click()
+    expect(hoja).not_to_be_visible()
+
+    borrador = next((c for c in listar_coleccion("compras") if c.get("estado") == "BORRADOR"
+                     and any(l.get("descripcion") == "Boxers Paquete C1" for l in c.get("lineas", []))), None)
+    if borrador is None:
+        return ["las piezas no quedaron guardadas en un borrador"]
+    if borrador.get("otros_costos_usd_cents") != 200:
+        fallas.append(f"otros gastos guardados: {borrador.get('otros_costos_usd_cents')}, no 200")
+    blusa = next((p for p in listar_coleccion("productos") if p.get("nombre") == "Blusa Paquete C1"), None)
+    if blusa is None:
+        return fallas + ["el producto con tallas no se creó al agregarlo"]
+    tallas = {v.get("talla"): v.get("id") for v in blusa.get("variantes", [])}
+    lineas_blusa = sorted((l.get("variante_id"), l.get("cantidad"), l.get("precio_linea_usd_cents"))
+                          for l in borrador["lineas"] if l.get("producto_id") == blusa.get("id"))
+    if lineas_blusa != sorted([(tallas.get("S"), 2, 2000), (tallas.get("M"), 1, 1000)]):
+        fallas.append(f"las tallas no quedaron una por línea: {lineas_blusa}")
+    pack = next(l for l in borrador["lineas"] if l.get("descripcion") == "Boxers Paquete C1")
+    esperado = {"cantidad": 10, "precio_linea_usd_cents": 4000, "es_multipack": True, "packs_comprados": 2,
+                "unidades_por_pack": 5, "precio_por_pack_usd_cents": 2000, "exento": True, "tax_linea_usd_cents": 0}
+    distinto = {k: pack.get(k) for k, v in esperado.items() if pack.get(k) != v}
+    if distinto:
+        fallas.append(f"el pack no se guardó como lo guarda la PC: {distinto}")
+    if any(p.get("nombre") == "Boxers Paquete C1" for p in listar_coleccion("productos")):
+        fallas.append("un producto nuevo con sólo el nombre se creó antes de recibir")
+
+    # Tocar una pieza la edita, y el borrador se guarda en el momento.
+    principal.locator("button").filter(has_text="Blusa Paquete C1 · M").first.click()
+    editar = page.get_by_role("dialog", name="Blusa Paquete C1 · M", exact=True)
+    editar.get_by_label("Pagó por unidad ($)", exact=True).fill("12")
+    editar.get_by_role("button", name="Guardar cambios", exact=True).click()
+    expect(editar).not_to_be_visible()
+    borrador = next(c for c in listar_coleccion("compras") if c.get("id") == borrador["id"])
+    talla_m = next((l for l in borrador["lineas"] if l.get("variante_id") == tallas.get("M")), {})
+    if talla_m.get("precio_linea_usd_cents") != 1200:
+        fallas.append(f"editar la pieza guardó {talla_m.get('precio_linea_usd_cents')}, no 1200")
+
+    page.get_by_role("button", name="Seguir", exact=True).click()
+    expect(principal).to_contain_text("Así entra a la bodega")
+    expect(principal).to_contain_text("Precio de venta")
+    expect(principal).to_contain_text("Otros gastos")
+    page.get_by_role("button", name="Recibir", exact=True).click()
+    confirmacion = page.get_by_role("dialog", name="¿Pasar el paquete al inventario?", exact=True)
+    expect(confirmacion).to_contain_text("Entran 13 unidades de 2 productos")
+    confirmacion.get_by_role("button", name="Sí, pasarlo al inventario", exact=True).click()
+    expect(page.locator("main:visible").last).to_contain_text("Ya está en el inventario", timeout=10000)
+    productos = {p.get("nombre"): p for p in listar_coleccion("productos")}
+    existencias = {v.get("talla"): v.get("existencias") for v in productos["Blusa Paquete C1"].get("variantes", [])}
+    if existencias != {"S": 2, "M": 1}:
+        fallas.append(f"las tallas entraron así: {existencias}")
+    boxers = productos.get("Boxers Paquete C1")
+    if boxers is None or sum(v.get("existencias", 0) for v in boxers.get("variantes", [])) != 10:
+        fallas.append("los dos packs de 5 no entraron como 10 unidades")
+    page.get_by_role("button", name="Listo", exact=True).click()
+    return fallas
+
+
+@caso("C1 · la pieza de encargo comprada llega en el paquete del celular con su costo real")
+def caso_c1_paquete_encargo(page: Page) -> list[str]:
+    fallas = []
+    encargo = next((v for v in listar_coleccion("ventas")
+                    if any(l.get("descripcion") == "Sandalias Encargo C1" for l in v.get("lineas", []))), None)
+    if encargo is None:
+        return ["falta el encargo sembrado con la pieza comprada"]
+    ir_a(page, "Inventario")
+    page.get_by_role("button", name="Llegó un paquete", exact=True).click()
+    page.get_by_label("Peso de la caja (lb)", exact=True).fill("1")
+    page.get_by_role("button", name="Seguir", exact=True).click()
+    principal = page.locator("main:visible").last
+    expect(principal).to_contain_text("Una pieza de encargo ya comprada espera paquete.")
+    principal.get_by_role("button", name="Agregarla", exact=True).click()
+    hoja = page.get_by_role("dialog", name="Piezas que esperan paquete", exact=True)
+    precio = hoja.get_by_label("Pagó por cada una ($): Sandalias Encargo C1", exact=True)
+    expect(precio).to_be_visible()
+    # Sin lo que costó no se agrega: el error va en su campo.
+    hoja.get_by_role("button", name="Agregar 1 pieza", exact=True).click()
+    expect(precio).to_have_attribute("aria-invalid", "true")
+    expect(precio).to_be_focused()
+    precio.fill("25")
+    hoja.get_by_role("button", name="Agregar 1 pieza", exact=True).click()
+    expect(hoja).not_to_be_visible()
+    expect(principal).to_contain_text("Encargo de Clienta Paquete C1")
+    borrador = next((c for c in listar_coleccion("compras") if c.get("estado") == "BORRADOR"
+                     and any(l.get("venta_id") == encargo["id"] for l in c.get("lineas", []))), None)
+    if borrador is None:
+        return ["la pieza de encargo no quedó en el borrador"]
+    linea = next(l for l in borrador["lineas"] if l.get("venta_id") == encargo["id"])
+    if linea.get("destino") != "ENCARGO" or linea.get("precio_linea_usd_cents") != 2500:
+        fallas.append(f"la línea del encargo quedó así: {linea.get('destino')} {linea.get('precio_linea_usd_cents')}")
+    pieza = next(l for l in leer_doc("ventas", str(encargo["id"])).get("lineas", [])
+                 if l.get("descripcion") == "Sandalias Encargo C1")
+    if pieza.get("compra_id") != borrador["id"]:
+        fallas.append("el encargo no sabe que su pieza viene en este paquete")
+    page.get_by_role("button", name="Seguir", exact=True).click()
+    expect(principal).to_contain_text("no suma existencias en bodega")
+    page.get_by_role("button", name="Recibir", exact=True).click()
+    confirmacion = page.get_by_role("dialog", name="¿Pasar el paquete al inventario?", exact=True)
+    expect(confirmacion).to_contain_text("1 pieza va para un encargo.")
+    confirmacion.get_by_role("button", name="Sí, pasarlo al inventario", exact=True).click()
+    expect(page.locator("main:visible").last).to_contain_text("1 encargo ya tiene su costo real", timeout=10000)
+    pieza = next(l for l in leer_doc("ventas", str(encargo["id"])).get("lineas", [])
+                 if l.get("descripcion") == "Sandalias Encargo C1")
+    # $25.00 en la tienda + 7% ($1.75) + el flete de la libra ($7.00).
+    if not pieza.get("llego_el") or pieza.get("costo_unitario_usd_cents") != 3375:
+        fallas.append(f"la pieza llegó con costo {pieza.get('costo_unitario_usd_cents')}, no 3375")
+    page.get_by_role("button", name="Listo", exact=True).click()
+    return fallas
+
+
+@caso("C1 · corregir desde el celular un paquete que ya entró: sólo el costo, y la diferencia va a la bodega")
+def caso_c1_corregir_paquete(page: Page) -> list[str]:
+    fallas = []
+    compra = next((c for c in listar_coleccion("compras") if c.get("estado") == "RECIBIDA"
+                   and any(l.get("descripcion") == "Boxers Paquete C1" for l in c.get("lineas", []))), None)
+    if compra is None:
+        return ["falta el paquete con los boxers (lo recibe el caso de tallas y pack)"]
+    boxers = next(p for p in listar_coleccion("productos") if p.get("nombre") == "Boxers Paquete C1")
+    ir_a(page, "Inventario")
+    filtro = page.get_by_role("combobox", name="Filtrar inventario", exact=True)
+    filtro.select_option(f"paquete:{compra['id']}")
+    page.get_by_role("button", name=f"Corregir {compra['codigo']}", exact=True).click()
+    expect(page.get_by_role("heading", name=f"Corregir {compra['codigo']}", exact=True)).to_be_visible()
+    principal = page.locator("main:visible").last
+    # Lo que ya entró no se quita ni cambia de cantidad.
+    expect(principal.get_by_role("button", name="Quitar Boxers Paquete C1", exact=True)).to_have_count(0)
+    principal.locator("button").filter(has_text="Boxers Paquete C1").first.click()
+    hoja = page.get_by_role("dialog", name="Boxers Paquete C1", exact=True)
+    expect(hoja.get_by_label("Packs", exact=True)).to_be_disabled()
+    hoja.get_by_label("Pagó por pack ($)", exact=True).fill("22")
+    hoja.get_by_role("button", name="Guardar cambios", exact=True).click()
+    expect(hoja).not_to_be_visible()
+    sin_tocar = next(c for c in listar_coleccion("compras") if c.get("id") == compra["id"])
+    linea_antes = next(l for l in sin_tocar["lineas"] if l.get("descripcion") == "Boxers Paquete C1")
+    if linea_antes.get("precio_linea_usd_cents") != 4000:
+        fallas.append("la corrección se guardó antes de confirmarla")
+    page.get_by_role("button", name="Seguir", exact=True).click()
+    page.get_by_role("button", name="Guardar corrección", exact=True).click()
+    confirmacion = page.get_by_role("dialog", name=f"¿Guardar la corrección de {compra['codigo']}?", exact=True)
+    expect(confirmacion).to_contain_text("lo que sigue en bodega")
+    confirmacion.get_by_role("button", name="Sí, corregirlo", exact=True).click()
+    resultado = page.locator("main:visible").last
+    expect(resultado).to_contain_text(f"{compra['codigo']} quedó corregido", timeout=10000)
+    # Sin impuesto, $2.00 más por pack en dos packs: la bodega sube $4.00.
+    expect(resultado).to_contain_text("La bodega sube $4.00")
+    corregida = next(c for c in listar_coleccion("compras") if c.get("id") == compra["id"])
+    linea = next(l for l in corregida["lineas"] if l.get("descripcion") == "Boxers Paquete C1")
+    if linea.get("precio_linea_usd_cents") != 4400 or linea.get("cantidad") != 10:
+        fallas.append(f"la línea corregida quedó en {linea.get('precio_linea_usd_cents')} por {linea.get('cantidad')}")
+    if not corregida.get("corregido_en"):
+        fallas.append("el paquete no dice que se corrigió")
+    despues = next(p for p in listar_coleccion("productos") if p.get("id") == boxers.get("id"))
+    if despues.get("valor_inventario_usd_cents") != boxers.get("valor_inventario_usd_cents", 0) + 400:
+        fallas.append(f"la bodega de los boxers pasó de {boxers.get('valor_inventario_usd_cents')}"
+                      f" a {despues.get('valor_inventario_usd_cents')}")
+    page.get_by_role("button", name="Listo", exact=True).click()
+    page.get_by_role("combobox", name="Filtrar inventario", exact=True).select_option("todos")
+    return fallas
+
+
+@caso("C1 · un borrador del celular se elimina, con Deshacer")
+def caso_c1_eliminar_borrador(page: Page) -> list[str]:
+    ir_a(page, "Inventario")
+    page.get_by_role("button", name="Llegó un paquete", exact=True).click()
+    page.get_by_label("Peso de la caja (lb)", exact=True).fill("1")
+    page.get_by_role("button", name="Seguir", exact=True).click()
+    page.get_by_role("button", name="Atrás", exact=True).click()
+    codigo = page.locator("header:visible").inner_text().splitlines()[0]
+    page.get_by_role("button", name="Eliminar este borrador", exact=True).click()
+    hoja = page.get_by_role("dialog", name=f"¿Eliminar {codigo}?", exact=True)
+    hoja.get_by_role("button", name="Eliminar", exact=True).click()
+    expect(page.get_by_role("button", name="Llegó un paquete", exact=True)).to_be_visible()
+    eliminado = next(c for c in listar_coleccion("compras") if c.get("codigo") == codigo)
+    fallas = [] if eliminado.get("activo") is False else ["el borrador sigue activo"]
+    page.get_by_role("button", name="Deshacer", exact=True).click()
+    page.wait_for_timeout(1500)
+    vuelto = next(c for c in listar_coleccion("compras") if c.get("codigo") == codigo)
+    if vuelto.get("activo") is not True:
+        fallas.append("Deshacer no devolvió el borrador")
     return fallas
 
 
