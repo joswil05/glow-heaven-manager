@@ -22,7 +22,9 @@ from playwright.sync_api import sync_playwright, Page, BrowserContext, expect  #
 
 import arnes  # noqa: E402
 from pruebas import (  # noqa: E402
+    abrir_hoja_de_abono,
     cerrar_hojas,
+    en_hoja,
     ir_a,
     listar_coleccion,
     poner_en_el_carrito,
@@ -243,27 +245,79 @@ def caso_venta_cortada(page: Page, contexto: BrowserContext) -> list[str]:
     return [] if nuevas == 1 else [f"con el corte quedaron {nuevas} ventas nuevas y tendría que haber una"]
 
 
-@caso("sin señal, abonar y anotar lo dicen y no escriben")
+def saldo_de_ana() -> int:
+    return next(v for v in listar_coleccion("ventas") if v.get("codigo") == "V-0001")["saldo_usd_cents"]
+
+
+def ficha_de_ana(page: Page):
+    ir_a(page, "Cobros")
+    visible(page, "button", "Ana Prueba").click()
+    return page.get_by_role("dialog").last
+
+
+@caso("sin señal, un abono queda pendiente y al volver la red se sube una vez")
+def caso_abono_sin_red(page: Page, contexto: BrowserContext) -> list[str]:
+    """
+    C4: sin señal el abono no se frena: queda en el teléfono. La ficha de la
+    clienta dice "1 abono pendiente de subir" sin cambiar el saldo; al volver
+    la red se sube una vez y el saldo baja lo que se pagó.
+    """
+    fallas = []
+    pagos_antes = {p.get("id") for p in listar_coleccion("pagos")}
+    saldo_antes = saldo_de_ana()
+    contexto.set_offline(True)
+    try:
+        expect(franja(page)).to_be_visible(timeout=10000)
+        problema = abrir_hoja_de_abono(page)
+        if problema:
+            return [problema]
+        en_hoja(page, "input[inputmode='decimal']").fill("10")
+        en_hoja(page, "button", "Registrar abono").click()
+        expect(page.get_by_role("dialog").last).to_contain_text("Pendiente de subir", timeout=10000)
+        en_hoja(page, "button", "Listo").click()
+        cerrar_hojas(page)
+
+        # La ficha lo dice, sin tocar el saldo: todavía no está en la base.
+        ficha = ficha_de_ana(page)
+        expect(ficha).to_contain_text("1 abono pendiente de subir", timeout=10000)
+        expect(ficha).to_contain_text(f"${saldo_antes / 100:,.2f}")
+        cerrar_hojas(page)
+    finally:
+        contexto.set_offline(False)
+
+    expect(franja(page)).to_be_hidden(timeout=20000)
+    nuevos = []
+    for _ in range(60):
+        nuevos = [p for p in listar_coleccion("pagos") if p.get("id") not in pagos_antes]
+        if nuevos:
+            break
+        page.wait_for_timeout(500)
+    page.wait_for_timeout(2000)
+    nuevos = [p for p in listar_coleccion("pagos") if p.get("id") not in pagos_antes]
+    if len(nuevos) != 1:
+        return [f"al volver la red quedaron {len(nuevos)} abonos nuevos y tendría que haber uno"]
+    saldo_despues = saldo_de_ana()
+    if saldo_despues != saldo_antes - nuevos[0]["monto_usd_cents"]:
+        fallas.append(f"el saldo pasó de {saldo_antes} a {saldo_despues} con un abono de {nuevos[0]['monto_usd_cents']}")
+
+    # La ficha ya muestra el saldo nuevo, sin la nota.
+    ficha = ficha_de_ana(page)
+    expect(ficha).to_contain_text(f"${saldo_despues / 100:,.2f}", timeout=15000)
+    expect(ficha).not_to_contain_text("pendiente de subir")
+    cerrar_hojas(page)
+    return fallas
+
+
+@caso("sin señal, anotar un pedido lo dice y no escribe")
 def caso_escrituras_sin_red(page: Page, contexto: BrowserContext) -> list[str]:
     """
     Lo que escribe no se cuelga en "Guardando…" ni falla con un error
     técnico: dice que se puede cuando vuelva la señal y conserva lo escrito.
     """
     ventas_antes = len(listar_coleccion("ventas"))
-    pagos_antes = len(listar_coleccion("pagos"))
     contexto.set_offline(True)
     try:
         expect(franja(page)).to_be_visible(timeout=10000)
-
-        # Cobros: el abono avisa antes de abrir el formulario.
-        ir_a(page, "Cobros")
-        visible(page, "button", "Ana Prueba").click()
-        abono = page.get_by_role("dialog").last.get_by_role("button", name="Registrar abono")
-        expect(abono).to_be_visible()
-        abono.click()
-        expect(page.get_by_text("Sin conexión: el abono se registra cuando vuelva la señal.")).to_be_visible()
-        expect(page.get_by_role("dialog", name=re.compile("abono", re.I))).to_have_count(0)
-        cerrar_hojas(page)
 
         # Encargos: "Anotar un pedido" avisa y no abre la hoja.
         ir_a(page, "Vender")
@@ -281,8 +335,6 @@ def caso_escrituras_sin_red(page: Page, contexto: BrowserContext) -> list[str]:
     fallas = []
     if len(listar_coleccion("ventas")) != ventas_antes:
         fallas.append("sin red se anotó un pedido (o quedó en cola y se subió al volver)")
-    if len(listar_coleccion("pagos")) != pagos_antes:
-        fallas.append("sin red se registró un abono")
     return fallas
 
 

@@ -258,7 +258,7 @@ API con `gcloud`) antes y después.
 
 ## T5 · Abonar sin red
 
-- [ ] **Paso 1: rojo**: sin señal, un abono desde la ficha de la clienta
+- [x] **Paso 1: rojo**: sin señal, un abono desde la ficha de la clienta
   queda pendiente; la ficha dice "1 abono pendiente de subir" sin cambiar el
   saldo; al volver la red, sube una vez y el saldo baja.
 - [ ] **Paso 2: encolar** en `AbonoModalSheet` (sólo "Registrar abono";
