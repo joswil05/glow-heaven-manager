@@ -4,6 +4,7 @@ import { useAuth } from './context/AuthContext';
 import { DataProvider, useDatosNegocio } from './context/DataContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ConexionProvider, useConexion } from './context/ConexionContext';
+import { ColaProvider } from './context/ColaContext';
 import { accesoRecordado, decidirAcceso, olvidarAcceso, recordarAcceso } from './lib/acceso-movil';
 import { LoginView } from './views/LoginView';
 import { DashboardView } from './views/DashboardView';
@@ -198,7 +199,9 @@ function AppContenido() {
   return (
     <SnackbarProvider>
       <DataProvider>
-        <Navegacion />
+        <ColaProvider>
+          <Navegacion />
+        </ColaProvider>
       </DataProvider>
     </SnackbarProvider>
   );

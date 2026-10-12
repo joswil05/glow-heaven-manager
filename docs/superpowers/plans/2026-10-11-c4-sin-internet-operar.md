@@ -224,7 +224,7 @@ API con `gcloud`) antes y después.
   SUBIENDO, llama al repositorio con `operacion_id` y `grupo`, guarda el
   resultado (código de la venta) y SUBIDA, o PENDIENTE/REVISAR según el
   error. Una sola subida a la vez (candado).
-- [ ] **Paso 3: `ColaContext`**: carga la cola al entrar, sube al pasar a
+- [x] **Paso 3: `ColaContext`**: carga la cola al entrar, sube al pasar a
   "en línea" (`useConexion`) y al abrir con red, y después de cada subida
   `marcarCambio()` y `recargarProductos(true)`.
 
