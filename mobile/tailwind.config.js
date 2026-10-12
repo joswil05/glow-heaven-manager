@@ -73,8 +73,7 @@ export default {
         metric: ['1.875rem', { lineHeight: '2.25rem', fontWeight: '650' }],
       },
       fontFamily: {
-        // La del sistema (U1): SF Pro en iPhone, Roboto en Android.
-        sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'system-ui', 'sans-serif'],
+        sans: ['"Plus Jakarta Sans"', 'Roboto', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],
       },
       // Las sombras salen de tokens para poder cambiar con el tema: en oscuro
       // tienen que ser más opacas y amplias o no se leen. Ver index.css.
