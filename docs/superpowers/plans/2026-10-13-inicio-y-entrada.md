@@ -39,7 +39,7 @@ el total) e "Inventario" (está en su pestaña).
   título; se va la línea repetida de abajo ("Ingresa con tu cuenta
   autorizada", que además le hablaba de tú). Los avisos (iPhone en WhatsApp,
   otra dirección, sin internet, error) quedan igual.
-- [ ] **T2 · La parte pura de Inicio** (`mobile/src/lib/inicio.ts`, con
+- [x] **T2 · La parte pura de Inicio** (`mobile/src/lib/inicio.ts`, con
   pruebas en `tests/inicio-movil.test.ts`): deudas agrupadas por clienta y
   ordenadas; lo que espera a Ross en Encargos; los dos totales de 7 días; los
   últimos movimientos mezclando ventas y abonos.
