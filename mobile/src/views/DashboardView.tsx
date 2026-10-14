@@ -1,38 +1,59 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  RefreshCw,
   Settings,
-  TrendingUp,
-  PlusCircle,
   ChevronRight,
   HandCoins,
+  ShoppingBag,
+  ClipboardList,
+  PackagePlus,
+  MessageCircle,
+  AlertTriangle,
 } from 'lucide-react';
-import type { AvancePaquete, PanelData, ProductoConStock } from '@shared/types';
+import type { AvancePaquete, ProductoConStock } from '@shared/types';
 import { textoAvance } from '@core/avance-paquete';
 import { ComprasRepoFirestore } from '@repos/compras.repo';
-import { formatearMoneda } from '@core/moneda';
-import {
-  obtenerDatosDashboard,
-  cacheDashboardGlobal,
-  invalidarCacheDashboard,
-  type DiaVentas,
-  type ResumenHoy,
-} from '../lib/panel-movil';
-import { MoneyDual } from '../components/MoneyDual';
+import { formatearMoneda, usdCentavosACorCentavos } from '@core/moneda';
+import { cordobasQueSeDeben, enlaceMensaje, mensajeCobro } from '@core/mensajes';
+import { diaDeHistorial, textoEquivalente, textoPagado } from '@core/abonos';
+import { obtenerDatosDashboard, obtenerUltimos, cacheDashboardGlobal, invalidarCacheDashboard } from '../lib/panel-movil';
+import { deudasPorClienta, dosSemanas, textoEncargosDeInicio, type DeudaDeClienta } from '../lib/inicio';
+import { hoyISO } from '../lib/util';
 import { BottomSheet } from '../components/BottomSheet';
 import { AvancePaqueteCard, ResumenPaqueteCard } from '../components/AvancePaqueteCard';
 import { FichaProductoSheet } from '../components/FichaProductoSheet';
+import { AbonoSelectorSheet } from '../components/AbonoSelectorSheet';
+import { AbonoModalSheet, type VentaCobroItem } from '../components/AbonoModalSheet';
 import { useSnackbar } from '../components/Snackbar';
 import { useAuth } from '../context/AuthContext';
 import { useDatosNegocio } from '../context/DataContext';
 import { PullToRefresh } from '../components/PullToRefresh';
 import { haptics } from '../lib/haptics';
 
-const DIAS_CORTOS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+/** Las clientas que se ven en "Te deben"; el resto, en Cobros. */
+const DEUDAS_EN_INICIO = 3;
 
-function nombreDia(iso: string): string {
-  const d = new Date(`${iso}T00:00:00`);
-  return DIAS_CORTOS[d.getDay()];
+/** El rótulo de cada grupo de Inicio, con el mismo estilo que los días del Historial. */
+function TituloDeGrupo({ id, texto, accion }: { id: string; texto: string; accion?: { texto: string; onTocar: () => void } }) {
+  return (
+    <div className="flex items-center justify-between gap-2 px-1 pt-1">
+      <h2 id={id} className="text-caption font-bold uppercase tracking-wider text-texto-3">
+        {texto}
+      </h2>
+      {accion && (
+        <button
+          type="button"
+          onClick={() => {
+            haptics.selection();
+            accion.onTocar();
+          }}
+          className="tocable flex min-h-9 items-center gap-0.5 text-caption font-semibold text-texto-2 cursor-pointer"
+        >
+          {accion.texto}
+          <ChevronRight size={13} />
+        </button>
+      )}
+    </div>
+  );
 }
 
 export function DashboardView({
@@ -42,27 +63,27 @@ export function DashboardView({
   onIrACobranza,
   onIrAInventario,
   onIrAEncargos,
+  onAnotarPedido,
+  onLlegoPaquete,
 }: {
   onIrAAjustes?: () => void;
   onIrAActividad?: () => void;
   onIrAVenta?: () => void;
-  onIrACobranza?: () => void;
+  /** Con un nombre, Cobros abre buscándola. */
+  onIrACobranza?: (buscar?: string) => void;
   onIrAInventario?: () => void;
   onIrAEncargos?: () => void;
+  onAnotarPedido?: () => void;
+  onLlegoPaquete?: () => void;
 }) {
   const { usuario } = useAuth();
-  const { version, productos, parametros } = useDatosNegocio();
+  const { version, productos, parametros, marcarCambio } = useDatosNegocio();
   const { mostrar } = useSnackbar();
+  const tasa = parametros?.tasa_cambio_cents ?? 3662;
 
-  const [panel, setPanel] = useState<PanelData | null>(cacheDashboardGlobal.panel);
-  const [serie, setSerie] = useState<DiaVentas[]>(cacheDashboardGlobal.serie);
-  const [hoy, setHoy] = useState<ResumenHoy>(cacheDashboardGlobal.hoy);
-  const [fasesEncargo, setFasesEncargo] = useState(cacheDashboardGlobal.fasesEncargo);
-  const [cargando, setCargando] = useState(!cacheDashboardGlobal.panel);
+  const [datos, setDatos] = useState(() => ({ ...cacheDashboardGlobal }));
   const [error, setError] = useState<string | null>(null);
 
-  // Día seleccionado en el gráfico para ver el detalle
-  const [diaSeleccionado, setDiaSeleccionado] = useState<DiaVentas | null>(null);
   // Fase C1: el paquete cuya bodega se está mirando, y la ficha de un producto.
   const [paqueteAbierto, setPaqueteAbierto] = useState<AvancePaquete | null>(null);
   // Cerrada la hoja, se sigue mostrando lo último mientras baja.
@@ -72,25 +93,27 @@ export function DashboardView({
   const [fichaProducto, setFichaProducto] = useState<ProductoConStock | null>(null);
   /** Resúmenes que Ross cerró recién: se esconden sin esperar a recargar. */
   const [resumenesVistos, setResumenesVistos] = useState<number[]>([]);
+  // "Abono" de las acciones rápidas: las mismas hojas que en Cobros.
+  const [selectorAbonoAbierto, setSelectorAbonoAbierto] = useState(false);
+  const [ventaParaCobrar, setVentaParaCobrar] = useState<VentaCobroItem | null>(null);
 
   const cargar = useCallback(async (forzar = false) => {
-    if (!cacheDashboardGlobal.panel) {
-      setCargando(true);
-    }
     setError(null);
     try {
       const data = await obtenerDatosDashboard(forzar);
-      setPanel(data.panel);
-      setSerie(data.serie);
-      setHoy(data.hoy);
-      setFasesEncargo(data.fasesEncargo);
+      setDatos({ ...data });
     } catch (err) {
       console.error('[DashboardView] Error cargando el panel:', err);
       if (!cacheDashboardGlobal.panel) {
         setError('No se pudo cargar el panel.');
       }
-    } finally {
-      setCargando(false);
+    }
+    // Aparte: si "Lo último" no se puede traer, el resto de Inicio se ve igual.
+    try {
+      const ultimos = await obtenerUltimos(forzar);
+      setDatos((d) => ({ ...d, ultimos }));
+    } catch (err) {
+      console.warn('[DashboardView] No se pudo traer lo último:', err);
     }
   }, []);
 
@@ -100,6 +123,8 @@ export function DashboardView({
   useEffect(() => {
     cargar(version > 0);
   }, [cargar, version]);
+
+  const { panel, hoy, fasesEncargo, ultimos } = datos;
 
   // Cómo va cada paquete (Fase C1): reemplaza a "Stock crítico".
   const paquetes = panel?.paquetes ?? [];
@@ -119,14 +144,37 @@ export function DashboardView({
     }
   }
 
-  const cuentasPorCobrar = panel?.por_cobrar ?? [];
-  const cuotasVencidas = cuentasPorCobrar.filter((f) => f.cuotas_vencidas > 0);
-  const maxSerie = Math.max(1, ...serie.map((d) => d.total_usd_cents));
-  const encargosEnCurso = Object.values(fasesEncargo).reduce((suma, n) => suma + n, 0);
-  const resumenEncargos = [
-    fasesEncargo.POR_BUSCAR > 0 ? `${fasesEncargo.POR_BUSCAR} por cotizar` : '',
-    fasesEncargo.ESPERANDO > 0 ? `${fasesEncargo.ESPERANDO} esperando respuesta` : '',
-  ].filter(Boolean).join(' · ') || (encargosEnCurso > 0 ? `${encargosEnCurso} en curso` : 'No hay encargos en curso');
+  const cuentas = panel?.por_cobrar ?? [];
+  const deudas = deudasPorClienta(cuentas);
+  const totalQueTeDeben = deudas.reduce((s, d) => s + d.saldo_usd_cents, 0);
+  const semanas = dosSemanas(datos.serie);
+  const mostrarCordobas = parametros?.mostrar_cordobas ?? true;
+  const hoyIso = hoyISO();
+
+  /** El recordatorio de cobro de toda su cuenta, con la plantilla de Configuración. */
+  function whatsappDeDeuda(d: DeudaDeClienta): string | null {
+    if (!d.telefono) return null;
+    return enlaceMensaje(
+      d.telefono,
+      mensajeCobro(
+        {
+          cliente: d.nombre,
+          saldo_usd_cents: d.saldo_usd_cents,
+          saldo_cor_cents: cordobasQueSeDeben(d.ventas, tasa),
+          codigo: d.ventas.map((v) => v.codigo).join(', '),
+        },
+        parametros
+      ),
+      parametros
+    );
+  }
+
+  const acciones = [
+    { texto: 'Vender', Icono: ShoppingBag, principal: true, onTocar: onIrAVenta },
+    { texto: 'Abono', Icono: HandCoins, principal: false, onTocar: () => setSelectorAbonoAbierto(true) },
+    { texto: 'Pedido', Icono: ClipboardList, principal: false, onTocar: onAnotarPedido },
+    { texto: 'Paquete', Icono: PackagePlus, principal: false, onTocar: onLlegoPaquete },
+  ];
 
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden bg-fondo text-texto transition-colors">
@@ -159,39 +207,24 @@ export function DashboardView({
                 Glow Heaven
               </span>
               <h1 className="text-title font-extrabold text-texto leading-tight truncate">
-                {usuario?.displayName?.split(' ')[0] || 'Mi Negocio'}
+                {usuario?.displayName?.split(' ')[0] || parametros?.nombre_negocio || 'Glow Heaven'}
               </h1>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 shrink-0">
-            {/* El tema y "cerrar sesión" vivían acá apretados. Ahora tienen
-                su lugar en Ajustes, y el encabezado queda para lo del día:
-                actualizar los datos. */}
-            <button
-              type="button"
-              onClick={() => {
-                haptics.selection();
-                cargar(true);
-              }}
-              aria-label="Actualizar datos"
-              className="m3-press group flex h-9 w-9 items-center justify-center rounded-xl border border-borde bg-superficie-2/90 text-texto-2 active:scale-90 transition-[background-color,color,transform] duration-150 ease-out cursor-pointer"
-            >
-              <RefreshCw size={16} className={cargando ? 'animate-spin text-texto-2' : 'transition-transform duration-200 group-hover:rotate-180'} />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                haptics.selection();
-                onIrAAjustes?.();
-              }}
-              aria-label="Ajustes"
-              className="m3-press flex h-9 w-9 items-center justify-center rounded-xl border border-borde bg-superficie-2/90 text-texto-2 active:scale-90 transition-[background-color,color,transform] duration-150 ease-out cursor-pointer"
-            >
-              <Settings size={16} />
-            </button>
-          </div>
+          {/* INI-3: se recarga deslizando hacia abajo; el botón de recargar
+              repetía el gesto. El engranaje se queda hasta que exista "Más". */}
+          <button
+            type="button"
+            onClick={() => {
+              haptics.selection();
+              onIrAAjustes?.();
+            }}
+            aria-label="Ajustes"
+            className="m3-press flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-borde bg-superficie-2/90 text-texto-2 active:scale-90 transition-[background-color,color,transform] duration-150 ease-out cursor-pointer"
+          >
+            <Settings size={16} />
+          </button>
         </div>
       </header>
 
@@ -207,16 +240,16 @@ export function DashboardView({
             </div>
           )}
 
-          {/* Tarjeta destacada del día.
-              Antes era una losa de verde saturado a todo lo ancho. En tema
-              claro pasaba, pero en oscuro un bloque de color a máxima
-              saturación se come la pantalla y deja al número —que es el dato
-              que importa— compitiendo contra su propio fondo.
-              Ahora es una superficie normal con un resplandor verde suave en
-              una esquina: el color de marca sigue ahí, pero el héroe es la
-              cifra. Es lo que hacen los paneles de referencia. */}
-          <section
-            className="relative overflow-hidden rounded-[20px] border border-acento/30 bg-superficie p-3.5 sm:p-4 shadow-m3-2 shrink-0 flex flex-col justify-between"
+          {/* Tarjeta destacada del día: la misma de siempre, ahora entera se
+              toca para ver las ventas de hoy (INI-1). Las acciones que tenía
+              abajo pasaron a su propia fila. */}
+          <button
+            type="button"
+            onClick={() => {
+              haptics.selection();
+              onIrAActividad?.();
+            }}
+            className="m3-press relative w-full overflow-hidden rounded-[20px] border border-acento/30 bg-superficie p-3.5 sm:p-4 text-left shadow-m3-2 shrink-0 active:scale-[0.99] transition-transform cursor-pointer"
             style={{
               // El degradado sale de los tokens, así que se adapta al tema en
               // vez de ser un color quemado. Se ve, pero no tapa: el número
@@ -226,206 +259,149 @@ export function DashboardView({
                 'linear-gradient(180deg, rgb(var(--acento) / 0.07), transparent 45%)',
             }}
           >
-            <div className="relative z-10 flex flex-col gap-2 sm:gap-2.5">
-              <div className="flex items-center justify-between">
+            <span className="relative z-10 flex flex-col gap-2 sm:gap-2.5">
+              <span className="flex items-center justify-between">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-acento px-2.5 py-0.5 text-[11px] font-bold tracking-wide uppercase text-acento-texto">
                   Ventas de hoy
                 </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    haptics.selection();
-                    onIrAActividad?.();
-                  }}
-                  className="m3-press flex items-center gap-1 rounded-full border border-borde bg-superficie-2/80 px-2.5 py-0.5 text-[11px] font-semibold tabular-nums text-texto-2 backdrop-blur-sm active:scale-95 transition-transform cursor-pointer"
-                >
+                <span className="flex items-center gap-1 rounded-full border border-borde bg-superficie-2/80 px-2.5 py-0.5 text-[11px] font-semibold tabular-nums text-texto-2 backdrop-blur-sm">
                   {hoy.ventas_count} {hoy.ventas_count === 1 ? 'venta' : 'ventas'}
                   <ChevronRight size={12} />
-                </button>
-              </div>
+                </span>
+              </span>
 
-              <div className="flex items-end justify-between gap-2">
-                <div>
+              <span className="flex items-end justify-between gap-2">
+                <span className="min-w-0">
                   <span className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-texto-3">
                     Total generado
                   </span>
                   {/* La cifra del día es el dato más importante de la app:
-                      que pese como tal. */}
-                  <p className="text-3xl sm:text-4xl font-black tracking-tight tabular-nums text-texto leading-none">
-                    {formatearMoneda(hoy.total_usd_cents, 'USD')}
-                  </p>
-                </div>
+                      que pese como tal. Los córdobas, al lado. */}
+                  <span className="flex flex-wrap items-baseline gap-x-2">
+                    <span className="text-3xl sm:text-4xl font-black tracking-tight tabular-nums text-texto leading-none">
+                      {formatearMoneda(hoy.total_usd_cents, 'USD')}
+                    </span>
+                    {mostrarCordobas && (
+                      <span className="text-caption font-semibold tabular-nums text-texto-3">
+                        ≈ {formatearMoneda(usdCentavosACorCentavos(hoy.total_usd_cents, tasa), 'COR')}
+                      </span>
+                    )}
+                  </span>
+                </span>
 
-                <div className="text-right">
+                <span className="shrink-0 text-right">
                   <span className="mb-0.5 block text-[11px] text-texto-3">Ganancia</span>
                   <span className="inline-block rounded-lg bg-acento-suave px-2 py-0.5 text-caption font-bold tabular-nums text-acento-fuerte sm:text-label sm:px-2.5 sm:py-1">
                     +{formatearMoneda(hoy.ganancia_usd_cents, 'USD')}
                   </span>
-                </div>
-              </div>
-
-              {/* Una sola acción en verde: dos botones con el mismo peso no
-                  son una jerarquía, son un empate. */}
-              <div className="grid grid-cols-2 gap-2 pt-0.5">
-                {onIrAVenta && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      haptics.impact('medium');
-                      onIrAVenta();
-                    }}
-                    className="m3-press flex h-10 items-center justify-center gap-1.5 rounded-xl bg-acento px-3 text-caption font-bold text-acento-texto active:scale-95 transition-transform cursor-pointer sm:text-label"
-                  >
-                    <PlusCircle size={15} />
-                    <span>Venta rápida</span>
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    haptics.impact('medium');
-                    onIrACobranza?.();
-                  }}
-                  className="m3-press flex h-10 items-center justify-center gap-1.5 rounded-xl border border-borde bg-superficie-2 px-3 text-caption font-bold text-texto active:scale-95 transition-transform cursor-pointer sm:text-label"
-                >
-                  <HandCoins size={15} className="text-texto-2" />
-                  <span>Cobros</span>
-                </button>
-              </div>
-            </div>
-          </section>
-
-          {/* Tarjetas métricas de Por Cobrar e Inventario */}
-          <section className="grid grid-cols-2 gap-2.5 shrink-0">
-            <div
-              onClick={() => {
-                haptics.impact('light');
-                onIrACobranza?.();
-              }}
-              className="m3-card p-3 sm:p-3.5 flex flex-col justify-between cursor-pointer hover:border-alerta-suave transition-colors active:scale-[0.99]"
-            >
-              <div>
-                <div className="flex items-center justify-between gap-1 mb-1">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="h-2 w-2 rounded-full bg-alerta shrink-0" />
-                    <p className="text-caption sm:text-label font-semibold text-texto-3 truncate">Por cobrar</p>
-                  </div>
-                  {cuotasVencidas.length > 0 && (
-                    <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-peligro-suave text-peligro-fuerte border border-peligro-suave shrink-0">
-                      {cuotasVencidas.length} ven.
-                    </span>
-                  )}
-                </div>
-                <MoneyDual usdCents={panel?.resumen.por_cobrar_usd_cents ?? 0} size="md" soloUsd />
-              </div>
-              <span className="text-[11px] sm:text-caption text-texto-3 mt-1.5 font-semibold flex items-center justify-between">
-                <span>Ver cobros</span>
-                <ChevronRight size={13} />
-              </span>
-            </div>
-
-            <div
-              onClick={() => {
-                haptics.impact('light');
-                onIrAInventario?.();
-              }}
-              className="m3-card p-3 sm:p-3.5 flex flex-col justify-between cursor-pointer hover:border-borde-fuerte transition-colors active:scale-[0.99]"
-            >
-              <div>
-                <div className="flex items-center justify-between gap-1 mb-1">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="h-2 w-2 rounded-full bg-texto-3 shrink-0" />
-                    <p className="text-caption sm:text-label font-semibold text-texto-3 truncate">Inventario</p>
-                  </div>
-                </div>
-                <MoneyDual usdCents={panel?.resumen.inversion_inventario_usd_cents ?? 0} size="md" soloUsd />
-              </div>
-              <span className="text-[11px] sm:text-caption text-texto-3 mt-1.5 font-semibold flex items-center justify-between">
-                <span>{panel?.resumen.unidades_en_inventario ?? 0} unid. disponibles</span>
-                <ChevronRight size={13} />
-              </span>
-            </div>
-          </section>
-
-          {/* Gráfico 7 días interactivo (Altura balanceada, sin estiramiento) */}
-          <section className="m3-card p-3 sm:p-3.5 shrink-0 flex flex-col gap-2">
-            <div className="flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2 text-body font-bold text-texto">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-superficie-2 text-texto-2 shrink-0">
-                  <TrendingUp size={16} />
-                </div>
-                <span className="text-caption sm:text-label font-bold text-texto">Ventas últimos 7 días</span>
-              </div>
-              <span className="text-[11px] sm:text-caption font-semibold text-texto-3">USD</span>
-            </div>
-
-            {/* Detalle flotante si se toca una barra */}
-            {diaSeleccionado && (
-              <div className="my-0.5 flex items-center justify-between rounded-xl bg-superficie-2/90 border border-borde px-2.5 py-1 text-caption sm:text-label animate-m3-fade shrink-0">
-                <span className="font-semibold text-texto-2 capitalize">
-                  {nombreDia(diaSeleccionado.fecha)} {diaSeleccionado.fecha.slice(5)}:
                 </span>
-                <span className="font-bold text-texto">
-                  {formatearMoneda(diaSeleccionado.total_usd_cents, 'USD')} ({diaSeleccionado.cantidad} vtas.)
-                </span>
-              </div>
-            )}
+              </span>
 
-            {/* Altura de barras proporcionada (76px) para evitar aspecto de rascacielos */}
-            <div className="flex items-end justify-between gap-1.5 sm:gap-2 pt-1 pb-0.5" style={{ height: '102px' }}>
-              {serie.map((d) => {
-                const porcentaje = maxSerie > 0 ? (d.total_usd_cents / maxSerie) * 100 : 0;
-                const tieneVenta = d.total_usd_cents > 0;
-                const estaSeleccionado = diaSeleccionado?.fecha === d.fecha;
+              {/* INI-2: en lugar de la gráfica de 7 días. */}
+              <span className="text-[11px] font-semibold tabular-nums text-texto-3">
+                Últimos 7 días {formatearMoneda(semanas.ultimos7, 'USD')} · los 7 de antes{' '}
+                {formatearMoneda(semanas.anteriores7, 'USD')}
+              </span>
+            </span>
+          </button>
 
-                return (
-                  <div
-                    key={d.fecha}
-                    onClick={() => {
-                      haptics.selection();
-                      setDiaSeleccionado(estaSeleccionado ? null : d);
-                    }}
-                    className="group flex flex-1 flex-col items-center gap-1.5 h-full justify-end cursor-pointer"
-                  >
-                    <div
-                      className={`relative w-full max-w-[30px] rounded-lg overflow-hidden transition-all ${
-                        estaSeleccionado ? 'ring-2 ring-acento' : ''
-                      }`}
-                      style={{ height: '76px' }}
-                    >
-                      <div
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          borderRadius: '6px',
-                          background: tieneVenta
-                            ? 'rgb(var(--acento))'
-                            : 'rgb(var(--borde))',
-                          transform: `scaleY(${tieneVenta ? Math.max(0.18, porcentaje / 100) : 0.05})`,
-                          transformOrigin: 'bottom',
-                          transition: 'transform 300ms ease-out',
-                        }}
-                      />
-                    </div>
-                    <span
-                      className="text-[10px] sm:text-caption uppercase tracking-tight transition-colors leading-none shrink-0"
-                      style={{
-                        fontWeight: estaSeleccionado || tieneVenta ? 700 : 500,
-                        color: estaSeleccionado
-                          ? 'rgb(var(--acento))'
-                          : tieneVenta
-                            ? 'rgb(var(--texto))'
-                            : 'rgb(var(--texto-3))',
-                      }}
-                    >
-                      {nombreDia(d.fecha)}
-                    </span>
-                  </div>
-                );
-              })}
+          {/* Acciones rápidas. Una sola en verde: dos botones con el mismo
+              peso no son una jerarquía, son un empate. */}
+          <section aria-label="Acciones rápidas" className="grid grid-cols-4 gap-2 shrink-0">
+            {acciones.map(({ texto, Icono, principal, onTocar }) => (
+              <button
+                key={texto}
+                type="button"
+                onClick={() => {
+                  haptics.impact(principal ? 'medium' : 'light');
+                  onTocar?.();
+                }}
+                className={`m3-press tocable flex h-16 flex-col items-center justify-center gap-1 rounded-2xl text-caption font-bold active:scale-95 transition-transform cursor-pointer ${
+                  principal
+                    ? 'bg-acento text-acento-texto shadow-m3-1'
+                    : 'border border-borde bg-superficie text-texto shadow-m3-1'
+                }`}
+              >
+                <Icono size={18} className={principal ? '' : 'text-texto-2'} aria-hidden="true" />
+                {texto}
+              </button>
+            ))}
+          </section>
+
+          {/* Te deben (INI-1): una fila por clienta, la que más debe primero.
+              Antes "Por cobrar" decía cuánto pero no quién. */}
+          <section aria-labelledby="inicio-te-deben" className="flex flex-col gap-1.5 shrink-0">
+            <TituloDeGrupo
+              id="inicio-te-deben"
+              texto={`Te deben ${formatearMoneda(totalQueTeDeben, 'USD')}`}
+              accion={deudas.length > 0 ? { texto: `Ver todas (${deudas.length})`, onTocar: () => onIrACobranza?.() } : undefined}
+            />
+            <div className="m3-card px-3.5 py-1">
+              {deudas.length === 0 ? (
+                <p className="py-2.5 text-sm text-texto-2">Nadie te debe nada.</p>
+              ) : (
+                <div className="flex flex-col divide-y divide-borde">
+                  {deudas.slice(0, DEUDAS_EN_INICIO).map((d) => {
+                    const urlWhatsapp = whatsappDeDeuda(d);
+                    const vencida = d.cuotas_vencidas > 0;
+                    return (
+                      <div key={d.clave} className="flex items-center gap-2 py-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            haptics.selection();
+                            onIrACobranza?.(d.nombre);
+                          }}
+                          className="tocable flex min-w-0 flex-1 items-center justify-between gap-2 py-0.5 text-left cursor-pointer"
+                        >
+                          <span className="min-w-0">
+                            <span className="block truncate text-body font-bold leading-tight text-texto">{d.nombre}</span>
+                            <span className="block truncate text-caption font-medium text-texto-3">
+                              {d.ventas.length} {d.ventas.length === 1 ? 'venta' : 'ventas'}
+                            </span>
+                          </span>
+                          <span className="flex shrink-0 flex-col items-end gap-1">
+                            <span className="text-base font-black tabular-nums leading-none text-texto">
+                              {formatearMoneda(d.saldo_usd_cents, 'USD')}
+                            </span>
+                            {vencida && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-peligro-suave px-2 py-0.5 text-caption font-extrabold text-peligro-fuerte">
+                                <AlertTriangle size={10} />
+                                {d.cuotas_vencidas} venc.
+                              </span>
+                            )}
+                          </span>
+                        </button>
+                        {urlWhatsapp ? (
+                          <a
+                            href={urlWhatsapp}
+                            onClick={() => haptics.impact('light')}
+                            target="_blank"
+                            rel="noreferrer"
+                            aria-label={`Recordarle a ${d.nombre} por WhatsApp`}
+                            className="m3-press tocable flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-borde bg-superficie-2 text-texto-2 active:scale-95 transition-transform"
+                          >
+                            <MessageCircle size={17} />
+                          </a>
+                        ) : (
+                          <span
+                            role="img"
+                            aria-label={`${d.nombre} no tiene teléfono en su ficha`}
+                            title="Sin teléfono en su ficha"
+                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-borde bg-superficie-2 text-texto-3 opacity-50"
+                          >
+                            <MessageCircle size={17} />
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </section>
 
+          {/* Encargos: sólo lo que espera algo de Ross (INI-1). */}
           <button
             type="button"
             onClick={() => { haptics.selection(); onIrAEncargos?.(); }}
@@ -433,7 +409,7 @@ export function DashboardView({
           >
             <span className="min-w-0">
               <span className="block text-base font-bold text-texto">Encargos</span>
-              <span className="mt-0.5 block text-xs text-texto-2">{resumenEncargos}</span>
+              <span className="mt-0.5 block text-xs text-texto-2">{textoEncargosDeInicio(fasesEncargo)}</span>
             </span>
             <ChevronRight size={18} className="shrink-0 text-texto-2" />
           </button>
@@ -442,29 +418,94 @@ export function DashboardView({
               que se vendió todo, hasta que Ross toca "Listo"; y cómo va cada
               uno en venta. Alto según el contenido: la tarjeta de antes se
               estiraba y dejaba un hueco en el medio (CIN-02). */}
-          <section aria-label="Paquetes" className="flex flex-col gap-2.5 shrink-0">
-            {resumenesPorVer.map((p) => (
-              <ResumenPaqueteCard key={p.compra_id} avance={p} onListo={() => void cerrarResumen(p.compra_id)} />
-            ))}
-            {enVenta.slice(0, 2).map((p) => (
-              <AvancePaqueteCard key={p.compra_id} avance={p} onAbrir={() => setPaqueteAbierto(p)} />
-            ))}
-            {enVenta.length === 0 && resumenesPorVer.length === 0 && (
-              <button
-                type="button"
-                onClick={() => {
-                  haptics.impact('light');
-                  onIrAInventario?.();
-                }}
-                className="tocable m3-card w-full p-3.5 flex items-center justify-between gap-2 text-left cursor-pointer"
-              >
-                <span className="text-sm text-texto-2">No hay ningún paquete en venta</span>
-                <span className="flex items-center gap-1 text-xs font-bold text-texto-2">
-                  Ver inventario
-                  <ChevronRight size={14} />
-                </span>
-              </button>
-            )}
+          <section aria-labelledby="inicio-paquetes" className="flex flex-col gap-1.5 shrink-0">
+            <TituloDeGrupo id="inicio-paquetes" texto="Paquetes" />
+            <div className="flex flex-col gap-2.5">
+              {resumenesPorVer.map((p) => (
+                <ResumenPaqueteCard key={p.compra_id} avance={p} onListo={() => void cerrarResumen(p.compra_id)} />
+              ))}
+              {enVenta.slice(0, 2).map((p) => (
+                <AvancePaqueteCard key={p.compra_id} avance={p} onAbrir={() => setPaqueteAbierto(p)} />
+              ))}
+              {enVenta.length === 0 && resumenesPorVer.length === 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    haptics.impact('light');
+                    onIrAInventario?.();
+                  }}
+                  className="tocable m3-card w-full p-3.5 flex items-center justify-between gap-2 text-left cursor-pointer"
+                >
+                  <span className="text-sm text-texto-2">No hay ningún paquete en venta</span>
+                  <span className="flex items-center gap-1 text-xs font-bold text-texto-2">
+                    Ver inventario
+                    <ChevronRight size={14} />
+                  </span>
+                </button>
+              )}
+            </div>
+          </section>
+
+          {/* Lo último (INI-1): las mismas filas del Historial, las cinco más
+              nuevas. Tocar cualquiera abre el Historial. */}
+          <section aria-labelledby="inicio-lo-ultimo" className="flex flex-col gap-1.5 shrink-0">
+            <TituloDeGrupo
+              id="inicio-lo-ultimo"
+              texto="Lo último"
+              accion={ultimos.length > 0 ? { texto: 'Ver todo', onTocar: () => onIrAActividad?.() } : undefined}
+            />
+            <div className="m3-card px-3.5 py-1">
+              {ultimos.length === 0 ? (
+                <p className="py-2.5 text-sm text-texto-2">Todavía no hay ventas ni abonos.</p>
+              ) : (
+                <div className="flex flex-col divide-y divide-borde">
+                  {ultimos.map((m) => (
+                    <button
+                      key={m.clave}
+                      type="button"
+                      onClick={() => {
+                        haptics.selection();
+                        onIrAActividad?.();
+                      }}
+                      className="tocable flex w-full items-center gap-3 py-2.5 text-left cursor-pointer"
+                    >
+                      <span
+                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                          m.tipo === 'venta' ? 'bg-superficie-2 text-texto-2' : 'bg-acento-suave text-acento-fuerte'
+                        }`}
+                      >
+                        {m.tipo === 'venta' ? <ShoppingBag size={16} /> : <HandCoins size={16} />}
+                      </span>
+                      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <span className="truncate text-body font-bold leading-tight text-texto">{m.titulo}</span>
+                        <span className="truncate text-caption font-medium text-texto-3">
+                          {m.tipo === 'venta' ? 'Venta' : 'Abono'}
+                          {m.codigo ? ` · ${m.codigo}` : ''} · {diaDeHistorial(m.fecha, hoyIso)}
+                        </span>
+                      </span>
+                      <span className="flex shrink-0 flex-col items-end gap-0.5">
+                        <span
+                          className={`text-base font-black tabular-nums leading-none ${
+                            m.cancelada ? 'text-texto-3 line-through' : 'text-texto'
+                          }`}
+                        >
+                          {m.pago ? textoPagado(m.pago) : formatearMoneda(m.venta?.total_usd_cents ?? 0, 'USD')}
+                        </span>
+                        {m.cancelada ? (
+                          <span className="rounded-full bg-peligro-suave px-2 py-0.5 text-caption font-bold text-peligro-fuerte">
+                            Anulada
+                          </span>
+                        ) : (
+                          m.pago && (
+                            <span className="text-[11px] font-semibold tabular-nums text-texto-3">{textoEquivalente(m.pago)}</span>
+                          )
+                        )}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </section>
         </main>
       </PullToRefresh>
@@ -507,12 +548,27 @@ export function DashboardView({
 
       <FichaProductoSheet
         producto={fichaProducto}
-        tasaCambioCents={parametros?.tasa_cambio_cents ?? 3662}
+        tasaCambioCents={tasa}
         onCerrar={() => setFichaProducto(null)}
       />
 
-      {/* Confirmación de cierre de sesión: es la única acción destructiva de
-          esta pantalla y merece un paso extra, sin usar window.confirm. */}
+      {/* "Abono" de las acciones rápidas: elegir a quién y registrarlo, sin
+          salir de Inicio. Sin señal también queda en la cola (C4). */}
+      <AbonoSelectorSheet
+        abierto={selectorAbonoAbierto}
+        onCerrar={() => setSelectorAbonoAbierto(false)}
+        cuentasPorCobrar={cuentas}
+        onSeleccionarVenta={(v) => setVentaParaCobrar(v)}
+      />
+      <AbonoModalSheet
+        venta={ventaParaCobrar}
+        onCerrar={() => setVentaParaCobrar(null)}
+        onAbonoRegistrado={() => {
+          invalidarCacheDashboard();
+          // Avisa a las demás pestañas, y esta misma vuelve a cargar.
+          marcarCambio();
+        }}
+      />
     </div>
   );
 }

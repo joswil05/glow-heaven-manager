@@ -44,7 +44,16 @@ const PASOS = ['El paquete', 'Las piezas', 'Revisar'];
  * Corregir no guarda nada hasta confirmar: la diferencia sólo cambia el costo
  * de lo que sigue en bodega, como en la PC.
  */
-export function RegistrarPaqueteView({ onVolver, corregirId = null }: { onVolver: () => void; corregirId?: number | null }) {
+export function RegistrarPaqueteView({
+  onVolver,
+  corregirId = null,
+  volverA = 'al inventario',
+}: {
+  onVolver: () => void;
+  corregirId?: number | null;
+  /** Adónde lleva "Volver": se abre desde Inventario o desde Inicio. */
+  volverA?: string;
+}) {
   const { parametros, categorias, recargarProductos, marcarCambio } = useDatosNegocio();
   const { mostrarDeshacer } = useSnackbar();
   // Sin red no se guarda nada (C3): cada guardado lo dice junto a su botón.
@@ -459,7 +468,7 @@ export function RegistrarPaqueteView({ onVolver, corregirId = null }: { onVolver
       {cargandoCorreccion
         ? <p className="text-base text-texto-2">Abriendo el paquete…</p>
         : <><p role="alert" className="text-base text-texto">{errorCorreccion}</p>
-          <button type="button" className={`${secundario} w-full max-w-sm`} onClick={() => { haptics.selection(); onVolver(); }}>Volver al inventario</button></>}
+          <button type="button" className={`${secundario} w-full max-w-sm`} onClick={() => { haptics.selection(); onVolver(); }}>Volver {volverA}</button></>}
     </main>;
   }
 
@@ -471,7 +480,7 @@ export function RegistrarPaqueteView({ onVolver, corregirId = null }: { onVolver
   return <div className="flex h-full min-h-0 flex-col bg-fondo text-texto">
     <header className="shrink-0 border-b border-borde bg-superficie px-4 pb-4 pt-safe-t">
       <div className="flex items-center gap-2 py-2">
-        <button type="button" aria-label="Volver al inventario" disabled={guardando} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-borde" onClick={salir}><ArrowLeft size={20} /></button>
+        <button type="button" aria-label={`Volver ${volverA}`} disabled={guardando} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-borde" onClick={salir}><ArrowLeft size={20} /></button>
         <div><p className="text-caption font-bold uppercase tracking-widest text-texto-3">{codigo || 'Inventario'}</p>
           <h1 className="text-title font-extrabold">{tituloPaso}</h1></div>
       </div>

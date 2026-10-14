@@ -1295,6 +1295,105 @@ def caso_c1_inicio_celular(page: Page) -> list[str]:
     return fallas
 
 
+@caso("ENT-1 · la entrada dice qué hacer y tiene el botón de Google, sin folleto")
+def caso_ent1_entrada(page: Page) -> list[str]:
+    fallas = []
+    # Un contexto nuevo no tiene sesión: abre en la entrada.
+    contexto = page.context.browser.new_context(
+        viewport={"width": 390, "height": 844}, is_mobile=True, has_touch=True, bypass_csp=True
+    )
+    try:
+        entrada = contexto.new_page()
+        entrada.goto(arnes.URL_APP)
+        expect(entrada.get_by_role("button", name="Continuar con Google")).to_be_visible(timeout=20000)
+        expect(entrada.get_by_role("heading", name="Entrá con tu cuenta de Glow Heaven")).to_be_visible()
+        texto = entrada.locator("body").text_content() or ""
+        for viejo in ["Punto de Venta Móvil", "Gestión en vivo", "cuenta autorizada"]:
+            if viejo in texto:
+                fallas.append(f"la entrada todavía dice {viejo!r}")
+    finally:
+        contexto.close()
+    return fallas
+
+
+@caso("INI-1 · Inicio va en el orden de Ross, sin gráfica ni botón de recargar")
+def caso_ini1_orden(page: Page) -> list[str]:
+    fallas = []
+    ir_a(page, "Inicio")
+    principal = page.locator("main:visible").last
+    te_deben = page.get_by_role("region", name=re.compile("^Te deben"))
+    expect(te_deben).to_contain_text("Ana Prueba", timeout=15000)
+    texto = principal.text_content() or ""
+    orden = ["Ventas de hoy", "Vender", "Abono", "Pedido", "Paquete", "Te deben", "Encargos", "Paquetes", "Lo último"]
+    posiciones = [texto.find(t) for t in orden]
+    for t, pos in zip(orden, posiciones):
+        if pos < 0:
+            fallas.append(f"Inicio no muestra {t!r}")
+    if all(p >= 0 for p in posiciones) and posiciones != sorted(posiciones):
+        fallas.append(f"Inicio no va en el orden aprobado: {[t for _, t in sorted(zip(posiciones, orden))]}")
+    if "Últimos 7 días" not in texto:
+        fallas.append("falta la línea de los últimos 7 días")
+    for viejo in ["Ventas últimos 7 días", "Ver cobros", "unid. disponibles"]:
+        if viejo in texto:
+            fallas.append(f"Inicio todavía muestra {viejo!r}")
+    if page.get_by_role("button", name="Actualizar datos").count():
+        fallas.append("sigue el botón de recargar")
+    lo_ultimo = page.get_by_role("region", name="Lo último")
+    if not re.search(r"Venta|Abono", lo_ultimo.text_content() or ""):
+        fallas.append("'Lo último' no muestra ventas ni abonos")
+
+    # Tocar a una clienta de "Te deben" abre Cobros buscándola.
+    te_deben.get_by_role("button", name=re.compile("Ana Prueba")).click()
+    page.wait_for_timeout(1200)
+    campo = visible(page, "input[placeholder='Buscar clienta, venta o teléfono']")
+    if campo is None:
+        fallas.append("tocar a la clienta no abrió Cobros")
+    else:
+        if campo.input_value() != "Ana Prueba":
+            fallas.append(f"Cobros no la busca: el campo dice {campo.input_value()!r}")
+        campo.fill("")
+
+    # "Lo último" lleva al Historial.
+    ir_a(page, "Inicio")
+    page.get_by_role("region", name="Lo último").get_by_role("button").first.click()
+    page.wait_for_timeout(1000)
+    if page.locator("nav button[aria-current='page']", has_text="Historial").count() == 0:
+        fallas.append("tocar 'Lo último' no lleva al Historial")
+    return fallas
+
+
+@caso("INI-1 · las acciones rápidas de Inicio venden, abonan, anotan un pedido y abren el paquete")
+def caso_ini1_acciones(page: Page) -> list[str]:
+    fallas = []
+    ir_a(page, "Inicio")
+    acciones = page.get_by_role("region", name="Acciones rápidas")
+
+    acciones.get_by_role("button", name="Abono", exact=True).click()
+    expect(page.get_by_role("dialog").last).to_contain_text("Ana Prueba", timeout=10000)
+    cerrar_hojas(page)
+
+    acciones.get_by_role("button", name="Pedido", exact=True).click()
+    pedido = page.get_by_role("dialog", name="Anotar un pedido", exact=True)
+    expect(pedido).to_be_visible(timeout=10000)
+    pedido.get_by_role("button", name="Cerrar", exact=True).click()
+    expect(pedido).not_to_be_visible()
+    page.locator("main:visible").last.get_by_role("button", name=re.compile("^Volver")).click()
+    expect(acciones).to_be_visible()
+
+    acciones.get_by_role("button", name="Paquete", exact=True).click()
+    volver = page.get_by_role("button", name="Volver a Inicio", exact=True)
+    expect(volver).to_be_visible(timeout=10000)
+    volver.click()
+    expect(acciones).to_be_visible()
+
+    acciones.get_by_role("button", name="Vender", exact=True).click()
+    page.wait_for_timeout(800)
+    if page.locator("nav button[aria-current='page']", has_text="Vender").count() == 0:
+        fallas.append("'Vender' no lleva a Vender")
+    ir_a(page, "Inicio")
+    return fallas
+
+
 @caso("C1 · el Inventario del celular abre con lo que hay a la venta")
 def caso_c1_inventario_celular(page: Page) -> list[str]:
     fallas = []
@@ -1878,7 +1977,10 @@ def caso_c2_encargos_lista(page: Page) -> list[str]:
     tarjeta = page.get_by_role("button", name=re.compile("Encargos"))
     expect(tarjeta).to_be_visible()
     expect(tarjeta).to_contain_text("1 por cotizar")
-    expect(tarjeta).to_contain_text("1 esperando respuesta")
+    # INI-1: la tarjeta de Inicio dice sólo lo que espera a Ross; lo que
+    # espera la respuesta de la clienta no es trabajo para hoy.
+    expect(tarjeta).to_contain_text("1 por entregar")
+    expect(tarjeta).not_to_contain_text("esperando")
     tarjeta.click()
     principal = page.locator("main:visible").last
     expect(principal.get_by_role("heading", name="Encargos", exact=True)).to_be_visible()

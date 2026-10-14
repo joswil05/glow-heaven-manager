@@ -230,6 +230,16 @@ function Navegacion() {
   const [nuevoEncargoAlEntrar, setNuevoEncargoAlEntrar] = useState(false);
   /** "Llegó un paquete" abre vacío; con un número, corrige ese paquete. */
   const [paqueteACorregir, setPaqueteACorregir] = useState<number | null>(null);
+  /** Adónde vuelve "Llegó un paquete": se abre desde Inventario o desde Inicio. */
+  const [origenPaquete, setOrigenPaquete] = useState<'inventario' | 'panel'>('inventario');
+  /** Inicio abre Cobros buscando a una clienta de "Te deben". */
+  const [busquedaCobros, setBusquedaCobros] = useState<{ texto: string; n: number } | null>(null);
+  function abrirPaquete(origen: 'inventario' | 'panel', corregir: number | null) {
+    if (!exigirConexion(SIN_RED.inventario)) return;
+    setPaqueteACorregir(corregir);
+    setOrigenPaquete(origen);
+    setVista('registrar-paquete');
+  }
   function abrirEncargos(origen: 'panel' | 'vender', nuevo = false) {
     setOrigenEncargos(origen);
     setNuevoEncargoAlEntrar(nuevo);
@@ -292,9 +302,14 @@ function Navegacion() {
                 onIrAAjustes={() => setVista('ajustes')}
                 onIrAActividad={() => setVista('historial')}
                 onIrAVenta={() => setVista('vender')}
-                onIrACobranza={() => setVista('cobranza')}
+                onIrACobranza={(buscar) => {
+                  if (buscar) setBusquedaCobros({ texto: buscar, n: Date.now() });
+                  setVista('cobranza');
+                }}
                 onIrAInventario={() => setVista('inventario')}
                 onIrAEncargos={() => abrirEncargos('panel')}
+                onAnotarPedido={() => abrirEncargos('panel', true)}
+                onLlegoPaquete={() => abrirPaquete('panel', null)}
               />
             </div>
             <div className={`h-full w-full overflow-hidden ${vista === 'vender' ? 'block animate-vista' : 'hidden'}`}>
@@ -302,20 +317,12 @@ function Navegacion() {
               <QuickSaleView onAnotarPedido={() => abrirEncargos('vender', true)} />
             </div>
             <div className={`h-full w-full overflow-hidden ${vista === 'cobranza' ? 'block animate-vista' : 'hidden'}`}>
-              <CobranzaView />
+              <CobranzaView buscar={busquedaCobros} />
             </div>
             <div className={`h-full w-full overflow-hidden ${vista === 'inventario' ? 'block animate-vista' : 'hidden'}`}>
               <InventoryQuickView
-                onRegistrarPaquete={() => {
-                  if (!exigirConexion(SIN_RED.inventario)) return;
-                  setPaqueteACorregir(null);
-                  setVista('registrar-paquete');
-                }}
-                onCorregirPaquete={(id) => {
-                  if (!exigirConexion(SIN_RED.inventario)) return;
-                  setPaqueteACorregir(id);
-                  setVista('registrar-paquete');
-                }}
+                onRegistrarPaquete={() => abrirPaquete('inventario', null)}
+                onCorregirPaquete={(id) => abrirPaquete('inventario', id)}
               />
             </div>
             <div className={`h-full w-full overflow-hidden ${vista === 'ajustes' ? 'block animate-vista' : 'hidden'}`}>
@@ -328,7 +335,8 @@ function Navegacion() {
               <RegistrarPaqueteView
                 key={paqueteACorregir ?? 'nuevo'}
                 corregirId={paqueteACorregir}
-                onVolver={() => { setPaqueteACorregir(null); setVista('inventario'); }}
+                volverA={origenPaquete === 'panel' ? 'a Inicio' : 'al inventario'}
+                onVolver={() => { setPaqueteACorregir(null); setVista(origenPaquete); }}
               />
             )}
             {vista === 'encargos' && (

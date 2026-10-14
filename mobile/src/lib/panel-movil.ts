@@ -2,9 +2,12 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { getFirestoreDb } from '@firebase-client';
 import type { PanelData } from '@shared/types';
 import { PanelRepoFirestore } from '@repos/panel.repo';
+import { VentasRepoFirestore } from '@repos/ventas.repo';
+import { PagosRepoFirestore } from '@repos/pagos.repo';
 import { hoyISO } from './util';
 import { haceDias } from '@core/fechas';
 import { etapaEncargo, type EtapaEncargo } from '@core/encargos';
+import { ultimosMovimientos, type Movimiento } from './inicio';
 
 export interface DiaVentas {
   fecha: string;
@@ -124,8 +127,12 @@ export interface CacheDashboardData {
   hoy: ResumenHoy;
   encargos: EncargoPendiente[];
   fasesEncargo: Record<EtapaEncargo, number>;
+  /** "Lo último" de Inicio (INI-1): las cinco ventas o abonos más nuevos. */
+  ultimos: Movimiento[];
   tiempo: number;
 }
+
+const ULTIMOS = 5;
 
 function fasesEncargoVacias(): Record<EtapaEncargo, number> {
   return {
@@ -140,6 +147,7 @@ export const cacheDashboardGlobal: CacheDashboardData = {
   hoy: { total_usd_cents: 0, ganancia_usd_cents: 0, ventas_count: 0 },
   encargos: [],
   fasesEncargo: fasesEncargoVacias(),
+  ultimos: [],
   tiempo: 0,
 };
 
@@ -152,7 +160,9 @@ export async function obtenerDatosDashboard(forzar = false): Promise<CacheDashbo
   // que deja `cargar()`. En paralelo las dos fallarían el caché y volveríamos
   // a pagar la colección de ventas dos veces.
   const panelData = await PanelRepoFirestore.cargar();
-  const tendencia = await cargarTendenciaDiaria(7);
+  // Catorce días: Inicio compara los últimos 7 con los 7 de antes (INI-2).
+  // Sale de la misma instantánea, así que no cuesta otra lectura.
+  const tendencia = await cargarTendenciaDiaria(14);
   const fasesEncargo = fasesEncargoVacias();
   // Incluye lo viejo en curso y usa la misma instantánea, sin leer clientas
   // ni abrir la consulta de la lista sólo por entrar a Inicio.
@@ -169,8 +179,30 @@ export async function obtenerDatosDashboard(forzar = false): Promise<CacheDashbo
   return cacheDashboardGlobal;
 }
 
+let tiempoUltimos = 0;
+
+/**
+ * "Lo último" de Inicio (INI-1), aparte del panel: los abonos no están en la
+ * instantánea, así que son dos consultas chicas, cinco y cinco, las mismas del
+ * Historial. Aparte para que un fallo (sin señal y sin nada guardado) no deje
+ * a Inicio sin el resto, y para que el panel siga sin lecturas de más.
+ */
+export async function obtenerUltimos(forzar = false): Promise<Movimiento[]> {
+  if (!forzar && tiempoUltimos && Date.now() - tiempoUltimos < 45000) {
+    return cacheDashboardGlobal.ultimos;
+  }
+  const [ventas, pagos] = await Promise.all([
+    VentasRepoFirestore.recientes(ULTIMOS),
+    PagosRepoFirestore.recientes(ULTIMOS),
+  ]);
+  cacheDashboardGlobal.ultimos = ultimosMovimientos(ventas, pagos, ULTIMOS);
+  tiempoUltimos = Date.now();
+  return cacheDashboardGlobal.ultimos;
+}
+
 export function invalidarCacheDashboard() {
   cacheDashboardGlobal.tiempo = 0;
+  tiempoUltimos = 0;
   // El repositorio del panel tiene su propia instantánea de 20 segundos. Sin
   // limpiarla también, después de una venta el panel se volvía a armar con
   // los datos de antes y la venta recién hecha no aparecía.

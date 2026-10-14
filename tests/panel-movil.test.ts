@@ -17,10 +17,12 @@ import { ParametrosRepoFirestore } from '../src/main/firebase/repositories/param
 import { PanelRepoFirestore } from '../src/main/firebase/repositories/panel.repo';
 import { VentasRepoFirestore } from '../src/main/firebase/repositories/ventas.repo';
 import { ClientesRepoFirestore } from '../src/main/firebase/repositories/clientes.repo';
+import { PagosRepoFirestore } from '../src/main/firebase/repositories/pagos.repo';
 import {
   cargarTendenciaDiaria,
   cargarEncargosPendientes,
   obtenerDatosDashboard,
+  obtenerUltimos,
   invalidarCacheDashboard,
 } from '../mobile/src/lib/panel-movil';
 import { hoyISO, haceDias } from '../src/core/fechas';
@@ -343,5 +345,36 @@ describe('C2 · fases de encargos en Inicio', () => {
     } });
     expect(contadores()).toEqual(costoPanel);
     expect(contadores().escrituras).toBe(0);
+  });
+});
+
+describe('"Lo último" de Inicio (INI-1)', () => {
+  beforeEach(async () => {
+    reiniciarFirestoreFalso();
+    invalidarCacheDashboard();
+    PanelRepoFirestore.invalidarCache();
+    ParametrosRepoFirestore.invalidarCache();
+    await ParametrosRepoFirestore.getParametros();
+    await ParametrosRepoFirestore.getCategorias();
+  });
+
+  it('mezcla ventas y abonos, lo último primero, y no relee dentro de su minuto', async () => {
+    const vieja = await venta(haceDias(3), 1000);
+    await venta(haceDias(1), 2000);
+    await PagosRepoFirestore.registrar(
+      { venta_id: vieja, fecha: hoyISO(), monto_cents: 400, moneda: 'USD', metodo: 'EFECTIVO' },
+      g()
+    );
+
+    const ultimos = await obtenerUltimos(true);
+    expect(ultimos.map((m) => [m.tipo, m.fecha])).toEqual([
+      ['abono', hoyISO()],
+      ['venta', haceDias(1)],
+      ['venta', haceDias(3)],
+    ]);
+
+    reiniciarContadores();
+    expect(await obtenerUltimos()).toBe(ultimos);
+    expect(contadores()).toMatchObject({ lecturas: 0, consultas: 0 });
   });
 });

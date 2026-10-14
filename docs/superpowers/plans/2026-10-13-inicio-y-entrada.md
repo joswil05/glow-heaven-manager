@@ -43,12 +43,12 @@ el total) e "Inventario" (está en su pestaña).
   pruebas en `tests/inicio-movil.test.ts`): deudas agrupadas por clienta y
   ordenadas; lo que espera a Ross en Encargos; los dos totales de 7 días; los
   últimos movimientos mezclando ventas y abonos.
-- [ ] **T3 · Inicio arriba**: encabezado sin el botón de recargar, tarjeta
+- [x] **T3 · Inicio arriba**: encabezado sin el botón de recargar, tarjeta
   "Ventas de hoy" tocable con córdobas y la línea de 7 días, acciones
   rápidas. Sin gráfica ni tarjetas de "Por cobrar" e "Inventario". `App.tsx`
   pasa "Pedido" (Encargos con la hoja de pedido nuevo) y "Paquete" ("Llegó un
   paquete", que vuelve a donde se abrió).
-- [ ] **T4 · Inicio abajo**: "Te deben" (tocar una clienta abre Cobros
+- [x] **T4 · Inicio abajo**: "Te deben" (tocar una clienta abre Cobros
   buscándola; WhatsApp con la plantilla de cobro), "Encargos", paquetes y "Lo
   último".
 - [ ] **T5 · Pruebas y capturas**: casos nuevos en `tests/interfaz/pruebas.py`;

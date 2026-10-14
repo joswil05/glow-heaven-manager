@@ -26,7 +26,12 @@ import { useScrollReveal } from '../lib/useScrollReveal';
 import { algunoContiene } from '@core/texto';
 import { cordobasQueSeDeben } from '@core/mensajes';
 
-export function CobranzaView() {
+export function CobranzaView({
+  buscar = null,
+}: {
+  /** Inicio la abre buscando a una clienta de "Te deben"; `n` cambia en cada toque. */
+  buscar?: { texto: string; n: number } | null;
+} = {}) {
   const { parametros, version, marcarCambio } = useDatosNegocio();
   const tasa = parametros?.tasa_cambio_cents ?? 3662;
 
@@ -65,6 +70,12 @@ export function CobranzaView() {
   useEffect(() => {
     cargar(version > 0);
   }, [cargar, version]);
+
+  useEffect(() => {
+    if (!buscar) return;
+    setFiltro('todas');
+    setBusqueda(buscar.texto);
+  }, [buscar]);
 
   // Cálculos consolidados
   const totalPorCobrarUsd = useMemo(
