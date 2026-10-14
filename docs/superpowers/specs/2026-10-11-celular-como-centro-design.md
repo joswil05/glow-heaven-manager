@@ -2,8 +2,12 @@
 
 > **Para quién es esto**: Joswill, y las sesiones de Claude y Codex que lo
 > implementen, en relevo según [RELEVO.md](../../RELEVO.md).
-> **Fecha**: 11 de octubre de 2026. **Estado**: propuesta para aprobar; las
-> decisiones abiertas están en la sección 10.
+> **Fecha**: 11 de octubre de 2026. **Estado**: el sistema visual de este
+> plan (paleta cálida, letra del sistema, listas agrupadas) **quedó
+> rechazado el 13/10**: Joswill pidió quedarse con el diseño de hoy y sólo
+> ordenar y mejorar las pantallas. Este documento vale por su inventario de
+> funciones; las propuestas vigentes, para aprobar una por una, están en la
+> página "Mejoras del celular" (https://claude.ai/artifact/L3oHYGfWZqyacpYjYpCQ2w).
 > **Leer antes**: [CONTEXTO_SESION.md](../../CONTEXTO_SESION.md),
 > [AGENTS.md](../../../AGENTS.md) y el diseño de las fases del celular
 > ([2026-10-02-fases-del-celular-design.md](2026-10-02-fases-del-celular-design.md)).

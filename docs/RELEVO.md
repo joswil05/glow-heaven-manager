@@ -105,20 +105,25 @@ se trabaja**.
   [superpowers/specs/2026-10-11-celular-como-centro-design.md](superpowers/specs/2026-10-11-celular-como-centro-design.md)
   (fases U1 a U9 y W1). Quedan sin efecto las decisiones del 2/10 que
   limitaban el celular (no editar fichas, no ajustar existencias, encargos
-  sólo hasta "Aceptó"). **El diseño no está aprobado** (Joswill, 12/10).
-- **Siguiente paso**: esperar las respuestas de Joswill en la página del
-  plan del rediseño, https://claude.ai/artifact/L3oHYGfWZqyacpYjYpCQ2w:
+  sólo hasta "Aceptó"). **El 13/10 Joswill rechazó el diseño nuevo** ("no
+  me gustó nada, quedémonos con el que tenemos pero haciendo mejoras y
+  ordenando interfaces"): se queda el aspecto de hoy (la paleta verde, Plus
+  Jakarta Sans, las tarjetas, la barra flotante y las hojas). Sólo se
+  ordenan las pantallas, se arregla lo que está mal y se traen las funciones
+  de Windows con los componentes que ya hay. La rama `propuesta-u1` (paleta
+  cálida y letra del sistema) queda descartada.
+- **Siguiente paso**: esperar las respuestas de Joswill en la página
+  "Mejoras del celular", https://claude.ai/artifact/L3oHYGfWZqyacpYjYpCQ2w:
   cada pantalla del celular con sus capturas, sus controles y cómo se llega,
-  lo que falla, y 43 propuestas (con las decisiones de la sección 10) que él
-  marca Sí, No o Cambiar. Las respuestas se leen con la herramienta
+  lo que falla, y 40 propuestas de orden, mejora o arreglo (con las
+  decisiones de la sección 10) que él marca Sí, No o Cambiar. Las respuestas se leen con la herramienta
   ArtifactData de Claude Code (`list` de la colección `respuestas`: un
   documento por propuesta, con `estado`, `comentario` y `actualizado`);
   Codex no puede leerlas, así que se las pide a Joswill. **Nada del rediseño
   se implementa sin un Sí explícito**: "continua" o "publica" no aprueban un
-  diseño. U1 se empezó sin aprobación y se revirtió (`945da5d`); el trabajo
-  quedó en la rama `propuesta-u1`, sin publicar. Con las respuestas, la
-  primera fase con propuestas aprobadas escribe su plan y le muestra a
-  Joswill las pantallas dibujadas antes de tocar código.
+  diseño. Con las respuestas, la primera fase con propuestas aprobadas
+  escribe su plan y le muestra a Joswill las pantallas dibujadas con el
+  estilo de hoy antes de tocar código.
   **Publicar** C3, C4 y el paquete nuevo pide su "publicalo", y en este
   orden: (1) desplegar la regla de `operaciones` y comparar las reglas de
   producción con las del repo; (2) recién ahí el celular y Windows.
@@ -150,6 +155,25 @@ Formato de cada entrada:
 - Sigue: el paso exacto del plan.
 - Para Joswill: lo que necesita decidir o probar (o "nada").
 ```
+
+### 2026-10-13 19:10 · Claude Code
+- Hizo: Joswill rechazó el diseño nuevo y pidió quedarse con el de hoy,
+  ordenando y mejorando las pantallas. La página quedó como "Mejoras del
+  celular" (mismo enlace): sin la paleta cálida ni la letra del sistema;
+  cada propuesta dice si es de orden (12), mejora (20) o arreglo (7), más
+  una decisión (escanear, para después), y todas usan los componentes de
+  hoy. Salieron VIS-1, VIS-2 y CLI-3; VIS-3 y VIS-4 pasaron a CAM-1 (campos
+  de 16 px) y OPC-1 (botones en vez de listas desplegables). Las fases
+  cambiaron: U1 son los arreglos y las reglas de toda la app; ya no hay
+  fundaciones visuales ni W1 de aspecto. Nota de rechazo arriba del plan
+  viejo y en CONTEXTO_SESION.
+- Commits: este (sólo documentos).
+- Pruebas: la página regenerada, sin desbordes ni errores a 390 y 1280 px.
+  Joswill todavía no marcó ninguna propuesta.
+- Quedó a medias: nada. Emulador apagado.
+- Sigue: lo mismo que la entrada de abajo: leer sus respuestas y planear la
+  primera fase aprobada.
+- Para Joswill: responder la página; ¿se borra la rama `propuesta-u1`?
 
 ### 2026-10-13 18:25 · Claude Code
 - Hizo: la página del plan del rediseño del celular, para que Joswill

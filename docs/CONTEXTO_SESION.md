@@ -23,8 +23,8 @@
 > igual al editor de Windows** y **C4 cerrada** (sin internet: operar: vender,
 > abonar y anotar pedidos sin señal, con una cola en el teléfono). Antes de
 > publicar el celular con C4 hay que desplegar la regla `operaciones`. Desde
-> el 11/10 el rumbo es **el celular como centro** (plan unificado U1 a U9 y
-> W1). El 12/10 salió la **`v2.19.0` en Windows**; la del celular espera la
+> el 11/10 el rumbo es **el celular como centro**, y desde el 13/10 con el
+> diseño de hoy: sólo se ordenan y se mejoran las pantallas. El 12/10 salió la **`v2.19.0` en Windows**; la del celular espera la
 > regla de `operaciones` (`scripts/desplegar-reglas.mjs`). Claude Code y
 > Codex trabajan **en relevo**: dónde quedó cada uno está en
 > [RELEVO.md](RELEVO.md).
@@ -87,12 +87,14 @@ antes de parar. Este apartado es el resto de lo mínimo para retomar.
 - **Rumbo nuevo (11/10)**: el celular pasa a ser el centro, con la misma
   funcionalidad que Windows y un diseño nuevo:
   [superpowers/specs/2026-10-11-celular-como-centro-design.md](superpowers/specs/2026-10-11-celular-como-centro-design.md)
-  (fases U1 a U9 y W1; reemplaza las fases 3 a 6 de la auditoría). **El
-  diseño no está aprobado**: las propuestas, con el inventario de cada
-  pantalla, sus capturas y las decisiones de la sección 10, esperan el Sí de
-  Joswill una por una en la página
+  (reemplaza las fases 3 a 6 de la auditoría). **El 13/10 Joswill rechazó
+  el diseño nuevo**: se queda el aspecto de hoy (paleta verde, Plus Jakarta
+  Sans, tarjetas, barra flotante, hojas) y sólo se ordenan las pantallas,
+  se arregla lo que está mal y se traen las funciones de Windows. Las
+  propuestas, con el inventario de cada pantalla y sus capturas, esperan su
+  Sí una por una en la página "Mejoras del celular",
   https://claude.ai/artifact/L3oHYGfWZqyacpYjYpCQ2w (cómo leer sus
-  respuestas, en RELEVO). Nada del rediseño se implementa sin ese Sí.
+  respuestas, en RELEVO). Nada se implementa sin ese Sí.
 - El diseño de las cuatro fases del celular (C1 a C4), con las decisiones de
   Joswill, está en
   [superpowers/specs/2026-10-02-fases-del-celular-design.md](superpowers/specs/2026-10-02-fases-del-celular-design.md).
