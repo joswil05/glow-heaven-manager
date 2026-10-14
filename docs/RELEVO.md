@@ -105,11 +105,20 @@ se trabaja**.
   [superpowers/specs/2026-10-11-celular-como-centro-design.md](superpowers/specs/2026-10-11-celular-como-centro-design.md)
   (fases U1 a U9 y W1). Quedan sin efecto las decisiones del 2/10 que
   limitaban el celular (no editar fichas, no ajustar existencias, encargos
-  sólo hasta "Aceptó"). Ese plan tiene decisiones abiertas para Joswill
-  (sección 10).
-- **Siguiente paso**: **U1** del [plan del celular como centro](superpowers/specs/2026-10-11-celular-como-centro-design.md),
-  cuando Joswill responda las decisiones de su sección 10 (letra del
-  sistema, paleta, pestaña Clientas, Historial dentro de "Más", y las demás).
+  sólo hasta "Aceptó"). **El diseño no está aprobado** (Joswill, 12/10).
+- **Siguiente paso**: esperar las respuestas de Joswill en la página del
+  plan del rediseño, https://claude.ai/artifact/L3oHYGfWZqyacpYjYpCQ2w:
+  cada pantalla del celular con sus capturas, sus controles y cómo se llega,
+  lo que falla, y 43 propuestas (con las decisiones de la sección 10) que él
+  marca Sí, No o Cambiar. Las respuestas se leen con la herramienta
+  ArtifactData de Claude Code (`list` de la colección `respuestas`: un
+  documento por propuesta, con `estado`, `comentario` y `actualizado`);
+  Codex no puede leerlas, así que se las pide a Joswill. **Nada del rediseño
+  se implementa sin un Sí explícito**: "continua" o "publica" no aprueban un
+  diseño. U1 se empezó sin aprobación y se revirtió (`945da5d`); el trabajo
+  quedó en la rama `propuesta-u1`, sin publicar. Con las respuestas, la
+  primera fase con propuestas aprobadas escribe su plan y le muestra a
+  Joswill las pantallas dibujadas antes de tocar código.
   **Publicar** C3, C4 y el paquete nuevo pide su "publicalo", y en este
   orden: (1) desplegar la regla de `operaciones` y comparar las reglas de
   producción con las del repo; (2) recién ahí el celular y Windows.
@@ -141,6 +150,31 @@ Formato de cada entrada:
 - Sigue: el paso exacto del plan.
 - Para Joswill: lo que necesita decidir o probar (o "nada").
 ```
+
+### 2026-10-13 18:25 · Claude Code
+- Hizo: la página del plan del rediseño del celular, para que Joswill
+  apruebe propuesta por propuesta:
+  https://claude.ai/artifact/L3oHYGfWZqyacpYjYpCQ2w. Trae las 11 pantallas
+  con sus 98 capturas (claro y oscuro, la vista y la pantalla entera), lo que
+  se puede tocar en cada una y cómo se llega, lo que falla con su gravedad y
+  el principio de diseño, las 32 cosas que Windows hace y el celular no, la
+  paleta de hoy contra la propuesta con el contraste medido, de dónde salió
+  cada idea y el orden de trabajo (U1 a U9). Son 43 propuestas con Sí, No o
+  Cambiar y un comentario; las decisiones de la sección 10 del plan están
+  entre ellas (SEG-1, DOC-1, ESC-1 y la frase del logo en ENT-1).
+- Antes, el 12/10: U1 se empezó sin la aprobación de Joswill y se revirtió
+  en `945da5d`; quedó en la rama `propuesta-u1`.
+- Commits: este (CONTEXTO_SESION y esta bitácora).
+- Pruebas: la página se miró una vez a 390 y 1280 px, sin desbordes ni
+  errores de consola; una respuesta de prueba se escribió, se leyó y se
+  borró.
+- Quedó a medias: nada. Emulador apagado.
+- Sigue: leer las respuestas y escribir el plan de la primera fase que tenga
+  propuestas aprobadas; antes de tocar código, mostrarle las pantallas
+  dibujadas.
+- Para Joswill: (1) responder la página. (2) Desplegar la regla de
+  `operaciones` (o autorizarlo) y el "publicalo" del celular 2.19.0. (3) La
+  prueba en el iPhone (C3, C4 y la vibración).
 
 ### 2026-10-12 14:30 · Claude Code
 - Hizo: **C4 · T6 a T8**: C4 cerrada.
