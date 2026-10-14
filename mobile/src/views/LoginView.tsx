@@ -74,16 +74,9 @@ export function LoginView() {
           <img src="/icons/logo-hero.png" alt="Glow Heaven" className="h-full w-full object-cover" />
         </div>
 
-        <div className="mt-2">
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-acento-suave px-3 py-1 text-xs font-bold text-acento-fuerte border border-acento-suave mb-2">
-            <span className="h-2 w-2 rounded-full bg-acento animate-pulse" />
-            Punto de Venta Móvil
-          </div>
-          <h1 className="text-3xl font-black text-texto tracking-tight">Glow Heaven</h1>
-          <p className="max-w-xs text-xs font-medium text-texto-3 mt-1">
-            Gestión en vivo, ventas rápidas y catálogo de maquillaje sincronizado en tiempo real.
-          </p>
-        </div>
+        {/* ENT-1: el logo ya dice el nombre (y "Pure · Magic · Divine"); acá
+            sólo lo que hay que hacer. */}
+        <h1 className="mt-2 max-w-xs text-lg font-bold text-texto">Entrá con tu cuenta de Glow Heaven</h1>
       </div>
 
       <div className="flex flex-col items-center w-full max-w-sm gap-3">
@@ -185,21 +178,15 @@ export function LoginView() {
           </div>
         )}
 
-        <div className="mt-2 flex flex-col items-center gap-2 text-center w-full">
-          <p className="text-[11px] text-texto-3 font-medium">
-            Ingresa con tu cuenta autorizada de Glow Heaven.
-          </p>
-
-          {/* Consejo para usuarios de iPhone en Safari */}
-          {esIOS && !esInterno && (
-            <div className="flex items-center gap-2 rounded-xl bg-acento-suave border border-acento-suave px-3 py-2 text-left text-[11px] text-acento-fuerte shadow-xs">
-              <Share size={14} className="shrink-0 text-acento" />
-              <span>
-                En Safari, tocá <em>Compartir</em> y <strong>"Añadir a pantalla de inicio"</strong> para usarla como app.
-              </span>
-            </div>
-          )}
-        </div>
+        {/* Consejo para usuarios de iPhone en Safari */}
+        {esIOS && !esInterno && (
+          <div className="mt-2 flex items-center gap-2 rounded-xl bg-acento-suave border border-acento-suave px-3 py-2 text-left text-[11px] text-acento-fuerte shadow-xs">
+            <Share size={14} className="shrink-0 text-acento" />
+            <span>
+              En Safari, tocá <em>Compartir</em> y <strong>"Añadir a pantalla de inicio"</strong> para usarla como app.
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
