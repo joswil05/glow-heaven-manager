@@ -29,6 +29,12 @@
         ],
         "createdAt": "2026-09-13T00:23:29.052Z",
         "reason": "Claude decidio: mismo caso que DashboardView arriba (gray-on-color no tiene valor extraible, el comodin por archivo es el unico mecanismo real). Hallazgo puntual: text-slate-950 (#020617, casi negro) sobre bg-emerald-500 en el boton 'Cobrar' del carrito flotante. slate-950 no es un gris lavado, es el patron de alto contraste texto-oscuro-sobre-acento-brillante; el detector lo marca solo porque cualquier slate-* cuenta como 'gris' por nombre, sin evaluar luminancia real."
+      },
+      {
+        "rule": "overused-font",
+        "value": "plus jakarta sans",
+        "createdAt": "2026-10-14T00:49:07.890Z",
+        "reason": "Joswill decidió el 13/10 conservar el diseño de hoy del celular, con su letra"
       }
     ]
   }
