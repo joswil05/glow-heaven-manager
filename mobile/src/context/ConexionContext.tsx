@@ -1,5 +1,6 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { crearConexion, entornoNavegador, type Conexion, type EstadoConexion } from '../lib/conexion-movil';
+import { haptics } from '../lib/haptics';
 
 /**
  * El estado de la conexión para toda la app (C3).
@@ -15,6 +16,12 @@ export function ConexionProvider({ children }: { children: ReactNode }) {
   const [conexion] = useState(() => crearConexion(entornoNavegador()));
   const [estado, setEstado] = useState(() => conexion.estado());
   useEffect(() => conexion.suscribir(setEstado), [conexion]);
+  // MOV-2: quedar sin señal es de lo poco que vibra.
+  const habiaRed = useRef(estado.enLinea);
+  useEffect(() => {
+    if (habiaRed.current && !estado.enLinea) haptics.warning();
+    habiaRed.current = estado.enLinea;
+  }, [estado.enLinea]);
   return <Contexto.Provider value={{ estado, conexion }}>{children}</Contexto.Provider>;
 }
 

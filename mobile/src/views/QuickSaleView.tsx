@@ -110,7 +110,7 @@ export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void 
   const [sheetCarritoAbierto, setSheetCarritoAbierto] = useState(false);
 
   function agregarAlCarrito(producto: ProductoConStock, variante: ProductoVariante) {
-    haptics.impact('medium');
+    haptics.suave();
     const clave = `${producto.id}-${variante.id}`;
     setCarrito((prev) => {
       const existente = prev.find((l) => l.clave === clave);
@@ -676,7 +676,7 @@ export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void 
                       <button
                         type="button"
                         onClick={() => {
-                          haptics.impact('medium');
+                          haptics.impact('light');
                           setProductoConVariantesAbierto(p);
                         }}
                         className="m3-press flex items-center gap-1.5 rounded-xl bg-acento-suave hover:bg-acento-suave border border-acento-suave px-3 py-2 text-xs font-bold text-acento-fuerte active:scale-95 transition-all cursor-pointer"

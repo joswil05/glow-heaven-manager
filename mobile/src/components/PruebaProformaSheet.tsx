@@ -47,7 +47,7 @@ export function PruebaProformaSheet() {
 
   async function compartir() {
     if (!archivo || ocupado.current) return;
-    haptics.impact('medium');
+    haptics.impact('light');
     setAviso(''); setError('');
     if (!navigator.canShare?.({ files: [archivo] })) {
       setAviso('Este navegador no comparte archivos. Descargá el PDF y adjuntalo desde el teléfono.');

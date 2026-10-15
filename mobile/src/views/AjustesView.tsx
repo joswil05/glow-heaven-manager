@@ -22,7 +22,7 @@ import { SIN_RED, useExigirConexion } from '../lib/useExigirConexion';
 import { BottomSheet } from '../components/BottomSheet';
 import { useSnackbar } from '../components/Snackbar';
 import { nuevoGrupoEvento } from '../lib/util';
-import { haptics, estadoHaptico } from '../lib/haptics';
+import { haptics, estadoHaptico, vibracionActivada, cambiarVibracion } from '../lib/haptics';
 import type { ParametrosSistema } from '@shared/types';
 
 /**
@@ -75,6 +75,8 @@ export function AjustesView({ onVolver }: { onVolver: () => void }) {
   // Se calcula una sola vez: pregunta por capacidades del navegador, no cambia
   // mientras la app está abierta.
   const [haptico] = useState(() => estadoHaptico());
+  // MOV-2: se puede apagar; se guarda en este teléfono.
+  const [vibra, setVibra] = useState(() => vibracionActivada());
 
   /**
    * Dispara la secuencia de confirmación, que es la más larga: si algo se
@@ -293,16 +295,41 @@ export function AjustesView({ onVolver }: { onVolver: () => void }) {
               Vibración
             </h2>
             <p className="mt-1.5 text-[11px] leading-relaxed text-texto-3">
-              {haptico.via === 'vibracion'
-                ? 'Este teléfono vibra con distinta fuerza según la acción.'
-                : haptico.via === 'interruptor'
-                  ? 'En iPhone se siente un toque suave al tocar un botón, siempre igual. Si no sentís nada, revisá en Configuración > Sonidos y vibración que esté activada la Vibración del sistema.'
-                  : 'Este teléfono no vibra desde la app. En iPhone hace falta iOS 17.4.'}
+              Vibra al registrar algo, cuando algo no se puede y al quedar sin señal; no en cada toque.{' '}
+              {haptico.via === 'interruptor'
+                ? 'En iPhone se siente un toque suave, siempre igual. Si no sentís nada, revisá en Configuración > Sonidos y vibración que esté activada la Vibración del sistema.'
+                : haptico.via === 'ninguno'
+                  ? 'Este teléfono no vibra desde la app. En iPhone hace falta iOS 17.4.'
+                  : ''}
             </p>
             <button
               type="button"
-              onClick={probarVibracion}
+              role="switch"
+              aria-checked={vibra}
               disabled={!haptico.disponible}
+              onClick={() => {
+                const nuevo = !vibra;
+                cambiarVibracion(nuevo);
+                setVibra(nuevo);
+                // Al prenderla, se siente: así se sabe que quedó prendida.
+                if (nuevo) haptics.success();
+              }}
+              className="tocable mt-3 flex w-full items-center justify-between gap-3 rounded-xl border border-borde bg-superficie-2 px-4 py-2.5 text-left disabled:opacity-50 cursor-pointer"
+            >
+              <span className="text-label font-bold text-texto">Vibrar en este teléfono</span>
+              <span
+                aria-hidden="true"
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors duration-150 ${vibra ? 'bg-acento' : 'bg-borde-fuerte'}`}
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-superficie shadow-sm transition-transform duration-150 ${vibra ? 'translate-x-5' : ''}`}
+                />
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={probarVibracion}
+              disabled={!haptico.disponible || !vibra}
               className="m3-press tocable mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-borde bg-superficie-2 px-4 py-2.5 text-label font-bold text-texto active:scale-[0.98] transition-transform disabled:opacity-50 cursor-pointer"
             >
               <Vibrate size={15} />

@@ -82,7 +82,7 @@ export function DetalleCobroSheet({
           type="button"
           onClick={() => {
             // Sin señal también: el abono queda en el teléfono (C4).
-            haptics.impact('medium');
+            haptics.impact('light');
             onAbonar(f);
           }}
           className="m3-press tocable flex w-full items-center justify-center gap-2 rounded-2xl bg-acento px-5 py-3.5 text-sm font-bold text-acento-texto active:scale-[0.98] transition-transform"

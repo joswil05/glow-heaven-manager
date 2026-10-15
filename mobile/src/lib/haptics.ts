@@ -305,11 +305,35 @@ function toqueIOS(): void {
 // Lo que usa la aplicación
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Apagarla (MOV-2)
+// ---------------------------------------------------------------------------
+
+const CLAVE_PREFERENCIA = 'gh-vibracion';
+
+/** Si este teléfono vibra. Se apaga en Ajustes › Vibración; se guarda acá, no en la cuenta. */
+export function vibracionActivada(): boolean {
+  try {
+    return localStorage.getItem(CLAVE_PREFERENCIA) !== 'no';
+  } catch {
+    return true;
+  }
+}
+
+export function cambiarVibracion(activa: boolean): void {
+  try {
+    localStorage.setItem(CLAVE_PREFERENCIA, activa ? 'si' : 'no');
+  } catch {
+    // Sin almacenamiento (navegación privada): vale mientras dure la página.
+  }
+}
+
 /**
  * Un pulso. En Android dura lo que se le pida; en iPhone es siempre el mismo
  * toque, porque el sistema no deja elegir intensidad desde la web.
  */
 function pulso(ms: number): void {
+  if (!vibracionActivada()) return;
   if (vibrar(ms)) return;
   if (soportaInterruptorHaptico()) toqueIOS();
 }
@@ -320,6 +344,7 @@ function pulso(ms: number): void {
  * 26.5 sólo se siente el primero.
  */
 function secuencia(patron: number[]): void {
+  if (!vibracionActivada()) return;
   if (vibrar(patron)) return;
   if (!soportaInterruptorHaptico()) return;
 
@@ -333,23 +358,30 @@ function secuencia(patron: number[]): void {
   }
 }
 
+/**
+ * Cuándo vibra (MOV-2): al registrar algo, al fallar una validación y al
+ * quedar sin señal; no en cada toque. Si vibra todo, ya no se nota nada.
+ *
+ *   · `selection` y `impact('light')`: un toque común (abrir, elegir, cambiar
+ *     de pestaña). No vibran; se quedan para que cada llamada diga qué es.
+ *   · `impact('medium')`: algo que se guarda o se deshace.
+ *   · `impact('heavy')`: registrar la venta o el abono.
+ *   · `suave`: agregar al carrito (VEN-2), en lugar del aviso que tapaba.
+ *   · `success`, `warning`, `error`: confirmar, avisar, rechazar.
+ */
 export const haptics = {
-  /**
-   * Tick ultra-sutil (UISelectionFeedbackGenerator).
-   * Cambiar de pestaña, seleccionar variante, chips de categoría, +/- cantidad.
-   */
-  selection() {
-    pulso(8);
+  /** Un toque común: no vibra (MOV-2). */
+  selection() {},
+
+  /** `light` no vibra (un toque común); `medium` guarda algo; `heavy` registra. */
+  impact(style: Estilo = 'medium') {
+    if (style === 'light') return;
+    pulso(style === 'medium' ? 22 : 35);
   },
 
-  /**
-   * Impacto físico (UIImpactFeedbackGenerator).
-   * - light: botones secundarios, cerrar paneles, limpiar campos.
-   * - medium: agregar al carrito, seleccionar clienta, 'Pagar todo'.
-   * - heavy: botones primarios de acción (Cobrar, Confirmar Venta).
-   */
-  impact(style: Estilo = 'medium') {
-    pulso(style === 'light' ? 12 : style === 'medium' ? 22 : 35);
+  /** Agregar al carrito (VEN-2): una vibración corta en vez de un aviso. */
+  suave() {
+    pulso(10);
   },
 
   /** Confirmación: pulso preparatorio, micro-pausa y pulso firme. */

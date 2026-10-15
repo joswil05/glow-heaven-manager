@@ -297,7 +297,7 @@ export function CobranzaView({
                   type="button"
                   onClick={() => {
                     // Sin señal también: el abono queda en el teléfono (C4).
-                    haptics.impact('medium');
+                    haptics.impact('light');
                     setSheetAbonoSelectorAbierto(true);
                   }}
                   className="m3-press flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-acento px-4 text-body font-bold text-acento-texto active:scale-95 transition-transform cursor-pointer"

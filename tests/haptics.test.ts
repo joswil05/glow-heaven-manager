@@ -274,7 +274,7 @@ describe('en un Android', () => {
     vi.resetModules();
   });
 
-  it('usa la vibración nativa, con la duración de cada estilo', async () => {
+  it('usa la vibración nativa; los toques comunes no vibran (MOV-2)', async () => {
     const { llamadas } = simularAndroid();
     const { haptics } = await cargarHaptics();
 
@@ -282,8 +282,29 @@ describe('en un Android', () => {
     haptics.impact('light');
     haptics.impact('medium');
     haptics.impact('heavy');
+    haptics.suave();
 
-    expect(llamadas).toEqual([8, 12, 22, 35]);
+    expect(llamadas).toEqual([22, 35, 10]);
+  });
+
+  it('apagada en Ajustes, no vibra nada, ni las secuencias', async () => {
+    const { llamadas } = simularAndroid();
+    const guardado = new Map<string, string>();
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => guardado.get(k) ?? null,
+      setItem: (k: string, v: string) => void guardado.set(k, v),
+    });
+    const { haptics, cambiarVibracion, vibracionActivada } = await cargarHaptics();
+
+    expect(vibracionActivada()).toBe(true);
+    cambiarVibracion(false);
+    haptics.impact('heavy');
+    haptics.success();
+    expect(llamadas).toEqual([]);
+
+    cambiarVibracion(true);
+    haptics.impact('heavy');
+    expect(llamadas).toEqual([35]);
   });
 
   it('manda las secuencias como patrón, no como pulsos sueltos', async () => {
@@ -370,7 +391,7 @@ describe('en un iPhone con iOS 26.5 o más nuevo', () => {
     const { haptics, instalarHapticos } = await cargarHaptics();
 
     instalarHapticos();
-    const b = boton(mundo, () => haptics.selection());
+    const b = boton(mundo, () => haptics.impact('medium'));
     mundo.avisar([{ target: mundo.body, addedNodes: [b] }]);
     mundo.tocar(b);
 
@@ -380,7 +401,7 @@ describe('en un iPhone con iOS 26.5 o más nuevo', () => {
   it('si la pantalla le reescribe el texto al botón, la capa vuelve', async () => {
     const mundo = simularIphone();
     const { haptics, instalarHapticos } = await cargarHaptics();
-    const b = boton(mundo, () => haptics.selection());
+    const b = boton(mundo, () => haptics.impact('medium'));
 
     instalarHapticos();
     // React cambia el texto de un botón con `textContent`, que borra todos

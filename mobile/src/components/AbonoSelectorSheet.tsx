@@ -171,7 +171,7 @@ export function AbonoSelectorSheet({
                   <button
                     type="button"
                     onClick={() => {
-                      haptics.impact('medium');
+                      haptics.impact('light');
                       onSeleccionarVenta({
                         venta_id: c.venta_id,
                         codigo: c.codigo,

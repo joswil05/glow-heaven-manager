@@ -306,7 +306,7 @@ export function DashboardView({
                 key={texto}
                 type="button"
                 onClick={() => {
-                  haptics.impact(principal ? 'medium' : 'light');
+                  haptics.impact('light');
                   onTocar?.();
                 }}
                 className={`m3-press tocable flex h-16 flex-col items-center justify-center gap-1 rounded-2xl text-caption font-bold active:scale-95 transition-transform cursor-pointer ${

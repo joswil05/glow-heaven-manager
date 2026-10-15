@@ -1480,6 +1480,34 @@ def caso_cam1_campos(page: Page) -> list[str]:
     return fallas
 
 
+@caso("MOV-2 · la vibración se apaga en Ajustes y el teléfono lo recuerda")
+def caso_mov2_vibracion(page: Page) -> list[str]:
+    fallas = []
+    ir_a(page, "Ajustes")
+    interruptor = page.get_by_role("switch", name=re.compile("Vibrar"))
+    if interruptor.count() == 0:
+        ir_a(page, "Inicio")
+        return ["Ajustes no tiene el interruptor de vibración"]
+    if interruptor.get_attribute("aria-checked") != "true":
+        fallas.append("la vibración no viene prendida")
+    interruptor.click()
+    page.wait_for_timeout(300)
+    if interruptor.get_attribute("aria-checked") != "false":
+        fallas.append("tocar el interruptor no la apaga")
+    if page.evaluate("() => localStorage.getItem('gh-vibracion')") != "no":
+        fallas.append("apagarla no queda guardado en el teléfono")
+    interruptor.click()
+    page.wait_for_timeout(300)
+    if interruptor.get_attribute("aria-checked") != "true":
+        fallas.append("no se vuelve a prender")
+    volver = visible(page, "button[aria-label='Volver']")
+    if volver is not None:
+        volver.click()
+        page.wait_for_timeout(600)
+    ir_a(page, "Inicio")
+    return fallas
+
+
 @caso("INI-1 · las acciones rápidas de Inicio venden, abonan, anotan un pedido y abren el paquete")
 def caso_ini1_acciones(page: Page) -> list[str]:
     fallas = []

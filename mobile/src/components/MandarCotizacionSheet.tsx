@@ -127,7 +127,7 @@ export function MandarCotizacionSheet({ venta, onCerrar, onMandada }: Props) {
   // y un error tardío aparecía en otra cotización (revisión del 10/10).
   function imprimir() {
     if (accionEnCurso.current || !html || !mostrada) return;
-    haptics.impact('medium');
+    haptics.impact('light');
     accionEnCurso.current = true;
     setAccion('imprimir');
     setError('');

@@ -167,7 +167,7 @@ export function CorregirVentaSheet({
   }
 
   function agregar(p: ProductoConStock, v: ProductoVariante) {
-    haptics.impact('medium');
+    haptics.impact('light');
     const existente = lineas.find((l) => l.producto_id === p.id && l.variante_id === v.id);
     if (existente) {
       if (existente.cantidad >= tope(existente)) {

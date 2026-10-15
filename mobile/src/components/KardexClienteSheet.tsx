@@ -180,7 +180,7 @@ export function KardexClienteSheet({
 
   function abonar() {
     // Sin señal también: el abono queda en el teléfono (C4).
-    haptics.impact('medium');
+    haptics.impact('light');
     setOfrecerCorrecto(false);
     onAbonar({
       venta_id: cliente!.venta_id || pagos[0]?.venta_id || 0,

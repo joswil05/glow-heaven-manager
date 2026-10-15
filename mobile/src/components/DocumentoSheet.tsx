@@ -79,7 +79,7 @@ export function DocumentoSheet({
     if (imprimiendo.current) return;
     const contenido = html();
     if (!contenido) return;
-    haptics.impact('medium');
+    haptics.impact('light');
     imprimiendo.current = true;
     setPreparando(true);
     imprimirDocumento(

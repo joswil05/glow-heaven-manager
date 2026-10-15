@@ -109,7 +109,7 @@ export function AbonoModalSheet({ venta: ventaAbierta, onCerrar, onAbonoRegistra
   const saldoDespues = venta.saldo_usd_cents - montoUsd;
 
   function llenarSaldoTotal() {
-    haptics.impact('medium');
+    haptics.impact('light');
     setMontoTexto(saldoEn(venta!.saldo_usd_cents, moneda, tasa));
     if (!requiereRevisar) setError(null);
   }
