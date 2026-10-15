@@ -2,6 +2,8 @@ import { useRef } from 'react';
 import { MessageCircle, Clock3, DollarSign, AlertTriangle, Clock } from 'lucide-react';
 import type { FilaPorCobrar } from '@shared/types';
 import { formatearMoneda } from '@core/moneda';
+import { diaDeHistorial } from '@core/abonos';
+import { hoyISO } from '../lib/util';
 import { BottomSheet } from './BottomSheet';
 import { mensajeCobro, enlaceMensaje } from '@core/mensajes';
 import { useDatosNegocio } from '../context/DataContext';
@@ -74,7 +76,7 @@ export function DetalleCobroSheet({
       abierto={fila !== null}
       onCerrar={onCerrar}
       titulo={f.cliente_nombre}
-      subtitulo={`${f.codigo} · ${f.fecha}`}
+      subtitulo={`${f.codigo} · ${diaDeHistorial(f.fecha, hoyISO())}`}
       footer={
         <button
           type="button"
@@ -110,7 +112,7 @@ export function DetalleCobroSheet({
               {formatearMoneda(f.saldo_usd_cents, 'USD')}
             </span>
             <span className="text-sm font-bold tabular-nums text-texto-2">
-              {formatearMoneda(saldoCor, 'COR')}
+              ≈ {formatearMoneda(saldoCor, 'COR')}
             </span>
           </div>
         </div>

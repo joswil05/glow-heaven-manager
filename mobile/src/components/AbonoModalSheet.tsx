@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { DollarSign, MessageCircle, CheckCircle2, Loader2, RotateCcw, Clock } from 'lucide-react';
+import { OpcionesSegmentadas, OPCIONES_METODO } from './OpcionesSegmentadas';
 import { BottomSheet } from './BottomSheet';
 import { VentasRepoFirestore } from '@repos/ventas.repo';
 import { registrarAbonoMovil } from '../lib/registrar-abono-movil';
@@ -447,22 +448,19 @@ export function AbonoModalSheet({ venta: ventaAbierta, onCerrar, onAbonoRegistra
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <div className="flex flex-col gap-1">
-              <label htmlFor="metodo-abono-celular" className="text-xs font-semibold text-texto-2">
-                Cómo pagó
-              </label>
-              <select
-                id="metodo-abono-celular"
-                value={metodo}
-                onChange={(e) => setMetodo(e.target.value as MetodoPago)}
-                className="w-full h-10 rounded-xl border border-borde bg-superficie px-3 text-xs font-medium text-texto outline-none focus:border-acento-suave"
-              >
-                <option value="EFECTIVO" className="bg-superficie-3 text-texto">Efectivo</option>
-                <option value="TRANSFERENCIA" className="bg-superficie-3 text-texto">Transferencia</option>
-                <option value="OTRO" className="bg-superficie-3 text-texto">Otro método</option>
-              </select>
-            </div>
+          {/* OPC-1: botones en vez de una lista desplegable. */}
+          <div className="flex flex-col gap-1">
+            <span id="metodo-abono-celular" className="text-xs font-semibold text-texto-2">
+              Cómo pagó
+            </span>
+            <OpcionesSegmentadas
+              etiquetaId="metodo-abono-celular"
+              opciones={OPCIONES_METODO}
+              valor={metodo}
+              onCambiar={(m) => setMetodo(m as MetodoPago)}
+            />
+          </div>
+          <div>
             <div className="flex flex-col gap-1">
               <label htmlFor="fecha-abono-celular" className="text-xs font-semibold text-texto-2">
                 Fecha

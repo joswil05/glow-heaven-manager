@@ -7,6 +7,7 @@ import { formatearMoneda, formatearPeso } from '@core/moneda';
 import { parsearACentavos, parsearDecimal } from '@core/numeros';
 import { fleteDelPaquete, fleteDePeso, type EfectoEnProducto } from '@core/paquete';
 import { formatearTextoGeneral } from '@shared/formatoTexto';
+import { diaDeHistorial } from '@core/abonos';
 import { hoyISO, nuevoGrupoEvento } from '../lib/util';
 import { haptics } from '../lib/haptics';
 import { cargarEncargosEnCurso } from '../lib/encargos-movil';
@@ -497,7 +498,7 @@ export function RegistrarPaqueteView({
       {paso === 1 && <>
         {!esCorreccion && !id.current && !peso && !notas && borradores.length > 0 && <section className="rounded-2xl border border-borde bg-superficie p-4">
           <h2 className="font-bold">Tenés paquetes empezados</h2><p className="mt-1 text-sm text-texto-2">Podés seguir uno o cargar otro abajo.</p>
-          {borradores.map((c) => <button type="button" key={c.id} disabled={guardando} onClick={() => continuar(c.id)} className="mt-2 min-h-12 w-full rounded-xl border border-borde px-3 py-2 text-left text-base font-semibold">Continuar {c.codigo}<span className="block text-sm font-normal text-texto-2">{c.fecha}{c.notas ? ` · ${c.notas}` : ''}</span></button>)}
+          {borradores.map((c) => <button type="button" key={c.id} disabled={guardando} onClick={() => continuar(c.id)} className="mt-2 min-h-12 w-full rounded-xl border border-borde px-3 py-2 text-left text-base font-semibold">Continuar {c.codigo}<span className="block text-sm font-normal text-texto-2">{diaDeHistorial(c.fecha, hoyISO())}{c.notas ? ` · ${c.notas}` : ''}</span></button>)}
         </section>}
         {!esCorreccion && !id.current && errorBorradores && <p role="alert" className="text-sm text-peligro-fuerte">{errorBorradores} <button type="button" className="min-h-11 underline" onClick={() => { haptics.selection(); setReintento((n) => n + 1); }}>Reintentar</button></p>}
         {([

@@ -842,8 +842,12 @@ def caso_hoja_de_abono(page: Page) -> list[str]:
         dolares = hoja.get_by_role("radio", name=re.compile("Dólares"))
         if dolares.count() == 0 or dolares.get_attribute("aria-checked") != "true":
             fallas.append("no arranca en dólares, la moneda de Configuración")
-        if hoja.get_by_label("Cómo pagó").input_value() != "TRANSFERENCIA":
+        # OPC-1: el método se elige con botones, no con una lista desplegable.
+        transferencia = hoja.get_by_role("radio", name="Transferencia", exact=True)
+        if transferencia.count() == 0 or transferencia.get_attribute("aria-checked") != "true":
             fallas.append("no arranca con transferencia, el método de Configuración")
+        if hoja.locator("select").count():
+            fallas.append("el abono todavía tiene una lista desplegable (OPC-1)")
         if hoja.locator("input[type='date']").count() == 0:
             fallas.append("no tiene fecha")
 

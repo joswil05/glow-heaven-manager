@@ -7,6 +7,7 @@ import { textoPagado, textoQuien } from '@core/abonos';
 import { parsearACentavos } from '@core/numeros';
 import { useDatosNegocio } from '../context/DataContext';
 import { useSnackbar } from './Snackbar';
+import { OpcionesSegmentadas, OPCIONES_METODO } from './OpcionesSegmentadas';
 import { BottomSheet } from './BottomSheet';
 import { nuevoGrupoEvento } from '../lib/util';
 import { haptics } from '../lib/haptics';
@@ -172,17 +173,19 @@ export function CorregirAbonoSheet({
             ))}
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          <select
-            value={metodo}
-            onChange={(e) => setMetodo(e.target.value as MetodoPago)}
-            aria-label="Cómo pagó"
-            className="h-10 rounded-xl border border-borde bg-superficie px-3 text-xs font-semibold text-texto outline-none"
-          >
-            <option value="EFECTIVO">Efectivo</option>
-            <option value="TRANSFERENCIA">Transferencia</option>
-            <option value="OTRO">Otro método</option>
-          </select>
+        {/* OPC-1: botones en vez de una lista desplegable. */}
+        <div className="flex flex-col gap-1">
+          <span id="metodo-corregir-abono" className="text-xs font-semibold text-texto-2">
+            Cómo pagó
+          </span>
+          <OpcionesSegmentadas
+            etiquetaId="metodo-corregir-abono"
+            opciones={OPCIONES_METODO}
+            valor={metodo}
+            onCambiar={(m) => setMetodo(m as MetodoPago)}
+          />
+        </div>
+        <div>
           <input
             type="date"
             value={fecha}

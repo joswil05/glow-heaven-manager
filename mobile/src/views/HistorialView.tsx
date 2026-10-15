@@ -481,7 +481,7 @@ export function HistorialView() {
                 <span className="text-sm font-bold tabular-nums text-texto-2">
                   {sel.tipo === 'abono'
                     ? textoEquivalente(sel.pago!)
-                    : formatearMoneda(Math.round((sel.venta!.total_usd_cents * sel.venta!.tasa_cambio_cents) / 100), 'COR')}
+                    : `≈ ${formatearMoneda(Math.round((sel.venta!.total_usd_cents * sel.venta!.tasa_cambio_cents) / 100), 'COR')}`}
                 </span>
               </div>
               <p className="mt-1.5 text-[11px] font-medium text-texto-3">

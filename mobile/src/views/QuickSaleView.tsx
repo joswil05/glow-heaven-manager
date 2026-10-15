@@ -666,7 +666,7 @@ export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void 
                     </div>
                     <p className="text-caption text-texto-3 mt-0.5 font-medium flex items-center gap-1">
                       <span className="h-1.5 w-1.5 rounded-full bg-texto-3" />
-                      <span>{p.existencias} en stock {tieneVariantes ? `(${p.variantes.length} tonos)` : ''}</span>
+                      <span>{p.existencias} en bodega {tieneVariantes ? `(${p.variantes.length} tonos)` : ''}</span>
                     </p>
                   </div>
 

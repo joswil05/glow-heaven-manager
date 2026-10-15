@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Search, DollarSign, X, User, AlertTriangle } from 'lucide-react';
+import { diaDeHistorial } from '@core/abonos';
+import { hoyISO } from '../lib/util';
 import { BottomSheet } from './BottomSheet';
 import { formatearMoneda } from '@core/moneda';
 import { useDatosNegocio } from '../context/DataContext';
@@ -156,7 +158,7 @@ export function AbonoSelectorSheet({
                       )}
                     </div>
                     <p className="text-[11px] text-texto-3 font-medium">
-                      {c.codigo} · {c.fecha}
+                      {c.codigo} · {diaDeHistorial(c.fecha, hoyISO())}
                     </p>
                     <p className="text-xs font-black text-texto mt-0.5 tabular-nums">
                       {formatearMoneda(c.saldo_usd_cents, 'USD')}{' '}
