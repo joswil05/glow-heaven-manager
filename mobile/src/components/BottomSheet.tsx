@@ -11,7 +11,7 @@ const VELOCIDAD_CIERRE = 0.11;
 /** Movimiento por debajo del cual el gesto se considera un toque, no arrastre. */
 const TOLERANCIA_TOQUE_PX = 4;
 /** Lo que dura la salida: el mismo número que `.animate-m3-salida-hoja`. */
-const SALIDA_MS = 200;
+const SALIDA_MS = 180;
 
 /**
  * "Atrás" de Android cierra la hoja de arriba (CEL-01).
@@ -203,13 +203,13 @@ export function BottomSheet({
     if ((a.y > UMBRAL_CIERRE_PX || velocidad > VELOCIDAD_CIERRE) && !hayCambios && !ocupado) {
       haptics.impact('light');
       // La salida es rápida: la persona ya decidió, el sistema sólo obedece.
-      hoja.style.transition = 'transform 200ms cubic-bezier(0.32, 0.72, 0, 1)';
+      hoja.style.transition = 'transform 180ms cubic-bezier(0.32, 0.72, 0, 1)';
       hoja.style.transform = 'translateY(100%)';
       if (scrimRef.current) {
-        scrimRef.current.style.transition = 'opacity 200ms ease-out';
+        scrimRef.current.style.transition = 'opacity 180ms ease-out';
         scrimRef.current.style.opacity = '0';
       }
-      window.setTimeout(() => vivo.current.pedirCierre(), 190);
+      window.setTimeout(() => vivo.current.pedirCierre(), 170);
       return;
     }
 
@@ -238,7 +238,7 @@ export function BottomSheet({
     onPointerCancel: soltarArrastre,
   };
 
-  // Entra y sale: cerrada, se sigue viendo 200 ms mientras baja (CEL-06).
+  // Entra y sale: cerrada, se sigue viendo 180 ms mientras baja (CEL-06).
   // Antes sólo tenía salida si se la arrastraba; con la X o al guardar
   // desaparecía de golpe.
   useEffect(() => {

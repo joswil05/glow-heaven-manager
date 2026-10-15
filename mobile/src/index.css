@@ -202,6 +202,17 @@ input, textarea, [contenteditable="true"] {
   min-width: 48px;
 }
 
+/* CAM-1: ningún campo donde se escribe por debajo de 16 px. Con menos, el
+ * iPhone agranda la pantalla al tocarlo y después hay que achicarla con los
+ * dedos. Ningún campo de la app usa letra más grande, así que la regla sólo
+ * sube los chicos (`!important` porque la clase de tamaño de cada campo
+ * ganaría). */
+input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']),
+textarea,
+select {
+  font-size: 16px !important;
+}
+
 /* Curvas de animación física y táctil */
 :root {
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -216,7 +227,7 @@ input, textarea, [contenteditable="true"] {
   transform-origin: center;
 }
 .m3-press:active {
-  transform: scale(0.96);
+  transform: scale(0.97);
   opacity: 0.90;
 }
 
@@ -292,44 +303,8 @@ input, textarea, [contenteditable="true"] {
   }
 }
 
-/* Cambio de pestaña del dock inferior.
- *
- * Antes las 4 vistas se intercambiaban con display:none/block, o sea un corte
- * seco: el contenido aparecía de golpe y la app se sentía trabada.
- *
- * Es un gesto que se repite decenas de veces al día, así que la animación
- * tiene que ser casi imperceptible: 160ms, un desplazamiento de 6px y nada
- * más. Sin slide lateral ni escala, que a esa frecuencia cansan y hacen sentir
- * lenta la aplicación. Una animación de entrada va con ease-out.
- *
- * Funciona sin desmontar las vistas (conservan scroll y datos): un elemento en
- * display:none no corre animaciones, y al pasar a display:block la animación
- * arranca sola desde cero. */
-@keyframes vistaEntra {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Sin `forwards` a propósito.
- *
- * Con `forwards` el transform final queda aplicado para siempre, y un
- * `transform` distinto de `none` crea un contexto de apilamiento: encerraba el
- * z-index de los bottom sheets dentro de la vista (el dock los tapaba) y
- * cambiaba el marco de referencia de cualquier `position: fixed` interno, como
- * la píldora del carrito.
- *
- * No hace falta: el estado final de la animación (opacidad 1, sin
- * desplazamiento) es idéntico al natural del elemento, así que al terminar se
- * ve igual pero sin dejar rastro. */
-.animate-vista {
-  animation: vistaEntra 160ms cubic-bezier(0.16, 1, 0.3, 1);
-}
+/* Cambiar de pestaña no se anima (MOV-1): es lo que más se repite en el día,
+ * y una animación a esa frecuencia hace sentir lenta la app. */
 
 .animate-m3-fade {
   animation: m3FadeIn 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -340,7 +315,7 @@ input, textarea, [contenteditable="true"] {
  * usa el arrastre para cerrar, así que la hoja no seguiría al dedo. El estado
  * final ya es el natural del elemento, así que no hace falta. */
 .animate-m3-slide-up {
-  animation: m3SlideUp 280ms cubic-bezier(0.32, 0.72, 0, 1);
+  animation: m3SlideUp 240ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 /* La salida de una hoja: por donde entró, más corta que la entrada (cerrar
@@ -350,13 +325,13 @@ input, textarea, [contenteditable="true"] {
   to { transform: translateY(100%); }
 }
 .animate-m3-salida-hoja {
-  animation: m3SalidaHoja 200ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  animation: m3SalidaHoja 180ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
 }
 @keyframes m3SalidaVelo {
   to { opacity: 0; }
 }
 .animate-m3-salida-velo {
-  animation: m3SalidaVelo 200ms ease-out forwards;
+  animation: m3SalidaVelo 180ms ease-out forwards;
 }
 
 .animate-m3-snackbar {
@@ -387,23 +362,11 @@ input, textarea, [contenteditable="true"] {
 }
 
 
-/* Scroll reveal suave para listas móviles */
+/* Desplazamiento suave para listas móviles. Las filas ya no aparecen
+ * animadas al filtrar ni al buscar (MOV-1): se ven al instante. */
 .scroll-smooth {
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
-}
-
-.scroll-reveal {
-  opacity: 0;
-  transform: translateY(10px);
-  transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1),
-              transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: opacity, transform;
-}
-
-.scroll-reveal.is-revealed {
-  opacity: 1;
-  transform: translateY(0);
 }
 
 /* Movimiento reducido.
@@ -416,7 +379,6 @@ input, textarea, [contenteditable="true"] {
  * a entender qué cambió, y se elimina el desplazamiento. Reducir movimiento
  * es menos movimiento, no cero transiciones. */
 @media (prefers-reduced-motion: reduce) {
-  .animate-vista,
   .animate-m3-slide-up,
   .animate-m3-snackbar,
   .animate-m3-slide-down,

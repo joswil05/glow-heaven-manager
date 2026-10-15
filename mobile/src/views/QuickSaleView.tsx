@@ -43,7 +43,6 @@ import { useConexion } from '../context/ConexionContext';
 import { useCola, useProductosVisibles } from '../context/ColaContext';
 import { conEspera, esErrorPasajero } from '../lib/subir-cola';
 import type { ClientaNueva } from '../lib/cola';
-import { useScrollReveal } from '../lib/useScrollReveal';
 import { algunoContiene } from '@core/texto';
 
 export interface LineaCarrito {
@@ -105,7 +104,6 @@ export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void 
     return res;
   }, [productos, busqueda, categoriaActiva]);
 
-  const scrollRevealRef = useScrollReveal<HTMLElement>({ deps: [productosFiltrados] });
 
   // --- Carrito -------------------------------------------------------------
   const [carrito, setCarrito] = useState<LineaCarrito[]>([]);
@@ -608,7 +606,7 @@ export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void 
       </header>
 
       {/* Catálogo de Productos para Venta Rápida */}
-      <main ref={scrollRevealRef} className="flex-1 min-h-0 overflow-y-auto px-3.5 pt-2.5 pb-40 scroll-smooth">
+      <main className="flex-1 min-h-0 overflow-y-auto px-3.5 pt-2.5 pb-40 scroll-smooth">
         {cargandoProductos && (
           <div className="flex flex-col items-center justify-center py-16 gap-3 text-texto-3">
             <div className="h-8 w-8 rounded-full border-2 border-borde-fuerte border-t-transparent animate-spin" />
@@ -628,7 +626,7 @@ export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void 
               return (
                 <div
                   key={p.id}
-                  className="scroll-reveal rounded-2xl bg-superficie border border-borde p-3 shadow-xs hover:border-borde transition-all flex items-center gap-3"
+                  className="rounded-2xl bg-superficie border border-borde p-3 shadow-xs hover:border-borde transition-all flex items-center gap-3"
                 >
                   {/* Miniatura */}
                   <div

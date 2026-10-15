@@ -320,7 +320,7 @@ function Navegacion() {
                 </div>
               </div>
             )}
-            <div className={`h-full w-full overflow-hidden ${vista === 'panel' ? 'block animate-vista' : 'hidden'}`}>
+            <div className={`h-full w-full overflow-hidden ${vista === 'panel' ? 'block' : 'hidden'}`}>
               <DashboardView
                 onIrAActividad={() => setVista('historial')}
                 onIrAVenta={() => setVista('vender')}
@@ -335,23 +335,23 @@ function Navegacion() {
                 onInsignias={setInsignias}
               />
             </div>
-            <div className={`h-full w-full overflow-hidden ${vista === 'vender' ? 'block animate-vista' : 'hidden'}`}>
+            <div className={`h-full w-full overflow-hidden ${vista === 'vender' ? 'block' : 'hidden'}`}>
               {/* Anotar un pedido no pide señal: queda en el teléfono (C4). */}
               <QuickSaleView onAnotarPedido={() => abrirEncargos('vender', true)} />
             </div>
-            <div className={`h-full w-full overflow-hidden ${vista === 'cobranza' ? 'block animate-vista' : 'hidden'}`}>
+            <div className={`h-full w-full overflow-hidden ${vista === 'cobranza' ? 'block' : 'hidden'}`}>
               <CobranzaView buscar={busquedaCobros} />
             </div>
-            <div className={`h-full w-full overflow-hidden ${vista === 'inventario' ? 'block animate-vista' : 'hidden'}`}>
+            <div className={`h-full w-full overflow-hidden ${vista === 'inventario' ? 'block' : 'hidden'}`}>
               <InventoryQuickView
                 onRegistrarPaquete={() => abrirPaquete('inventario', null)}
                 onCorregirPaquete={(id) => abrirPaquete('inventario', id)}
               />
             </div>
-            <div className={`h-full w-full overflow-hidden ${vista === 'ajustes' ? 'block animate-vista' : 'hidden'}`}>
+            <div className={`h-full w-full overflow-hidden ${vista === 'ajustes' ? 'block' : 'hidden'}`}>
               <AjustesView onVolver={() => setVista('mas')} />
             </div>
-            <div className={`h-full w-full overflow-hidden ${vista === 'mas' ? 'block animate-vista' : 'hidden'}`}>
+            <div className={`h-full w-full overflow-hidden ${vista === 'mas' ? 'block' : 'hidden'}`}>
               <MasView
                 disponibles={EN_MAS}
                 encargosPorHacer={insignias.encargos}
@@ -362,7 +362,7 @@ function Navegacion() {
                 }}
               />
             </div>
-            <div className={`h-full w-full overflow-hidden ${vista === 'historial' ? 'block animate-vista' : 'hidden'}`}>
+            <div className={`h-full w-full overflow-hidden ${vista === 'historial' ? 'block' : 'hidden'}`}>
               <HistorialView />
             </div>
             {vista === 'registrar-paquete' && (

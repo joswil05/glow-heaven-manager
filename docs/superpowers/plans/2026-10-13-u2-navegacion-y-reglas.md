@@ -41,7 +41,7 @@
   señal que no subió (dentro de "Más", cada número en su fila: Encargos y
   Ventas). Salen de lo que Inicio ya cargó y de la cola: sin lecturas nuevas.
   Sin insignia cuando no hay nada.
-- [ ] **T3 · Campos y movimiento**: la regla global de 16 px; sin animación
+- [x] **T3 · Campos y movimiento**: la regla global de 16 px; sin animación
   al cambiar de pestaña; hojas a 240 ms de entrada y 180 de salida; presión a
   0,97; "reducir movimiento" en todo lo nuevo.
 - [ ] **T4 · Pruebas y capturas**: `npm test`, tipos, `test:interfaz`,

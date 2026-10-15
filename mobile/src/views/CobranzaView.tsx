@@ -22,7 +22,6 @@ import { AbonoSelectorSheet } from '../components/AbonoSelectorSheet';
 import { KardexClienteSheet, type ClienteKardexInfo } from '../components/KardexClienteSheet';
 import { DetalleCobroSheet } from '../components/DetalleCobroSheet';
 import { haptics } from '../lib/haptics';
-import { useScrollReveal } from '../lib/useScrollReveal';
 import { algunoContiene } from '@core/texto';
 import { cordobasQueSeDeben } from '@core/mensajes';
 
@@ -108,7 +107,6 @@ export function CobranzaView({
     return res;
   }, [cuentas, filtro, busqueda, cuentasVencidas, cuentasAlDia]);
 
-  const scrollRevealRef = useScrollReveal<HTMLElement>({ deps: [cuentasFiltradas] });
 
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden bg-fondo text-texto transition-colors">
@@ -252,7 +250,7 @@ export function CobranzaView({
 
       {/* Contenido con Pull-To-Refresh y Smooth Scroll */}
       <PullToRefresh onRefresh={() => cargar(true)}>
-        <main ref={scrollRevealRef} className="flex flex-col gap-3 px-3.5 pt-3 pb-24 scroll-smooth">
+        <main className="flex flex-col gap-3 px-3.5 pt-3 pb-24 scroll-smooth">
           {error && (
             <div className="rounded-2xl bg-peligro-suave border border-peligro-suave px-4 py-3 text-xs font-semibold text-peligro-fuerte flex items-center justify-between">
               <span>{error}</span>
@@ -265,7 +263,7 @@ export function CobranzaView({
               ladrillo naranja tapando todo. El ámbar sigue siendo la seña de
               "plata en la calle", pero como resplandor, no como fondo. */}
           <section
-            className="scroll-reveal relative overflow-hidden rounded-[24px] border border-alerta/30 bg-superficie p-4 shadow-m3-2"
+            className="relative overflow-hidden rounded-[24px] border border-alerta/30 bg-superficie p-4 shadow-m3-2"
             style={{
               backgroundImage:
                 'radial-gradient(130% 110% at 88% -10%, rgb(var(--alerta) / 0.28), transparent 58%),' +
@@ -364,7 +362,7 @@ export function CobranzaView({
                       haptics.selection();
                       setDetalleCobro(f);
                     }}
-                    className={`scroll-reveal flex w-full items-center gap-3 rounded-2xl border bg-superficie p-3 text-left shadow-xs active:scale-[0.99] transition-transform cursor-pointer ${
+                    className={`flex w-full items-center gap-3 rounded-2xl border bg-superficie p-3 text-left shadow-xs active:scale-[0.99] transition-transform cursor-pointer ${
                       vencida ? 'border-peligro-suave' : 'border-borde'
                     }`}
                   >

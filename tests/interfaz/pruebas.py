@@ -1435,6 +1435,33 @@ def caso_nav1_mas(page: Page) -> list[str]:
     return fallas
 
 
+def campos_chicos(page: Page) -> list[str]:
+    """Los campos visibles con letra de menos de 16 px (el iPhone agranda la pantalla)."""
+    return page.evaluate(
+        """() => [...document.querySelectorAll('input, textarea, select')]
+            .filter(el => el.offsetParent !== null && !['checkbox', 'radio', 'range', 'file', 'color', 'hidden'].includes(el.type))
+            .filter(el => parseFloat(getComputedStyle(el).fontSize) < 16)
+            .map(el => (el.placeholder || el.getAttribute('aria-label') || el.name || el.type) + ': ' + getComputedStyle(el).fontSize)"""
+    )
+
+
+@caso("CAM-1 · ningún campo tiene letra de menos de 16 px")
+def caso_cam1_campos(page: Page) -> list[str]:
+    fallas = []
+    ir_a(page, "Vender")
+    fallas += [f"Vender: {c}" for c in campos_chicos(page)]
+    ir_a(page, "Cobros")
+    fallas += [f"Clientas: {c}" for c in campos_chicos(page)]
+    problema = abrir_hoja_de_abono(page)
+    if problema:
+        fallas.append(problema)
+    else:
+        fallas += [f"abono: {c}" for c in campos_chicos(page)]
+    cerrar_hojas(page)
+    ir_a(page, "Inicio")
+    return fallas
+
+
 @caso("INI-1 · las acciones rápidas de Inicio venden, abonan, anotan un pedido y abren el paquete")
 def caso_ini1_acciones(page: Page) -> list[str]:
     fallas = []
