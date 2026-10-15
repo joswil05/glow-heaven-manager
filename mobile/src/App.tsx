@@ -15,15 +15,31 @@ import { AjustesView } from './views/AjustesView';
 import { HistorialView } from './views/HistorialView';
 import { RegistrarPaqueteView } from './views/RegistrarPaqueteView';
 import { EncargosView } from './views/EncargosView';
+import { MasView, type DestinoMas } from './views/MasView';
 import { BottomNav } from './components/BottomNav';
 import { FranjaSinConexion } from './components/FranjaSinConexion';
 import { BarraCola, BotonPendientes, useAvisoCola } from './components/AvisoCola';
 import { PendientesSheet } from './components/PendientesSheet';
 import { SnackbarProvider } from './components/Snackbar';
 
-// `ajustes` no esta en el dock: se toca cada varias semanas y el dock es
-// para lo de cada minuto. Se entra por el engranaje del Inicio.
-export type Vista = 'panel' | 'vender' | 'cobranza' | 'historial' | 'inventario' | 'ajustes' | 'registrar-paquete' | 'encargos';
+// La barra tiene cinco pestañas (NAV-1): Inicio, Vender, Clientas
+// (`cobranza`), Inventario y Más. Lo que no es de cada minuto se abre desde
+// "Más": las ventas (`historial`), los encargos y los ajustes.
+export type Vista =
+  | 'panel'
+  | 'vender'
+  | 'cobranza'
+  | 'historial'
+  | 'inventario'
+  | 'mas'
+  | 'paquetes'
+  | 'reportes'
+  | 'ajustes'
+  | 'registrar-paquete'
+  | 'encargos';
+
+/** Lo que "Más" ya ofrece. Paquetes y Reportes se suman cuando existan. */
+const EN_MAS: readonly DestinoMas[] = ['historial', 'encargos', 'ajustes'];
 
 import { ShieldAlert, WifiOff } from 'lucide-react';
 import { usandoEmuladorLocal } from './lib/firebase-mobile';
@@ -226,7 +242,7 @@ function Navegacion() {
   const hayFranjaArriba = !enLinea || aviso.barraConRed;
   const exigirConexion = useExigirConexion();
   const [vista, setVista] = useState<Vista>('panel');
-  const [origenEncargos, setOrigenEncargos] = useState<'panel' | 'vender'>('panel');
+  const [origenEncargos, setOrigenEncargos] = useState<'panel' | 'vender' | 'mas'>('panel');
   const [nuevoEncargoAlEntrar, setNuevoEncargoAlEntrar] = useState(false);
   /** "Llegó un paquete" abre vacío; con un número, corrige ese paquete. */
   const [paqueteACorregir, setPaqueteACorregir] = useState<number | null>(null);
@@ -240,7 +256,7 @@ function Navegacion() {
     setOrigenPaquete(origen);
     setVista('registrar-paquete');
   }
-  function abrirEncargos(origen: 'panel' | 'vender', nuevo = false) {
+  function abrirEncargos(origen: 'panel' | 'vender' | 'mas', nuevo = false) {
     setOrigenEncargos(origen);
     setNuevoEncargoAlEntrar(nuevo);
     setVista('encargos');
@@ -299,7 +315,6 @@ function Navegacion() {
             )}
             <div className={`h-full w-full overflow-hidden ${vista === 'panel' ? 'block animate-vista' : 'hidden'}`}>
               <DashboardView
-                onIrAAjustes={() => setVista('ajustes')}
                 onIrAActividad={() => setVista('historial')}
                 onIrAVenta={() => setVista('vender')}
                 onIrACobranza={(buscar) => {
@@ -326,7 +341,16 @@ function Navegacion() {
               />
             </div>
             <div className={`h-full w-full overflow-hidden ${vista === 'ajustes' ? 'block animate-vista' : 'hidden'}`}>
-              <AjustesView onVolver={() => setVista('panel')} />
+              <AjustesView onVolver={() => setVista('mas')} />
+            </div>
+            <div className={`h-full w-full overflow-hidden ${vista === 'mas' ? 'block animate-vista' : 'hidden'}`}>
+              <MasView
+                disponibles={EN_MAS}
+                onAbrir={(destino) => {
+                  if (destino === 'encargos') abrirEncargos('mas');
+                  else setVista(destino);
+                }}
+              />
             </div>
             <div className={`h-full w-full overflow-hidden ${vista === 'historial' ? 'block animate-vista' : 'hidden'}`}>
               <HistorialView />
@@ -343,7 +367,11 @@ function Navegacion() {
               <EncargosView onVolver={() => setVista(origenEncargos)} abrirNuevoAlEntrar={nuevoEncargoAlEntrar} />
             )}
           </div>
-          {vista !== 'ajustes' && vista !== 'registrar-paquete' && vista !== 'encargos' && <BottomNav actual={vista} onCambiar={setVista} />}
+          {/* Las ventas se abren desde "Más": mientras se miran, la pestaña
+              marcada es "Más", y tocarla vuelve a la lista. */}
+          {vista !== 'ajustes' && vista !== 'registrar-paquete' && vista !== 'encargos' && (
+            <BottomNav actual={vista === 'historial' ? 'mas' : vista} onCambiar={setVista} />
+          )}
           <PendientesSheet />
         </div>
   );

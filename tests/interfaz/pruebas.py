@@ -81,9 +81,23 @@ def cerrar_hojas(page: Page) -> None:
     page.wait_for_timeout(300)
 
 
+# NAV-1: "Cobros" pasó a llamarse "Clientas", y lo que no es de cada minuto
+# se abre desde "Más". Los casos siguen pidiendo la pantalla por su nombre.
+NOMBRE_EN_LA_BARRA = {"Cobros": "Clientas"}
+DENTRO_DE_MAS = {"Historial": "Ventas", "Ventas": "Ventas", "Encargos": "Encargos", "Ajustes": "Ajustes"}
+
+
 def ir_a(page: Page, pestania: str) -> None:
     cerrar_hojas(page)
-    page.locator("nav button", has_text=pestania).first.click()
+    pestania = NOMBRE_EN_LA_BARRA.get(pestania, pestania)
+    if pestania in DENTRO_DE_MAS:
+        page.locator("nav button", has_text="Más").first.click()
+        page.wait_for_timeout(700)
+        page.locator("main:visible").last.get_by_role(
+            "button", name=re.compile("^" + DENTRO_DE_MAS[pestania])
+        ).first.click()
+    else:
+        page.locator("nav button", has_text=pestania).first.click()
     page.wait_for_timeout(1200)
 
 
@@ -294,7 +308,7 @@ def poner_en_el_carrito(page: Page, producto: str) -> str | None:
 @caso("la app abre y muestra las cinco pestañas")
 def caso_arranque(page: Page) -> list[str]:
     fallas = []
-    for etiqueta in ["Inicio", "Vender", "Cobros", "Historial", "Inventario"]:
+    for etiqueta in ["Inicio", "Vender", "Clientas", "Inventario", "Más"]:
         if page.locator("nav button", has_text=etiqueta).count() == 0:
             fallas.append(f"falta la pestaña {etiqueta!r}")
     return fallas
@@ -333,12 +347,8 @@ def caso_ajustes(page: Page) -> list[str]:
     y en todas las facturas.
     """
     fallas = []
-    ir_a(page, "Inicio")
-    boton = visible(page, "button[aria-label='Ajustes']")
-    if boton is None:
-        return ["Inicio no tiene el botón de Ajustes"]
-    boton.click()
-    page.wait_for_timeout(900)
+    # NAV-1: Ajustes se abre desde "Más", ya no desde un engranaje de Inicio.
+    ir_a(page, "Ajustes")
 
     try:
         nombre = campo_de(page, "Nombre")
@@ -1352,6 +1362,8 @@ def caso_ini1_orden(page: Page) -> list[str]:
             fallas.append(f"Inicio todavía muestra {viejo!r}")
     if page.get_by_role("button", name="Actualizar datos").count():
         fallas.append("sigue el botón de recargar")
+    if page.get_by_role("button", name="Ajustes", exact=True).count():
+        fallas.append("Inicio todavía tiene el engranaje de Ajustes (está en 'Más')")
     lo_ultimo = page.get_by_role("region", name="Lo último")
     if not re.search(r"Venta|Abono", lo_ultimo.text_content() or ""):
         fallas.append("'Lo último' no muestra ventas ni abonos")
@@ -1367,12 +1379,55 @@ def caso_ini1_orden(page: Page) -> list[str]:
             fallas.append(f"Cobros no la busca: el campo dice {campo.input_value()!r}")
         campo.fill("")
 
-    # "Lo último" lleva al Historial.
+    # "Lo último" lleva al Historial, que vive en "Más".
     ir_a(page, "Inicio")
     page.get_by_role("region", name="Lo último").get_by_role("button").first.click()
     page.wait_for_timeout(1000)
-    if page.locator("nav button[aria-current='page']", has_text="Historial").count() == 0:
+    if page.locator("main:visible").last.get_by_role("heading", name="Historial").count() == 0:
         fallas.append("tocar 'Lo último' no lleva al Historial")
+    return fallas
+
+
+@caso("NAV-1 · la barra tiene Clientas y Más, y Más abre Ventas, Encargos y Ajustes")
+def caso_nav1_mas(page: Page) -> list[str]:
+    fallas = []
+    for viejo in ["Cobros", "Historial"]:
+        if page.locator("nav button", has_text=viejo).count():
+            fallas.append(f"la barra todavía tiene {viejo!r}")
+    page.locator("nav button", has_text="Más").first.click()
+    page.wait_for_timeout(800)
+    mas = page.locator("main:visible").last
+    expect(mas.get_by_role("heading", name="Más", exact=True)).to_be_visible()
+    for fila in ["Ventas", "Encargos", "Ajustes"]:
+        if mas.get_by_role("button", name=re.compile("^" + fila)).count() == 0:
+            fallas.append(f"'Más' no ofrece {fila!r}")
+
+    # Ventas: la barra sigue a la vista con "Más" marcado; tocarla vuelve a la lista.
+    mas.get_by_role("button", name=re.compile("^Ventas")).click()
+    page.wait_for_timeout(900)
+    expect(page.locator("main:visible").last.get_by_role("heading", name="Historial")).to_be_visible()
+    if page.locator("nav button[aria-current='page']", has_text="Más").count() == 0:
+        fallas.append("en Ventas la barra no marca 'Más'")
+    page.locator("nav button", has_text="Más").first.click()
+    page.wait_for_timeout(700)
+    expect(page.locator("main:visible").last.get_by_role("heading", name="Más", exact=True)).to_be_visible()
+
+    # Encargos y Ajustes vuelven a "Más" con su botón de volver.
+    page.locator("main:visible").last.get_by_role("button", name=re.compile("^Encargos")).click()
+    principal = page.locator("main:visible").last
+    expect(principal.get_by_role("heading", name="Encargos", exact=True)).to_be_visible()
+    principal.get_by_role("button", name=re.compile("^Volver")).click()
+    expect(page.locator("main:visible").last.get_by_role("heading", name="Más", exact=True)).to_be_visible()
+    page.locator("main:visible").last.get_by_role("button", name=re.compile("^Ajustes")).click()
+    page.wait_for_timeout(900)
+    volver = visible(page, "button[aria-label='Volver']")
+    if volver is None:
+        fallas.append("Ajustes no tiene cómo volver")
+    else:
+        volver.click()
+        page.wait_for_timeout(700)
+        expect(page.locator("main:visible").last.get_by_role("heading", name="Más", exact=True)).to_be_visible()
+    ir_a(page, "Inicio")
     return fallas
 
 

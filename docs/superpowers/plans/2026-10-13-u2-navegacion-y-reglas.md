@@ -31,7 +31,7 @@
 
 ## Pasos
 
-- [ ] **T1 · Más**: `mobile/src/views/MasView.tsx` con Ventas, Encargos,
+- [x] **T1 · Más**: `mobile/src/views/MasView.tsx` con Ventas, Encargos,
   Paquetes, Reportes y Ajustes, cada una con su "Volver" a Más. `App.tsx` y
   `BottomNav.tsx` con las cinco pestañas nuevas; el engranaje sale de Inicio.
   Las pantallas que todavía no llegaron de los agentes (Paquetes, Reportes)

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Settings,
   ChevronRight,
   HandCoins,
   ShoppingBag,
@@ -57,7 +56,6 @@ function TituloDeGrupo({ id, texto, accion }: { id: string; texto: string; accio
 }
 
 export function DashboardView({
-  onIrAAjustes,
   onIrAActividad,
   onIrAVenta,
   onIrACobranza,
@@ -66,7 +64,6 @@ export function DashboardView({
   onAnotarPedido,
   onLlegoPaquete,
 }: {
-  onIrAAjustes?: () => void;
   onIrAActividad?: () => void;
   onIrAVenta?: () => void;
   /** Con un nombre, Cobros abre buscándola. */
@@ -212,19 +209,8 @@ export function DashboardView({
             </div>
           </div>
 
-          {/* INI-3: se recarga deslizando hacia abajo; el botón de recargar
-              repetía el gesto. El engranaje se queda hasta que exista "Más". */}
-          <button
-            type="button"
-            onClick={() => {
-              haptics.selection();
-              onIrAAjustes?.();
-            }}
-            aria-label="Ajustes"
-            className="m3-press flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-borde bg-superficie-2/90 text-texto-2 active:scale-90 transition-[background-color,color,transform] duration-150 ease-out cursor-pointer"
-          >
-            <Settings size={16} />
-          </button>
+          {/* INI-3: se recarga deslizando hacia abajo (el botón de recargar
+              repetía el gesto) y Ajustes está en "Más" (NAV-1). */}
         </div>
       </header>
 

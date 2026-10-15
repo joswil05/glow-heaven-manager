@@ -1,29 +1,33 @@
-import { LayoutDashboard, ShoppingBag, Package, HandCoins, History } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, Package, Users, LayoutGrid } from 'lucide-react';
 import type { Vista } from '../App';
 import { haptics } from '../lib/haptics';
-import { useTheme } from '../context/ThemeContext';
 
 interface BottomNavProps {
   actual: Vista;
   onCambiar: (v: Vista) => void;
-  badgeCarrito?: number;
-  badgeCobranza?: number;
+  /**
+   * Insignias (NAV-3): sólo cuando hay algo que hacer. Clientas, las que
+   * tienen cobros vencidos; Más, los encargos por mandar o por entregar.
+   */
+  insignias?: Partial<Record<Vista, number>>;
 }
 
+// NAV-1: Cobros pasa a ser Clientas y el Historial entra en "Más".
 const ITEMS: { vista: Vista; etiqueta: string; Icono: typeof LayoutDashboard }[] = [
   { vista: 'panel', etiqueta: 'Inicio', Icono: LayoutDashboard },
   { vista: 'vender', etiqueta: 'Vender', Icono: ShoppingBag },
-  { vista: 'cobranza', etiqueta: 'Cobros', Icono: HandCoins },
-  // Desde la 2.16.1: lo que pasó, y donde se corrige. Antes era "Actividad",
-  // escondida detrás del chip "N ventas" de Inicio.
-  { vista: 'historial', etiqueta: 'Historial', Icono: History },
+  { vista: 'cobranza', etiqueta: 'Clientas', Icono: Users },
   { vista: 'inventario', etiqueta: 'Inventario', Icono: Package },
+  { vista: 'mas', etiqueta: 'Más', Icono: LayoutGrid },
 ];
 
-export function BottomNav({ actual, onCambiar, badgeCarrito = 0, badgeCobranza = 0 }: BottomNavProps) {
-  const { effectiveTheme } = useTheme();
-  const isDark = effectiveTheme === 'dark';
+/** El color de cada insignia: lo vencido en el color de peligro, lo demás en el de la marca. */
+const CLASE_INSIGNIA: Partial<Record<Vista, string>> = {
+  cobranza: 'bg-peligro text-peligro-texto',
+  mas: 'bg-acento text-acento-texto',
+};
 
+export function BottomNav({ actual, onCambiar, insignias = {} }: BottomNavProps) {
   return (
     <nav
       className="fixed inset-x-0 z-40 flex justify-center pointer-events-none px-3"
@@ -33,10 +37,11 @@ export function BottomNav({ actual, onCambiar, badgeCarrito = 0, badgeCobranza =
       aria-label="Navegación principal flotante"
     >
       <div
-        className="pointer-events-auto flex items-center justify-around w-full max-w-sm sm:max-w-md p-1.5 rounded-[26px] bg-superficie/95 backdrop-blur-2xl border border-borde shadow-m3-3 transition-all duration-300"
+        className="pointer-events-auto flex items-center justify-around w-full max-w-sm sm:max-w-md p-1.5 rounded-[26px] bg-superficie/95 backdrop-blur-2xl border border-borde shadow-m3-3"
       >
         {ITEMS.map(({ vista, etiqueta, Icono }) => {
           const activo = actual === vista;
+          const insignia = insignias[vista] ?? 0;
           return (
             <button
               key={vista}
@@ -45,64 +50,49 @@ export function BottomNav({ actual, onCambiar, badgeCarrito = 0, badgeCobranza =
                 if (actual !== vista) haptics.selection();
                 onCambiar(vista);
               }}
-              className="group relative flex flex-1 flex-col items-center justify-center py-1 px-1.5 rounded-2xl transition-transform duration-150 active:scale-[0.92] cursor-pointer outline-none select-none"
+              // MOV-1: cambiar de pestaña no se anima; sólo responde al presionar.
+              className="group relative flex flex-1 flex-col items-center justify-center py-1 px-1.5 rounded-2xl transition-transform duration-100 ease-out active:scale-[0.97] cursor-pointer outline-none select-none"
               aria-current={activo ? 'page' : undefined}
             >
               {/* Contenedor del icono con pill suave al estar activo */}
               <div
-                className="relative flex items-center justify-center px-3.5 py-1 rounded-full transition-all duration-250 ease-out"
+                className="relative flex items-center justify-center px-3.5 py-1 rounded-full"
                 style={{
                   backgroundColor: activo ? 'rgb(var(--acento) / 0.18)' : 'transparent',
                 }}
               >
                 <Icono
                   size={20}
-                  className="transition-all duration-200"
                   style={{
                     transform: activo ? 'scale(1.08)' : 'scale(1)',
                     strokeWidth: activo ? 2.4 : 1.9,
-                    color: activo
-                      ? 'rgb(var(--acento))'
-                      : isDark
-                        ? 'rgb(var(--texto-3))'
-                        : 'rgb(var(--texto-3))',
+                    color: activo ? 'rgb(var(--acento))' : 'rgb(var(--texto-3))',
                   }}
                 />
 
-                {/* Badge de carrito */}
-                {vista === 'vender' && badgeCarrito > 0 && (
-                  <span className="absolute -top-1 -right-1.5 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-acento text-[9.5px] font-black text-acento-texto shadow-xs animate-in zoom-in-75">
-                    {badgeCarrito}
-                  </span>
-                )}
-
-                {/* Badge de cobranza */}
-                {vista === 'cobranza' && badgeCobranza > 0 && (
-                  <span className="absolute -top-1 -right-1.5 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-peligro text-[9.5px] font-black text-peligro-texto shadow-xs animate-in zoom-in-75">
-                    {badgeCobranza}
+                {insignia > 0 && (
+                  <span
+                    className={`absolute -top-1 -right-1.5 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full text-[9.5px] font-black shadow-xs ${CLASE_INSIGNIA[vista] ?? 'bg-acento text-acento-texto'}`}
+                    aria-label={`${insignia} por hacer`}
+                  >
+                    {insignia}
                   </span>
                 )}
               </div>
 
               {/* Etiqueta de texto */}
               <span
-                className="text-[10.5px] tracking-tight transition-colors duration-200 mt-0.5 leading-none"
+                className="text-[10.5px] tracking-tight mt-0.5 leading-none"
                 style={{
                   fontWeight: activo ? 700 : 500,
-                  color: activo
-                      ? 'rgb(var(--acento))'
-                      : isDark
-                        ? 'rgb(var(--texto-3))'
-                      : 'rgb(var(--texto-3))',
+                  color: activo ? 'rgb(var(--acento))' : 'rgb(var(--texto-3))',
                 }}
               >
                 {etiqueta}
               </span>
 
               {/* Punto indicador de estado activo */}
-              {activo && (
-                <span className="w-1 h-1 rounded-full bg-acento mt-0.5 transition-all animate-in fade-in-0 zoom-in-50 duration-200" />
-              )}
+              {activo && <span className="w-1 h-1 rounded-full bg-acento mt-0.5" />}
             </button>
           );
         })}
@@ -110,4 +100,3 @@ export function BottomNav({ actual, onCambiar, badgeCarrito = 0, badgeCobranza =
     </nav>
   );
 }
-
