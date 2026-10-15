@@ -5,7 +5,13 @@
 import { describe, it, expect } from 'vitest';
 import type { FilaPorCobrar, PagoCompleto, Venta } from '../src/shared/types';
 import type { EtapaEncargo } from '../src/core/encargos';
-import { deudasPorClienta, dosSemanas, textoEncargosDeInicio, ultimosMovimientos } from '../mobile/src/lib/inicio';
+import {
+  deudasPorClienta,
+  dosSemanas,
+  insigniasDeLaBarra,
+  textoEncargosDeInicio,
+  ultimosMovimientos,
+} from '../mobile/src/lib/inicio';
 
 function fila(p: Partial<FilaPorCobrar> & Pick<FilaPorCobrar, 'venta_id' | 'saldo_usd_cents'>): FilaPorCobrar {
   return {
@@ -104,5 +110,23 @@ describe('ultimosMovimientos', () => {
       []
     );
     expect(m.cancelada).toBe(true);
+  });
+});
+
+describe('insigniasDeLaBarra', () => {
+  it('cuenta clientas con cuotas vencidas, no ventas, y encargos por mandar o por entregar', () => {
+    const insignias = insigniasDeLaBarra(
+      [
+        fila({ venta_id: 1, cliente_id: 7, saldo_usd_cents: 100, cuotas_vencidas: 1 }),
+        fila({ venta_id: 2, cliente_id: 7, saldo_usd_cents: 100, cuotas_vencidas: 2 }),
+        fila({ venta_id: 3, cliente_id: 8, cliente_nombre: 'Berta', saldo_usd_cents: 100 }),
+      ],
+      fases({ POR_MANDAR: 1, POR_ENTREGAR: 2, ESPERANDO: 5, POR_BUSCAR: 3 })
+    );
+    expect(insignias).toEqual({ clientas: 1, encargos: 3 });
+  });
+
+  it('sin nada para hacer, en cero', () => {
+    expect(insigniasDeLaBarra([], fases())).toEqual({ clientas: 0, encargos: 0 });
   });
 });

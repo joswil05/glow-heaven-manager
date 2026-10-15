@@ -15,7 +15,7 @@ import { formatearMoneda, usdCentavosACorCentavos } from '@core/moneda';
 import { cordobasQueSeDeben, enlaceMensaje, mensajeCobro } from '@core/mensajes';
 import { diaDeHistorial, textoEquivalente, textoPagado } from '@core/abonos';
 import { obtenerDatosDashboard, obtenerUltimos, cacheDashboardGlobal, invalidarCacheDashboard } from '../lib/panel-movil';
-import { deudasPorClienta, dosSemanas, textoEncargosDeInicio, type DeudaDeClienta } from '../lib/inicio';
+import { deudasPorClienta, dosSemanas, insigniasDeLaBarra, textoEncargosDeInicio, type DeudaDeClienta } from '../lib/inicio';
 import { hoyISO } from '../lib/util';
 import { BottomSheet } from '../components/BottomSheet';
 import { AvancePaqueteCard, ResumenPaqueteCard } from '../components/AvancePaqueteCard';
@@ -63,6 +63,7 @@ export function DashboardView({
   onIrAEncargos,
   onAnotarPedido,
   onLlegoPaquete,
+  onInsignias,
 }: {
   onIrAActividad?: () => void;
   onIrAVenta?: () => void;
@@ -72,6 +73,8 @@ export function DashboardView({
   onIrAEncargos?: () => void;
   onAnotarPedido?: () => void;
   onLlegoPaquete?: () => void;
+  /** Las insignias de la barra (NAV-3), con lo que Inicio ya cargó. */
+  onInsignias?: (insignias: { clientas: number; encargos: number }) => void;
 }) {
   const { usuario } = useAuth();
   const { version, productos, parametros, marcarCambio } = useDatosNegocio();
@@ -142,6 +145,10 @@ export function DashboardView({
   }
 
   const cuentas = panel?.por_cobrar ?? [];
+  const insignias = insigniasDeLaBarra(cuentas, fasesEncargo);
+  useEffect(() => {
+    onInsignias?.({ clientas: insignias.clientas, encargos: insignias.encargos });
+  }, [onInsignias, insignias.clientas, insignias.encargos]);
   const deudas = deudasPorClienta(cuentas);
   const totalQueTeDeben = deudas.reduce((s, d) => s + d.saldo_usd_cents, 0);
   const semanas = dosSemanas(datos.serie);

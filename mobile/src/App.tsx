@@ -4,7 +4,8 @@ import { useAuth } from './context/AuthContext';
 import { DataProvider, useDatosNegocio } from './context/DataContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ConexionProvider, useConexion } from './context/ConexionContext';
-import { ColaProvider } from './context/ColaContext';
+import { ColaProvider, useCola } from './context/ColaContext';
+import { contarCola } from './lib/cola';
 import { accesoRecordado, decidirAcceso, olvidarAcceso, recordarAcceso } from './lib/acceso-movil';
 import { LoginView } from './views/LoginView';
 import { DashboardView } from './views/DashboardView';
@@ -248,6 +249,12 @@ function Navegacion() {
   const [paqueteACorregir, setPaqueteACorregir] = useState<number | null>(null);
   /** Adónde vuelve "Llegó un paquete": se abre desde Inventario o desde Inicio. */
   const [origenPaquete, setOrigenPaquete] = useState<'inventario' | 'panel'>('inventario');
+  // Insignias (NAV-3): Inicio cuenta clientas con vencidos y encargos por
+  // mandar o por entregar; lo que espera subir sale de la cola (C4).
+  const [insignias, setInsignias] = useState({ clientas: 0, encargos: 0 });
+  const { cola } = useCola();
+  const enCola = contarCola(cola);
+  const sinSubir = enCola.pendientes + enCola.revisar;
   /** Inicio abre Cobros buscando a una clienta de "Te deben". */
   const [busquedaCobros, setBusquedaCobros] = useState<{ texto: string; n: number } | null>(null);
   function abrirPaquete(origen: 'inventario' | 'panel', corregir: number | null) {
@@ -325,6 +332,7 @@ function Navegacion() {
                 onIrAEncargos={() => abrirEncargos('panel')}
                 onAnotarPedido={() => abrirEncargos('panel', true)}
                 onLlegoPaquete={() => abrirPaquete('panel', null)}
+                onInsignias={setInsignias}
               />
             </div>
             <div className={`h-full w-full overflow-hidden ${vista === 'vender' ? 'block animate-vista' : 'hidden'}`}>
@@ -346,6 +354,8 @@ function Navegacion() {
             <div className={`h-full w-full overflow-hidden ${vista === 'mas' ? 'block animate-vista' : 'hidden'}`}>
               <MasView
                 disponibles={EN_MAS}
+                encargosPorHacer={insignias.encargos}
+                sinSubir={sinSubir}
                 onAbrir={(destino) => {
                   if (destino === 'encargos') abrirEncargos('mas');
                   else setVista(destino);
@@ -370,7 +380,11 @@ function Navegacion() {
           {/* Las ventas se abren desde "Más": mientras se miran, la pestaña
               marcada es "Más", y tocarla vuelve a la lista. */}
           {vista !== 'ajustes' && vista !== 'registrar-paquete' && vista !== 'encargos' && (
-            <BottomNav actual={vista === 'historial' ? 'mas' : vista} onCambiar={setVista} />
+            <BottomNav
+              actual={vista === 'historial' ? 'mas' : vista}
+              onCambiar={setVista}
+              insignias={{ cobranza: insignias.clientas, mas: insignias.encargos + sinSubir }}
+            />
           )}
           <PendientesSheet />
         </div>

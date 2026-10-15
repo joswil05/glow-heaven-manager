@@ -36,9 +36,11 @@
   `BottomNav.tsx` con las cinco pestañas nuevas; el engranaje sale de Inicio.
   Las pantallas que todavía no llegaron de los agentes (Paquetes, Reportes)
   no aparecen hasta que lleguen.
-- [ ] **T2 · Insignias**: Clientas con los cobros vencidos; Más con los
-  encargos que esperan a Ross y lo que hay que revisar de la cola. Sin
-  insignia cuando no hay nada.
+- [x] **T2 · Insignias**: Clientas con cuántas clientas tienen cuotas
+  vencidas; Más con los encargos por mandar o por entregar más lo hecho sin
+  señal que no subió (dentro de "Más", cada número en su fila: Encargos y
+  Ventas). Salen de lo que Inicio ya cargó y de la cola: sin lecturas nuevas.
+  Sin insignia cuando no hay nada.
 - [ ] **T3 · Campos y movimiento**: la regla global de 16 px; sin animación
   al cambiar de pestaña; hojas a 240 ms de entrada y 180 de salida; presión a
   0,97; "reducir movimiento" en todo lo nuevo.

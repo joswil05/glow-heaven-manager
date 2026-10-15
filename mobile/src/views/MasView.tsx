@@ -17,12 +17,15 @@ export function MasView({
   onAbrir,
   disponibles,
   encargosPorHacer = 0,
+  sinSubir = 0,
 }: {
   onAbrir: (destino: DestinoMas) => void;
   /** Las secciones que ya existen en esta versión. */
   disponibles: readonly DestinoMas[];
   /** Encargos por mandar o por entregar: la misma insignia de la barra (NAV-3). */
   encargosPorHacer?: number;
+  /** Lo hecho sin señal que todavía no subió: se ve en Ventas. */
+  sinSubir?: number;
 }) {
   const { version } = useDatosNegocio();
   const [datos, setDatos] = useState(() => ({ ...cacheDashboardGlobal }));
@@ -43,7 +46,13 @@ export function MasView({
 
   const enVenta = (datos.panel?.paquetes ?? []).filter((p) => p.estado === 'EN_VENTA').length;
   const filas: { destino: DestinoMas; titulo: string; detalle: string; Icono: typeof History; insignia?: number }[] = [
-    { destino: 'historial', titulo: 'Ventas', detalle: 'Lo vendido y los abonos, por día', Icono: History },
+    {
+      destino: 'historial',
+      titulo: 'Ventas',
+      detalle: sinSubir > 0 ? `${sinSubir} sin subir todavía` : 'Lo vendido y los abonos, por día',
+      Icono: History,
+      insignia: sinSubir,
+    },
     {
       destino: 'encargos',
       titulo: 'Encargos',

@@ -1394,6 +1394,10 @@ def caso_nav1_mas(page: Page) -> list[str]:
     for viejo in ["Cobros", "Historial"]:
         if page.locator("nav button", has_text=viejo).count():
             fallas.append(f"la barra todavía tiene {viejo!r}")
+    # NAV-3: una insignia sólo con algo para hacer, nunca un cero de adorno.
+    for insignia in page.locator("nav [aria-label$='por hacer']").all():
+        if (insignia.text_content() or "").strip() in ("", "0"):
+            fallas.append("la barra muestra una insignia vacía o en cero")
     page.locator("nav button", has_text="Más").first.click()
     page.wait_for_timeout(800)
     mas = page.locator("main:visible").last

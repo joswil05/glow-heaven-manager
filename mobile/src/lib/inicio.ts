@@ -49,6 +49,21 @@ export function deudasPorClienta(filas: readonly FilaPorCobrar[]): DeudaDeClient
   return deudas.sort((a, b) => b.saldo_usd_cents - a.saldo_usd_cents || a.nombre.localeCompare(b.nombre, 'es'));
 }
 
+/**
+ * Las insignias de la barra (NAV-3), sólo con algo para hacer: en Clientas,
+ * cuántas clientas tienen cuotas vencidas; en Más, los encargos por mandar o
+ * por entregar.
+ */
+export function insigniasDeLaBarra(
+  porCobrar: readonly FilaPorCobrar[],
+  fases: Readonly<Record<EtapaEncargo, number>>
+): { clientas: number; encargos: number } {
+  return {
+    clientas: deudasPorClienta(porCobrar).filter((d) => d.cuotas_vencidas > 0).length,
+    encargos: (fases.POR_MANDAR || 0) + (fases.POR_ENTREGAR || 0),
+  };
+}
+
 /** Las fases de un encargo en las que el que tiene que moverse es Ross. */
 export const ESPERAN_A_ROSS: readonly EtapaEncargo[] = ['POR_BUSCAR', 'POR_MANDAR', 'POR_COMPRAR', 'POR_ENTREGAR'];
 
