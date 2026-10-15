@@ -22,6 +22,7 @@ from playwright.sync_api import sync_playwright, Page, BrowserContext, expect  #
 
 import arnes  # noqa: E402
 from pruebas import (  # noqa: E402
+    abrir_anotar_pedido,
     abrir_hoja_de_abono,
     cerrar_hojas,
     en_hoja,
@@ -367,8 +368,7 @@ def caso_pedido_sin_red(page: Page, contexto: BrowserContext) -> list[str]:
     contexto.set_offline(True)
     try:
         expect(franja(page)).to_be_visible(timeout=10000)
-        ir_a(page, "Vender")
-        page.get_by_role("button", name="Anotar un pedido", exact=True).click()
+        abrir_anotar_pedido(page)
         hoja = page.get_by_role("dialog", name="Anotar un pedido", exact=True)
         expect(hoja).to_be_visible(timeout=10000)
         hoja.get_by_role("button", name="Elegir clienta", exact=True).click()

@@ -336,8 +336,7 @@ function Navegacion() {
               />
             </div>
             <div className={`h-full w-full overflow-hidden ${vista === 'vender' ? 'block' : 'hidden'}`}>
-              {/* Anotar un pedido no pide señal: queda en el teléfono (C4). */}
-              <QuickSaleView onAnotarPedido={() => abrirEncargos('vender', true)} />
+              <QuickSaleView />
             </div>
             <div className={`h-full w-full overflow-hidden ${vista === 'cobranza' ? 'block' : 'hidden'}`}>
               <CobranzaView buscar={busquedaCobros} />

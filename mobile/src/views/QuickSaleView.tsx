@@ -44,6 +44,7 @@ import { useCola, useProductosVisibles } from '../context/ColaContext';
 import { conEspera, esErrorPasajero } from '../lib/subir-cola';
 import type { ClientaNueva } from '../lib/cola';
 import { algunoContiene } from '@core/texto';
+import { iconoDeCategoria } from '../lib/categorias';
 
 export interface LineaCarrito {
   clave: string;
@@ -56,7 +57,7 @@ function etiquetaVariante(v: ProductoVariante): string {
   return [v.talla, v.color].filter(Boolean).join(' · ') || 'Único';
 }
 
-export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void }) {
+export function QuickSaleView() {
   const {
     parametros,
     categorias,
@@ -127,7 +128,8 @@ export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void 
       return [...prev, { clave, producto, variante, cantidad: 1 }];
     });
     setProductoConVariantesAbierto(null);
-    mostrar(`Agregado: ${producto.nombre}`, 'success', 1800);
+    // VEN-2: sin aviso. El producto muestra su cantidad, la barra de cobro
+    // cambia y el teléfono vibra suave: el aviso tapaba el encabezado.
   }
 
   function cambiarCantidad(clave: string, delta: number) {
@@ -508,17 +510,8 @@ export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void 
           )}
         </div>
 
-        {onAnotarPedido && (
-          <button
-            type="button"
-            onClick={() => { haptics.selection(); onAnotarPedido(); }}
-            className="tocable mt-1 flex min-h-11 w-full items-center justify-between rounded-xl border border-borde bg-superficie-2 px-3 text-sm font-semibold text-texto"
-          >
-            <span>Anotar un pedido</span>
-            <ChevronRight size={16} className="text-texto-2" />
-          </button>
-        )}
-
+        {/* VEN-1: lo primero es buscar. "Anotar un pedido" está en Inicio
+            ("Pedido") y en Encargos. */}
         {/* Barra de búsqueda moderna */}
         <div className="relative flex items-center mt-1">
           <div
@@ -617,7 +610,7 @@ export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void 
         {!cargandoProductos && (
           <div className="flex flex-col gap-2">
             {productosFiltrados.map((p) => {
-              const precioCordobas = Math.round((p.precio_venta_usd_cents * tasa) / 100);
+              const IconoCategoria = iconoDeCategoria(categorias.find((c) => c.id === p.categoria_id)?.nombre);
               const tieneVariantes = p.tiene_variantes && p.variantes.length > 1;
               const cantidadEnCarrito = carrito
                 .filter((l) => l.producto.id === p.id)
@@ -645,8 +638,8 @@ export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void 
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <div className="w-full h-full bg-superficie-2 flex items-center justify-center text-texto-3 font-black text-xs uppercase">
-                        {p.nombre.slice(0, 2)}
+                      <div className="w-full h-full bg-superficie-2 flex items-center justify-center text-texto-3">
+                        <IconoCategoria size={24} aria-hidden="true" />
                       </div>
                     )}
                   </div>
@@ -659,9 +652,6 @@ export function QuickSaleView({ onAnotarPedido }: { onAnotarPedido?: () => void 
                     <div className="flex items-baseline gap-1 mt-0.5">
                       <span className="text-label font-black text-texto tabular-nums">
                         {formatearMoneda(p.precio_venta_usd_cents, 'USD')}
-                      </span>
-                      <span className="text-caption font-semibold text-texto-3 tabular-nums">
-                        · {formatearMoneda(precioCordobas, 'COR')}
                       </span>
                     </div>
                     <p className="text-caption text-texto-3 mt-0.5 font-medium flex items-center gap-1">

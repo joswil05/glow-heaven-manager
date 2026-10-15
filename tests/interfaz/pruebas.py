@@ -101,6 +101,12 @@ def ir_a(page: Page, pestania: str) -> None:
     page.wait_for_timeout(1200)
 
 
+def abrir_anotar_pedido(page: Page) -> None:
+    """VEN-1: "Anotar un pedido" ya no está en Vender; se abre con "Pedido" de Inicio."""
+    ir_a(page, "Inicio")
+    page.get_by_role("region", name="Acciones rápidas").get_by_role("button", name="Pedido", exact=True).click()
+
+
 def abrir_hoja_de_abono(page: Page) -> str | None:
     """
     Recorre el camino real hasta el formulario del abono.
@@ -2152,8 +2158,11 @@ def caso_c2_encargos_lista(page: Page) -> list[str]:
     principal.get_by_role("button", name=re.compile("^Volver")).click()
     expect(tarjeta).to_be_visible()
     expect(page.locator("nav button:visible")).to_have_count(5)
+    # VEN-1: Vender ya no tiene "Anotar un pedido"; está en Inicio y en Encargos.
     ir_a(page, "Vender")
-    page.get_by_role("button", name="Anotar un pedido", exact=True).click()
+    expect(page.locator("main:visible").last.get_by_role("button", name="Anotar un pedido", exact=True)).to_have_count(0)
+    expect(page.get_by_role("button", name="Anotar un pedido", exact=True)).to_have_count(0)
+    abrir_anotar_pedido(page)
     principal = page.locator("main:visible").last
     expect(principal.get_by_role("heading", name="Encargos", exact=True)).to_be_visible()
     # T4 ahora consume la intención de alta que T3 dejaba pendiente.
@@ -2162,7 +2171,7 @@ def caso_c2_encargos_lista(page: Page) -> list[str]:
     pedido.get_by_role("button", name="Cerrar", exact=True).click()
     expect(pedido).not_to_be_visible()
     principal.get_by_role("button", name=re.compile("^Volver")).click()
-    expect(page.get_by_role("button", name="Anotar un pedido", exact=True)).to_be_visible()
+    expect(page.get_by_role("region", name="Acciones rápidas")).to_be_visible()
     return []
 
 
@@ -2288,12 +2297,11 @@ def caso_c2_aceptar_encargo(page: Page) -> list[str]:
 
 
 def abrir_pedido_c2(page: Page):
-    """La entrada real desde Vender; T4 conecta la intención de T3."""
+    """La entrada real: "Pedido" de Inicio (VEN-1); T4 conecta la intención de T3."""
     if page.locator("nav button:visible").count() == 0:
         cerrar_hojas(page)
         page.locator("main:visible").last.get_by_role("button", name="Volver", exact=True).click()
-    ir_a(page, "Vender")
-    page.get_by_role("button", name="Anotar un pedido", exact=True).click()
+    abrir_anotar_pedido(page)
     hoja = page.get_by_role("dialog", name="Anotar un pedido", exact=True)
     expect(hoja).to_be_visible()
     return hoja
