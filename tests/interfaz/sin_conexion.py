@@ -418,8 +418,8 @@ def caso_venta_clienta_nueva_sin_red(page: Page, contexto: BrowserContext) -> li
     try:
         expect(franja(page)).to_be_visible(timeout=10000)
         visible(page, "span:text-is('Cobrar')").click()
-        carrito = page.get_by_role("dialog", name="Carrito", exact=True)
-        carrito.get_by_role("button", name=re.compile("elegir clienta")).click()
+        carrito = page.get_by_role("dialog", name="Cobrar", exact=True)
+        carrito.get_by_role("button", name=re.compile("anotar una clienta nueva")).click()
         crear_clienta_sin_red(page, "Compradora sin señal C4")
         expect(carrito).to_contain_text("Compradora sin señal C4")
         carrito.get_by_role("button", name="Registrar venta").click()

@@ -87,8 +87,17 @@ NOMBRE_EN_LA_BARRA = {"Cobros": "Clientas"}
 DENTRO_DE_MAS = {"Historial": "Ventas", "Ventas": "Ventas", "Encargos": "Encargos", "Ajustes": "Ajustes"}
 
 
+def mostrar_navegacion(page: Page) -> None:
+    """VEN-4: con el carrito lleno la barra de cobro tapa la navegación; su botón la muestra."""
+    salida = page.get_by_role("button", name="Mostrar la barra de navegación", exact=True)
+    if page.locator("nav button:visible").count() == 0 and salida.count() and salida.is_visible():
+        salida.click()
+        page.wait_for_timeout(400)
+
+
 def ir_a(page: Page, pestania: str) -> None:
     cerrar_hojas(page)
+    mostrar_navegacion(page)
     pestania = NOMBRE_EN_LA_BARRA.get(pestania, pestania)
     if pestania in DENTRO_DE_MAS:
         page.locator("nav button", has_text="Más").first.click()
@@ -1514,6 +1523,46 @@ def caso_mov2_vibracion(page: Page) -> list[str]:
     return fallas
 
 
+@caso("COB-1 · el cobro es una pantalla: sin apartado, con precio editable, cuotas y fecha")
+def caso_cob1_cobro(page: Page) -> list[str]:
+    fallas = []
+    problema = poner_en_el_carrito(page, "Labial Mate Rojo")
+    if problema:
+        return [problema]
+    visible(page, "span:text-is('Cobrar')").click()
+    cobro = page.get_by_role("dialog", name="Cobrar", exact=True)
+    expect(cobro).to_be_visible(timeout=10000)
+    texto = cobro.text_content() or ""
+    if "Apartado" in texto:
+        fallas.append("el cobro todavía ofrece 'Apartado' (COB-2: el negocio no aparta)")
+    if cobro.locator("select").count():
+        fallas.append("el cobro todavía tiene listas desplegables (OPC-1)")
+    if "Agregar descuento" not in texto:
+        fallas.append("el descuento no arranca plegado")
+    if cobro.locator("input[type='date']").count() == 0:
+        fallas.append("el cobro no tiene fecha")
+
+    cobro.get_by_role("radio", name="Crédito", exact=True).click()
+    if cobro.get_by_role("switch", name=re.compile("En cuotas")).count() == 0:
+        fallas.append("el crédito no ofrece cuotas")
+    cobro.get_by_role("radio", name="Contado", exact=True).click()
+
+    precio = cobro.get_by_label("Precio de Labial Mate Rojo", exact=True)
+    precio.fill("9.75")
+    ventas_antes = {v["id"] for v in listar_coleccion("ventas")}
+    cobro.get_by_role("button", name="Registrar venta").click()
+    expect(page.get_by_text("Nueva venta rápida")).to_be_visible(timeout=15000)
+    nuevas = [v for v in listar_coleccion("ventas") if v["id"] not in ventas_antes]
+    if len(nuevas) != 1:
+        fallas.append(f"se registraron {len(nuevas)} ventas y era una")
+    elif nuevas[0]["lineas"][0]["precio_unitario_usd_cents"] != 975:
+        fallas.append(f"el precio escrito no quedó en la venta: {nuevas[0]['lineas'][0]['precio_unitario_usd_cents']}")
+    page.get_by_role("button", name="Nueva venta rápida").click()
+    page.wait_for_timeout(500)
+    ir_a(page, "Inicio")
+    return fallas
+
+
 @caso("INI-1 · las acciones rápidas de Inicio venden, abonan, anotan un pedido y abren el paquete")
 def caso_ini1_acciones(page: Page) -> list[str]:
     fallas = []
@@ -2298,8 +2347,9 @@ def caso_c2_aceptar_encargo(page: Page) -> list[str]:
 
 def abrir_pedido_c2(page: Page):
     """La entrada real: "Pedido" de Inicio (VEN-1); T4 conecta la intención de T3."""
+    cerrar_hojas(page)
+    mostrar_navegacion(page)
     if page.locator("nav button:visible").count() == 0:
-        cerrar_hojas(page)
         page.locator("main:visible").last.get_by_role("button", name="Volver", exact=True).click()
     abrir_anotar_pedido(page)
     hoja = page.get_by_role("dialog", name="Anotar un pedido", exact=True)
@@ -2473,7 +2523,8 @@ def caso_c2_anotar_descarte_y_carrito(page: Page) -> list[str]:
     cobrar = visible(page, "span:text-is('Cobrar')")
     assert cobrar is not None
     cobrar.click()
-    carrito = page.get_by_role("dialog", name="Carrito", exact=True)
+    # COB-1: el cobro es una pantalla completa que se llama "Cobrar".
+    carrito = page.get_by_role("dialog", name="Cobrar", exact=True)
     expect(carrito).to_contain_text("Ana Prueba")
     expect(carrito).to_contain_text("Perfume Carolina Herrera")
     carrito_antes = carrito.inner_text()
@@ -2522,6 +2573,7 @@ def caso_c2_anotar_descarte_y_carrito(page: Page) -> list[str]:
     assert listar_coleccion("ventas") == ventas_antes
     assert listar_coleccion("clientes") == clientas_antes, "descartar el pedido no borra una clienta que ya se guardó"
     volver_desde_encargos_c2(page)
+    ir_a(page, "Vender")
     expect(visible(page, "header button", "Ana Prueba")).to_be_visible()
     visible(page, "span:text-is('Cobrar')").click()
     expect(carrito).to_be_visible()

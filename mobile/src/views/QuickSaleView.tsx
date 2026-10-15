@@ -14,8 +14,11 @@ import {
   Tag,
   RotateCcw,
   Clock,
+  ChevronDown,
+  LayoutGrid,
 } from 'lucide-react';
 import { VentasRepoFirestore } from '@repos/ventas.repo';
+import { ClientesRepoFirestore } from '@repos/clientes.repo';
 import { EventosRepoFirestore } from '@repos/eventos.repo';
 import { monedaPorDefecto, metodoPorDefecto } from '@core/preferencias';
 import type {
@@ -36,13 +39,14 @@ import { nuevoGrupoEvento, hoyISO } from '../lib/util';
 import { useDatosNegocio } from '../context/DataContext';
 import { BottomSheet } from '../components/BottomSheet';
 import { SeleccionarClientaSheet } from '../components/SeleccionarClientaSheet';
+import { OpcionesSegmentadas, OPCIONES_METODO } from '../components/OpcionesSegmentadas';
 import { useSnackbar } from '../components/Snackbar';
 import { haptics } from '../lib/haptics';
 import { SIN_RED, useExigirConexion } from '../lib/useExigirConexion';
 import { useConexion } from '../context/ConexionContext';
 import { useCola, useProductosVisibles } from '../context/ColaContext';
 import { conEspera, esErrorPasajero } from '../lib/subir-cola';
-import type { ClientaNueva } from '../lib/cola';
+import { clientaProvisoria, clientasNuevasEnCola, type ClientaNueva } from '../lib/cola';
 import { algunoContiene } from '@core/texto';
 import { iconoDeCategoria } from '../lib/categorias';
 
@@ -51,7 +55,34 @@ export interface LineaCarrito {
   producto: ProductoConStock;
   variante: ProductoVariante;
   cantidad: number;
+  /** El precio por unidad como se escribió; arranca en el de la ficha (COB-1). */
+  precioTexto: string;
 }
+
+/** El precio de la ficha, para escribirlo en el campo: "12.50". */
+function textoDePrecio(cents: number): string {
+  return (cents / 100).toFixed(2);
+}
+
+/** El precio de una línea en centavos, o null si lo escrito no es un precio. */
+function precioDeLinea(l: LineaCarrito): number | null {
+  return parsearACentavos(l.precioTexto, { min: 0 });
+}
+
+const OPCIONES_FORMA = [
+  { valor: 'CONTADO', texto: 'Contado' },
+  { valor: 'CREDITO', texto: 'Crédito' },
+] as const;
+
+const OPCIONES_MONEDA = [
+  { valor: 'COR', texto: 'C$ Córdobas' },
+  { valor: 'USD', texto: 'US$ Dólares' },
+] as const;
+
+const OPCIONES_DESCUENTO = [
+  { valor: 'PORCENTAJE', texto: '% Porcentaje' },
+  { valor: 'MONTO_FIJO', texto: '$ Monto fijo' },
+] as const;
 
 function etiquetaVariante(v: ProductoVariante): string {
   return [v.talla, v.color].filter(Boolean).join(' · ') || 'Único';
@@ -59,9 +90,15 @@ function etiquetaVariante(v: ProductoVariante): string {
 
 export function QuickSaleView({
   onCarritoCambia,
+  navegacionVisible = false,
+  onMostrarNavegacion,
 }: {
   /** Cuántas unidades hay en el carrito: con algo, la barra de cobro ocupa el lugar de la navegación (VEN-4). */
   onCarritoCambia?: (unidades: number) => void;
+  /** Ross pidió ver la navegación con el carrito lleno: la barra de cobro se aparta. */
+  navegacionVisible?: boolean;
+  /** Para ir a otra pantalla sin vaciar el carrito. */
+  onMostrarNavegacion?: () => void;
 } = {}) {
   const {
     parametros,
@@ -130,7 +167,7 @@ export function QuickSaleView({
           l.clave === clave ? { ...l, cantidad: l.cantidad + 1 } : l
         );
       }
-      return [...prev, { clave, producto, variante, cantidad: 1 }];
+      return [...prev, { clave, producto, variante, cantidad: 1, precioTexto: textoDePrecio(producto.precio_venta_usd_cents) }];
     });
     setProductoConVariantesAbierto(null);
     // VEN-2: sin aviso. El producto muestra su cantidad, la barra de cobro
@@ -163,10 +200,16 @@ export function QuickSaleView({
     onCarritoCambia?.(cantidadTotalItems);
   }, [onCarritoCambia, cantidadTotalItems]);
 
+  // Con el precio que se escribió en el cobro; uno mal escrito cuenta con el
+  // de la ficha hasta que se corrija (y no deja registrar).
   const subtotalUsdCents = useMemo(
-    () => carrito.reduce((s, l) => s + l.producto.precio_venta_usd_cents * l.cantidad, 0),
+    () => carrito.reduce((s, l) => s + (precioDeLinea(l) ?? l.producto.precio_venta_usd_cents) * l.cantidad, 0),
     [carrito]
   );
+
+  function cambiarPrecio(clave: string, texto: string) {
+    setCarrito((prev) => prev.map((l) => (l.clave === clave ? { ...l, precioTexto: texto } : l)));
+  }
 
   // --- Descuento ---------------------------------------------------------------
   const [descTipo, setDescTipo] = useState<TipoDescuento>('PORCENTAJE');
@@ -212,6 +255,39 @@ export function QuickSaleView({
   const totalEnMonedaElegida =
     moneda === 'COR' ? Math.round((totalUsdCents * tasa) / 100) : totalUsdCents;
 
+  // La fecha (hoy, se puede cambiar) y las cuotas en crédito, como en Windows (COB-1).
+  const [fechaVenta, setFechaVenta] = useState(() => hoyISO());
+  const [conCuotas, setConCuotas] = useState(false);
+  const [cuotasCantidad, setCuotasCantidad] = useState(() => String(parametros?.cuotas_defecto_cantidad ?? 4));
+  const [cuotasCada, setCuotasCada] = useState(() => String(parametros?.cuotas_defecto_dias ?? 15));
+  // El descuento arranca plegado: casi nunca se usa.
+  const [descuentoAbierto, setDescuentoAbierto] = useState(false);
+
+  // La clienta se busca ahí mismo, sin abrir otra hoja (COB-1). La lista se
+  // lee una vez al abrir el cobro y se filtra en el teléfono.
+  const [busquedaClienta, setBusquedaClienta] = useState('');
+  const [clientas, setClientas] = useState<ClienteDetalle[]>([]);
+  useEffect(() => {
+    if (!sheetCarritoAbierto) return;
+    let vigente = true;
+    ClientesRepoFirestore.listar()
+      .then((lista) => {
+        if (vigente) setClientas(lista);
+      })
+      .catch(() => {
+        // Sin la lista, queda "Clienta nueva" y la hoja de siempre.
+      });
+    return () => {
+      vigente = false;
+    };
+  }, [sheetCarritoAbierto]);
+  const coincidencias = busquedaClienta.trim()
+    ? clientas.filter((c) => algunoContiene([c.nombre, c.alias, c.telefono], busquedaClienta)).slice(0, 5)
+    : [];
+  const anotadasCoinciden = busquedaClienta.trim()
+    ? clientasNuevasEnCola(cola).filter((n) => algunoContiene([n.datos.nombre, n.datos.telefono], busquedaClienta))
+    : [];
+
   // --- Confirmar Venta -------------------------------------------------------
   const [guardandoVenta, setGuardandoVenta] = useState(false);
   /** Dos toques en el mismo instante no arman dos ventas (C4: cada una con su id). */
@@ -244,19 +320,35 @@ export function QuickSaleView({
       if (esCredito && montoAbonoCents === null) {
         throw new Error('Escribí un monto válido, o dejalo en 0 si es fiado.');
       }
+      const malPrecio = carrito.find((l) => precioDeLinea(l) === null);
+      if (malPrecio) {
+        throw new Error(`Revisá el precio de ${malPrecio.producto.nombre}.`);
+      }
+      const cuotas = esCredito && conCuotas ? parsearDecimal(cuotasCantidad, { min: 2 }) : null;
+      const cadaDias = esCredito && conCuotas ? parsearDecimal(cuotasCada, { min: 1 }) : null;
+      if (esCredito && conCuotas && (cuotas === null || cadaDias === null)) {
+        throw new Error('Las cuotas: al menos 2, cada 1 día o más.');
+      }
+      if (!fechaVenta || fechaVenta > hoyISO()) {
+        throw new Error('La fecha de la venta no puede ser después de hoy.');
+      }
 
       const input: CrearVentaInput = {
         // Una clienta anotada sin señal todavía no tiene id: lo pone la cola.
         cliente_id: clientaNueva ? undefined : clienteSeleccionado?.id,
-        fecha: hoyISO(),
+        fecha: fechaVenta,
         tipo: 'INVENTARIO',
         entregar_ahora: true,
         lineas: carrito.map((l) => ({
           producto_id: l.producto.id,
           variante_id: l.variante.id,
           cantidad: l.cantidad,
-          precio_unitario_usd_cents: l.producto.precio_venta_usd_cents,
+          precio_unitario_usd_cents: precioDeLinea(l) ?? l.producto.precio_venta_usd_cents,
         })),
+        plan_cuotas:
+          cuotas !== null && cadaDias !== null
+            ? { cantidad: Math.round(cuotas), cada_dias: Math.round(cadaDias) }
+            : undefined,
         descuento_tipo: descuentoCents > 0 ? descTipo : undefined,
         descuento_valor:
           descuentoCents > 0
@@ -339,7 +431,7 @@ export function QuickSaleView({
               activo: true,
             }
           : undefined,
-        fecha: hoyISO(),
+        fecha: fechaVenta,
         tipo: 'INVENTARIO',
         estado: 'ENTREGADA',
         tasa_cambio_cents: tasa,
@@ -364,9 +456,9 @@ export function QuickSaleView({
           variante_id: l.variante.id,
           descripcion: `${l.producto.nombre}${l.variante.color ? ` - ${l.variante.color}` : ''}`,
           cantidad: l.cantidad,
-          precio_unitario_usd_cents: l.producto.precio_venta_usd_cents,
+          precio_unitario_usd_cents: precioDeLinea(l) ?? l.producto.precio_venta_usd_cents,
           costo_unitario_usd_cents: l.producto.costo_unitario_usd_cents ?? 0,
-          subtotal_usd_cents: l.producto.precio_venta_usd_cents * l.cantidad,
+          subtotal_usd_cents: (precioDeLinea(l) ?? l.producto.precio_venta_usd_cents) * l.cantidad,
           costo_total_usd_cents: (l.producto.costo_unitario_usd_cents ?? 0) * l.cantidad,
           es_paquete: false,
           orden: idx,
@@ -392,6 +484,7 @@ export function QuickSaleView({
       // arriba decía lo mismo otra vez.
     } catch (err: any) {
       console.error('[QuickSaleView] Error guardando venta:', err);
+      haptics.error();
       mostrar(err?.message || 'No se pudo guardar la venta.', 'error');
     } finally {
       guardandoRef.current = false;
@@ -410,6 +503,12 @@ export function QuickSaleView({
     setDescTipo('PORCENTAJE');
     setMoneda(monedaPorDefecto(parametros));
     setMetodo(metodoPorDefecto(parametros));
+    setFechaVenta(hoyISO());
+    setConCuotas(false);
+    setCuotasCantidad(String(parametros?.cuotas_defecto_cantidad ?? 4));
+    setCuotasCada(String(parametros?.cuotas_defecto_dias ?? 15));
+    setDescuentoAbierto(false);
+    setBusquedaClienta('');
   }
 
   /**
@@ -765,11 +864,26 @@ export function QuickSaleView({
       {/* La barra de cobro (VEN-4): mientras hay algo en el carrito ocupa el
           lugar de la barra de navegación, que App esconde. Antes se apilaba
           encima y las dos se comían casi 170 px de pantalla. */}
-      {carrito.length > 0 && (
+      {carrito.length > 0 && !navegacionVisible && (
         <div
-          className="fixed inset-x-0 z-40 flex justify-center px-3 pointer-events-none"
+          className="fixed inset-x-0 z-40 flex justify-center gap-2 px-3 pointer-events-none"
           style={{ bottom: 'calc(0.65rem + env(safe-area-inset-bottom, 0px))' }}
         >
+          {/* La salida: ir a otra pantalla sin vaciar el carrito. Al volver a
+              Vender, la barra de cobro vuelve a su lugar. */}
+          {onMostrarNavegacion && (
+            <button
+              type="button"
+              aria-label="Mostrar la barra de navegación"
+              onClick={() => {
+                haptics.impact('light');
+                onMostrarNavegacion();
+              }}
+              className="pointer-events-auto m3-press flex w-14 shrink-0 items-center justify-center rounded-[26px] bg-superficie-3 text-texto-2 shadow-m3-3 border border-borde cursor-pointer"
+            >
+              <LayoutGrid size={20} />
+            </button>
+          )}
           <button
             type="button"
             onClick={() => {
@@ -846,304 +960,487 @@ export function QuickSaleView({
         </div>
       </BottomSheet>
 
-      {/* Modal Bottom Sheet: Carrito y Checkout de Venta */}
-      <BottomSheet
-        abierto={sheetCarritoAbierto}
-        onCerrar={() => setSheetCarritoAbierto(false)}
-        titulo="Carrito"
-        subtitulo={`${cantidadTotalItems} ${cantidadTotalItems === 1 ? 'producto listo' : 'productos listos'} para cobrar`}
-        maxHeight="92vh"
-        footer={
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1">
-              {descuentoCents > 0 && (
-                <div className="flex items-center justify-between text-[11px] text-texto-3">
-                  <span>Subtotal</span>
-                  <span>{formatearMoneda(subtotalUsdCents, 'USD')}</span>
-                </div>
-              )}
-              {descuentoCents > 0 && (
-                <div className="flex items-center justify-between text-[11px] font-semibold text-acento">
-                  <span className="flex items-center gap-1"><Tag size={11} />Descuento ({descTipo === 'PORCENTAJE' ? `${descValorTexto}%` : `$${descValorTexto}`})</span>
-                  <span>-{formatearMoneda(descuentoCents, 'USD')}</span>
-                </div>
-              )}
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-texto-3">Total</span>
-                <div className="text-right">
-                  <p className="text-xl font-extrabold text-texto tabular-nums">
-                    {formatearMoneda(totalEnMonedaElegida, moneda)}
-                  </p>
-                  {moneda === 'COR' && (
-                    <p className="text-[11px] font-medium text-texto-3">
-                      ≈ {formatearMoneda(totalUsdCents, 'USD')}
-                    </p>
-                  )}
-                </div>
-              </div>
-              {bajoCosto && (
-                <p className="text-[11px] font-bold text-peligro text-center">Por debajo del costo</p>
-              )}
-            </div>
-
-            {!enLinea && (
-              <p className="text-center text-[11px] font-medium text-texto-3">
-                Sin señal: queda en el teléfono y se sube sola cuando vuelva.
-              </p>
-            )}
-            <button
-              type="button"
-              onClick={confirmarVenta}
-              disabled={guardandoVenta}
-              className="m3-press tocable flex w-full items-center justify-center gap-2 rounded-2xl bg-acento hover:bg-acento px-5 py-3.5 text-sm font-extrabold text-acento-texto shadow-lg shadow-m3-2 active:scale-[0.98] disabled:opacity-50 cursor-pointer"
-            >
-              {guardandoVenta ? <Loader2 size={19} className="animate-spin" /> : <CheckCircle2 size={19} />}
-              <span>{guardandoVenta ? 'Guardando…' : 'Registrar venta'}</span>
-            </button>
-          </div>
-        }
-      >
-        <div className="flex flex-col gap-4 pb-2">
-          {/* Lista de productos en carrito */}
-          <div className="flex flex-col gap-2 max-h-56 overflow-y-auto pr-1">
-            {carrito.map((l) => (
-              <div
-                key={l.clave}
-                className="flex items-center gap-2.5 rounded-2xl bg-superficie-2/80 border border-borde p-2.5"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-body font-bold text-texto">{l.producto.nombre}</p>
-                  {l.producto.tiene_variantes && (
-                    <p className="text-caption text-acento font-semibold">{etiquetaVariante(l.variante)}</p>
-                  )}
-                  <p className="text-label text-texto-3 tabular-nums">
-                    {formatearMoneda(l.producto.precio_venta_usd_cents, 'USD')} c/u
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => cambiarCantidad(l.clave, -1)}
-                    className="m3-press flex h-8 w-8 items-center justify-center rounded-xl bg-superficie-3 border border-borde text-texto-2 shadow-sm cursor-pointer"
-                    aria-label="Restar una unidad"
-                  >
-                    <Minus size={14} />
-                  </button>
-                  <span className="w-5 text-center text-xs font-bold text-texto tabular-nums">
-                    {l.cantidad}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => cambiarCantidad(l.clave, 1)}
-                    disabled={l.cantidad >= l.variante.existencias}
-                    className="m3-press flex h-8 w-8 items-center justify-center rounded-xl bg-superficie-3 border border-borde text-texto-2 shadow-sm disabled:opacity-30 cursor-pointer"
-                    aria-label="Sumar una unidad"
-                  >
-                    <Plus size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => quitarLinea(l.clave)}
-                    className="m3-press flex h-8 w-8 items-center justify-center rounded-xl text-peligro hover:bg-peligro-suave cursor-pointer"
-                    aria-label="Quitar producto"
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Clienta seleccionada */}
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-bold text-texto-2">Clienta</span>
-            {clienteSeleccionado ? (
-              <div className="flex items-center justify-between rounded-2xl bg-superficie-2 border border-borde p-3">
+      {/* El cobro en una pantalla completa (COB-1), de arriba hacia abajo:
+          clienta, artículos con su precio, descuento plegado, forma de pago,
+          moneda, método y fecha; al pie el total y "Registrar venta". Antes
+          era una hoja con todo abierto y dos listas desplegables. */}
+      {sheetCarritoAbierto && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cobro-titulo"
+          className="fixed inset-0 z-50 flex flex-col bg-fondo text-texto"
+        >
+          <header className="shrink-0 bg-superficie/95 backdrop-blur-md border-b border-borde pt-safe-t px-4 pb-2 shadow-m3-1">
+            <div className="flex items-center justify-between gap-2 py-1.5">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-superficie-2 text-texto-2 border border-borde">
+                  <ShoppingCart size={18} />
+                </span>
                 <div className="min-w-0">
-                  <p className="text-xs font-bold text-acento">{clienteSeleccionado.nombre}</p>
-                  {clienteSeleccionado.telefono && (
-                    <p className="text-[11px] text-acento">{clienteSeleccionado.telefono}</p>
-                  )}
-                  {clientaNueva && (
-                    <p className="text-[11px] font-semibold text-alerta-fuerte">Nueva · se guarda al subir la venta</p>
-                  )}
+                  <span className="text-caption font-bold tracking-widest uppercase text-texto-3 block leading-none mb-0.5">
+                    {cantidadTotalItems} {cantidadTotalItems === 1 ? 'producto' : 'productos'}
+                  </span>
+                  <h1 id="cobro-titulo" className="text-title font-extrabold text-texto leading-tight">
+                    Cobrar
+                  </h1>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setClienteSeleccionado(null);
-                    setClientaNueva(null);
-                  }}
-                  className="text-xs font-bold text-peligro hover:underline px-2 py-1 cursor-pointer"
-                >
-                  Cambiar
-                </button>
               </div>
-            ) : (
               <button
                 type="button"
-                onClick={() => setSheetClienteAbierto(true)}
-                className="m3-press flex items-center justify-center gap-2 rounded-2xl border border-dashed border-borde bg-superficie/80 p-3 text-xs font-bold text-texto-2 hover:bg-superficie-3 cursor-pointer"
+                aria-label="Cerrar"
+                onClick={() => {
+                  haptics.impact('light');
+                  setSheetCarritoAbierto(false);
+                }}
+                className="m3-press flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-borde bg-superficie-2/90 text-texto-2 cursor-pointer"
               >
-                <User size={15} />
-                <span>Mostrador · tocá para elegir clienta</span>
+                <X size={17} />
               </button>
-            )}
-          </div>
-
-          {/* Panel de Descuento */}
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-texto-2 flex items-center gap-1">
-                <Tag size={13} className="text-acento" />
-                Descuento
-              </span>
-              {descuentoCents > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setDescValorTexto('')}
-                  className="text-[11px] text-peligro font-semibold cursor-pointer"
-                >
-                  Quitar descuento
-                </button>
-              )}
             </div>
-            {/* Píldoras rápidas */}
-            <div className="flex flex-wrap gap-1.5">
-              {([
-                { l: '5%', t: 'PORCENTAJE', v: 5 },
-                { l: '10%', t: 'PORCENTAJE', v: 10 },
-                { l: '15%', t: 'PORCENTAJE', v: 15 },
-                { l: '$2', t: 'MONTO_FIJO', v: 2 },
-                { l: '$5', t: 'MONTO_FIJO', v: 5 },
-                { l: '$10', t: 'MONTO_FIJO', v: 10 },
-              ] as { l: string; t: TipoDescuento; v: number }[]).map((p) => {
-                const activa = descTipo === p.t && (parsearDecimal(descValorTexto) ?? 0) === p.v;
-                return (
+          </header>
+
+          <main className="flex-1 min-h-0 overflow-y-auto px-3.5 pt-3 pb-4">
+            <div className="flex flex-col gap-4">
+              {/* Clienta: se busca acá mismo; "Mostrador" si no se elige. */}
+              <section aria-labelledby="cobro-clienta" className="flex flex-col gap-1.5">
+                <h2 id="cobro-clienta" className="text-xs font-bold text-texto-2">
+                  Clienta
+                </h2>
+                {clienteSeleccionado ? (
+                  <div className="flex items-center justify-between gap-2 rounded-2xl bg-superficie-2 border border-borde p-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-body font-bold text-texto">{clienteSeleccionado.nombre}</p>
+                      {clienteSeleccionado.telefono && (
+                        <p className="text-caption text-texto-3">{clienteSeleccionado.telefono}</p>
+                      )}
+                      {clientaNueva ? (
+                        <p className="text-caption font-semibold text-alerta-fuerte">Nueva · se guarda al subir la venta</p>
+                      ) : (
+                        clienteSeleccionado.saldo_pendiente_usd_cents > 0 && (
+                          <p className="text-caption font-semibold text-alerta-fuerte">
+                            Debe {formatearMoneda(clienteSeleccionado.saldo_pendiente_usd_cents, 'USD')}
+                          </p>
+                        )
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        haptics.impact('light');
+                        setClienteSeleccionado(null);
+                        setClientaNueva(null);
+                        setBusquedaClienta('');
+                      }}
+                      className="tocable shrink-0 px-2 text-xs font-bold text-texto-2 cursor-pointer"
+                    >
+                      Cambiar
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="relative">
+                      <Search size={17} className="pointer-events-none absolute left-3 top-3.5 text-texto-3" />
+                      <input
+                        value={busquedaClienta}
+                        onChange={(e) => setBusquedaClienta(e.target.value)}
+                        aria-label="Buscar clienta"
+                        placeholder="Mostrador · buscá por nombre o teléfono"
+                        autoComplete="off"
+                        className="h-12 w-full rounded-xl border border-borde bg-superficie pl-10 pr-3 text-base text-texto placeholder:text-texto-3 outline-none focus:border-acento"
+                      />
+                    </div>
+                    {(coincidencias.length > 0 || anotadasCoinciden.length > 0) && (
+                      <div className="flex flex-col divide-y divide-borde rounded-2xl border border-borde bg-superficie px-3">
+                        {anotadasCoinciden.map((nueva) => (
+                          <button
+                            key={nueva.operacion_id}
+                            type="button"
+                            onClick={() => {
+                              haptics.selection();
+                              setClienteSeleccionado(clientaProvisoria(nueva));
+                              setClientaNueva(nueva);
+                              setBusquedaClienta('');
+                            }}
+                            className="tocable flex w-full items-center justify-between gap-2 py-2.5 text-left cursor-pointer"
+                          >
+                            <span className="min-w-0">
+                              <span className="block truncate text-sm font-bold text-texto">{nueva.datos.nombre}</span>
+                              <span className="block text-xs text-alerta-fuerte">Anotada sin señal · se guarda al subir</span>
+                            </span>
+                          </button>
+                        ))}
+                        {coincidencias.map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => {
+                              haptics.selection();
+                              setClienteSeleccionado(c);
+                              setClientaNueva(null);
+                              setBusquedaClienta('');
+                            }}
+                            className="tocable flex w-full items-center justify-between gap-2 py-2.5 text-left cursor-pointer"
+                          >
+                            <span className="min-w-0">
+                              <span className="block truncate text-sm font-bold text-texto">{c.nombre}</span>
+                              {c.telefono && <span className="block text-xs text-texto-3">{c.telefono}</span>}
+                            </span>
+                            {c.saldo_pendiente_usd_cents > 0 && (
+                              <span className="shrink-0 text-xs font-bold tabular-nums text-alerta-fuerte">
+                                Debe {formatearMoneda(c.saldo_pendiente_usd_cents, 'USD')}
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        haptics.impact('light');
+                        setSheetClienteAbierto(true);
+                      }}
+                      className="tocable flex items-center justify-center gap-2 rounded-xl border border-dashed border-borde bg-superficie/80 px-3 text-xs font-bold text-texto-2 cursor-pointer"
+                    >
+                      <User size={15} />
+                      Ver todas o anotar una clienta nueva
+                    </button>
+                  </>
+                )}
+              </section>
+
+              {/* Los artículos, con su cantidad y un precio que se puede cambiar. */}
+              <section aria-labelledby="cobro-articulos" className="flex flex-col gap-1.5">
+                <h2 id="cobro-articulos" className="text-xs font-bold text-texto-2">
+                  Artículos
+                </h2>
+                {carrito.map((l) => {
+                  const precio = precioDeLinea(l);
+                  return (
+                    <div key={l.clave} className="flex flex-col gap-2 rounded-2xl bg-superficie border border-borde p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-body font-bold text-texto">{l.producto.nombre}</p>
+                          {l.producto.tiene_variantes && (
+                            <p className="text-caption text-acento font-semibold">{etiquetaVariante(l.variante)}</p>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => quitarLinea(l.clave)}
+                          className="m3-press flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-peligro hover:bg-peligro-suave cursor-pointer"
+                          aria-label="Quitar producto"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <label className="flex items-center gap-1.5">
+                          <span className="text-caption font-semibold text-texto-3">Precio c/u $</span>
+                          <input
+                            // Texto, no `type="number"`: el navegador convierte
+                            // "1,500" en "1.500" antes de que la app lo vea.
+                            type="text"
+                            inputMode="decimal"
+                            value={l.precioTexto}
+                            onChange={(e) => cambiarPrecio(l.clave, e.target.value)}
+                            aria-label={`Precio de ${l.producto.nombre}`}
+                            aria-invalid={precio === null}
+                            className={`h-10 w-24 rounded-xl border bg-superficie-2 px-2.5 text-right text-base font-bold tabular-nums text-texto outline-none focus:ring-2 focus:ring-acento ${
+                              precio === null ? 'border-peligro' : 'border-borde'
+                            }`}
+                          />
+                        </label>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => cambiarCantidad(l.clave, -1)}
+                            className="m3-press flex h-8 w-8 items-center justify-center rounded-xl bg-superficie-3 border border-borde text-texto-2 shadow-sm cursor-pointer"
+                            aria-label="Restar una unidad"
+                          >
+                            <Minus size={14} />
+                          </button>
+                          <span className="w-5 text-center text-xs font-bold text-texto tabular-nums">{l.cantidad}</span>
+                          <button
+                            type="button"
+                            onClick={() => cambiarCantidad(l.clave, 1)}
+                            disabled={l.cantidad >= l.variante.existencias}
+                            className="m3-press flex h-8 w-8 items-center justify-center rounded-xl bg-superficie-3 border border-borde text-texto-2 shadow-sm disabled:opacity-30 cursor-pointer"
+                            aria-label="Sumar una unidad"
+                          >
+                            <Plus size={14} />
+                          </button>
+                        </div>
+                      </div>
+                      {precio !== null && precio !== l.producto.precio_venta_usd_cents && (
+                        <p className="text-caption text-texto-3">
+                          En la ficha: {formatearMoneda(l.producto.precio_venta_usd_cents, 'USD')}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </section>
+
+              {/* Descuento: plegado, casi nunca se usa. */}
+              <section className="flex flex-col gap-2">
+                {!descuentoAbierto && descuentoCents === 0 ? (
                   <button
-                    key={p.l}
                     type="button"
                     onClick={() => {
-                      haptics.selection();
-                      if (activa) {
-                        setDescValorTexto('');
-                      } else {
-                        setDescTipo(p.t);
-                        setDescValorTexto(String(p.v));
-                      }
+                      haptics.impact('light');
+                      setDescuentoAbierto(true);
                     }}
-                    className={`min-h-[36px] px-3.5 rounded-full text-xs font-bold border transition-all active:scale-95 cursor-pointer flex items-center justify-center ${
-                      activa
-                        ? 'bg-acento text-acento-texto border-acento-suave shadow-xs'
-                        : 'bg-superficie text-texto-2 border-borde hover:border-acento-suave'
-                    }`}
+                    className="tocable flex items-center gap-1.5 self-start px-1 text-xs font-bold text-texto-2 cursor-pointer"
                   >
-                    {p.l}
+                    <Tag size={13} className="text-acento" />
+                    Agregar descuento
+                    <ChevronDown size={14} />
                   </button>
-                );
-              })}
-            </div>
-            {/* Controles manuales compactos */}
-            <div className="flex gap-2">
-              <select
-                value={descTipo}
-                onChange={(e) => setDescTipo(e.target.value as TipoDescuento)}
-                className="h-10 rounded-xl border border-borde bg-superficie px-3 text-xs font-bold text-texto outline-none focus:ring-2 focus:ring-acento focus:border-acento-suave flex-1 transition-all"
-              >
-                <option value="PORCENTAJE">% Porcentaje</option>
-                <option value="MONTO_FIJO">$ Monto fijo</option>
-              </select>
-              <input
-                // Texto, no `type="number"`: el navegador convierte "1,500"
-                // en "1.500" antes de que la aplicación lo vea, y eso se lee
-                // como uno con medio. El parser de `@core/numeros` sí sabe
-                // distinguir miles de decimales, pero necesita el texto crudo.
-                // `inputMode` mantiene el teclado numérico en el celular.
-                type="text"
-                inputMode="decimal"
-                value={descValorTexto}
-                onChange={(e) => setDescValorTexto(e.target.value)}
-                placeholder={descTipo === 'PORCENTAJE' ? 'Ej. 10%' : 'Ej. $5.00'}
-                className="h-10 rounded-xl border border-borde bg-superficie px-3.5 text-xs font-extrabold text-texto placeholder:text-texto-3 outline-none focus:ring-2 focus:ring-acento focus:border-acento-suave flex-[2] transition-all"
-              />
-            </div>
-          </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-texto-2 flex items-center gap-1">
+                        <Tag size={13} className="text-acento" />
+                        Descuento
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDescValorTexto('');
+                          setDescuentoAbierto(false);
+                        }}
+                        className="tocable px-1 text-[11px] text-peligro font-semibold cursor-pointer"
+                      >
+                        Quitar descuento
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {([
+                        { l: '5%', t: 'PORCENTAJE', v: 5 },
+                        { l: '10%', t: 'PORCENTAJE', v: 10 },
+                        { l: '15%', t: 'PORCENTAJE', v: 15 },
+                        { l: '$2', t: 'MONTO_FIJO', v: 2 },
+                        { l: '$5', t: 'MONTO_FIJO', v: 5 },
+                        { l: '$10', t: 'MONTO_FIJO', v: 10 },
+                      ] as { l: string; t: TipoDescuento; v: number }[]).map((p) => {
+                        const activa = descTipo === p.t && (parsearDecimal(descValorTexto) ?? 0) === p.v;
+                        return (
+                          <button
+                            key={p.l}
+                            type="button"
+                            onClick={() => {
+                              haptics.selection();
+                              if (activa) {
+                                setDescValorTexto('');
+                              } else {
+                                setDescTipo(p.t);
+                                setDescValorTexto(String(p.v));
+                              }
+                            }}
+                            aria-pressed={activa}
+                            className={`min-h-[36px] px-3.5 rounded-full text-xs font-bold border transition-all active:scale-95 cursor-pointer flex items-center justify-center ${
+                              activa
+                                ? 'bg-acento text-acento-texto border-acento-suave shadow-xs'
+                                : 'bg-superficie text-texto-2 border-borde hover:border-acento-suave'
+                            }`}
+                          >
+                            {p.l}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <span id="cobro-tipo-descuento" className="sr-only">
+                      Tipo de descuento
+                    </span>
+                    <OpcionesSegmentadas
+                      etiquetaId="cobro-tipo-descuento"
+                      opciones={OPCIONES_DESCUENTO}
+                      valor={descTipo}
+                      onCambiar={(t) => setDescTipo(t as TipoDescuento)}
+                    />
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={descValorTexto}
+                      onChange={(e) => setDescValorTexto(e.target.value)}
+                      aria-label="Valor del descuento"
+                      placeholder={descTipo === 'PORCENTAJE' ? 'Ej. 10%' : 'Ej. $5.00'}
+                      className="h-11 rounded-xl border border-borde bg-superficie px-3.5 text-base font-extrabold text-texto placeholder:text-texto-3 outline-none focus:ring-2 focus:ring-acento"
+                    />
+                  </>
+                )}
+              </section>
 
-          {/* Opciones de Pago (Contado / Crédito) */}
-          <div className="flex flex-col gap-2">
-            <span className="text-xs font-bold text-texto-2">Pago</span>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setEsCredito(false)}
-                className={`m3-press py-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                  !esCredito
-                    ? 'bg-acento text-acento-texto border-acento-suave shadow-md shadow-m3-2'
-                    : 'bg-superficie text-texto-2 border-borde'
-                }`}
-              >
-                Contado (Pagado ya)
-              </button>
-              <button
-                type="button"
-                onClick={() => setEsCredito(true)}
-                className={`m3-press py-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                  esCredito
-                    ? 'bg-acento text-acento-texto border-acento-suave shadow-md shadow-m3-2'
-                    : 'bg-superficie text-texto-2 border-borde'
-                }`}
-              >
-                Crédito / Apartado
-              </button>
-            </div>
-
-            {/* Selector de Moneda y Método sin emojis */}
-            <div className="grid grid-cols-2 gap-2 mt-1">
-              <select
-                value={metodo}
-                onChange={(e) => setMetodo(e.target.value as MetodoPago)}
-                className="h-10 rounded-xl border border-borde bg-superficie px-3 text-xs font-semibold text-texto outline-none"
-              >
-                <option value="EFECTIVO" className="bg-superficie-3">Efectivo</option>
-                <option value="TRANSFERENCIA" className="bg-superficie-3">Transferencia</option>
-                <option value="OTRO" className="bg-superficie-3">Otro método</option>
-              </select>
-
-              <select
-                value={moneda}
-                onChange={(e) => setMoneda(e.target.value as MonedaPago)}
-                className="h-10 rounded-xl border border-borde bg-superficie px-3 text-xs font-semibold text-texto outline-none"
-              >
-                <option value="COR" className="bg-superficie-3">C$ Córdobas</option>
-                <option value="USD" className="bg-superficie-3">US$ Dólares</option>
-              </select>
-            </div>
-
-            {/* Abono inicial en crédito */}
-            {esCredito && (
-              <div className="flex flex-col gap-1 mt-1 animate-m3-fade">
-                <label className="text-xs font-bold text-texto-2">
-                  Monto abonado hoy ({moneda === 'COR' ? 'C$' : 'US$'})
-                </label>
-                <input
-                  // Texto, no `type="number"`: el navegador convierte "1,500"
-                  // en "1.500" antes de que la aplicación lo vea, y eso se lee
-                  // como uno con medio. El parser de `@core/numeros` sí sabe
-                  // distinguir miles de decimales, pero necesita el texto crudo.
-                  // `inputMode` mantiene el teclado numérico en el celular.
-                  type="text"
-                  inputMode="decimal"
-                  value={montoAbonoTexto}
-                  onChange={(e) => setMontoAbonoTexto(e.target.value)}
-                  placeholder="0.00 (0 si es fiado)"
-                  className="rounded-xl border border-borde bg-superficie px-3 py-2 text-sm font-bold text-texto placeholder:text-texto-3 outline-none focus:border-acento-suave"
+              {/* La forma de pago: Contado o Crédito. Sin "Apartado": el negocio
+                  no aparta (Joswill, COB-2). */}
+              <section className="flex flex-col gap-2">
+                <h2 id="cobro-forma" className="text-xs font-bold text-texto-2">
+                  Pago
+                </h2>
+                <OpcionesSegmentadas
+                  etiquetaId="cobro-forma"
+                  opciones={OPCIONES_FORMA}
+                  valor={esCredito ? 'CREDITO' : 'CONTADO'}
+                  onCambiar={(f) => setEsCredito(f === 'CREDITO')}
                 />
+                {esCredito && (
+                  <div className="flex flex-col gap-2 rounded-2xl bg-superficie border border-borde p-3">
+                    <label className="flex flex-col gap-1">
+                      <span className="text-xs font-bold text-texto-2">
+                        Cuánto paga hoy ({moneda === 'COR' ? 'C$' : 'US$'})
+                      </span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={montoAbonoTexto}
+                        onChange={(e) => setMontoAbonoTexto(e.target.value)}
+                        placeholder="0.00 (0 si es fiado)"
+                        className="h-11 rounded-xl border border-borde bg-superficie-2 px-3 text-base font-bold text-texto placeholder:text-texto-3 outline-none focus:border-acento"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={conCuotas}
+                      onClick={() => {
+                        haptics.selection();
+                        setConCuotas((v) => !v);
+                      }}
+                      className="tocable flex w-full items-center justify-between gap-3 text-left cursor-pointer"
+                    >
+                      <span className="text-xs font-bold text-texto-2">En cuotas</span>
+                      <span
+                        aria-hidden="true"
+                        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors duration-150 ${conCuotas ? 'bg-acento' : 'bg-borde-fuerte'}`}
+                      >
+                        <span
+                          className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-superficie shadow-sm transition-transform duration-150 ${conCuotas ? 'translate-x-5' : ''}`}
+                        />
+                      </span>
+                    </button>
+                    {conCuotas && (
+                      <div className="grid grid-cols-2 gap-2">
+                        <label className="flex flex-col gap-1">
+                          <span className="text-caption font-semibold text-texto-3">Cuántas cuotas</span>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={cuotasCantidad}
+                            onChange={(e) => setCuotasCantidad(e.target.value)}
+                            className="h-11 rounded-xl border border-borde bg-superficie-2 px-3 text-base font-bold tabular-nums text-texto outline-none focus:border-acento"
+                          />
+                        </label>
+                        <label className="flex flex-col gap-1">
+                          <span className="text-caption font-semibold text-texto-3">Cada cuántos días</span>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={cuotasCada}
+                            onChange={(e) => setCuotasCada(e.target.value)}
+                            className="h-11 rounded-xl border border-borde bg-superficie-2 px-3 text-base font-bold tabular-nums text-texto outline-none focus:border-acento"
+                          />
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </section>
+
+              {/* Moneda y método, con botones (OPC-1). */}
+              <section className="flex flex-col gap-2">
+                <h2 id="cobro-moneda" className="text-xs font-bold text-texto-2">
+                  Moneda
+                </h2>
+                <OpcionesSegmentadas
+                  etiquetaId="cobro-moneda"
+                  opciones={OPCIONES_MONEDA}
+                  valor={moneda}
+                  onCambiar={(m) => setMoneda(m as MonedaPago)}
+                />
+                <h2 id="cobro-metodo" className="mt-1 text-xs font-bold text-texto-2">
+                  Cómo paga
+                </h2>
+                <OpcionesSegmentadas
+                  etiquetaId="cobro-metodo"
+                  opciones={OPCIONES_METODO}
+                  valor={metodo}
+                  onCambiar={(m) => setMetodo(m as MetodoPago)}
+                />
+              </section>
+
+              {/* La fecha: hoy, y se puede cambiar como en Windows. */}
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-bold text-texto-2">Fecha</span>
+                <input
+                  type="date"
+                  value={fechaVenta}
+                  max={hoyISO()}
+                  onChange={(e) => setFechaVenta(e.target.value || hoyISO())}
+                  className="h-11 rounded-xl border border-borde bg-superficie px-3 text-base font-semibold text-texto outline-none focus:border-acento"
+                />
+              </label>
+            </div>
+          </main>
+
+          <footer className="shrink-0 border-t border-borde bg-superficie px-3.5 pt-3 pb-[max(env(safe-area-inset-bottom,0px),0.75rem)]">
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1">
+                {descuentoCents > 0 && (
+                  <div className="flex items-center justify-between text-[11px] text-texto-3">
+                    <span>Subtotal</span>
+                    <span>{formatearMoneda(subtotalUsdCents, 'USD')}</span>
+                  </div>
+                )}
+                {descuentoCents > 0 && (
+                  <div className="flex items-center justify-between text-[11px] font-semibold text-acento">
+                    <span className="flex items-center gap-1">
+                      <Tag size={11} />
+                      Descuento ({descTipo === 'PORCENTAJE' ? `${descValorTexto}%` : `$${descValorTexto}`})
+                    </span>
+                    <span>-{formatearMoneda(descuentoCents, 'USD')}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-texto-3">Total</span>
+                  <div className="text-right">
+                    <p className="text-xl font-extrabold text-texto tabular-nums">
+                      {formatearMoneda(totalEnMonedaElegida, moneda)}
+                    </p>
+                    <p className="text-[11px] font-medium text-texto-3 tabular-nums">
+                      ≈{' '}
+                      {moneda === 'COR'
+                        ? formatearMoneda(totalUsdCents, 'USD')
+                        : formatearMoneda(Math.round((totalUsdCents * tasa) / 100), 'COR')}
+                    </p>
+                  </div>
+                </div>
+                {bajoCosto && <p className="text-[11px] font-bold text-peligro text-center">Por debajo del costo</p>}
               </div>
-            )}
-          </div>
+
+              {!enLinea && (
+                <p className="text-center text-[11px] font-medium text-texto-3">
+                  Sin señal: queda en el teléfono y se sube sola cuando vuelva.
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  // En iPhone sólo vibra dentro del toque: antes de esperar nada.
+                  haptics.impact('heavy');
+                  void confirmarVenta();
+                }}
+                disabled={guardandoVenta}
+                className="m3-press tocable flex w-full items-center justify-center gap-2 rounded-2xl bg-acento hover:bg-acento px-5 py-3.5 text-sm font-extrabold text-acento-texto shadow-lg shadow-m3-2 active:scale-[0.98] disabled:opacity-50 cursor-pointer"
+              >
+                {guardandoVenta ? <Loader2 size={19} className="animate-spin" /> : <CheckCircle2 size={19} />}
+                <span>{guardandoVenta ? 'Guardando…' : 'Registrar venta'}</span>
+              </button>
+            </div>
+          </footer>
         </div>
-      </BottomSheet>
+      )}
 
       <SeleccionarClientaSheet
         abierto={sheetClienteAbierto}

@@ -55,7 +55,7 @@ pruebas `tests/c4-*.test.ts` tienen que seguir en verde.
 - [x] **T2 · La barra de cobro abajo** (VEN-4): `QuickSaleView` avisa cuántas
   unidades hay en el carrito; `App` esconde la barra de navegación mientras
   haya algo y la barra de cobro baja a su lugar.
-- [ ] **T3 · El cobro en pantalla completa** (COB-1, COB-2): la pantalla
+- [x] **T3 · El cobro en pantalla completa** (COB-1, COB-2): la pantalla
   nueva con clienta, artículos con precio editable, descuento plegado,
   Contado · Crédito con cuotas, moneda y método con botones, fecha y el pie.
 - [ ] **T4 · Elegir clienta** (COB-3): fila entera, sin "Elegir", con lo que
