@@ -44,7 +44,7 @@
 - [x] **T3 · Campos y movimiento**: la regla global de 16 px; sin animación
   al cambiar de pestaña; hojas a 240 ms de entrada y 180 de salida; presión a
   0,97; "reducir movimiento" en todo lo nuevo.
-- [ ] **T4 · Pruebas y capturas**: `npm test`, tipos, `test:interfaz`,
+- [x] **T4 · Pruebas y capturas**: `npm test`, tipos, `test:interfaz`,
   `test:sin-conexion`, `test:interfaz-escritorio` si se tocó algo compartido,
   `build:mobile`; capturas antes y después, en claro y oscuro, en la página
   para Joswill.

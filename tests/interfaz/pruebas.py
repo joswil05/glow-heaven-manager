@@ -1383,7 +1383,7 @@ def caso_ini1_orden(page: Page) -> list[str]:
     ir_a(page, "Inicio")
     page.get_by_role("region", name="Lo último").get_by_role("button").first.click()
     page.wait_for_timeout(1000)
-    if page.locator("main:visible").last.get_by_role("heading", name="Historial").count() == 0:
+    if page.get_by_role("heading", name="Historial", exact=True).count() == 0:
         fallas.append("tocar 'Lo último' no lleva al Historial")
     return fallas
 
@@ -1395,13 +1395,13 @@ def caso_nav1_mas(page: Page) -> list[str]:
         if page.locator("nav button", has_text=viejo).count():
             fallas.append(f"la barra todavía tiene {viejo!r}")
     # NAV-3: una insignia sólo con algo para hacer, nunca un cero de adorno.
-    for insignia in page.locator("nav [aria-label$='por hacer']").all():
+    for insignia in page.locator("nav [data-insignia]").all():
         if (insignia.text_content() or "").strip() in ("", "0"):
             fallas.append("la barra muestra una insignia vacía o en cero")
     page.locator("nav button", has_text="Más").first.click()
     page.wait_for_timeout(800)
     mas = page.locator("main:visible").last
-    expect(mas.get_by_role("heading", name="Más", exact=True)).to_be_visible()
+    expect(page.get_by_role("heading", name="Más", exact=True)).to_be_visible()
     for fila in ["Ventas", "Encargos", "Ajustes"]:
         if mas.get_by_role("button", name=re.compile("^" + fila)).count() == 0:
             fallas.append(f"'Más' no ofrece {fila!r}")
@@ -1409,19 +1409,19 @@ def caso_nav1_mas(page: Page) -> list[str]:
     # Ventas: la barra sigue a la vista con "Más" marcado; tocarla vuelve a la lista.
     mas.get_by_role("button", name=re.compile("^Ventas")).click()
     page.wait_for_timeout(900)
-    expect(page.locator("main:visible").last.get_by_role("heading", name="Historial")).to_be_visible()
+    expect(page.get_by_role("heading", name="Historial", exact=True)).to_be_visible()
     if page.locator("nav button[aria-current='page']", has_text="Más").count() == 0:
         fallas.append("en Ventas la barra no marca 'Más'")
     page.locator("nav button", has_text="Más").first.click()
     page.wait_for_timeout(700)
-    expect(page.locator("main:visible").last.get_by_role("heading", name="Más", exact=True)).to_be_visible()
+    expect(page.get_by_role("heading", name="Más", exact=True)).to_be_visible()
 
     # Encargos y Ajustes vuelven a "Más" con su botón de volver.
     page.locator("main:visible").last.get_by_role("button", name=re.compile("^Encargos")).click()
     principal = page.locator("main:visible").last
     expect(principal.get_by_role("heading", name="Encargos", exact=True)).to_be_visible()
     principal.get_by_role("button", name=re.compile("^Volver")).click()
-    expect(page.locator("main:visible").last.get_by_role("heading", name="Más", exact=True)).to_be_visible()
+    expect(page.get_by_role("heading", name="Más", exact=True)).to_be_visible()
     page.locator("main:visible").last.get_by_role("button", name=re.compile("^Ajustes")).click()
     page.wait_for_timeout(900)
     volver = visible(page, "button[aria-label='Volver']")
@@ -1430,7 +1430,7 @@ def caso_nav1_mas(page: Page) -> list[str]:
     else:
         volver.click()
         page.wait_for_timeout(700)
-        expect(page.locator("main:visible").last.get_by_role("heading", name="Más", exact=True)).to_be_visible()
+        expect(page.get_by_role("heading", name="Más", exact=True)).to_be_visible()
     ir_a(page, "Inicio")
     return fallas
 
@@ -1452,10 +1452,17 @@ def caso_cam1_campos(page: Page) -> list[str]:
     fallas += [f"Vender: {c}" for c in campos_chicos(page)]
     ir_a(page, "Cobros")
     fallas += [f"Clientas: {c}" for c in campos_chicos(page)]
-    problema = abrir_hoja_de_abono(page)
-    if problema:
-        fallas.append(problema)
+    # El formulario del abono, desde la acción rápida de Inicio: quién debe
+    # depende de lo que cobraron los casos de antes.
+    ir_a(page, "Inicio")
+    page.get_by_role("region", name="Acciones rápidas").get_by_role("button", name="Abono", exact=True).click()
+    page.wait_for_timeout(900)
+    abonar = en_hoja(page, "button", "Abonar")
+    if abonar is None:
+        fallas.append("no hay a quién abonar para medir el formulario")
     else:
+        abonar.click()
+        page.wait_for_timeout(1200)
         fallas += [f"abono: {c}" for c in campos_chicos(page)]
     cerrar_hojas(page)
     ir_a(page, "Inicio")

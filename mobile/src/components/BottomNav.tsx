@@ -53,6 +53,7 @@ export function BottomNav({ actual, onCambiar, insignias = {} }: BottomNavProps)
               // MOV-1: cambiar de pestaña no se anima; sólo responde al presionar.
               className="group relative flex flex-1 flex-col items-center justify-center py-1 px-1.5 rounded-2xl transition-transform duration-100 ease-out active:scale-[0.97] cursor-pointer outline-none select-none"
               aria-current={activo ? 'page' : undefined}
+              aria-label={insignia > 0 ? `${etiqueta}, ${insignia} por hacer` : undefined}
             >
               {/* Contenedor del icono con pill suave al estar activo */}
               <div
@@ -73,7 +74,8 @@ export function BottomNav({ actual, onCambiar, insignias = {} }: BottomNavProps)
                 {insignia > 0 && (
                   <span
                     className={`absolute -top-1 -right-1.5 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full text-[9.5px] font-black shadow-xs ${CLASE_INSIGNIA[vista] ?? 'bg-acento text-acento-texto'}`}
-                    aria-label={`${insignia} por hacer`}
+                    data-insignia=""
+                    aria-hidden="true"
                   >
                     {insignia}
                   </span>
