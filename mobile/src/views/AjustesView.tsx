@@ -5,7 +5,6 @@ import {
   Moon,
   Monitor,
   Store,
-  Package,
   Coins,
   LogOut,
   Check,
@@ -15,7 +14,6 @@ import {
 } from 'lucide-react';
 import { ParametrosRepoFirestore } from '@repos/parametros.repo';
 import { formatearMoneda } from '@core/moneda';
-import { parsearDecimal } from '@core/numeros';
 import { useTheme, type ThemeMode } from '../context/ThemeContext';
 import { useDatosNegocio } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
@@ -39,7 +37,6 @@ import type { ParametrosSistema } from '@shared/types';
  *
  *   - Apariencia: hoy vive escondida en un botón de la cabecera del Inicio.
  *   - El negocio: sale en los comprobantes que se mandan por WhatsApp.
- *   - Stock mínimo: define cuándo el catálogo avisa "queda poco".
  *   - Tasa de cambio: se muestra, no se edita. Cada venta guarda la tasa del
  *     día en que se hizo, así que cambiarla sólo afecta las ventas nuevas;
  *     igual es una decisión de la computadora, no del pulgar entre una
@@ -66,16 +63,14 @@ export function AjustesView({ onVolver }: { onVolver: () => void }) {
    * la barra de Guardar aparecía sola. Un toque borraba el nombre y el
    * teléfono del negocio en las dos apps y en todas las facturas.
    */
-  const [editado, setEditado] = useState<{ nombre?: string; telefono?: string; stockMinimo?: string }>({});
+  const [editado, setEditado] = useState<{ nombre?: string; telefono?: string }>({});
   const [buscandoVersion, setBuscandoVersion] = useState(false);
 
   const nombreGuardado = parametros?.nombre_negocio ?? '';
   const telefonoGuardado = parametros?.telefono_negocio ?? '';
-  const stockGuardado = parametros?.stock_minimo_defecto ?? 2;
 
   const nombre = editado.nombre ?? nombreGuardado;
   const telefono = editado.telefono ?? telefonoGuardado;
-  const stockMinimo = editado.stockMinimo ?? String(stockGuardado);
 
   // Se calcula una sola vez: pregunta por capacidades del navegador, no cambia
   // mientras la app está abierta.
@@ -117,27 +112,15 @@ export function AjustesView({ onVolver }: { onVolver: () => void }) {
     }
   }
 
-  // Se valida ANTES de guardar y se rechaza lo inválido, en vez de convertirlo
-  // en cero en silencio: un stock mínimo de 0 nunca avisaría de nada.
-  const stockNumero = parsearDecimal(stockMinimo, { min: 0 });
-  const stockValido = stockNumero !== null && Number.isInteger(stockNumero);
-
   // Lo que de verdad cambió, y es lo único que se manda: guardar el teléfono
   // no tiene por qué reescribir el nombre con lo que haya en la pantalla.
   const cambios: Partial<ParametrosSistema> = {};
   if (nombre.trim() !== nombreGuardado.trim()) cambios.nombre_negocio = nombre.trim();
   if (telefono.trim() !== telefonoGuardado.trim()) cambios.telefono_negocio = telefono.trim();
-  if (stockValido && stockNumero !== stockGuardado) cambios.stock_minimo_defecto = stockNumero;
 
-  // Un stock mal escrito también cuenta: la barra queda a la vista (apagada)
-  // junto al aviso, en vez de desaparecer como si no hubiera nada pendiente.
-  const hayCambios = parametros !== null && (Object.keys(cambios).length > 0 || !stockValido);
+  const hayCambios = parametros !== null && Object.keys(cambios).length > 0;
 
   async function guardar() {
-    if (!stockValido) {
-      mostrar('Tiene que ser un número entero, 0 o más.', 'error');
-      return;
-    }
     if (Object.keys(cambios).length === 0) return;
     if (!exigirConexion(SIN_RED.ajustes)) return;
     setGuardando(true);
@@ -264,38 +247,6 @@ export function AjustesView({ onVolver }: { onVolver: () => void }) {
             </label>
           </section>
 
-          {/* --- Inventario --- */}
-          <section className="rounded-2xl border border-borde bg-superficie p-4">
-            <div className="flex items-center gap-2">
-              <Package size={15} className="text-texto-3" />
-              <h2 className="text-caption font-bold uppercase tracking-widest text-texto-3">
-                Inventario
-              </h2>
-            </div>
-            <label className="mt-3 block">
-              <span className="text-label font-semibold text-texto-2">Avisar cuando queden</span>
-              <div className="mt-1 flex items-center gap-2">
-                <input
-                  value={stockMinimo}
-                  onChange={(e) => setEditado((p) => ({ ...p, stockMinimo: e.target.value }))}
-                  disabled={!parametros}
-                  inputMode="numeric"
-                  className={`h-11 w-24 rounded-xl border bg-superficie-2 px-3 text-body font-bold tabular-nums text-texto outline-none transition-[border-color,box-shadow] focus:ring-2 disabled:opacity-60 ${
-                    stockValido
-                      ? 'border-borde focus:border-acento focus:ring-acento/30'
-                      : 'border-peligro focus:ring-peligro/30'
-                  }`}
-                />
-                <span className="text-body text-texto-2">unidades o menos</span>
-              </div>
-              {!stockValido && (
-                <span className="mt-1 block text-caption font-semibold text-peligro">
-                  Tiene que ser un número entero de 0 o más.
-                </span>
-              )}
-            </label>
-          </section>
-
           {/* --- Tasa de cambio: solo lectura, y se explica por qué --- */}
           <section className="rounded-2xl border border-borde bg-superficie p-4">
             <div className="flex items-center gap-2">
@@ -390,7 +341,7 @@ export function AjustesView({ onVolver }: { onVolver: () => void }) {
           <button
             type="button"
             onClick={guardar}
-            disabled={guardando || !stockValido}
+            disabled={guardando}
             className="m3-press tocable flex w-full items-center justify-center gap-2 rounded-2xl bg-acento px-5 py-3.5 text-sm font-bold text-acento-texto active:scale-[0.98] transition-transform disabled:opacity-50 cursor-pointer"
           >
             {guardando ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}

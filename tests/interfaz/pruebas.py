@@ -367,6 +367,8 @@ def caso_ajustes(page: Page) -> list[str]:
             fallas.append("ofrece 'Guardar cambios' sin que se haya tocado nada")
         if "recalcula" in page.locator("body").inner_text():
             fallas.append("dice que cambiar la tasa recalcula los precios, y no lo hace (CAJ-02)")
+        if "Avisar cuando queden" in (page.locator("main:visible").last.text_content() or ""):
+            fallas.append("sigue el aviso de pocas unidades, que no hace nada desde C1 (AJU-2)")
 
         # Un cambio de verdad: la barra aparece, y guardar no pisa lo demás.
         telefono.fill("7777-1111")
