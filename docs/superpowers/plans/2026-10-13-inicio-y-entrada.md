@@ -51,6 +51,6 @@ el total) e "Inventario" (está en su pestaña).
 - [x] **T4 · Inicio abajo**: "Te deben" (tocar una clienta abre Cobros
   buscándola; WhatsApp con la plantilla de cobro), "Encargos", paquetes y "Lo
   último".
-- [ ] **T5 · Pruebas y capturas**: casos nuevos en `tests/interfaz/pruebas.py`;
+- [x] **T5 · Pruebas y capturas**: casos nuevos en `tests/interfaz/pruebas.py`;
   `npm test`, tipos, `test:interfaz`, `test:sin-conexion`, `build:mobile`;
   capturas antes y después, en claro y oscuro, en la página para Joswill.

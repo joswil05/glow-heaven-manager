@@ -166,6 +166,30 @@ Formato de cada entrada:
 - Para Joswill: lo que necesita decidir o probar (o "nada").
 ```
 
+### 2026-10-15 13:20 · Claude Code
+- Hizo: **Inicio y entrada cerrados** (ENT-1, INI-1 a INI-3), en la rama
+  `mejoras-inicio`, sin publicar ni pasar a `master`. La entrada sólo con el
+  logo, "Entrá con tu cuenta de Glow Heaven" y Google. Inicio, con las
+  tarjetas de hoy: "Ventas de hoy" tocable (córdobas al lado, últimos 7 días
+  contra los 7 de antes), Vender · Abono · Pedido · Paquete, "Te deben" (las
+  tres que más deben, con WhatsApp), Encargos con lo que espera a Ross,
+  paquetes y "Lo último". Las capturas de antes y después están en la página
+  de Joswill, sección "Para revisar".
+- Commits: `8d01152` a este.
+- Pruebas: 752 unitarias; `test:interfaz` 53 casos sin errores de consola;
+  `test:sin-conexion` 11 casos; `build:mobile` con sus auditorías. Emulador
+  apagado.
+- Trampa: la suite de pantallas se caía entera al imprimir una falla con
+  "≈" (la consola de Windows no lo tiene) y los casos de después no
+  corrían; `pruebas.py` ahora reemplaza esos caracteres. Y los casos no
+  pueden contar con que "Ana Prueba" deba: los de antes le cobran todo.
+- Quedó a medias: la pantalla "Más" está creada (`MasView.tsx`, commit WIP)
+  pero sin conectar.
+- Sigue: la navegación y las reglas comunes
+  ([plan](superpowers/plans/2026-10-13-u2-navegacion-y-reglas.md)), T1.
+- Para Joswill: revisar "Para revisar" en la página; decir si ESC-1
+  (escanear) lo quiere ya o nunca.
+
 ### 2026-10-13 19:10 · Claude Code
 - Hizo: Joswill rechazó el diseño nuevo y pidió quedarse con el de hoy,
   ordenando y mejorando las pantallas. La página quedó como "Mejoras del
