@@ -23,6 +23,16 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+# La consola de Windows no tiene "≈" ni otros caracteres que pueden venir en
+# el mensaje de una falla: sin esto, imprimir la falla tumbaba la suite entera
+# y los casos de después no corrían. `sin_conexion.py` importa este módulo y
+# queda cubierto también.
+for _flujo in (sys.stdout, sys.stderr):
+    try:
+        _flujo.reconfigure(errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 from playwright.sync_api import sync_playwright, Page, expect  # noqa: E402
 
 import arnes  # noqa: E402
@@ -1322,7 +1332,11 @@ def caso_ini1_orden(page: Page) -> list[str]:
     ir_a(page, "Inicio")
     principal = page.locator("main:visible").last
     te_deben = page.get_by_role("region", name=re.compile("^Te deben"))
-    expect(te_deben).to_contain_text("Ana Prueba", timeout=15000)
+    # Quién debe depende de lo que pagaron los casos de antes: se toma la
+    # primera clienta que aparezca, no una fija.
+    filas = te_deben.locator(".m3-card button")
+    expect(filas.first).to_be_visible(timeout=15000)
+    nombre = (filas.first.locator("span.truncate").first.text_content() or "").strip()
     texto = principal.text_content() or ""
     orden = ["Ventas de hoy", "Vender", "Abono", "Pedido", "Paquete", "Te deben", "Encargos", "Paquetes", "Lo último"]
     posiciones = [texto.find(t) for t in orden]
@@ -1343,13 +1357,13 @@ def caso_ini1_orden(page: Page) -> list[str]:
         fallas.append("'Lo último' no muestra ventas ni abonos")
 
     # Tocar a una clienta de "Te deben" abre Cobros buscándola.
-    te_deben.get_by_role("button", name=re.compile("Ana Prueba")).click()
+    filas.first.click()
     page.wait_for_timeout(1200)
     campo = visible(page, "input[placeholder='Buscar clienta, venta o teléfono']")
     if campo is None:
         fallas.append("tocar a la clienta no abrió Cobros")
     else:
-        if campo.input_value() != "Ana Prueba":
+        if campo.input_value() != nombre:
             fallas.append(f"Cobros no la busca: el campo dice {campo.input_value()!r}")
         campo.fill("")
 
@@ -1369,7 +1383,7 @@ def caso_ini1_acciones(page: Page) -> list[str]:
     acciones = page.get_by_role("region", name="Acciones rápidas")
 
     acciones.get_by_role("button", name="Abono", exact=True).click()
-    expect(page.get_by_role("dialog").last).to_contain_text("Ana Prueba", timeout=10000)
+    expect(page.get_by_role("dialog").last).to_contain_text("Elegí la clienta", timeout=10000)
     cerrar_hojas(page)
 
     acciones.get_by_role("button", name="Pedido", exact=True).click()
