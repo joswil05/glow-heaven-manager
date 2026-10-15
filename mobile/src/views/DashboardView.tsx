@@ -13,7 +13,7 @@ import { textoAvance } from '@core/avance-paquete';
 import { ComprasRepoFirestore } from '@repos/compras.repo';
 import { formatearMoneda, usdCentavosACorCentavos } from '@core/moneda';
 import { cordobasQueSeDeben, enlaceMensaje, mensajeCobro } from '@core/mensajes';
-import { diaDeHistorial, textoEquivalente, textoPagado } from '@core/abonos';
+import { diaDeHistorial, textoEquivalente, textoPagado, textoTotalDeVenta } from '@core/abonos';
 import { obtenerDatosDashboard, obtenerUltimos, cacheDashboardGlobal, invalidarCacheDashboard } from '../lib/panel-movil';
 import { deudasPorClienta, dosSemanas, insigniasDeLaBarra, textoEncargosDeInicio, type DeudaDeClienta } from '../lib/inicio';
 import { hoyISO } from '../lib/util';
@@ -482,7 +482,7 @@ export function DashboardView({
                             m.cancelada ? 'text-texto-3 line-through' : 'text-texto'
                           }`}
                         >
-                          {m.pago ? textoPagado(m.pago) : formatearMoneda(m.venta?.total_usd_cents ?? 0, 'USD')}
+                          {m.pago ? textoPagado(m.pago) : m.venta ? textoTotalDeVenta(m.venta) : ''}
                         </span>
                         {m.cancelada ? (
                           <span className="rounded-full bg-peligro-suave px-2 py-0.5 text-caption font-bold text-peligro-fuerte">

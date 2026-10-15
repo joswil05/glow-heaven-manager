@@ -355,7 +355,7 @@ function calcularAlertas(s: Instantanea, parametros?: ParametrosSistema): Alerta
   // abriéndose en la pantalla de ventas.
   for (const v of s.ventas) {
     if (v.tipo !== 'ENCARGO' || (v.estado !== 'PENDIENTE' && v.estado !== 'COTIZADA')) continue;
-    const nombre = v.cliente_id ? (cliMap.get(v.cliente_id) ?? 'Cliente') : 'Cliente';
+    const nombre = v.cliente_id ? (cliMap.get(v.cliente_id) ?? 'Clienta sin ficha') : 'Mostrador';
     const etapa = etapaEncargo(v);
     const destino = { vista: 'encargos', id: v.id };
     // Un pedido anotado sin precio: el aviso es lo que evita que se olvide.

@@ -132,6 +132,14 @@ export function ordenHistorial(
 const DIAS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
+/**
+ * El total de una venta en una lista. Un pedido anotado sin precio todavía
+ * dice "Por cotizar": "$0.00" parecía una venta regalada (HIS-3).
+ */
+export function textoTotalDeVenta(v: { tipo?: string; total_usd_cents: number }): string {
+  return v.tipo === 'ENCARGO' && !(v.total_usd_cents > 0) ? 'Por cotizar' : formatearMoneda(v.total_usd_cents, 'USD');
+}
+
 /** El encabezado de un día en el historial: "Hoy", "Ayer", "lun 28 sep". */
 export function diaDeHistorial(fecha: string, hoy: string): string {
   const [a, m, d] = fecha.slice(0, 10).split('-').map(Number);

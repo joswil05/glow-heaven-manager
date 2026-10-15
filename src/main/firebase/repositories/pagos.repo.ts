@@ -408,23 +408,27 @@ export class PagosRepoFirestore {
     // El nombre sale de la clienta, no de la venta: la venta guarda sólo su
     // id. Antes se leía `cliente_nombre` de la venta, que nunca está, y todos
     // los abonos de la lista decían "Cliente".
-    const clienteIds = [...new Set(pagos.map((p) => p.cliente_id).filter(Boolean))] as number[];
-    const [ventasDocs, clientes] = await Promise.all([
-      Promise.all(
-        ventaIds.map(async (vid) => {
-          const v = await leerDoc<VentaDoc>('ventas', vid);
-          return [vid, v?.codigo] as const;
-        })
-      ),
-      leerVarios<{ nombre?: string }>('clientes', clienteIds),
-    ]);
-    const codigos = new Map<number, string | undefined>(ventasDocs);
+    // Un abono viejo puede no traer la clienta: la de su venta es la misma.
+    const ventasDocs = await Promise.all(
+      ventaIds.map(async (vid) => {
+        const v = await leerDoc<VentaDoc>('ventas', vid);
+        return [vid, { codigo: v?.codigo, cliente_id: v?.cliente_id }] as const;
+      })
+    );
+    const deVenta = new Map(ventasDocs);
+    const clienteDe = (p: Pago) => p.cliente_id || deVenta.get(p.venta_id)?.cliente_id || undefined;
+    const clienteIds = [...new Set(pagos.map(clienteDe).filter(Boolean))] as number[];
+    const clientes = await leerVarios<{ nombre?: string }>('clientes', clienteIds);
 
-    return pagos.map((p) => ({
-      ...p,
-      venta_codigo: codigos.get(p.venta_id) || `V-#${p.venta_id}`,
-      cliente_nombre: (p.cliente_id ? clientes.get(String(p.cliente_id))?.nombre : undefined) || 'Cliente',
-    }));
+    // Sin clienta es una venta de mostrador. Antes decía "Cliente" (HIS-3).
+    return pagos.map((p) => {
+      const id = clienteDe(p);
+      return {
+        ...p,
+        venta_codigo: deVenta.get(p.venta_id)?.codigo || `V-#${p.venta_id}`,
+        cliente_nombre: id ? clientes.get(String(id))?.nombre || 'Clienta sin ficha' : 'Mostrador',
+      };
+    });
   }
 
   /**

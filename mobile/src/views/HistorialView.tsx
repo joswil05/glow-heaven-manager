@@ -8,7 +8,7 @@ import { porQueNoSeBorraAbono, porQueNoSeBorraVenta } from '@core/borrado';
 import { formatearMoneda } from '@core/moneda';
 import { algunoContiene } from '@core/texto';
 import { hoyISO } from '@core/fechas';
-import { diaDeHistorial, ordenHistorial, textoEquivalente, textoPagado, textoQuien } from '@core/abonos';
+import { diaDeHistorial, ordenHistorial, textoEquivalente, textoPagado, textoQuien, textoTotalDeVenta } from '@core/abonos';
 import { useDatosNegocio } from '../context/DataContext';
 import { useSnackbar } from '../components/Snackbar';
 import { BottomSheet } from '../components/BottomSheet';
@@ -206,7 +206,7 @@ export function HistorialView() {
     setConfirmandoAnular(false);
   }
 
-  // El panel de "¿Qué pasó?" muestra "Cancelando…" mientras esto corre.
+  // El panel de "¿Qué pasó?" muestra "Anulando…" mientras esto corre.
   async function anular(item: Item) {
     if (!exigirConexion(SIN_RED.corregir)) return;
     try {
@@ -355,7 +355,6 @@ export function HistorialView() {
           {items.map((it, i) => {
             const dia = diaDeHistorial(it.fecha, hoy);
             const nuevoDia = i === 0 || diaDeHistorial(items[i - 1].fecha, hoy) !== dia;
-            const quien = textoQuien(it.tipo === 'venta' ? it.venta! : it.pago!);
             return (
               <div key={it.clave}>
                 {nuevoDia && (
@@ -382,7 +381,7 @@ export function HistorialView() {
                     <span className="truncate text-body font-bold leading-tight text-texto">{it.titulo}</span>
                     <span className="truncate text-caption font-medium text-texto-3">
                       {it.tipo === 'venta' ? 'Venta' : 'Abono'}
-                      {it.codigo ? ` · ${it.codigo}` : ''} · {quien}
+                      {it.codigo ? ` · ${it.codigo}` : ''}
                     </span>
                   </div>
 
@@ -392,7 +391,7 @@ export function HistorialView() {
                         it.cancelada ? 'text-texto-3 line-through' : 'text-texto'
                       }`}
                     >
-                      {it.tipo === 'abono' ? textoPagado(it.pago!) : formatearMoneda(it.venta!.total_usd_cents, 'USD')}
+                      {it.tipo === 'abono' ? textoPagado(it.pago!) : textoTotalDeVenta(it.venta!)}
                     </span>
                     {it.cancelada ? (
                       <span className="rounded-full bg-peligro-suave px-2 py-0.5 text-caption font-bold text-peligro-fuerte">
@@ -431,7 +430,7 @@ export function HistorialView() {
         }
         footer={
           sel && confirmandoAnular ? undefined : sel && sel.cancelada ? (
-            // Una venta cancelada que en realidad fue un error también se borra.
+            // Una venta anulada que en realidad fue un error también se borra.
             <button
               type="button"
               onClick={() => exigirConexion(SIN_RED.corregir) && setConfirmandoAnular(true)}
@@ -463,7 +462,7 @@ export function HistorialView() {
                 onClick={() => exigirConexion(SIN_RED.corregir) && setConfirmandoAnular(true)}
                 className="m3-press rounded-xl px-4 py-2.5 text-sm font-bold text-peligro cursor-pointer"
               >
-                {sel.tipo === 'venta' ? 'Cancelar esta venta' : 'Anular este abono'}
+                {sel.tipo === 'venta' ? 'Anular esta venta' : 'Anular este abono'}
               </button>
             </div>
           ) : undefined
@@ -477,7 +476,7 @@ export function HistorialView() {
               </span>
               <div className="mt-1 flex items-baseline gap-2.5">
                 <span className="text-2xl font-black tabular-nums text-texto">
-                  {sel.tipo === 'abono' ? textoPagado(sel.pago!) : formatearMoneda(sel.venta!.total_usd_cents, 'USD')}
+                  {sel.tipo === 'abono' ? textoPagado(sel.pago!) : textoTotalDeVenta(sel.venta!)}
                 </span>
                 <span className="text-sm font-bold tabular-nums text-texto-2">
                   {sel.tipo === 'abono'
@@ -506,7 +505,7 @@ export function HistorialView() {
               </button>
             )}
 
-            {sel.cancelada && <p className="text-body text-texto-2">Esta venta ya está cancelada.</p>}
+            {sel.cancelada && <p className="text-body text-texto-2">Esta venta ya está anulada.</p>}
 
             {confirmandoAnular && (
               <AnularOBorrarPanel
@@ -515,11 +514,11 @@ export function HistorialView() {
                     ? {
                         opcion: 'Se devolvió o se reembolsó',
                         detalle:
-                          'Las existencias vuelven al inventario y se anulan sus abonos. Queda en el historial como cancelada.' +
+                          'Las existencias vuelven al inventario y se anulan sus abonos. Queda en el historial como anulada.' +
                           (sel.fecha !== hoy ? ' Es de otro día: cambian cifras ya pasadas.' : ''),
-                        boton: 'Sí, cancelar la venta',
-                        enCurso: 'Cancelando…',
-                        noSePuede: sel.cancelada ? 'Ya está cancelada.' : null,
+                        boton: 'Sí, anular la venta',
+                        enCurso: 'Anulando…',
+                        noSePuede: sel.cancelada ? 'Ya está anulada.' : null,
                       }
                     : {
                         opcion: 'La plata se devolvió',

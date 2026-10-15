@@ -1043,10 +1043,14 @@ def caso_corregir(page: Page) -> list[str]:
     fila = visible(page, "main button", "C$1,500.00")
     if fila is None:
         return fallas + ["el abono de C$1,500 no se ve en córdobas en el Historial"]
+    # HIS-3: quién lo registró va en el detalle, no repetido en cada fila.
     if "Sin dato de quién" in fila.inner_text():
-        fallas.append("un abono registrado hoy no dice quién lo registró")
+        fallas.append("la fila todavía dice 'Sin dato de quién'")
     fila.click()
     page.wait_for_timeout(800)
+    detalle = page.get_by_role("dialog").last.text_content() or ""
+    if "Registró" not in detalle or "Sin dato de quién" in detalle:
+        fallas.append("el detalle de un abono registrado hoy no dice quién lo registró")
     corregir = en_hoja(page, "button", "Corregir abono")
     if corregir is None:
         return fallas + ["el detalle del abono no ofrece 'Corregir abono'"]
@@ -1123,9 +1127,10 @@ def caso_reacciona(page: Page) -> list[str]:
         return fallas + ["la venta de Ana no está en el Historial"]
     fila.click()
     page.wait_for_timeout(800)
-    cancelar = en_hoja(page, "button", "Cancelar esta venta")
+    # HIS-4: un solo verbo, "anular".
+    cancelar = en_hoja(page, "button", "Anular esta venta")
     if cancelar is None:
-        return fallas + ["el detalle no ofrece cancelar la venta"]
+        return fallas + ["el detalle no ofrece anular la venta"]
     cancelar.click()
     page.wait_for_timeout(300)
     # Desde "Fue un error" (30/9) primero se pregunta qué pasó.
@@ -1133,7 +1138,7 @@ def caso_reacciona(page: Page) -> list[str]:
     if se_devolvio is None:
         return fallas + ["cancelar no pregunta qué pasó"]
     se_devolvio.click()
-    confirmar = en_hoja(page, "button", "Sí, cancelar la venta")
+    confirmar = en_hoja(page, "button", "Sí, anular la venta")
     if confirmar is None:
         return fallas + ["cancelar no pide confirmación"]
     confirmar.click()

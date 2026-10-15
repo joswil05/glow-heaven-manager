@@ -6,7 +6,7 @@ import { haptics } from '../lib/haptics';
  * Deshacer una venta o un abono desde el celular: primero se pregunta qué
  * pasó, como en la computadora (`components/AnularOBorrar.tsx` del escritorio).
  *
- * Si pasó y se deshizo de verdad, se cancela y queda en el historial. Si
+ * Si pasó y se deshizo de verdad, se anula y queda en el historial. Si
  * nunca pasó, se borra sin dejar rastro (`core/borrado.ts`). Ninguna opción
  * viene elegida; la que no se puede se ve apagada con el motivo.
  */
@@ -14,9 +14,9 @@ interface Opcion {
   /** "Se devolvió o se reembolsó". */
   opcion: string;
   detalle: string;
-  /** "Sí, cancelar la venta". */
+  /** "Sí, anular la venta". */
   boton: string;
-  /** "Cancelando…". */
+  /** "Anulando…". */
   enCurso: string;
   /** Por qué no se puede, o null. */
   noSePuede?: string | null;
@@ -93,12 +93,23 @@ export function AnularOBorrarPanel({ anular, borrar, pedirPin, onAnular, onBorra
                 setEleccion(valor);
                 setError(null);
               }}
-              className={`tocable w-full rounded-xl border px-3 py-2.5 text-left transition-colors ${
-                activa ? 'border-acento bg-superficie ring-1 ring-acento' : 'border-borde bg-superficie'
+              className={`tocable flex w-full items-start gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors ${
+                activa ? 'border-acento bg-acento-suave ring-1 ring-acento' : 'border-borde bg-superficie'
               } ${apagada ? 'cursor-not-allowed' : 'cursor-pointer'}`}
             >
-              <span className={`block text-sm font-bold ${apagada ? 'text-texto-3' : 'text-texto'}`}>{o.opcion}</span>
-              <span className="mt-0.5 block text-[12px] leading-snug text-texto-2">{o.noSePuede ?? o.detalle}</span>
+              {/* HIS-4: la elegida se ve elegida, no sólo por el borde. */}
+              <span
+                aria-hidden="true"
+                className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
+                  activa ? 'border-acento' : apagada ? 'border-borde' : 'border-borde-fuerte'
+                }`}
+              >
+                {activa && <span className="h-2.5 w-2.5 rounded-full bg-acento" />}
+              </span>
+              <span className="min-w-0">
+                <span className={`block text-sm font-bold ${apagada ? 'text-texto-3' : 'text-texto'}`}>{o.opcion}</span>
+                <span className="mt-0.5 block text-[12px] leading-snug text-texto-2">{o.noSePuede ?? o.detalle}</span>
+              </span>
             </button>
           );
         })}
