@@ -3,6 +3,7 @@ import { Search, UserPlus } from 'lucide-react';
 import { ClientesRepoFirestore } from '@repos/clientes.repo';
 import type { ClienteDetalle } from '@shared/types';
 import { formatearTelefono } from '@core/formatos';
+import { formatearMoneda } from '@core/moneda';
 import { algunoContiene } from '@core/texto';
 import { enfocarPrimerError } from '../../../src/renderer/src/lib/enfocarPrimerError';
 import { nuevoGrupoEvento } from '../lib/util';
@@ -184,7 +185,7 @@ export function SeleccionarClientaSheet({ abierto, onCerrar, onSeleccionar }: Pr
           className="flex min-h-12 items-center justify-between gap-3 rounded-xl px-2 py-3 text-left">
           <span><span className="block text-sm font-bold">{nueva.datos.nombre}</span>
             <span className="block text-xs text-alerta-fuerte">Anotada sin señal · se guarda al subir</span>
-          </span><span className="text-xs font-bold text-acento-fuerte">Elegir</span>
+          </span>
         </button>)}
       </div>}
       {cargando ? <p role="status" className="py-3 text-sm text-texto-2">Buscando clientas…</p>
@@ -198,7 +199,13 @@ export function SeleccionarClientaSheet({ abierto, onCerrar, onSeleccionar }: Pr
               className="flex min-h-12 items-center justify-between gap-3 rounded-xl px-2 py-3 text-left">
               <span><span className="block text-sm font-bold">{clienta.nombre}</span>
                 {clienta.telefono && <span className="block text-xs text-texto-2">{clienta.telefono}</span>}
-              </span><span className="text-xs font-bold text-acento-fuerte">Elegir</span>
+              </span>
+              {/* COB-3: la fila entera se toca; lo que debe ayuda a decidir si fiarle. */}
+              {clienta.saldo_pendiente_usd_cents > 0 && (
+                <span className="shrink-0 text-xs font-bold tabular-nums text-alerta-fuerte">
+                  Debe {formatearMoneda(clienta.saldo_pendiente_usd_cents, 'USD')}
+                </span>
+              )}
             </button>)}
           </div>}
       </div>

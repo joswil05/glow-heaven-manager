@@ -1526,9 +1526,19 @@ def caso_mov2_vibracion(page: Page) -> list[str]:
 @caso("COB-1 · el cobro es una pantalla: sin apartado, con precio editable, cuotas y fecha")
 def caso_cob1_cobro(page: Page) -> list[str]:
     fallas = []
+    # COB-3: en "Elegí la clienta" se toca la fila; sin el "Elegir" repetido.
+    ir_a(page, "Vender")
+    visible(page, "header button").click()
+    selector = page.get_by_role("dialog", name="Elegí la clienta", exact=True)
+    expect(selector).to_be_visible(timeout=10000)
+    expect(selector.get_by_role("button", name=re.compile("Ana Prueba"))).to_be_visible(timeout=10000)
+    if selector.get_by_text("Elegir", exact=True).count():
+        fallas.append("cada clienta todavía repite 'Elegir' (COB-3)")
+    cerrar_hojas(page)
+
     problema = poner_en_el_carrito(page, "Labial Mate Rojo")
     if problema:
-        return [problema]
+        return fallas + [problema]
     visible(page, "span:text-is('Cobrar')").click()
     cobro = page.get_by_role("dialog", name="Cobrar", exact=True)
     expect(cobro).to_be_visible(timeout=10000)

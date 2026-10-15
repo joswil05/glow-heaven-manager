@@ -58,7 +58,7 @@ pruebas `tests/c4-*.test.ts` tienen que seguir en verde.
 - [x] **T3 · El cobro en pantalla completa** (COB-1, COB-2): la pantalla
   nueva con clienta, artículos con precio editable, descuento plegado,
   Contado · Crédito con cuotas, moneda y método con botones, fecha y el pie.
-- [ ] **T4 · Elegir clienta** (COB-3): fila entera, sin "Elegir", con lo que
+- [x] **T4 · Elegir clienta** (COB-3): fila entera, sin "Elegir", con lo que
   debe.
 - [ ] **T5 · Pruebas y capturas**: unitarias de lo puro, casos de pantalla,
   `test:interfaz`, `test:sin-conexion`, `build:mobile`; capturas para Joswill.
