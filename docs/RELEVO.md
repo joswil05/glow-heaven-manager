@@ -112,11 +112,21 @@ se trabaja**.
   ordenan las pantallas, se arregla lo que está mal y se traen las funciones
   de Windows con los componentes que ya hay. La rama `propuesta-u1` (paleta
   cálida y letra del sistema) queda descartada.
-- **Siguiente paso**: esperar las respuestas de Joswill en la página
-  "Mejoras del celular", https://claude.ai/artifact/L3oHYGfWZqyacpYjYpCQ2w:
-  cada pantalla del celular con sus capturas, sus controles y cómo se llega,
-  lo que falla, y 40 propuestas de orden, mejora o arreglo (con las
-  decisiones de la sección 10) que él marca Sí, No o Cambiar. Las respuestas se leen con la herramienta
+- **Joswill respondió las 40 propuestas** (13/10) en la página "Mejoras del
+  celular", https://claude.ai/artifact/L3oHYGfWZqyacpYjYpCQ2w: Sí a 38. No a
+  COB-2 ("no tengo sistema de apartado en mi modelo de negocio": la opción
+  "Apartado" sale del cobro) y No a ESC-1 (escanear; sin comentario, falta
+  preguntarle si lo quiere ya o nunca).
+- **En curso (13/10, noche)**: la rama de integración es `mejoras-inicio`
+  (Inicio y entrada hechos, con su plan
+  [2026-10-13-inicio-y-entrada](superpowers/plans/2026-10-13-inicio-y-entrada.md);
+  la navegación y las reglas comunes con el plan
+  [2026-10-13-u2-navegacion-y-reglas](superpowers/plans/2026-10-13-u2-navegacion-y-reglas.md)).
+  Se probó con siete agentes en paralelo, uno por fase, y se cortaron por el
+  límite de uso antes de escribir nada; sus worktrees se borraron. **Desde el
+  15/10 Joswill pidió trabajar de a una tarea, sin agentes que editen en
+  paralelo** (un subagente sólo para explorar o buscar). **Nada de esto está
+  publicado ni en `master`.** Las respuestas se leen con la herramienta
   ArtifactData de Claude Code (`list` de la colección `respuestas`: un
   documento por propuesta, con `estado`, `comentario` y `actualizado`);
   Codex no puede leerlas, así que se las pide a Joswill. **Nada del rediseño
