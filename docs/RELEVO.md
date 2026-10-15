@@ -115,8 +115,8 @@ se trabaja**.
 - **Joswill respondió las 40 propuestas** (13/10) en la página "Mejoras del
   celular", https://claude.ai/artifact/L3oHYGfWZqyacpYjYpCQ2w: Sí a 38. No a
   COB-2 ("no tengo sistema de apartado en mi modelo de negocio": la opción
-  "Apartado" sale del cobro) y No a ESC-1 (escanear; sin comentario, falta
-  preguntarle si lo quiere ya o nunca).
+  "Apartado" sale del cobro) y No a ESC-1 (escanear: el 15/10 dijo que se
+  olvide; no se hace ni se vuelve a proponer).
 - **En curso (13/10, noche)**: la rama de integración es `mejoras-inicio`
   (Inicio y entrada hechos, con su plan
   [2026-10-13-inicio-y-entrada](superpowers/plans/2026-10-13-inicio-y-entrada.md);
@@ -187,8 +187,7 @@ Formato de cada entrada:
   pero sin conectar.
 - Sigue: la navegación y las reglas comunes
   ([plan](superpowers/plans/2026-10-13-u2-navegacion-y-reglas.md)), T1.
-- Para Joswill: revisar "Para revisar" en la página; decir si ESC-1
-  (escanear) lo quiere ya o nunca.
+- Para Joswill: revisar "Para revisar" en la página.
 
 ### 2026-10-13 19:10 · Claude Code
 - Hizo: Joswill rechazó el diseño nuevo y pidió quedarse con el de hoy,
