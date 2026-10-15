@@ -52,7 +52,7 @@ pruebas `tests/c4-*.test.ts` tienen que seguir en verde.
 - [x] **T1 · Vender ordenado** (VEN-1, VEN-2, VEN-3): el buscador arriba;
   sin "Anotar un pedido"; sin el aviso al agregar; la foto o el ícono de la
   categoría; sin córdobas por fila.
-- [ ] **T2 · La barra de cobro abajo** (VEN-4): `QuickSaleView` avisa cuántas
+- [x] **T2 · La barra de cobro abajo** (VEN-4): `QuickSaleView` avisa cuántas
   unidades hay en el carrito; `App` esconde la barra de navegación mientras
   haya algo y la barra de cobro baja a su lugar.
 - [ ] **T3 · El cobro en pantalla completa** (COB-1, COB-2): la pantalla

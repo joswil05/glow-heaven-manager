@@ -255,6 +255,8 @@ function Navegacion() {
   const { cola } = useCola();
   const enCola = contarCola(cola);
   const sinSubir = enCola.pendientes + enCola.revisar;
+  /** Con algo en el carrito, la barra de cobro de Vender va en lugar de la navegación (VEN-4). */
+  const [enCarrito, setEnCarrito] = useState(0);
   /** Inicio abre Cobros buscando a una clienta de "Te deben". */
   const [busquedaCobros, setBusquedaCobros] = useState<{ texto: string; n: number } | null>(null);
   function abrirPaquete(origen: 'inventario' | 'panel', corregir: number | null) {
@@ -336,7 +338,7 @@ function Navegacion() {
               />
             </div>
             <div className={`h-full w-full overflow-hidden ${vista === 'vender' ? 'block' : 'hidden'}`}>
-              <QuickSaleView />
+              <QuickSaleView onCarritoCambia={setEnCarrito} />
             </div>
             <div className={`h-full w-full overflow-hidden ${vista === 'cobranza' ? 'block' : 'hidden'}`}>
               <CobranzaView buscar={busquedaCobros} />
@@ -378,7 +380,7 @@ function Navegacion() {
           </div>
           {/* Las ventas se abren desde "Más": mientras se miran, la pestaña
               marcada es "Más", y tocarla vuelve a la lista. */}
-          {vista !== 'ajustes' && vista !== 'registrar-paquete' && vista !== 'encargos' && (
+          {vista !== 'ajustes' && vista !== 'registrar-paquete' && vista !== 'encargos' && !(vista === 'vender' && enCarrito > 0) && (
             <BottomNav
               actual={vista === 'historial' ? 'mas' : vista}
               onCambiar={setVista}

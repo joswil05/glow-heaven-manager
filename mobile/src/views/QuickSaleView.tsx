@@ -57,7 +57,12 @@ function etiquetaVariante(v: ProductoVariante): string {
   return [v.talla, v.color].filter(Boolean).join(' · ') || 'Único';
 }
 
-export function QuickSaleView() {
+export function QuickSaleView({
+  onCarritoCambia,
+}: {
+  /** Cuántas unidades hay en el carrito: con algo, la barra de cobro ocupa el lugar de la navegación (VEN-4). */
+  onCarritoCambia?: (unidades: number) => void;
+} = {}) {
   const {
     parametros,
     categorias,
@@ -154,6 +159,9 @@ export function QuickSaleView() {
     () => carrito.reduce((s, l) => s + l.cantidad, 0),
     [carrito]
   );
+  useEffect(() => {
+    onCarritoCambia?.(cantidadTotalItems);
+  }, [onCarritoCambia, cantidadTotalItems]);
 
   const subtotalUsdCents = useMemo(
     () => carrito.reduce((s, l) => s + l.producto.precio_venta_usd_cents * l.cantidad, 0),
@@ -599,7 +607,7 @@ export function QuickSaleView() {
       </header>
 
       {/* Catálogo de Productos para Venta Rápida */}
-      <main className="flex-1 min-h-0 overflow-y-auto px-3.5 pt-2.5 pb-40 scroll-smooth">
+      <main className="flex-1 min-h-0 overflow-y-auto px-3.5 pt-2.5 pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))] scroll-smooth">
         {cargandoProductos && (
           <div className="flex flex-col items-center justify-center py-16 gap-3 text-texto-3">
             <div className="h-8 w-8 rounded-full border-2 border-borde-fuerte border-t-transparent animate-spin" />
@@ -754,15 +762,21 @@ export function QuickSaleView() {
         )}
       </main>
 
-      {/* Floating Bottom Cart Pill (Android M3 Floating Cart Bar) */}
+      {/* La barra de cobro (VEN-4): mientras hay algo en el carrito ocupa el
+          lugar de la barra de navegación, que App esconde. Antes se apilaba
+          encima y las dos se comían casi 170 px de pantalla. */}
       {carrito.length > 0 && (
         <div
-          className="fixed inset-x-0 z-30 flex justify-center px-4 animate-m3-snackbar pointer-events-none"
-          style={{ bottom: 'calc(4.75rem + max(env(safe-area-inset-bottom, 0px), 0.5rem))' }}
+          className="fixed inset-x-0 z-40 flex justify-center px-3 pointer-events-none"
+          style={{ bottom: 'calc(0.65rem + env(safe-area-inset-bottom, 0px))' }}
         >
-          <div
-            onClick={() => setSheetCarritoAbierto(true)}
-            className="pointer-events-auto m3-press flex items-center justify-between gap-3 w-full max-w-md rounded-2xl bg-superficie-3 text-texto px-4 py-3.5 shadow-2xl shadow-m3-3 border border-borde cursor-pointer"
+          <button
+            type="button"
+            onClick={() => {
+              haptics.impact('light');
+              setSheetCarritoAbierto(true);
+            }}
+            className="pointer-events-auto m3-press flex items-center justify-between gap-3 w-full max-w-sm sm:max-w-md rounded-[26px] bg-superficie-3 text-texto px-4 py-3 text-left shadow-m3-3 border border-borde cursor-pointer"
           >
             <div className="flex items-center gap-3">
               <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-acento text-acento-texto font-bold">
@@ -789,7 +803,7 @@ export function QuickSaleView() {
               <span>Cobrar</span>
               <ChevronRight size={16} />
             </div>
-          </div>
+          </button>
         </div>
       )}
 
