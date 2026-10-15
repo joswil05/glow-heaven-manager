@@ -1599,7 +1599,8 @@ def caso_ini1_acciones(page: Page) -> list[str]:
 
     acciones.get_by_role("button", name="Vender", exact=True).click()
     page.wait_for_timeout(800)
-    if page.locator("nav button[aria-current='page']", has_text="Vender").count() == 0:
+    # Con el carrito lleno la barra de navegación se esconde (VEN-4): se mira el título.
+    if page.get_by_role("heading", name="Venta rápida", exact=True).count() == 0:
         fallas.append("'Vender' no lleva a Vender")
     ir_a(page, "Inicio")
     return fallas

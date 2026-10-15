@@ -392,7 +392,11 @@ function Navegacion() {
           {vista !== 'ajustes' && vista !== 'registrar-paquete' && vista !== 'encargos' && !(vista === 'vender' && enCarrito > 0 && !navConCarrito) && (
             <BottomNav
               actual={vista === 'historial' ? 'mas' : vista}
-              onCambiar={setVista}
+              onCambiar={(v) => {
+                // Tocar Vender estando en Vender vuelve a poner la barra de cobro.
+                setNavConCarrito(false);
+                setVista(v);
+              }}
               insignias={{ cobranza: insignias.clientas, mas: insignias.encargos + sinSubir }}
             />
           )}
