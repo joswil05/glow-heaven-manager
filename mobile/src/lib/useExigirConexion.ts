@@ -15,6 +15,8 @@ export const SIN_RED = {
   inventario: 'Sin conexión: esto se puede cuando vuelva la señal.',
   ajustes: 'Sin conexión: los cambios se guardan cuando vuelva la señal.',
   deshacer: 'Sin conexión: se puede deshacer cuando vuelva la señal.',
+  abonoCuenta: 'Sin conexión: repartir un abono entre sus ventas necesita señal. Sin señal, abonale a una venta.',
+  clienta: 'Sin conexión: la ficha de una clienta se guarda cuando vuelva la señal.',
 } as const;
 
 /**

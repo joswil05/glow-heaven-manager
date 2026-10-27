@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
+import { type ReactNode, type RefObject, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { haptics } from '../lib/haptics';
@@ -30,7 +30,7 @@ const SALIDA_MS = 180;
  */
 const pila: string[] = [];
 const alVolverPorHoja = new Map<string, () => void>();
-const panelPorHoja = new Map<string, () => HTMLDivElement | null>();
+const panelPorHoja = new Map<string, () => HTMLElement | null>();
 let guardiaPuesta = false;
 let popsAIgnorar = 0;
 let escuchando = false;
@@ -64,6 +64,42 @@ function escucharAtras() {
     const arriba = pila[pila.length - 1];
     if (arriba) alVolverPorHoja.get(arriba)?.();
   });
+}
+
+/**
+ * Una pantalla completa encima de la app (la ficha de una clienta) entra a la
+ * misma pila que las hojas: "atrás" y Escape la cierran cuando es la de
+ * arriba, y una hoja abierta encima de ella se cierra primero.
+ */
+export function usePantallaEncima(abierta: boolean, onCerrar: () => void, panel: RefObject<HTMLElement | null>) {
+  const id = useId();
+  const cerrar = useRef(onCerrar);
+  cerrar.current = onCerrar;
+  useEffect(() => {
+    if (!abierta) return;
+    escucharAtras();
+    pila.push(id);
+    panelPorHoja.set(id, () => panel.current);
+    ponerGuardia();
+    alVolverPorHoja.set(id, () => cerrar.current());
+    const alPresionar = (evento: KeyboardEvent) => {
+      if (pila[pila.length - 1] !== id || evento.defaultPrevented) return;
+      if (evento.key === 'Escape') {
+        evento.preventDefault();
+        cerrar.current();
+      }
+    };
+    window.addEventListener('keydown', alPresionar);
+    return () => {
+      window.removeEventListener('keydown', alPresionar);
+      alVolverPorHoja.delete(id);
+      panelPorHoja.delete(id);
+      const i = pila.lastIndexOf(id);
+      if (i >= 0) pila.splice(i, 1);
+      if (pila.length > 0) ponerGuardia();
+      else sacarGuardiaSiNoHayHojas();
+    };
+  }, [abierta, id, panel]);
 }
 
 interface BottomSheetProps {
